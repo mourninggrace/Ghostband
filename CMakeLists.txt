@@ -1,13 +1,19 @@
 cmake_minimum_required(VERSION 3.20)
-project(Ghostband LANGUAGES CXX)
+# C is enabled because JUCE requires a C compiler for the targets that depend
+# on it, even though nothing Ghostband writes is C.
+project(Ghostband VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# The engine is deliberately dependency-free and host-agnostic: no JUCE, no
-# third-party libraries. The same source files become the VST3's engine later,
-# so nothing in here may assume a plugin host, an audio thread, or a GUI.
+# ==============================================================================
+# Engine
+#
+# Deliberately dependency-free and host-agnostic: no JUCE, no third-party
+# libraries. These same source files are what the VST3 runs, so nothing in here
+# may assume a plugin host, an audio thread, or a GUI.
+# ==============================================================================
 add_library(ghostband_engine STATIC
     engine/src/Json.cpp
     engine/src/MidiFile.cpp
@@ -26,6 +32,9 @@ else()
     target_compile_options(ghostband_engine PRIVATE -Wall -Wextra)
 endif()
 
+# ==============================================================================
+# CLI - the test harness that lets the engine be judged by ear without a host
+# ==============================================================================
 add_executable(ghostband cli/main.cpp)
 target_link_libraries(ghostband PRIVATE ghostband_engine)
 
@@ -38,3 +47,106 @@ set_target_properties(ghostband PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY_DEBUG   "${CMAKE_BINARY_DIR}/bin"
     RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/bin"
 )
+
+# ==============================================================================
+# VST3
+#
+# JUCE is not vendored here yet. Point GHOSTBAND_JUCE_PATH at any 8.x checkout;
+# it defaults to the one Polygraph already uses so this builds with no network
+# access. Swapping to a submodule later is a one-line change.
+# ==============================================================================
+set(GHOSTBAND_JUCE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/external/JUCE"
+    CACHE PATH "Path to a JUCE 8.x checkout")
+
+if (NOT EXISTS "${GHOSTBAND_JUCE_PATH}/CMakeLists.txt")
+    set(GHOSTBAND_JUCE_PATH "C:/Projects/Polygraph/external/JUCE")
+endif()
+
+if (EXISTS "${GHOSTBAND_JUCE_PATH}/CMakeLists.txt")
+    message(STATUS "Ghostband: building the VST3 against JUCE at ${GHOSTBAND_JUCE_PATH}")
+    add_subdirectory("${GHOSTBAND_JUCE_PATH}" "${CMAKE_BINARY_DIR}/juce" EXCLUDE_FROM_ALL)
+
+    juce_add_plugin(GhostbandPlugin
+        PRODUCT_NAME                "Ghostband"
+        COMPANY_NAME                "Ghostband"
+        PLUGIN_MANUFACTURER_CODE    Gbnd
+        PLUGIN_CODE                 Gbd1
+        FORMATS                     VST3
+        VST3_CATEGORIES             Tools
+        IS_SYNTH                    FALSE
+        IS_MIDI_EFFECT              FALSE
+        NEEDS_MIDI_INPUT            TRUE
+        NEEDS_MIDI_OUTPUT           TRUE
+        EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+        COPY_PLUGIN_AFTER_BUILD     FALSE
+    )
+
+    target_sources(GhostbandPlugin PRIVATE
+        plugin/PluginProcessor.cpp
+        plugin/PluginEditor.cpp
+    )
+
+    target_compile_definitions(GhostbandPlugin PUBLIC
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_VST3_CAN_REPLACE_VST2=0
+        JUCE_DISPLAY_SPLASH_SCREEN=0
+    )
+
+    target_link_libraries(GhostbandPlugin PRIVATE
+        ghostband_engine
+        juce::juce_audio_basics
+        juce::juce_audio_processors
+        juce::juce_audio_utils
+        juce::juce_core
+        juce::juce_data_structures
+        juce::juce_events
+        juce::juce_graphics
+        juce::juce_gui_basics
+        juce::juce_gui_extra
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_warning_flags
+    )
+    # ==========================================================================
+    # Plugin harness
+    #
+    # Instantiates the processor with a fake playhead and checks what actually
+    # comes out of processBlock. Links the same plugin sources but not the
+    # plugin client, so it runs as a plain console app with no host involved.
+    # ==========================================================================
+    juce_add_console_app(ghostband_plugin_test PRODUCT_NAME "ghostband_plugin_test")
+
+    target_sources(ghostband_plugin_test PRIVATE
+        test/PluginHarness.cpp
+        plugin/PluginProcessor.cpp
+        plugin/PluginEditor.cpp
+    )
+
+    target_include_directories(ghostband_plugin_test PRIVATE plugin)
+
+    target_compile_definitions(ghostband_plugin_test PRIVATE
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_STANDALONE_APPLICATION=1
+        JUCE_DISPLAY_SPLASH_SCREEN=0
+    )
+
+    target_link_libraries(ghostband_plugin_test PRIVATE
+        ghostband_engine
+        juce::juce_audio_basics
+        juce::juce_audio_processors
+        juce::juce_audio_utils
+        juce::juce_core
+        juce::juce_data_structures
+        juce::juce_events
+        juce::juce_graphics
+        juce::juce_gui_basics
+        juce::juce_gui_extra
+    PUBLIC
+        juce::juce_recommended_config_flags
+    )
+else()
+    message(WARNING "Ghostband: JUCE not found, building the CLI only. "
+                    "Set -DGHOSTBAND_JUCE_PATH=<path to JUCE 8.x> to build the VST3.")
+endif()

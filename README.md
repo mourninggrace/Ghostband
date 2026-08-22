@@ -13,15 +13,39 @@ plugin scaffolding exists.
 **Status:** v1, drums and bass only. Rock and metal. No guitars, no keys, no live
 following — those build on this engine rather than replacing it.
 
+Two things get built from the same engine:
+
+- **`build\bin\ghostband.exe`** — the CLI renderer, for judging grooves in Reaper.
+- **`build\GhostbandPlugin_artefacts\Release\VST3\Ghostband.vst3`** — the plugin,
+  for playing them live in Gig Performer.
+
+They are held to producing byte-identical output; see *Determinism* below.
+
 ## Build
 
-Needs CMake 3.20+ and an MSVC toolchain.
+Needs CMake 3.20+ and an MSVC toolchain. JUCE 8.x is not vendored — the build
+points at the Polygraph checkout by default, so it works with no network access.
+Override with `-DGHOSTBAND_JUCE_PATH=<path>`.
 
 ```bash
 cd C:\Projects\Ghostband && Build.bat
 ```
 
-The executable lands in `build\bin\ghostband.exe`.
+## The plugin
+
+Copy `Ghostband.vst3` into your VST3 folder, then in a Gig Performer rackspace:
+
+1. Add Ghostband and your instruments.
+2. In the wiring view, drag from Ghostband's **orange MIDI output pin** to the
+   MIDI input of SSD5 and MODO Bass 2. One output feeds many inputs.
+3. Load a plan in Ghostband's UI, hit Generate, and start the transport.
+
+Drums go out on channel 10 and bass on channel 1 by default — both set by the
+driver profiles, not hardcoded. Ghostband never touches audio; it passes through
+untouched so the audio pins can be left unwired.
+
+The **Roll** button reseeds and regenerates: a new take of the same song, which
+is what you want when a section is nearly right.
 
 ## Use
 
@@ -130,6 +154,34 @@ distributions are not specified to give identical sequences across implementatio
 and a seed has to mean the same thing forever. Same plan plus same seed always
 produces the same song. Section seeds are derived, so re-rolling one section
 cannot disturb another.
+
+This is more fragile than it looks, and it is worth knowing why. The generator's
+RNG stream is chaotic: flip one comparison and every draw after it changes, so the
+arrangement diverges completely. The plugin once held its complexity and humanize
+dials as `float`; rounding 0.6 to 0.60000002 was enough to send the plugin and the
+CLI down different branches and produce different songs from the same seed. They
+are `double` now. **Anything that feeds a generator parameter must preserve the
+exact value** — no float round-trips, no rounding for display.
+
+### Testing
+
+`ghostband_plugin_test` instantiates the processor with a fake playhead and walks
+the whole song block by block, checking what actually leaves `processBlock`:
+notes balanced, nothing emitted twice, nothing outside its block, all-notes-off on
+stop, and the seed behaving.
+
+```bash
+build\ghostband_plugin_test_artefacts\Release\ghostband_plugin_test.exe plans\demo-metal.json 1173 615
+```
+
+The two trailing numbers are the drum and bass counts the CLI prints for that
+plan. Passing them makes the harness hold the plugin to CLI parity — the check
+that caught the float bug above.
+
+It also caught the plugin trusting `getSampleRate()` when the host had not set it
+yet: the old code fell back to 44100, which does not fail loudly, it just plays
+the song at the wrong speed and drifts further out of step every block. It now
+emits silence until the rate is known.
 
 ## What is deliberately not here yet
 
