@@ -91,6 +91,15 @@ if (EXISTS "${GHOSTBAND_JUCE_PATH}/CMakeLists.txt")
         JUCE_USE_CURL=0
         JUCE_VST3_CAN_REPLACE_VST2=0
         JUCE_DISPLAY_SPLASH_SCREEN=0
+
+        # Dragging the editor onto a second monitor with different scaling left
+        # every control dead: the window drew in the right place but hit-testing
+        # was computed against the wrong scale factor, so clicks landed nowhere.
+        # That is a plugin declaring itself per-monitor DPI aware inside a host
+        # that is not. The host owns the window, so the host should own the
+        # scaling - turning this off makes JUCE defer to it instead of applying
+        # a second, conflicting transform of its own.
+        JUCE_WIN_PER_MONITOR_DPI_AWARE=0
     )
 
     target_link_libraries(GhostbandPlugin PRIVATE

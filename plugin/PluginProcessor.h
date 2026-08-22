@@ -67,6 +67,11 @@ public:
     void loadPlan (const juce::File& planFile);
     void regenerate();
 
+    // Re-reads the current plan from disk, so a plan can be edited in a text
+    // editor and heard without reloading the plugin. Falls back to the built-in
+    // plan when there is no file.
+    void reloadPlan();
+
     Status                         getStatus() const;
     std::vector<gb::SectionReport> getSections() const;
     juce::File                     getPlanFile() const;
@@ -84,6 +89,16 @@ public:
     };
     Diagnostics diagnostics;
     void resetDiagnostics() { diagnostics = Diagnostics(); }
+
+    // Live transport position, so the editor can show which section is sounding.
+    // Hearing a change is much easier when you can see what you are hearing.
+    std::atomic<int>  playbackTick     { 0 };
+    std::atomic<bool> transportRunning { false };
+
+    // A plan compiled into the binary, so the plugin plays something the moment
+    // it is added to a rackspace instead of sitting inert until a file is found.
+    static const char* builtInPlanJson();
+    bool planIsBuiltIn() const;
 
     // Dial overrides applied on top of whatever the plan file says.
     //
@@ -106,6 +121,7 @@ private:
         juce::MidiMessage message;
     };
 
+    void loadBuiltInPlan();
     void rebuildSequence (const gb::RenderResult& result,
                           const gb::DrumProfile& kitToUse,
                           const gb::BassProfile& bassToUse,

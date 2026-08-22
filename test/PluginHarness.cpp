@@ -64,6 +64,25 @@ int main (int argc, char** argv)
     check (proc.producesMidi(), "plugin declares MIDI output");
     check (! proc.isMidiEffect(), "plugin is a normal effect, not a MIDI-effect category");
 
+    // A freshly constructed plugin must already have something to play. Adding
+    // it to a rackspace and getting silence until you find a file on disk is a
+    // dead end, and it was the plugin's actual first-run behaviour.
+    {
+        const auto fresh = proc.getStatus();
+        check (fresh.ok, "plays out of the box with no plan loaded", fresh.message);
+        check (proc.planIsBuiltIn(), "reports that it is on the built-in plan");
+        check (! proc.getSections().empty(), "built-in plan has an arrangement",
+               juce::String (static_cast<int> (proc.getSections().size())) + " sections");
+        check (proc.getSequenceNoteOnCount (10) > 0 && proc.getSequenceNoteOnCount (1) > 0,
+               "built-in plan produces both drums and bass");
+
+        const auto sections = proc.getSections();
+        bool ticksSane = ! sections.empty() && sections.front().startTick == 0;
+        for (size_t i = 1; i < sections.size(); ++i)
+            if (sections[i].startTick != sections[i - 1].endTick) ticksSane = false;
+        check (ticksSane, "section tick ranges are contiguous (the UI playhead depends on it)");
+    }
+
     proc.loadPlan (juce::File (planPath));
 
     const auto status = proc.getStatus();

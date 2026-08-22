@@ -15,6 +15,62 @@ GhostbandProcessor::GhostbandProcessor()
     // the plugin is useful even before it finds any profile files on disk.
     status.drumProfile = kit.name;
     status.bassProfile = bassProfile.name;
+
+    loadBuiltInPlan();
+}
+
+const char* GhostbandProcessor::builtInPlanJson()
+{
+    // Deliberately plain: mid-tempo hard rock, explicit chords, standard tuning,
+    // and no profile paths - so it renders correctly against the General MIDI
+    // defaults without depending on any file existing anywhere.
+    return R"GB({
+      "title": "Ghostband Starter",
+      "key": "E", "mode": "natural_minor", "bpm": 104,
+      "style": "hard_rock", "bass_tuning": "standard", "play_style": "pick",
+      "complexity": 0.55, "humanize": 0.55, "seed": 7, "ending": "cymbal_ring",
+      "sections": [
+        { "name": "intro",   "bars": 4, "intensity": 0.28, "chords": ["Em"], "plays": "drums" },
+        { "name": "verse1",  "bars": 8, "intensity": 0.45, "chords": ["Em","Em","C","D"] },
+        { "name": "chorus1", "bars": 8, "intensity": 0.85, "chords": ["C","G","D","Em"], "bass": "eighths" },
+        { "name": "verse2",  "bars": 8, "intensity": 0.50, "chords": ["Em","Em","C","D"] },
+        { "name": "chorus2", "bars": 8, "intensity": 0.88, "chords": ["C","G","D","Em"], "bass": "eighths" },
+        { "name": "bridge",  "bars": 8, "intensity": 0.35, "chords": ["Am","Am","C","D"],
+          "feel": "half_time", "bass": "roots", "fill": "big" },
+        { "name": "ending",  "bars": 4, "intensity": 0.70, "chords": ["C","D","Em","Em"], "fill": "none" }
+      ]
+    })GB";
+}
+
+bool GhostbandProcessor::planIsBuiltIn() const
+{
+    const juce::ScopedLock sl (stateLock);
+    return ! planFile.existsAsFile();
+}
+
+void GhostbandProcessor::loadBuiltInPlan()
+{
+    gb::SongPlan loaded;
+    std::string error;
+
+    if (gb::SongPlan::parse (builtInPlanJson(), "built-in plan", loaded, error))
+    {
+        const juce::ScopedLock sl (stateLock);
+        plan     = loaded;
+        planFile = juce::File();
+        complexity.store (plan.complexity);
+        humanize.store   (plan.humanize);
+        seed.store       (static_cast<int> (plan.seed));
+    }
+    else
+    {
+        jassertfalse;   // the built-in plan is compiled in; it must always parse
+        const juce::ScopedLock sl (stateLock);
+        status.message = juce::String (error);
+        return;
+    }
+
+    regenerate();
 }
 
 GhostbandProcessor::~GhostbandProcessor() = default;
@@ -125,6 +181,16 @@ void GhostbandProcessor::loadPlan (const juce::File& file)
     regenerate();
 }
 
+void GhostbandProcessor::reloadPlan()
+{
+    const juce::File current = getPlanFile();
+
+    if (current.existsAsFile())
+        loadPlan (current);
+    else
+        loadBuiltInPlan();
+}
+
 void GhostbandProcessor::regenerate()
 {
     gb::SongPlan working;
@@ -163,8 +229,9 @@ void GhostbandProcessor::regenerate()
         sections = result.sections;
 
         status.ok        = true;
-        status.planName  = planFile.existsAsFile() ? planFile.getFileNameWithoutExtension()
-                                                   : juce::String (working.title);
+        status.planName  = planFile.existsAsFile()
+                             ? planFile.getFileNameWithoutExtension()
+                             : juce::String (working.title) + "   (built-in)";
         status.bars      = result.totalBars;
         status.seconds   = result.durationSeconds;
         status.drumHits  = static_cast<int> (result.performance.drums.size());
@@ -283,6 +350,7 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
             sendAllNotesOff (midi, 0);
             wasPlaying = false;
             nextExpectedTick = -1.0;
+            transportRunning.store (false);
         }
         return;
     }
@@ -334,6 +402,9 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
 
     const double windowEnd = windowStart + blockTicks;
     nextExpectedTick = windowEnd;
+
+    transportRunning.store (true);
+    playbackTick.store (static_cast<int> (windowStart));
 
     if (windowStart >= sequenceEndTick)
         return;   // the song has finished; it does not loop

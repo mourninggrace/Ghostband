@@ -15,6 +15,8 @@ struct SectionReport
     std::string role;
     int         bars      = 0;
     int         startBar  = 0;
+    int         startTick = 0;   // lets a UI say which section is sounding right now
+    int         endTick   = 0;
     double      intensity = 0.0;
     std::string feel;
     std::string chords;      // rendered as text, for the console summary

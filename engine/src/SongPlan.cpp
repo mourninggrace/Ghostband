@@ -53,15 +53,12 @@ static void loadSection (const Json& j, SectionPlan& s, int index)
     if (s.bars < 1)        s.bars = 1;
 }
 
-bool SongPlan::load (const std::string& path, SongPlan& out, std::string& error)
+static bool fromJson (const Json& j, const std::string& sourceName,
+                      SongPlan& out, std::string& error)
 {
-    Json j;
-    if (! Json::parseFile (path, j, error))
-        return false;
-
     if (! j.isObject())
     {
-        error = path + ": top level must be a JSON object";
+        error = sourceName + ": top level must be a JSON object";
         return false;
     }
 
@@ -102,7 +99,7 @@ bool SongPlan::load (const std::string& path, SongPlan& out, std::string& error)
     const Json& secs = j["sections"];
     if (! secs.isArray() || secs.size() == 0)
     {
-        error = path + ": \"sections\" must be a non-empty array";
+        error = sourceName + ": \"sections\" must be a non-empty array";
         return false;
     }
 
@@ -114,6 +111,30 @@ bool SongPlan::load (const std::string& path, SongPlan& out, std::string& error)
     }
 
     return true;
+}
+
+bool SongPlan::load (const std::string& path, SongPlan& out, std::string& error)
+{
+    Json j;
+    if (! Json::parseFile (path, j, error))
+        return false;
+
+    return fromJson (j, path, out, error);
+}
+
+bool SongPlan::parse (const std::string& text, const std::string& sourceName,
+                      SongPlan& out, std::string& error)
+{
+    std::string parseError;
+    const Json j = Json::parse (text, parseError);
+
+    if (! parseError.empty())
+    {
+        error = sourceName + ": " + parseError;
+        return false;
+    }
+
+    return fromJson (j, sourceName, out, error);
 }
 
 std::vector<std::string> SongPlan::validate() const

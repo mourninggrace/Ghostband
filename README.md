@@ -35,17 +35,41 @@ cd C:\Projects\Ghostband && Build.bat
 
 Copy `Ghostband.vst3` into your VST3 folder, then in a Gig Performer rackspace:
 
-1. Add Ghostband and your instruments.
+1. Add Ghostband and your instruments. **It ships with a plan built in**, so it
+   has a song ready the moment it loads — no file needed to hear it work.
 2. In the wiring view, drag from Ghostband's **orange MIDI output pin** to the
    MIDI input of SSD5 and MODO Bass 2. One output feeds many inputs.
-3. Load a plan in Ghostband's UI, hit Generate, and start the transport.
+3. Start the transport.
 
 Drums go out on channel 10 and bass on channel 1 by default — both set by the
 driver profiles, not hardcoded. Ghostband never touches audio; it passes through
 untouched so the audio pins can be left unwired.
 
-The **Roll** button reseeds and regenerates: a new take of the same song, which
-is what you want when a section is nearly right.
+Note that a host holds the plugin DLL open while it is loaded, so **close the
+host before reinstalling** or the copy will silently leave the old build behind.
+
+### The controls
+
+- **Load plan...** — swap in a plan file. Its own profiles come with it.
+- **Reload** — re-read the current plan from disk. Edit the JSON in a text
+  editor, hit Reload, hear it. Returns to the built-in plan if no file is loaded.
+- **Roll** — new seed, regenerate. Same chords, same structure, same section
+  lengths; different drumming. Which kick pattern, where the fills land, how many
+  ghost and dead notes. It is a different take by the same band, not a different
+  song.
+- **Complexity / Humanize** — regenerate on their own a moment after you stop
+  moving them. There is no Generate button to remember.
+
+The section list lights up and a playhead line tracks the song as it plays, so
+you can see which section you are hearing. That is most of what makes a reroll
+judgeable at all.
+
+### Windows DPI
+
+The plugin is built with `JUCE_WIN_PER_MONITOR_DPI_AWARE=0`. Without it, dragging
+the editor to a monitor with different scaling left every control dead — the
+window drew correctly but hit-testing used the wrong scale factor, so clicks
+landed nowhere. The host owns the window, so the host should own the scaling.
 
 ## Use
 

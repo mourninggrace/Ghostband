@@ -16,22 +16,29 @@ namespace ghost
     const juce::Colour warn       { 0xffe8b25f };
 }
 
-// Scrollable read-only view of the arrangement. Sections are edited in the plan
-// JSON, which is where a chart belongs; this shows what the engine made of it.
+// Read-only view of the arrangement, with the section currently sounding lit up.
+// Sections are edited in the plan JSON, which is where a chart belongs; this is
+// for seeing what you are hearing, which is most of what makes a reroll
+// judgeable at all.
 class SectionList : public juce::Component
 {
 public:
     void setSections (std::vector<gb::SectionReport> s);
+    void setPlayhead (int tick);          // -1 when the transport is stopped
+    int  tickToY (int tick) const;
+
     void paint (juce::Graphics& g) override;
 
-    static constexpr int rowHeight = 34;
+    static constexpr int rowHeight = 36;
 
 private:
     std::vector<gb::SectionReport> sections;
+    int playheadTick = -1;
 };
 
 class GhostbandEditor : public juce::AudioProcessorEditor,
-                        private juce::ChangeListener
+                        private juce::ChangeListener,
+                        private juce::Timer
 {
 public:
     explicit GhostbandEditor (GhostbandProcessor&);
@@ -42,15 +49,17 @@ public:
 
 private:
     void changeListenerCallback (juce::ChangeBroadcaster*) override;
+    void timerCallback() override;
     void refreshFromProcessor();
+    void markDialsDirty();
     void styleButton (juce::TextButton& b, bool primary);
     void styleSlider (juce::Slider& s);
 
     GhostbandProcessor& processor;
 
-    juce::TextButton loadButton     { "Load plan..." };
-    juce::TextButton generateButton { "Generate" };
-    juce::TextButton rollButton     { "Roll" };
+    juce::TextButton loadButton   { "Load plan..." };
+    juce::TextButton reloadButton { "Reload" };
+    juce::TextButton rollButton   { "Roll" };
 
     juce::Slider complexitySlider;
     juce::Slider humanizeSlider;
@@ -65,11 +74,19 @@ private:
     juce::Label statusLabel;
     juce::Label profilesLabel;
     juce::Label summaryLabel;
+    juce::Label transportLabel;
 
-    juce::Viewport   viewport;
-    SectionList      sectionList;
+    juce::Viewport viewport;
+    SectionList    sectionList;
 
     std::unique_ptr<juce::FileChooser> chooser;
+
+    // Dial moves are debounced rather than regenerating on every pixel: the
+    // audio thread try-locks the sequence, and swapping it sixty times a second
+    // would cost dropped blocks for no musical benefit.
+    bool     dialsDirty       = false;
+    juce::uint32 lastDialMove = 0;
+    int      lastPlayheadTick = -2;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GhostbandEditor)
 };

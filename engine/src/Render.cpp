@@ -113,6 +113,8 @@ RenderResult renderPerformance (const SongPlan& plan,
         report.role      = s.role;
         report.bars      = s.bars;
         report.startBar  = barCounter;
+        report.startTick = tick;
+        report.endTick   = tick + s.bars * barTicks;
         report.intensity = s.intensity;
         report.feel      = s.feel;
 

@@ -50,6 +50,12 @@ struct SongPlan
 
     static bool load (const std::string& path, SongPlan& out, std::string& error);
 
+    // Same, from text already in memory. The plugin ships a built-in plan so it
+    // does something the moment it is added to a rackspace, rather than sitting
+    // inert until someone finds a file.
+    static bool parse (const std::string& text, const std::string& sourceName,
+                       SongPlan& out, std::string& error);
+
     // Non-fatal problems worth telling the user about before they hit play.
     std::vector<std::string> validate() const;
 };
