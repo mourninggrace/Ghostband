@@ -79,6 +79,7 @@ static bool fromJson (const Json& j, const std::string& sourceName,
     out.bassTuning = toLower (j.stringOr ("bass_tuning", "standard"));
     out.playStyle  = toLower (j.stringOr ("play_style", "pick"));
 
+    out.transpose  = j.intOr ("transpose", 0);
     out.complexity = j.numberOr ("complexity", 0.5);
     out.humanize   = j.numberOr ("humanize", 0.5);
     out.seed       = static_cast<unsigned> (j.intOr ("seed", 1));

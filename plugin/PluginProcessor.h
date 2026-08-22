@@ -79,6 +79,8 @@ public:
     // Diagnostics for the harness: what the audio thread would actually play,
     // as opposed to what the engine says it generated.
     int getSequenceNoteOnCount (int channel) const;
+    int getSequencePitchSum   (int channel) const;
+    int getBarTicks() const;
 
     struct Diagnostics
     {
@@ -92,8 +94,26 @@ public:
 
     // Live transport position, so the editor can show which section is sounding.
     // Hearing a change is much easier when you can see what you are hearing.
-    std::atomic<int>  playbackTick     { 0 };
-    std::atomic<bool> transportRunning { false };
+    std::atomic<int>    playbackTick     { 0 };
+    std::atomic<bool>   transportRunning { false };
+    std::atomic<double> hostBpm          { 0.0 };
+    std::atomic<int>    activeSection    { -1 };
+
+    // Live section jumping. Clicking a section queues it; the jump lands on the
+    // next bar line so the band never falls off the beat. -1 cancels.
+    std::atomic<int> queuedSection { -1 };
+    void queueSection (int index) { queuedSection.store (index); }
+
+    // Song controls. These write to the plan and regenerate, so they are message
+    // thread only. Key transposes rather than only affecting auto progressions,
+    // because a plan with written chords would otherwise ignore it entirely.
+    void setKeyPitchClass (int pitchClass);
+    void setStyle         (const juce::String& style);
+    void setBassTuning    (const juce::String& tuning);
+
+    int          getKeyPitchClass() const;
+    juce::String getStyle() const;
+    juce::String getBassTuning() const;
 
     // A plan compiled into the binary, so the plugin plays something the moment
     // it is added to a rackspace instead of sitting inert until a file is found.
@@ -125,15 +145,24 @@ private:
     void rebuildSequence (const gb::RenderResult& result,
                           const gb::DrumProfile& kitToUse,
                           const gb::BassProfile& bassToUse,
-                          const std::string& tuning);
+                          const gb::SongPlan& planToUse);
     void sendAllNotesOff (juce::MidiBuffer& midi, int sampleOffset);
     bool resolveProfiles (juce::String& error);
 
     // The audio thread only ever try-locks this. Missing one block during a
     // regenerate is inaudible; blocking the audio thread would not be.
+    struct SectionRange { int startTick = 0; int endTick = 0; };
+
     juce::SpinLock                sequenceLock;
     std::vector<TimedMessage>     sequence;
+    std::vector<SectionRange>     sectionRanges;
     int                           sequenceEndTick = 0;
+    int                           barTicks        = 1920;
+
+    // Song position is host position plus this. A section jump moves the offset
+    // rather than trying to move the host, which keeps scrubbing and looping
+    // working and keeps the plugin honest about whose clock it is following.
+    double jumpOffset = 0.0;
 
     mutable juce::CriticalSection stateLock;
     gb::SongPlan                  plan;
@@ -144,6 +173,12 @@ private:
     juce::File                    planFile;
 
     bool wasPlaying = false;
+
+    // What is actually sounding, so a stop or a section jump can release it by
+    // name. Fixed size and never resized, so nothing allocates on the audio
+    // thread. Counted rather than flagged because a drum voice can retrigger
+    // before its previous note-off has gone out.
+    unsigned char activeNoteCount[16][128] = {};
 
     // Where the previous block's window ended. Consecutive blocks are stitched
     // to this rather than recomputed from the host's ppq, because deriving both

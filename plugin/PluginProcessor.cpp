@@ -3,8 +3,10 @@
 
 #include "ghostband/Groove.h"
 #include "ghostband/MidiFile.h"
+#include "ghostband/Music.h"
 
 #include <algorithm>
+#include <cmath>
 
 GhostbandProcessor::GhostbandProcessor()
     : AudioProcessor (BusesProperties()
@@ -181,6 +183,55 @@ void GhostbandProcessor::loadPlan (const juce::File& file)
     regenerate();
 }
 
+int GhostbandProcessor::getKeyPitchClass() const
+{
+    const juce::ScopedLock sl (stateLock);
+    bool ok = false;
+    const int base = gb::pitchClassFromName (plan.key, ok);
+    return ((((ok ? base : 4) + plan.transpose) % 12) + 12) % 12;
+}
+
+void GhostbandProcessor::setKeyPitchClass (int pitchClass)
+{
+    {
+        const juce::ScopedLock sl (stateLock);
+        bool ok = false;
+        const int base = gb::pitchClassFromName (plan.key, ok);
+        plan.transpose = (((pitchClass - (ok ? base : 4)) % 12) + 12) % 12;
+    }
+    regenerate();
+}
+
+juce::String GhostbandProcessor::getStyle() const
+{
+    const juce::ScopedLock sl (stateLock);
+    return juce::String (plan.style);
+}
+
+void GhostbandProcessor::setStyle (const juce::String& style)
+{
+    {
+        const juce::ScopedLock sl (stateLock);
+        plan.style = style.toStdString();
+    }
+    regenerate();
+}
+
+juce::String GhostbandProcessor::getBassTuning() const
+{
+    const juce::ScopedLock sl (stateLock);
+    return juce::String (plan.bassTuning);
+}
+
+void GhostbandProcessor::setBassTuning (const juce::String& tuning)
+{
+    {
+        const juce::ScopedLock sl (stateLock);
+        plan.bassTuning = tuning.toStdString();
+    }
+    regenerate();
+}
+
 void GhostbandProcessor::reloadPlan()
 {
     const juce::File current = getPlanFile();
@@ -221,7 +272,7 @@ void GhostbandProcessor::regenerate()
     // a background thread - the sequence swap below is already built for it.
     const gb::RenderResult result = gb::renderPerformance (working, workingKit, workingBass);
 
-    rebuildSequence (result, workingKit, workingBass, working.bassTuning);
+    rebuildSequence (result, workingKit, workingBass, working);
 
     {
         const juce::ScopedLock sl (stateLock);
@@ -257,7 +308,7 @@ void GhostbandProcessor::regenerate()
 void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
                                           const gb::DrumProfile& kitToUse,
                                           const gb::BassProfile& bassToUse,
-                                          const std::string& tuning)
+                                          const gb::SongPlan& planToUse)
 {
     // Reuse the exact same profile rendering the CLI uses, then flatten the two
     // tracks into one time-ordered stream the audio thread can walk. The
@@ -265,7 +316,7 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
     // which would be an unlocked read of state the message thread can change.
     gb::MidiTrack drums, bass;
     kitToUse.render (result.performance.drums, drums);
-    bassToUse.render (result.performance.bass, bass, tuning);
+    bassToUse.render (result.performance.bass, bass, planToUse.bassTuning);
 
     std::vector<TimedMessage> built;
     built.reserve (drums.events.size() + bass.events.size());
@@ -297,10 +348,20 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
 
     const int endTick = result.performance.totalTicks;
 
+    std::vector<SectionRange> ranges;
+    ranges.reserve (result.sections.size());
+    for (const gb::SectionReport& s : result.sections)
+        ranges.push_back ({ s.startTick, s.endTick });
+
+    const int beat = std::max (1, gb::kPPQ * 4 / std::max (1, planToUse.timeSigDenominator));
+    const int bar  = beat * std::max (1, planToUse.timeSigNumerator);
+
     {
         const juce::SpinLock::ScopedLockType lock (sequenceLock);
         sequence.swap (built);
+        sectionRanges.swap (ranges);
         sequenceEndTick = endTick;
+        barTicks = bar;
     }
 }
 
@@ -308,6 +369,23 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
 
 void GhostbandProcessor::sendAllNotesOff (juce::MidiBuffer& midi, int sampleOffset)
 {
+    // Explicit note-offs for everything currently sounding. All Notes Off is a
+    // controller message and a great many instruments simply ignore it, so
+    // leaning on it alone leaves notes hanging - the most audible failure this
+    // plugin could have, and exactly what happened across a section jump.
+    for (int ch = 0; ch < 16; ++ch)
+    {
+        for (int note = 0; note < 128; ++note)
+        {
+            while (activeNoteCount[ch][note] > 0)
+            {
+                midi.addEvent (juce::MidiMessage::noteOff (ch + 1, note), sampleOffset);
+                --activeNoteCount[ch][note];
+            }
+        }
+    }
+
+    // Belt and braces for anything holding a note we did not start.
     for (int ch = 1; ch <= 16; ++ch)
     {
         midi.addEvent (juce::MidiMessage::allNotesOff (ch), sampleOffset);
@@ -351,6 +429,7 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
             wasPlaying = false;
             nextExpectedTick = -1.0;
             transportRunning.store (false);
+            activeSection.store (-1);
         }
         return;
     }
@@ -359,6 +438,7 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     {
         wasPlaying = true;
         nextExpectedTick = -1.0;   // fresh start: trust the host's position
+        jumpOffset = 0.0;          // and start the song from the top
     }
 
     if (sequence.empty())
@@ -400,28 +480,96 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     }
     ++diagnostics.blocks;
 
-    const double windowEnd = windowStart + blockTicks;
-    nextExpectedTick = windowEnd;
+    nextExpectedTick = windowStart + blockTicks;
 
     transportRunning.store (true);
-    playbackTick.store (static_cast<int> (windowStart));
+    hostBpm.store (bpm);
 
-    if (windowStart >= sequenceEndTick)
-        return;   // the song has finished; it does not loop
+    // Song position is the host position shifted by whatever section jumps have
+    // happened. Everything below works in song time.
+    double songStart = windowStart + jumpOffset;
+    const double songEnd = songStart + blockTicks;
 
-    // Binary search rather than a running cursor, so looping and scrubbing in
-    // the host are handled without any state to get out of sync.
-    const auto first = std::lower_bound (sequence.begin(), sequence.end(), windowStart,
-                                         [] (const TimedMessage& m, double t)
-                                         { return m.tick < t; });
-
-    for (auto it = first; it != sequence.end() && it->tick < windowEnd; ++it)
+    // Emits the sequence over a span of song time, placing each event relative
+    // to a given sample position. Split spans are how a mid-block jump works.
+    auto emitSpan = [&] (double fromTick, double toTick, double sampleAtFrom)
     {
-        const int offset = juce::jlimit (0, numSamples - 1,
-                                         static_cast<int> ((it->tick - windowStart) * samplesPerTick));
-        midi.addEvent (it->message, offset);
-        ++diagnostics.eventsEmitted;
+        // Binary search rather than a running cursor, so scrubbing, looping and
+        // jumping are all handled without any state that can fall out of sync.
+        auto it = std::lower_bound (sequence.begin(), sequence.end(), fromTick,
+                                    [] (const TimedMessage& m, double t) { return m.tick < t; });
+
+        for (; it != sequence.end() && it->tick < toTick; ++it)
+        {
+            const int offset = juce::jlimit (0, numSamples - 1,
+                                             static_cast<int> (sampleAtFrom
+                                                 + (it->tick - fromTick) * samplesPerTick));
+            midi.addEvent (it->message, offset);
+            ++diagnostics.eventsEmitted;
+
+            const int ch = it->message.getChannel() - 1;
+            if (ch >= 0 && ch < 16)
+            {
+                const int note = it->message.getNoteNumber();
+                if (note >= 0 && note < 128)
+                {
+                    if (it->message.isNoteOn() && activeNoteCount[ch][note] < 255)
+                        ++activeNoteCount[ch][note];
+                    else if (it->message.isNoteOff() && activeNoteCount[ch][note] > 0)
+                        --activeNoteCount[ch][note];
+                }
+            }
+        }
+    };
+
+    const int queued = queuedSection.load();
+    const bool jumpPending = queued >= 0 && queued < static_cast<int> (sectionRanges.size())
+                             && barTicks > 0;
+
+    if (jumpPending)
+    {
+        // Land on the next bar line so the band never falls off the beat. If the
+        // block already starts exactly on one, go immediately.
+        double boundary = std::ceil (songStart / barTicks) * barTicks;
+
+        if (boundary < songEnd)
+        {
+            const double sampleAtBoundary = (boundary - songStart) * samplesPerTick;
+
+            emitSpan (songStart, boundary, 0.0);
+
+            // Cut every sounding note before moving, or anything ringing across
+            // the seam hangs for the rest of the song.
+            sendAllNotesOff (midi, juce::jlimit (0, numSamples - 1,
+                                                 static_cast<int> (sampleAtBoundary)));
+
+            const double target = sectionRanges[static_cast<size_t> (queued)].startTick;
+            jumpOffset += target - boundary;
+
+            emitSpan (target, target + (songEnd - boundary), sampleAtBoundary);
+
+            queuedSection.store (-1);
+            songStart = target;   // for the reporting below
+
+            const int tickNow = static_cast<int> (target);
+            playbackTick.store (tickNow);
+            activeSection.store (queued);
+            return;
+        }
     }
+
+    playbackTick.store (static_cast<int> (songStart));
+
+    int nowIn = -1;
+    for (size_t i = 0; i < sectionRanges.size(); ++i)
+        if (songStart >= sectionRanges[i].startTick && songStart < sectionRanges[i].endTick)
+            { nowIn = static_cast<int> (i); break; }
+    activeSection.store (nowIn);
+
+    if (songStart >= sequenceEndTick)
+        return;   // the song has finished; it does not loop on its own
+
+    emitSpan (songStart, songEnd, 0.0);
 }
 
 //==============================================================================
@@ -452,6 +600,22 @@ int GhostbandProcessor::getSequenceNoteOnCount (int channel) const
         if (m.message.isNoteOn() && m.message.getChannel() == channel)
             ++n;
     return n;
+}
+
+int GhostbandProcessor::getSequencePitchSum (int channel) const
+{
+    const juce::SpinLock::ScopedLockType lock (sequenceLock);
+    int sum = 0;
+    for (const TimedMessage& m : sequence)
+        if (m.message.isNoteOn() && m.message.getChannel() == channel)
+            sum += m.message.getNoteNumber();
+    return sum;
+}
+
+int GhostbandProcessor::getBarTicks() const
+{
+    const juce::SpinLock::ScopedLockType lock (sequenceLock);
+    return barTicks;
 }
 
 void GhostbandProcessor::getStateInformation (juce::MemoryBlock& destData)

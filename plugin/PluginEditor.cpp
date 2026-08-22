@@ -2,6 +2,45 @@
 
 #include "ghostband/Groove.h"
 
+namespace {
+
+// The engine's own vocabulary. Combo ids are 1-based indices into these, so the
+// UI never has to hold a second copy of the spelling the engine expects.
+const char* kStyleIds[] = { "hard_rock", "metal", "thrash", "groove_metal",
+                            "doom", "sludge", "punk", "prog_metal", "alt_rock" };
+const char* kTuningIds[] = { "standard", "drop_d", "drop_c", "b_standard" };
+
+constexpr int kNumStyles  = static_cast<int> (sizeof (kStyleIds)  / sizeof (kStyleIds[0]));
+constexpr int kNumTunings = static_cast<int> (sizeof (kTuningIds) / sizeof (kTuningIds[0]));
+
+juce::String styleIdToName (int id)
+{
+    return (id >= 1 && id <= kNumStyles) ? juce::String (kStyleIds[id - 1])
+                                         : juce::String ("hard_rock");
+}
+
+int styleNameToId (const juce::String& name)
+{
+    for (int i = 0; i < kNumStyles; ++i)
+        if (name == kStyleIds[i]) return i + 1;
+    return 0;   // unknown: leave the box blank rather than lie about it
+}
+
+juce::String tuningIdToName (int id)
+{
+    return (id >= 1 && id <= kNumTunings) ? juce::String (kTuningIds[id - 1])
+                                          : juce::String ("standard");
+}
+
+int tuningNameToId (const juce::String& name)
+{
+    for (int i = 0; i < kNumTunings; ++i)
+        if (name == kTuningIds[i]) return i + 1;
+    return 0;
+}
+
+} // namespace
+
 //==============================================================================
 
 void SectionList::setSections (std::vector<gb::SectionReport> s)
@@ -16,6 +55,38 @@ void SectionList::setPlayhead (int tick)
     if (tick == playheadTick) return;
     playheadTick = tick;
     repaint();
+}
+
+void SectionList::setQueued (int index)
+{
+    if (index == queuedIndex) return;
+    queuedIndex = index;
+    repaint();
+}
+
+int SectionList::rowAt (juce::Point<int> p) const
+{
+    if (p.y < 0) return -1;
+    const int row = p.y / rowHeight;
+    return row < static_cast<int> (sections.size()) ? row : -1;
+}
+
+void SectionList::mouseDown (const juce::MouseEvent& e)
+{
+    const int row = rowAt (e.getPosition());
+    if (row >= 0 && onSectionClicked)
+        onSectionClicked (row);
+}
+
+void SectionList::mouseMove (const juce::MouseEvent& e)
+{
+    const int row = rowAt (e.getPosition());
+    if (row != hoverIndex) { hoverIndex = row; repaint(); }
+}
+
+void SectionList::mouseExit (const juce::MouseEvent&)
+{
+    if (hoverIndex != -1) { hoverIndex = -1; repaint(); }
 }
 
 int SectionList::tickToY (int tick) const
@@ -53,6 +124,8 @@ void SectionList::paint (juce::Graphics& g)
                                                getWidth(), rowHeight);
 
         const bool active = playheadTick >= s.startTick && playheadTick < s.endTick;
+        const bool queued = static_cast<int> (i) == queuedIndex;
+        const bool hover  = static_cast<int> (i) == hoverIndex;
 
         if (active)
         {
@@ -65,6 +138,25 @@ void SectionList::paint (juce::Graphics& g)
         {
             g.setColour (ghost::background.withAlpha (0.35f));
             g.fillRect (row);
+        }
+
+        if (hover && ! active)
+        {
+            g.setColour (ghost::text.withAlpha (0.05f));
+            g.fillRect (row);
+        }
+
+        if (queued)
+        {
+            g.setColour (ghost::warn.withAlpha (0.14f));
+            g.fillRect (row);
+            g.setColour (ghost::warn);
+            g.fillRect (row.withWidth (3));
+
+            g.setFont (juce::Font (juce::FontOptions (9.0f).withStyle ("Bold")));
+            g.drawText ("NEXT", row.reduced (10, 0).removeFromRight (150)
+                                   .removeFromLeft (40),
+                        juce::Justification::centredLeft);
         }
 
         g.setColour (ghost::line);
@@ -155,6 +247,50 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         processor.regenerate();
     };
 
+    // ---- song controls ----
+    styleCombo (keyBox);
+    styleCombo (styleBox);
+    styleCombo (tuningBox);
+    addAndMakeVisible (keyBox);
+    addAndMakeVisible (styleBox);
+    addAndMakeVisible (tuningBox);
+
+    static const char* keyNames[12] = { "C", "C#", "D", "D#", "E", "F",
+                                        "F#", "G", "G#", "A", "A#", "B" };
+    for (int i = 0; i < 12; ++i)
+        keyBox.addItem (keyNames[i], i + 1);
+
+    // Ids are 1-based; the id order here is the order of kStyleIds below.
+    const juce::StringArray styleNames { "hard rock", "metal", "thrash", "groove metal",
+                                         "doom", "sludge", "punk", "prog metal", "alt rock" };
+    for (int i = 0; i < styleNames.size(); ++i)
+        styleBox.addItem (styleNames[i], i + 1);
+
+    const juce::StringArray tuningNames { "standard", "drop D", "drop C", "B standard" };
+    for (int i = 0; i < tuningNames.size(); ++i)
+        tuningBox.addItem (tuningNames[i], i + 1);
+
+    // Changing the key transposes every chord, written or generated. Setting it
+    // to only affect auto progressions would make it silently do nothing on a
+    // plan whose chords are spelled out - which is most of them.
+    keyBox.onChange = [this]
+    {
+        const int id = keyBox.getSelectedId();
+        if (id > 0) processor.setKeyPitchClass (id - 1);
+    };
+
+    styleBox.onChange = [this]
+    {
+        const int id = styleBox.getSelectedId();
+        if (id > 0) processor.setStyle (styleIdToName (id));
+    };
+
+    tuningBox.onChange = [this]
+    {
+        const int id = tuningBox.getSelectedId();
+        if (id > 0) processor.setBassTuning (tuningIdToName (id));
+    };
+
     styleSlider (complexitySlider);
     styleSlider (humanizeSlider);
     addAndMakeVisible (complexitySlider);
@@ -181,6 +317,10 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         addAndMakeVisible (l);
     };
 
+    initLabel (keyLabel,        "KEY",        10.0f, ghost::dim,   juce::Justification::centredLeft);
+    initLabel (styleLabel,      "STYLE",      10.0f, ghost::dim,   juce::Justification::centredLeft);
+    initLabel (tuningLabel,     "BASS TUNING",10.0f, ghost::dim,   juce::Justification::centredLeft);
+    initLabel (tempoLabel,      "",           10.0f, ghost::dim,   juce::Justification::centredRight);
     initLabel (complexityLabel, "COMPLEXITY", 10.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (humanizeLabel,   "HUMANIZE",   10.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (seedLabel,       "SEED",       10.0f, ghost::dim,   juce::Justification::centredLeft);
@@ -205,6 +345,14 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     };
     addAndMakeVisible (seedEditor);
 
+    // Clicking a section queues it; the processor lands the jump on the next bar
+    // line so the transition stays in time.
+    sectionList.onSectionClicked = [this] (int index)
+    {
+        processor.queueSection (index);
+        sectionList.setQueued (index);
+    };
+
     viewport.setViewedComponent (&sectionList, false);
     viewport.setScrollBarsShown (true, false);
     viewport.setColour (juce::ScrollBar::thumbColourId, ghost::line.brighter (0.4f));
@@ -213,7 +361,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     processor.stateChanged.addChangeListener (this);
     refreshFromProcessor();
 
-    setSize (540, 620);
+    setSize (560, 700);
     startTimerHz (30);
 }
 
@@ -260,6 +408,21 @@ void GhostbandEditor::timerCallback()
                                   tick >= 0 ? ghost::accent : ghost::dim);
     }
 
+    // Queued section, which the processor clears once the jump lands.
+    const int queued = processor.queuedSection.load();
+    if (queued != lastQueued)
+    {
+        lastQueued = queued;
+        sectionList.setQueued (queued);
+    }
+
+    // Host tempo, because Ghostband does not own it - the host does, and a BPM
+    // control here would be a dead knob that looks live.
+    const double bpm = processor.hostBpm.load();
+    tempoLabel.setText (bpm > 0.0 ? juce::String (bpm, 1) + " bpm  (host)"
+                                  : juce::String ("tempo from host"),
+                        juce::dontSendNotification);
+
     // Debounced regenerate after the dials settle.
     if (dialsDirty && juce::Time::getMillisecondCounter() - lastDialMove > 200)
     {
@@ -276,6 +439,18 @@ void GhostbandEditor::styleButton (juce::TextButton& b, bool primary)
     b.setColour (juce::TextButton::textColourOffId, primary ? ghost::accent : ghost::text);
     b.setColour (juce::ComboBox::outlineColourId, primary ? ghost::accent.withAlpha (0.45f)
                                                           : ghost::line);
+}
+
+void GhostbandEditor::styleCombo (juce::ComboBox& c)
+{
+    c.setColour (juce::ComboBox::backgroundColourId, ghost::background);
+    c.setColour (juce::ComboBox::outlineColourId, ghost::line);
+    c.setColour (juce::ComboBox::textColourId, ghost::text);
+    c.setColour (juce::ComboBox::arrowColourId, ghost::dim);
+    c.setColour (juce::PopupMenu::backgroundColourId, ghost::panel);
+    c.setColour (juce::PopupMenu::textColourId, ghost::text);
+    c.setColour (juce::PopupMenu::highlightedBackgroundColourId, ghost::accent.withAlpha (0.22f));
+    c.setColour (juce::PopupMenu::highlightedTextColourId, ghost::text);
 }
 
 void GhostbandEditor::styleSlider (juce::Slider& s)
@@ -330,6 +505,10 @@ void GhostbandEditor::refreshFromProcessor()
     humanizeSlider.setValue (processor.humanize.load(), juce::dontSendNotification);
     seedEditor.setText (juce::String (processor.seed.load()), juce::dontSendNotification);
 
+    keyBox.setSelectedId (processor.getKeyPitchClass() + 1, juce::dontSendNotification);
+    styleBox.setSelectedId (styleNameToId (processor.getStyle()), juce::dontSendNotification);
+    tuningBox.setSelectedId (tuningNameToId (processor.getBassTuning()), juce::dontSendNotification);
+
     sectionList.setSections (processor.getSections());
     sectionList.setSize (viewport.getWidth() > 0 ? viewport.getWidth() - 10 : 500,
                          sectionList.getHeight());
@@ -374,6 +553,21 @@ void GhostbandEditor::resized()
     auto infoRow = r.removeFromTop (18);
     headlineLabel.setBounds (infoRow.removeFromLeft (infoRow.getWidth() / 2));
     summaryLabel.setBounds (infoRow);
+
+    r.removeFromTop (12);
+
+    auto songRow = r.removeFromTop (24);
+    keyLabel.setBounds (songRow.removeFromLeft (34));
+    keyBox.setBounds (songRow.removeFromLeft (62));
+    songRow.removeFromLeft (14);
+    styleLabel.setBounds (songRow.removeFromLeft (44));
+    styleBox.setBounds (songRow.removeFromLeft (132));
+
+    r.removeFromTop (6);
+    songRow = r.removeFromTop (24);
+    tuningLabel.setBounds (songRow.removeFromLeft (82));
+    tuningBox.setBounds (songRow.removeFromLeft (110));
+    tempoLabel.setBounds (songRow);
 
     r.removeFromTop (12);
 

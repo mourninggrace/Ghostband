@@ -25,15 +25,25 @@ class SectionList : public juce::Component
 public:
     void setSections (std::vector<gb::SectionReport> s);
     void setPlayhead (int tick);          // -1 when the transport is stopped
+    void setQueued   (int index);         // -1 when nothing is waiting
     int  tickToY (int tick) const;
 
     void paint (juce::Graphics& g) override;
+    void mouseDown (const juce::MouseEvent& e) override;
+    void mouseMove (const juce::MouseEvent& e) override;
+    void mouseExit (const juce::MouseEvent& e) override;
+
+    std::function<void (int)> onSectionClicked;
 
     static constexpr int rowHeight = 36;
 
 private:
+    int rowAt (juce::Point<int> p) const;
+
     std::vector<gb::SectionReport> sections;
     int playheadTick = -1;
+    int queuedIndex  = -1;
+    int hoverIndex   = -1;
 };
 
 class GhostbandEditor : public juce::AudioProcessorEditor,
@@ -61,6 +71,14 @@ private:
     juce::TextButton reloadButton { "Reload" };
     juce::TextButton rollButton   { "Roll" };
 
+    juce::ComboBox keyBox;
+    juce::ComboBox styleBox;
+    juce::ComboBox tuningBox;
+    juce::Label    keyLabel;
+    juce::Label    styleLabel;
+    juce::Label    tuningLabel;
+    juce::Label    tempoLabel;
+
     juce::Slider complexitySlider;
     juce::Slider humanizeSlider;
     juce::Label  complexityLabel;
@@ -84,9 +102,12 @@ private:
     // Dial moves are debounced rather than regenerating on every pixel: the
     // audio thread try-locks the sequence, and swapping it sixty times a second
     // would cost dropped blocks for no musical benefit.
+    void styleCombo (juce::ComboBox& c);
+
     bool     dialsDirty       = false;
     juce::uint32 lastDialMove = 0;
     int      lastPlayheadTick = -2;
+    int      lastQueued       = -2;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GhostbandEditor)
 };

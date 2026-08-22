@@ -38,6 +38,11 @@ struct SongPlan
     std::string bassTuning = "standard";    // standard/drop_d/drop_c/b_standard
     std::string playStyle  = "pick";        // pick/finger/slap
 
+    // Semitones to shift every chord, written or generated. Changing "key" on a
+    // plan whose chords are spelled out has to move those chords too, otherwise
+    // it silently does nothing at all.
+    int transpose = 0;
+
     double   complexity = 0.5;              // fills, ghost notes, busyness
     double   humanize   = 0.5;              // timing and velocity looseness
     unsigned seed       = 1;

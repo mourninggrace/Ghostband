@@ -53,6 +53,10 @@ host before reinstalling** or the copy will silently leave the old build behind.
 - **Load plan...** — swap in a plan file. Its own profiles come with it.
 - **Reload** — re-read the current plan from disk. Edit the JSON in a text
   editor, hit Reload, hear it. Returns to the built-in plan if no file is loaded.
+- **Key** — transposes the whole song. It moves written chords, not just
+  generated ones; a key control that only affected auto progressions would
+  silently do nothing on most plans.
+- **Style / Bass tuning** — change how the band plays and how low it sits.
 - **Roll** — new seed, regenerate. Same chords, same structure, same section
   lengths; different drumming. Which kick pattern, where the fills land, how many
   ghost and dead notes. It is a different take by the same band, not a different
@@ -61,8 +65,38 @@ host before reinstalling** or the copy will silently leave the old build behind.
   moving them. There is no Generate button to remember.
 
 The section list lights up and a playhead line tracks the song as it plays, so
-you can see which section you are hearing. That is most of what makes a reroll
-judgeable at all.
+you can see which section you are hearing.
+
+### Jumping sections live
+
+**Click any section to go there.** The jump is queued — the clicked section is
+marked NEXT — and lands on the next bar line, so the transition stays in time
+rather than lurching mid-beat. Clicking the section already playing restarts it
+at the next bar, which is how you hold a chorus for another eight bars.
+
+Every sounding note is released by name at the seam. Relying on All Notes Off
+alone is not enough: it is a controller message and many instruments ignore it,
+which left a note hanging across the jump until the harness caught it.
+
+### Why there is no tempo control
+
+The host owns the tempo. Ghostband reads it from the transport every block and
+displays it, but does not set it — set it in Gig Performer. A BPM knob here would
+be a dead control that looks live. Note that the plan's `bpm` field is only used
+by the CLI when writing a MIDI file; generation itself is tempo-independent,
+because everything is expressed in ticks.
+
+### Why there are audio pins
+
+There is a stereo audio in and out, and they do nothing useful. They exist
+because declaring an audio bus is what makes the plugin register as a normal
+effect rather than a MIDI-effect, which is what makes hosts place it sensibly.
+Audio wired in passes through untouched; audio is never *routed* through
+Ghostband, because a VST3 cannot see its sibling plugins' output. Wire your
+instruments straight to the audio out and leave these unconnected.
+
+They are also the hook for a later feature — a plugin that can hear what it is
+producing could check its own output — but today they are vestigial.
 
 ### Windows DPI
 

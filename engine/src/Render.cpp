@@ -19,14 +19,31 @@ static uint32_t hashString (const std::string& s)
     return h;
 }
 
+static Chord transposed (Chord c, int semitones)
+{
+    if (semitones == 0) return c;
+    c.rootPc = (((c.rootPc + semitones) % 12) + 12) % 12;
+    c.text   = pitchClassName (c.rootPc)
+             + (c.quality == ChordQuality::Power ? "5"
+                : c.quality == ChordQuality::Minor ? "m"
+                : c.quality == ChordQuality::Diminished ? "dim" : "");
+    return c;
+}
+
 static std::vector<Chord> chordsForSection (const SectionPlan& s,
                                             int keyPc,
                                             Mode mode,
                                             const std::string& style,
+                                            int transpose,
                                             Rng& rng)
 {
     if (s.chords.empty())
-        return autoProgression (keyPc, mode, style, s.role, s.bars, rng);
+    {
+        // Auto progressions are generated in the transposed key directly, so the
+        // voice leading is worked out where the music actually sits.
+        const int shiftedKey = (((keyPc + transpose) % 12) + 12) % 12;
+        return autoProgression (shiftedKey, mode, style, s.role, s.bars, rng);
+    }
 
     // A shorter list than the bar count repeats, which is how people actually
     // write charts: "Em C D" over eight bars means keep going round.
@@ -47,7 +64,7 @@ static std::vector<Chord> chordsForSection (const SectionPlan& s,
     std::vector<Chord> out;
     out.reserve (static_cast<size_t> (s.bars));
     for (int bar = 0; bar < s.bars; ++bar)
-        out.push_back (parsed[static_cast<size_t> (bar) % parsed.size()]);
+        out.push_back (transposed (parsed[static_cast<size_t> (bar) % parsed.size()], transpose));
 
     return out;
 }
@@ -106,7 +123,8 @@ RenderResult renderPerformance (const SongPlan& plan,
         ctx.highestBassNote = highestBass;
 
         const SectionGroove groove = buildSectionGroove (ctx, rng);
-        const std::vector<Chord> chords = chordsForSection (s, keyPc, mode, plan.style, rng);
+        const std::vector<Chord> chords = chordsForSection (s, keyPc, mode, plan.style,
+                                                            plan.transpose, rng);
 
         SectionReport report;
         report.name      = s.name;

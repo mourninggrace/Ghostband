@@ -263,6 +263,97 @@ int main (int argc, char** argv)
            "a different seed gives a different song",
            juce::String (rolled.drumHits) + "/" + juce::String (rolled.bassNotes));
 
+    // ---- key changes ----------------------------------------------------
+    proc.loadPlan (juce::File (planPath));
+    {
+        const int before      = proc.getKeyPitchClass();
+        const int drumsBefore = proc.getSequenceNoteOnCount (10);
+        const int bassBefore  = proc.getSequenceNoteOnCount (1);
+        const int pitchBefore = proc.getSequencePitchSum (1);
+
+        const int target = (before + 5) % 12;
+        proc.setKeyPitchClass (target);
+
+        check (proc.getKeyPitchClass() == target, "changing the key takes effect",
+               juce::String (before) + " -> " + juce::String (proc.getKeyPitchClass()));
+
+        // Transposing must move the pitches without disturbing the performance:
+        // same rhythm, same number of notes, different notes.
+        check (proc.getSequenceNoteOnCount (10) == drumsBefore
+                   && proc.getSequenceNoteOnCount (1) == bassBefore,
+               "transposing does not change the drumming or the note count");
+        check (proc.getSequencePitchSum (1) != pitchBefore,
+               "transposing actually moves the bass pitches",
+               juce::String (pitchBefore) + " -> " + juce::String (proc.getSequencePitchSum (1)));
+
+        proc.setKeyPitchClass (before);
+    }
+
+    // ---- live section jumping -------------------------------------------
+    {
+        proc.loadPlan (juce::File (planPath));
+        const auto secs = proc.getSections();
+        const int barTicks = proc.getBarTicks();
+
+        head.playing = true;
+        head.ppq = 0.0;
+        proc.setPlayHead (&head);
+
+        int onCount = 0, offCount = 0;
+        int jumpedAtTick = -1;
+        int blocksAfterQueue = 0;
+        const int targetSection = 3;
+        bool queuedYet = false;
+
+        for (int b = 0; b < 900; ++b)
+        {
+            head.ppq = b * quartersPerBlock;
+            buffer.clear();
+            midi.clear();
+            proc.processBlock (buffer, midi);
+
+            for (const juce::MidiMessageMetadata m : midi)
+            {
+                const juce::MidiMessage msg = m.getMessage();
+                if (msg.isNoteOn())       ++onCount;
+                else if (msg.isNoteOff()) ++offCount;
+            }
+
+            // Queue a jump once we are a little way into the song.
+            if (! queuedYet && b == 60)
+            {
+                proc.queueSection (targetSection);
+                queuedYet = true;
+            }
+
+            if (queuedYet)
+            {
+                ++blocksAfterQueue;
+                if (jumpedAtTick < 0 && proc.getSequenceNoteOnCount (10) >= 0
+                    && proc.activeSection.load() == targetSection)
+                    jumpedAtTick = proc.playbackTick.load();
+            }
+        }
+
+        check (jumpedAtTick >= 0, "clicking a section jumps to it");
+        check (jumpedAtTick == secs[targetSection].startTick,
+               "the jump lands exactly on the start of that section",
+               juce::String (jumpedAtTick) + " vs "
+                   + juce::String (secs[static_cast<size_t> (targetSection)].startTick));
+        check (barTicks > 0 && secs[targetSection].startTick % barTicks == 0,
+               "and that start is on a bar line",
+               "bar = " + juce::String (barTicks) + " ticks");
+        check (blocksAfterQueue > 0 && blocksAfterQueue < 900,
+               "the jump happened promptly, not at the end of the song");
+        check (onCount == offCount, "nothing hangs across the jump",
+               juce::String (onCount) + " on vs " + juce::String (offCount) + " off");
+
+        head.playing = false;
+        buffer.clear(); midi.clear();
+        proc.processBlock (buffer, midi);
+        proc.setPlayHead (nullptr);
+    }
+
     proc.setPlayHead (nullptr);
 
     // Parity with the CLI. Pass the counts the CLI prints for the same plan and
