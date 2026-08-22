@@ -1,0 +1,47 @@
+{
+  // Steven Slate Drums 5 - base map.
+  //
+  // HONEST STATUS: these note numbers are the General MIDI positions that SSD5's
+  // default mapping follows for the common pieces. They have NOT been checked
+  // against a real SSD5 instance. Run "ghostband calibrate" and listen - every
+  // marker names the voice that should be sounding under it. Fix any that are
+  // wrong here; it is a text edit, not a rebuild.
+  //
+  // Individual kits inherit from this file and override only what differs.
+
+  "name": "Steven Slate Drums 5",
+  "id": "ssd5",
+  "channel": 10,
+
+  "needs_verification": true,
+  "verification_note": "GM-derived map, not yet confirmed against SSD5. Run 'ghostband calibrate'.",
+
+  // SSD5 has deep velocity layers; starting above 20 avoids the near-silent
+  // bottom layer that makes ghost notes disappear entirely.
+  "velocity_min": 22,
+  "velocity_max": 127,
+
+  "notes": {
+    "kick":       36,
+    "snare":      38,
+    "sidestick":  37,
+    "rimshot":    40,
+
+    "hat_closed": 42,
+    "hat_pedal":  44,
+    "hat_open":   46,
+
+    "ride":       51,
+    "ride_bell":  53,
+
+    "crash":      49,
+    "crash2":     57,
+    "china":      52,
+    "splash":     55,
+
+    "tom1":       48,
+    "tom2":       47,
+    "tom3":       45,
+    "tom4":       43
+  }
+}

@@ -1,0 +1,36 @@
+{
+  // Plain General MIDI drums. This is the fallback that lets Ghostband drive a
+  // plugin nobody has written a profile for yet - EZdrummer, Superior, Addictive
+  // and BFD all offer a GM-compatible mode. It will make correct sounds; it will
+  // not make idiomatic ones, because it knows nothing about that plugin's
+  // articulations. That gap is exactly what a real profile closes.
+
+  "name": "General MIDI drums",
+  "id": "gm",
+  "channel": 10,
+
+  "needs_verification": false,
+
+  "velocity_min": 25,
+  "velocity_max": 127,
+
+  "notes": {
+    "kick":       36,
+    "snare":      38,
+    "sidestick":  37,
+    "rimshot":    40,
+    "hat_closed": 42,
+    "hat_pedal":  44,
+    "hat_open":   46,
+    "ride":       51,
+    "ride_bell":  53,
+    "crash":      49,
+    "crash2":     57,
+    "china":      52,
+    "splash":     55,
+    "tom1":       48,
+    "tom2":       47,
+    "tom3":       45,
+    "tom4":       43
+  }
+}

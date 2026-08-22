@@ -1,0 +1,102 @@
+{
+  // A full song skeleton in the shape you described: intro, verse, chorus,
+  // verse 2, chorus 2, bridge, solo, ending. You own every field here. Anything
+  // set to "auto" is what the engine (and later the AI planner) gets to decide.
+
+  "title": "Ghostband Demo - Metal",
+
+  "key":  "D",
+  "mode": "natural_minor",
+  "bpm":  168,
+  "time_signature": [4, 4],
+
+  "style":       "metal",
+  "bass_tuning": "drop_d",
+  "play_style":  "pick",
+
+  "complexity": 0.55,
+  "humanize":   0.45,
+  "seed":       4172,
+  "ending":     "hard_stop",
+
+  "drum_profile": "profiles/ssd5-terry-date.json",
+  "bass_profile": "profiles/modo-bass-2.json",
+
+  "sections": [
+    {
+      "name": "intro",
+      "bars": 4,
+      "intensity": 0.30,
+      "feel": "straight",
+      "chords": ["Dm"],
+      "plays": "full",
+      "fill": "auto"
+    },
+    {
+      "name": "verse1",
+      "bars": 8,
+      "intensity": 0.50,
+      "feel": "straight",
+      "chords": ["Dm", "Dm", "Bb", "C"],
+      "bass": "lock_kick",
+      "fill": "auto"
+    },
+    {
+      "name": "chorus1",
+      "bars": 8,
+      "intensity": 0.90,
+      "feel": "straight",
+      "chords": ["Bb", "F", "C", "Dm"],
+      "bass": "lock_kick",
+      "fill": "auto"
+    },
+    {
+      // vary:false makes this bit-identical to verse1. Set it true and the
+      // engine reworks the details while keeping the same identity.
+      "name": "verse2",
+      "bars": 8,
+      "intensity": 0.55,
+      "feel": "straight",
+      "chords": ["Dm", "Dm", "Bb", "C"],
+      "bass": "lock_kick",
+      "vary": true,
+      "fill": "auto"
+    },
+    {
+      "name": "chorus2",
+      "bars": 8,
+      "intensity": 0.92,
+      "feel": "straight",
+      "chords": ["Bb", "F", "C", "Dm"],
+      "bass": "lock_kick",
+      "fill": "auto"
+    },
+    {
+      "name": "bridge",
+      "bars": 8,
+      "intensity": 0.42,
+      "feel": "half_time",
+      "chords": ["Gm", "Gm", "Bb", "C"],
+      "bass": "lock_kick",
+      "fill": "big"
+    },
+    {
+      "name": "solo",
+      "bars": 8,
+      "intensity": 0.85,
+      "feel": "straight",
+      "chords": ["Dm", "Bb", "F", "C"],
+      "bass": "lock_kick_octave",
+      "fill": "auto"
+    },
+    {
+      "name": "ending",
+      "bars": 4,
+      "intensity": 0.95,
+      "feel": "straight",
+      "chords": ["Dm"],
+      "bass": "lock_kick",
+      "fill": "none"
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  // IK Multimedia MODO Bass 2.
+  //
+  // The tuning ranges below are hard facts and can be trusted: a 4-string bass in
+  // standard tuning bottoms out at E1 = MIDI 28, drop D at 26, drop C at 24, and
+  // B standard at 23. Ghostband uses these to decide how low a riff can sit, so
+  // getting them right is what makes a drop tuning actually sound dropped.
+  //
+  // The ARTICULATIONS are a different matter. MODO Bass 2 lets you assign
+  // keyswitches and controllers yourself on its Control page, so there is no
+  // single correct answer - these are sensible defaults placed below the lowest
+  // playable note so they can never collide with a riff, even in B standard.
+  //
+  // Run "ghostband calibrate", listen, and either point MODO at these numbers or
+  // change these numbers to match MODO. Either direction works.
+
+  "name": "MODO Bass 2",
+  "id": "modo_bass_2",
+  "channel": 1,
+
+  "needs_verification": true,
+  "verification_note": "Keyswitches and the mute CC must be matched to MODO Bass 2's Control page.",
+
+  "velocity_min": 32,
+  "velocity_max": 127,
+
+  "lowest_note": {
+    "standard":   28,
+    "drop_d":     26,
+    "drop_c":     24,
+    "b_standard": 23
+  },
+  "highest_note": 67,
+
+  // Keyswitches need to land clear of the note they modify, never on the same
+  // tick, or the plugin can apply them one note late.
+  "keyswitch_lead_ticks": 30,
+  "keyswitch_velocity": 100,
+
+  "articulations": {
+    // Assign CC 21 to Mute in MODO's Control page, or change the cc number here.
+    "normal":    { "cc": 21, "value": 0 },
+    "palm_mute": { "cc": 21, "value": 100 },
+
+    // Kept at 12-16 so they stay below even a B standard low string (23).
+    "dead":      { "keyswitch": 14 },
+    "slide":     { "keyswitch": 15 },
+    "hammer":    { "keyswitch": 16 },
+    "slap":      { "keyswitch": 12 },
+    "pop":       { "keyswitch": 13 }
+  }
+}

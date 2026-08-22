@@ -1,0 +1,11 @@
+{
+  "inherits": "ssd5.json",
+
+  "name": "SSD5 - Deluxe 2",
+  "id": "ssd5_deluxe_2",
+
+  "needs_verification": true,
+  "verification_note": "Inherits the unverified SSD5 base map. Calibrate before trusting it.",
+
+  "notes": {}
+}
