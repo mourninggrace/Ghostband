@@ -202,6 +202,21 @@ public:
     // that point the whole arrangement diverges. Holding them as float made the
     // plugin produce a different song than the CLI for the same plan and seed,
     // which breaks the guarantee that a seed means one specific song.
+    // Per-part level, 0..1, sent as MIDI CC 7 on each part's channel.
+    //
+    // Deliberately CC 7 rather than velocity scaling: velocity picks which
+    // sample layer a sampler plays, so scaling it makes a quiet kick a
+    // *different* kick rather than a softer one. CC 7 changes level and leaves
+    // the performance alone.
+    std::atomic<float> levelDrums  { 1.0f };
+    std::atomic<float> levelBass   { 1.0f };
+    std::atomic<float> levelGuitar { 1.0f };
+    std::atomic<float> levelPiano  { 1.0f };
+
+    // Queues the current levels for delivery. Safe to call at any time; the
+    // messages go out whether or not the transport is running.
+    void sendLevels();
+
     std::atomic<double> complexity { 0.5 };
     std::atomic<double> humanize   { 0.5 };
     std::atomic<int>    seed       { 1 };
@@ -268,6 +283,7 @@ private:
     juce::SpinLock                auditionLock;
     std::vector<PendingMessage>   pendingAuditions;
 
+    std::atomic<bool>             levelsPending { true };
     std::atomic<bool>             calibrating { false };
     std::vector<CalibrationStep>  calibrationSteps;
     bool                          calibrationEdited = false;

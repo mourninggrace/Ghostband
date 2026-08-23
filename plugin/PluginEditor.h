@@ -115,6 +115,13 @@ private:
     juce::Label  complexityLabel;
     juce::Label  humanizeLabel;
 
+    // Per-part level, sent as MIDI CC 7. Mixing normally belongs in the host,
+    // but four knobs here saves wiring four gain blocks in the rackspace and is
+    // the fastest way to hear a part that is buried.
+    juce::Slider levelDrums, levelBass, levelGuitar, levelPiano;
+    juce::Label  levelDrumsLabel, levelBassLabel, levelGuitarLabel, levelPianoLabel;
+    juce::Label  mixLabel;
+
     juce::TextEditor seedEditor;
     juce::Label      seedLabel;
 

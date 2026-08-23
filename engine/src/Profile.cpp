@@ -340,6 +340,13 @@ bool BassProfile::load (const std::string& path, BassProfile& out, std::string& 
 PhraseProfile::PhraseProfile()
     : phraseKeys (kNumPhraseFeels, -1)
 {
+    // The default is a plain pitched instrument, voicing chords in a middle
+    // register. That is the safe fallback for an unknown target: pressing a
+    // guessed phrase key triggers the wrong riff, whereas a chord in a normal
+    // range just plays the chord. A file that wants phrase mode says so.
+    phraseDriven = false;
+    chordLowest  = 48;
+    chordHighest = 72;
 }
 
 int PhraseProfile::keyFor (PhraseFeel f) const

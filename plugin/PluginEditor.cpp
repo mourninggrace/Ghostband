@@ -429,6 +429,35 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         markDialsDirty();
     };
 
+    // ---- per-part levels ----
+    struct LevelKnob { juce::Slider* s; juce::Label* l; const char* name;
+                       std::atomic<float>* target; };
+    const LevelKnob levelKnobs[4] = {
+        { &levelDrums,  &levelDrumsLabel,  "DRUMS",  &processor.levelDrums  },
+        { &levelBass,   &levelBassLabel,   "BASS",   &processor.levelBass   },
+        { &levelGuitar, &levelGuitarLabel, "GUITAR", &processor.levelGuitar },
+        { &levelPiano,  &levelPianoLabel,  "PIANO",  &processor.levelPiano  },
+    };
+
+    for (const LevelKnob& k : levelKnobs)
+    {
+        k.s->setSliderStyle (juce::Slider::RotaryVerticalDrag);
+        k.s->setRotaryParameters (juce::MathConstants<float>::pi * 1.2f,
+                                  juce::MathConstants<float>::pi * 2.8f, true);
+        k.s->setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+        k.s->setRange (0.0, 1.0, 0.01);
+        k.s->setValue (k.target->load(), juce::dontSendNotification);
+        k.s->setDoubleClickReturnValue (true, 1.0);   // back to unity
+        auto* target = k.target;
+        auto& proc = processor;
+        k.s->onValueChange = [target, &proc, s = k.s]
+        {
+            target->store (static_cast<float> (s->getValue()));
+            proc.sendLevels();
+        };
+        addAndMakeVisible (*k.s);
+    }
+
     auto initLabel = [this] (juce::Label& l, const juce::String& t, float size,
                              juce::Colour c, juce::Justification j)
     {
@@ -439,6 +468,11 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         addAndMakeVisible (l);
     };
 
+    initLabel (mixLabel,          "MIX",    10.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (levelDrumsLabel,   "DRUMS",  9.0f,  ghost::dim, juce::Justification::centred);
+    initLabel (levelBassLabel,    "BASS",   9.0f,  ghost::dim, juce::Justification::centred);
+    initLabel (levelGuitarLabel,  "GUITAR", 9.0f,  ghost::dim, juce::Justification::centred);
+    initLabel (levelPianoLabel,   "PIANO",  9.0f,  ghost::dim, juce::Justification::centred);
     initLabel (keyLabel,        "KEY",        10.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (styleLabel,      "STYLE",      10.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (tuningLabel,     "BASS TUNING",10.0f, ghost::dim,   juce::Justification::centredLeft);
@@ -799,7 +833,9 @@ void GhostbandEditor::updateModeVisibility()
              &complexitySlider, &humanizeSlider, &complexityLabel,
              &humanizeLabel, &seedEditor, &seedLabel, &keyBox, &styleBox,
              &tuningBox, &keyLabel, &styleLabel, &tuningLabel,
-             &tempoLabel, &transportLabel, &summaryLabel })
+             &tempoLabel, &transportLabel, &summaryLabel,
+             &mixLabel, &levelDrums, &levelBass, &levelGuitar, &levelPiano,
+             &levelDrumsLabel, &levelBassLabel, &levelGuitarLabel, &levelPianoLabel })
         c->setVisible (song);
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
@@ -1195,7 +1231,23 @@ void GhostbandEditor::resized()
     // window, which read as the most important control on the panel.
     rollButton.setBounds (seedRow.removeFromLeft (juce::jmin (130, seedRow.getWidth())));
 
-    r.removeFromTop (10);
+    // Mix row: four small level knobs, one per part.
+    r.removeFromTop (8);
+    auto mixRow = r.removeFromTop (56);
+    mixLabel.setBounds (mixRow.removeFromLeft (34).withTrimmedTop (16));
+
+    juce::Slider* levelSliders[4] = { &levelDrums, &levelBass, &levelGuitar, &levelPiano };
+    juce::Label*  levelLabels[4]  = { &levelDrumsLabel, &levelBassLabel,
+                                      &levelGuitarLabel, &levelPianoLabel };
+    for (int i = 0; i < 4; ++i)
+    {
+        auto cell = mixRow.removeFromLeft (58);
+        levelLabels[i]->setBounds (cell.removeFromTop (11));
+        levelSliders[i]->setBounds (cell.reduced (4, 0));
+        mixRow.removeFromLeft (4);
+    }
+
+    r.removeFromTop (8);
     transportLabel.setBounds (r.removeFromTop (16));
     r.removeFromTop (6);
 

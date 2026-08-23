@@ -23,23 +23,44 @@ GhostbandProcessor::GhostbandProcessor()
 
 const char* GhostbandProcessor::builtInPlanJson()
 {
-    // Deliberately plain: mid-tempo hard rock, explicit chords, standard tuning,
-    // and no profile paths - so it renders correctly against the General MIDI
-    // defaults without depending on any file existing anywhere.
+    // A full band, not a two-piece. It names the profiles that ship inside the
+    // plugin bundle, so guitar and piano play out of the box - the previous
+    // version named no profiles at all, which meant the default song could only
+    // ever be drums and bass and looked exactly like guitar and piano being
+    // broken.
+    //
+    // Bass is pinned to lock_kick and eighths rather than left on auto: at low
+    // intensities auto can legitimately draw "roots", one note per bar, which
+    // on a first listen reads as the bass dropping out.
     return R"GB({
       "title": "Ghostband Starter",
       "key": "E", "mode": "natural_minor", "bpm": 104,
       "style": "hard_rock", "bass_tuning": "standard", "play_style": "pick",
       "complexity": 0.55, "humanize": 0.55, "seed": 7, "ending": "cymbal_ring",
+
+      "drum_profile":   "profiles/ssd5-terry-date.json",
+      "bass_profile":   "profiles/modo-bass-2.json",
+      "guitar_profile": "profiles/vg-iron2.json",
+      "piano_profile":  "profiles/virtual-pianist.json",
+
       "sections": [
-        { "name": "intro",   "bars": 4, "intensity": 0.28, "chords": ["Em"], "plays": "drums" },
-        { "name": "verse1",  "bars": 8, "intensity": 0.45, "chords": ["Em","Em","C","D"] },
-        { "name": "chorus1", "bars": 8, "intensity": 0.85, "chords": ["C","G","D","Em"], "bass": "eighths" },
-        { "name": "verse2",  "bars": 8, "intensity": 0.50, "chords": ["Em","Em","C","D"] },
-        { "name": "chorus2", "bars": 8, "intensity": 0.88, "chords": ["C","G","D","Em"], "bass": "eighths" },
+        { "name": "intro",   "bars": 4, "intensity": 0.30, "chords": ["Em"],
+          "plays": "drums+bass", "bass": "lock_kick" },
+        { "name": "verse1",  "bars": 8, "intensity": 0.45, "chords": ["Em","Em","C","D"],
+          "plays": "drums+bass+guitar", "bass": "lock_kick", "guitar": "muted" },
+        { "name": "chorus1", "bars": 8, "intensity": 0.85, "chords": ["C","G","D","Em"],
+          "bass": "eighths", "guitar": "open", "piano": "open" },
+        { "name": "verse2",  "bars": 8, "intensity": 0.50, "chords": ["Em","Em","C","D"],
+          "plays": "drums+bass+guitar", "bass": "lock_kick", "guitar": "muted" },
+        { "name": "chorus2", "bars": 8, "intensity": 0.88, "chords": ["C","G","D","Em"],
+          "bass": "eighths", "guitar": "open", "piano": "open" },
         { "name": "bridge",  "bars": 8, "intensity": 0.35, "chords": ["Am","Am","C","D"],
-          "feel": "half_time", "bass": "roots", "fill": "big" },
-        { "name": "ending",  "bars": 4, "intensity": 0.70, "chords": ["C","D","Em","Em"], "fill": "none" }
+          "feel": "half_time", "bass": "lock_kick", "fill": "big",
+          "plays": "drums+bass+piano", "piano": "sparse" },
+        { "name": "solo",    "bars": 8, "intensity": 0.80, "chords": ["Em","C","G","D"],
+          "bass": "eighths", "guitar": "driving", "piano": "driving" },
+        { "name": "ending",  "bars": 4, "intensity": 0.70, "chords": ["C","D","Em","Em"],
+          "bass": "lock_kick", "fill": "none", "guitar": "open", "piano": "open" }
       ]
     })GB";
 }
@@ -63,6 +84,13 @@ void GhostbandProcessor::loadBuiltInPlan()
         complexity.store (plan.complexity);
         humanize.store   (plan.humanize);
         seed.store       (static_cast<int> (plan.seed));
+
+        // This was missing, and it is why the built-in song had no guitar or
+        // piano: without it the profiles are never loaded, so the parts are
+        // never enabled and calibration has nothing to show for them either.
+        juce::String profileError;
+        resolveProfiles (profileError);
+        status.message = profileError;
     }
     else
     {
@@ -101,7 +129,17 @@ bool GhostbandProcessor::resolveProfiles (juce::String& error)
     const juce::File base = planFile.existsAsFile() ? planFile.getParentDirectory()
                                                     : juce::File();
 
-    auto resolve = [&base] (const std::string& p) -> juce::String
+    // Profiles are installed inside the plugin bundle, so the built-in plan can
+    // name real ones and still work on a machine that has no copy of this
+    // repository. currentExecutableFile is the plugin's own binary, not the
+    // host's.
+    const juce::File bundleResources =
+        juce::File::getSpecialLocation (juce::File::currentExecutableFile)
+            .getParentDirectory()          // .../Contents/x86_64-win
+            .getParentDirectory()          // .../Contents
+            .getChildFile ("Resources");
+
+    auto resolve = [&base, &bundleResources] (const std::string& p) -> juce::String
     {
         const juce::String path (p);
 
@@ -117,6 +155,9 @@ bool GhostbandProcessor::resolveProfiles (juce::String& error)
             for (const juce::File& c : candidates)
                 if (c.existsAsFile()) return c.getFullPathName();
         }
+
+        const juce::File bundled = bundleResources.getChildFile (path);
+        if (bundled.existsAsFile()) return bundled.getFullPathName();
 
         const juce::File direct (path);
         if (direct.existsAsFile()) return direct.getFullPathName();
@@ -152,35 +193,41 @@ bool GhostbandProcessor::resolveProfiles (juce::String& error)
     haveGuitar = false;
     havePiano  = false;
 
-    if (! plan.guitarProfile.empty())
+    // A named profile that cannot be found falls back to the generic defaults
+    // rather than dropping the part. Silently removing an instrument the song
+    // asked for is indistinguishable from the feature being broken - which is
+    // exactly how it was reported.
+    auto loadPhrase = [&resolve, &error] (const std::string& named, int channel,
+                                          gb::PhraseProfile& target, bool& present)
     {
-        const juce::String path = resolve (plan.guitarProfile);
-        gb::PhraseProfile loaded;
-        std::string e;
-        if (path.isNotEmpty() && gb::PhraseProfile::load (path.toStdString(), loaded, e))
-        {
-            guitarProfile = loaded;
-            haveGuitar = true;
-        }
-        else if (error.isEmpty())
-            error = e.empty() ? ("could not find " + juce::String (plan.guitarProfile))
-                              : juce::String (e);
-    }
+        present = false;
+        if (named.empty())
+            return;
 
-    if (! plan.pianoProfile.empty())
-    {
-        const juce::String path = resolve (plan.pianoProfile);
+        const juce::String path = resolve (named);
         gb::PhraseProfile loaded;
         std::string e;
+
         if (path.isNotEmpty() && gb::PhraseProfile::load (path.toStdString(), loaded, e))
         {
-            pianoProfile = loaded;
-            havePiano = true;
+            target = loaded;
+            present = true;
+            return;
         }
-        else if (error.isEmpty())
-            error = e.empty() ? ("could not find " + juce::String (plan.pianoProfile))
-                              : juce::String (e);
-    }
+
+        target = gb::PhraseProfile();
+        target.channel = channel;
+        target.name    = "generic (profile not found)";
+        target.needsVerification = true;
+        target.verificationNote  = "Could not find " + named + " - playing plain chords.";
+        present = true;
+
+        if (error.isEmpty())
+            error = "Using generic settings: " + juce::String (named) + " was not found.";
+    };
+
+    loadPhrase (plan.guitarProfile, 2, guitarProfile, haveGuitar);
+    loadPhrase (plan.pianoProfile,  3, pianoProfile,  havePiano);
 
     return error.isEmpty();
 }
@@ -247,13 +294,66 @@ void GhostbandProcessor::enterCalibration()
 
         // Then the bass, whose lowest playable note decides how heavy a drop
         // tuning actually sounds.
-        CalibrationStep low;
-        low.label   = "bass lowest note";
-        low.hint    = "the lowest note the bass can play in " + juce::String (plan.bassTuning);
-        low.note    = bassProfile.lowestNoteFor (plan.bassTuning);
-        low.channel = bassProfile.channel;
-        low.isDrum  = false;
-        steps.push_back (low);
+        {
+            CalibrationStep s;
+            s.label   = "bass lowest note";
+            s.hint    = "the lowest note the bass can play in " + juce::String (plan.bassTuning);
+            s.note    = bassProfile.lowestNoteFor (plan.bassTuning);
+            s.channel = bassProfile.channel;
+            s.isDrum  = false;
+            steps.push_back (s);
+
+            CalibrationStep oct;
+            oct.label   = "bass octave up";
+            oct.hint    = "an octave above the lowest note";
+            oct.note    = juce::jmin (127, s.note + 12);
+            oct.channel = bassProfile.channel;
+            oct.isDrum  = false;
+            steps.push_back (oct);
+        }
+
+        // Guitar and piano. A phrase instrument gets its phrase keys, since a
+        // wrong one triggers the wrong riff; a note-driven one gets the top and
+        // bottom of the range it will be voiced into.
+        auto addPhraseSteps = [&steps] (const gb::PhraseProfile& p, const juce::String& what,
+                                        bool present)
+        {
+            if (! present) return;
+
+            if (p.isPhraseDriven())
+            {
+                for (const auto& key : p.allPhraseKeys())
+                {
+                    CalibrationStep s;
+                    s.label   = what + " phrase: " + juce::String (gb::phraseFeelName (key.first));
+                    s.hint    = "should start a " + juce::String (gb::phraseFeelName (key.first))
+                              + " " + what + " part";
+                    s.note    = key.second;
+                    s.channel = p.channel;
+                    s.isDrum  = false;
+                    steps.push_back (s);
+                }
+            }
+
+            CalibrationStep lo;
+            lo.label   = what + " lowest chord note";
+            lo.hint    = "the bottom of the range " + what + " chords are voiced into";
+            lo.note    = p.chordLowest;
+            lo.channel = p.channel;
+            lo.isDrum  = false;
+            steps.push_back (lo);
+
+            CalibrationStep hi;
+            hi.label   = what + " highest chord note";
+            hi.hint    = "the top of that range";
+            hi.note    = p.chordHighest;
+            hi.channel = p.channel;
+            hi.isDrum  = false;
+            steps.push_back (hi);
+        };
+
+        addPhraseSteps (guitarProfile, "guitar", haveGuitar);
+        addPhraseSteps (pianoProfile,  "piano",  havePiano);
     }
 
     {
@@ -284,6 +384,27 @@ GhostbandProcessor::CalibrationStep GhostbandProcessor::getCalibrationStep (int 
     if (index < 0 || index >= static_cast<int> (calibrationSteps.size()))
         return {};
     return calibrationSteps[static_cast<size_t> (index)];
+}
+
+void GhostbandProcessor::sendLevels()
+{
+    struct Part { int channel; float level; };
+
+    Part parts[4];
+    {
+        const juce::ScopedLock sl (stateLock);
+        parts[0] = { kit.channel,           levelDrums.load() };
+        parts[1] = { bassProfile.channel,   levelBass.load() };
+        parts[2] = { guitarProfile.channel, levelGuitar.load() };
+        parts[3] = { pianoProfile.channel,  levelPiano.load() };
+    }
+
+    const juce::SpinLock::ScopedLockType lock (auditionLock);
+    for (const Part& p : parts)
+    {
+        const int value = juce::jlimit (0, 127, juce::roundToInt (p.level * 127.0f));
+        pendingAuditions.push_back ({ 0, juce::MidiMessage::controllerEvent (p.channel, 7, value) });
+    }
 }
 
 void GhostbandProcessor::auditionStep (int index)
@@ -891,6 +1012,23 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
         wasPlaying = true;
         nextExpectedTick = -1.0;   // fresh start: trust the host's position
         jumpOffset = 0.0;          // and start the song from the top
+        levelsPending.store (true);
+    }
+
+    // Restate the levels at the top of a run, so an instrument that was
+    // reloaded or reset since the last change still gets them.
+    if (levelsPending.exchange (false))
+    {
+        const juce::SpinLock::ScopedTryLockType levels (auditionLock);
+        if (levels.isLocked())
+        {
+            struct P { int ch; float v; };
+            const P parts[4] = { { 10, levelDrums.load() }, { 1, levelBass.load() },
+                                 { 2,  levelGuitar.load() }, { 3, levelPiano.load() } };
+            for (const P& p : parts)
+                midi.addEvent (juce::MidiMessage::controllerEvent (
+                                   p.ch, 7, juce::jlimit (0, 127, juce::roundToInt (p.v * 127.0f))), 0);
+        }
     }
 
     if (sequence.empty())

@@ -76,6 +76,17 @@ int main (int argc, char** argv)
         check (proc.getSequenceNoteOnCount (10) > 0 && proc.getSequenceNoteOnCount (1) > 0,
                "built-in plan produces both drums and bass");
 
+        // The built-in plan used to name no profiles at all, so guitar and piano
+        // could never sound on it - which is exactly how "guitar and piano are
+        // definitely not playing" was reported. It is a full band now, and a
+        // missing profile falls back to generic rather than dropping the part.
+        check (proc.getSequenceNoteOnCount (2) > 0,
+               "built-in plan plays guitar out of the box",
+               juce::String (proc.getSequenceNoteOnCount (2)) + " note-ons on ch2");
+        check (proc.getSequenceNoteOnCount (3) > 0,
+               "built-in plan plays piano out of the box",
+               juce::String (proc.getSequenceNoteOnCount (3)) + " note-ons on ch3");
+
         const auto sections = proc.getSections();
         bool ticksSane = ! sections.empty() && sections.front().startTick == 0;
         for (size_t i = 1; i < sections.size(); ++i)
@@ -541,7 +552,10 @@ int main (int argc, char** argv)
 
     // ---- calibration ------------------------------------------------------
     {
-        proc.loadPlan (juce::File (planPath));
+        // Loaded with the band plan, so calibration is exercised with all four
+        // instruments present rather than just drums and bass.
+        const juce::File band = juce::File (planPath).getSiblingFile ("demo-band.json");
+        proc.loadPlan (band.existsAsFile() ? band : juce::File (planPath));
         check (! proc.isCalibrating(), "does not start in calibration mode");
 
         proc.enterCalibration();
@@ -550,6 +564,17 @@ int main (int argc, char** argv)
         const int steps = proc.getCalibrationStepCount();
         check (steps > 10, "calibration covers the whole kit",
                juce::String (steps) + " steps");
+
+        // Every part the song has must be calibratable, not just the drums -
+        // "only the drums showed up" was the report.
+        juce::StringArray labels;
+        for (int i = 0; i < steps; ++i) labels.add (proc.getCalibrationStep (i).label);
+        const juce::String all = labels.joinIntoString (" | ");
+
+        check (all.contains ("bass"),   "calibration includes the bass");
+        check (all.contains ("guitar"), "calibration includes the guitar",
+               band.existsAsFile() ? juce::String() : juce::String ("no band plan to test with"));
+        check (all.contains ("piano"),  "calibration includes the piano");
 
         const auto before = proc.getCalibrationStep (0);
         proc.nudgeCalibrationNote (0, +1);

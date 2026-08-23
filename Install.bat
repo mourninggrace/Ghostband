@@ -29,5 +29,15 @@ if errorlevel 1 (
     exit /b 1
 )
 
+rem Driver profiles live inside the bundle so the built-in song can name real
+rem instruments and still work on a machine that has no copy of this repository.
+echo Bundling driver profiles
+xcopy "profiles\*.json" "%DST%\Contents\Resources\profiles\" /I /Y /Q
+if errorlevel 1 (
+    echo.
+    echo Could not copy the driver profiles.
+    exit /b 1
+)
+
 echo.
 echo Installed. Rescan plugins in your host if it does not pick it up.
