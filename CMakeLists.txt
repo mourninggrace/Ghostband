@@ -155,6 +155,47 @@ if (EXISTS "${GHOSTBAND_JUCE_PATH}/CMakeLists.txt")
     PUBLIC
         juce::juce_recommended_config_flags
     )
+    # ==========================================================================
+    # Plugin probe
+    #
+    # Loads a target VST3 headlessly and measures what each note actually
+    # produces. Driver profiles were being written from documentation and guess
+    # work and then handed to the user to verify by ear, which is not a
+    # reasonable thing to ask of anyone. This works the map out by measurement
+    # instead.
+    # ==========================================================================
+    juce_add_console_app(ghostband_probe PRODUCT_NAME "ghostband_probe")
+
+    target_sources(ghostband_probe PRIVATE tools/ProbePlugin.cpp)
+
+    target_compile_definitions(ghostband_probe PRIVATE
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_STANDALONE_APPLICATION=1
+        JUCE_DISPLAY_SPLASH_SCREEN=0
+        JUCE_PLUGINHOST_VST3=1
+        JUCE_PLUGINHOST_VST=0
+        JUCE_PLUGINHOST_AU=0
+
+        # Needed for runDispatchLoopUntil. Sampled instruments load their
+        # content on the message thread, and a console app that never runs that
+        # loop measures every note as silence.
+        JUCE_MODAL_LOOPS_PERMITTED=1
+    )
+
+    target_link_libraries(ghostband_probe PRIVATE
+        juce::juce_audio_basics
+        juce::juce_audio_processors
+        juce::juce_audio_utils
+        juce::juce_core
+        juce::juce_data_structures
+        juce::juce_events
+        juce::juce_graphics
+        juce::juce_gui_basics
+        juce::juce_gui_extra
+    PUBLIC
+        juce::juce_recommended_config_flags
+    )
 else()
     message(WARNING "Ghostband: JUCE not found, building the CLI only. "
                     "Set -DGHOSTBAND_JUCE_PATH=<path to JUCE 8.x> to build the VST3.")

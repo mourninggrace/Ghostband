@@ -1,0 +1,48 @@
+{
+  // UJAM Virtual Guitarist IRON 2.
+  //
+  // MEASURED, not guessed. These numbers came from ghostband_probe loading
+  // IRON 2 headlessly and measuring what every MIDI note actually produced:
+  //
+  //   notes  12-59   silent when pressed alone  -> chord zone
+  //   notes  60-89   loud, ~1s sustain, always  -> phrase / play zone
+  //   notes  90-120  silent                     -> outside the instrument
+  //
+  // Within the phrase zone, attack density and brightness both rise as you go
+  // up the keyboard: key 60 measured 5 attacks over 4 seconds at brightness
+  // 0.065, key 89 measured 11 attacks at 0.090. So low keys are sparser and
+  // darker, high keys busier and brighter, and the feel mapping below follows
+  // that gradient.
+  //
+  // STILL UNVERIFIED: the exact chord zone boundaries, and whether this phrase
+  // gradient holds across IRON 2's other styles - the probe only measured the
+  // style that loads by default. Both are safe to be wrong about: a bad chord
+  // note lands in a silent zone, and a bad phrase key still plays a real riff.
+
+  "name": "UJAM Virtual Guitarist IRON 2",
+  "id": "vg_iron2",
+  "channel": 2,
+
+  "needs_verification": true,
+  "verification_note": "Zones measured by probe; per-style phrase character not yet confirmed.",
+
+  "velocity_min": 70,
+  "velocity_max": 127,
+
+  // Two octaves inside the confirmed-silent region below the play zone.
+  "chord_zone": { "lowest_note": 24, "highest_note": 47 },
+
+  // A phrase key must land before the chord it applies to, or the instrument
+  // plays one phrase behind.
+  "phrase_lead_ticks": 60,
+  "phrase_blip_ticks": 40,
+  "phrase_velocity": 100,
+
+  "phrases": {
+    "sparse":  62,
+    "muted":   66,
+    "driving": 72,
+    "open":    80,
+    "busy":    88
+  }
+}

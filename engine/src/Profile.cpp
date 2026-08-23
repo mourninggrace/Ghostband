@@ -41,6 +41,33 @@ DrumVoice drumVoiceFromName (const std::string& s, bool& ok)
     return DrumVoice::Kick;
 }
 
+static const char* kPhraseFeelNames[] =
+{
+    "silent", "sparse", "muted", "driving", "open", "busy"
+};
+
+static const size_t kNumPhraseFeels = sizeof (kPhraseFeelNames) / sizeof (kPhraseFeelNames[0]);
+
+const char* phraseFeelName (PhraseFeel f)
+{
+    const size_t i = static_cast<size_t> (f);
+    return i < kNumPhraseFeels ? kPhraseFeelNames[i] : "driving";
+}
+
+PhraseFeel phraseFeelFromName (const std::string& s, bool& ok)
+{
+    for (size_t i = 0; i < kNumPhraseFeels; ++i)
+    {
+        if (s == kPhraseFeelNames[i])
+        {
+            ok = true;
+            return static_cast<PhraseFeel> (i);
+        }
+    }
+    ok = false;
+    return PhraseFeel::Driving;
+}
+
 static const char* kBassArticNames[] =
 {
     "normal", "palm_mute", "dead", "slide", "hammer", "slap", "pop"
@@ -308,6 +335,130 @@ bool BassProfile::load (const std::string& path, BassProfile& out, std::string& 
     }
 
     return true;
+}
+
+PhraseProfile::PhraseProfile()
+    : phraseKeys (kNumPhraseFeels, -1)
+{
+}
+
+int PhraseProfile::keyFor (PhraseFeel f) const
+{
+    const size_t i = static_cast<size_t> (f);
+    return i < phraseKeys.size() ? phraseKeys[i] : -1;
+}
+
+std::vector<std::pair<PhraseFeel, int>> PhraseProfile::allPhraseKeys() const
+{
+    std::vector<std::pair<PhraseFeel, int>> out;
+    for (size_t i = 0; i < phraseKeys.size(); ++i)
+        if (phraseKeys[i] >= 0)
+            out.emplace_back (static_cast<PhraseFeel> (i), phraseKeys[i]);
+    return out;
+}
+
+bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::string& error)
+{
+    Json j;
+    if (! Json::parseFile (path, j, error))
+        return false;
+
+    if (! j.isObject())
+    {
+        error = path + ": top level must be a JSON object";
+        return false;
+    }
+
+    out = PhraseProfile();
+
+    out.name              = j.stringOr ("name", out.name);
+    out.id                = j.stringOr ("id", out.id);
+    out.channel           = clampInt (j.intOr ("channel", out.channel), 1, 16);
+    out.velocityMin       = clampInt (j.intOr ("velocity_min", out.velocityMin), 1, 127);
+    out.velocityMax       = clampInt (j.intOr ("velocity_max", out.velocityMax), 1, 127);
+    out.phraseLeadTicks   = std::max (1, j.intOr ("phrase_lead_ticks", out.phraseLeadTicks));
+    out.phraseBlipTicks   = std::max (1, j.intOr ("phrase_blip_ticks", out.phraseBlipTicks));
+    out.phraseVelocity    = clampInt (j.intOr ("phrase_velocity", out.phraseVelocity), 1, 127);
+    out.needsVerification = j.boolOr ("needs_verification", false);
+    out.verificationNote  = j.stringOr ("verification_note", "");
+
+    if (out.velocityMax < out.velocityMin)
+        std::swap (out.velocityMin, out.velocityMax);
+
+    const Json& zone = j["chord_zone"];
+    if (zone.isObject())
+    {
+        out.chordLowest  = clampInt (zone.intOr ("lowest_note", out.chordLowest), 0, 127);
+        out.chordHighest = clampInt (zone.intOr ("highest_note", out.chordHighest), 0, 127);
+        if (out.chordHighest < out.chordLowest)
+            std::swap (out.chordLowest, out.chordHighest);
+    }
+
+    const Json& phrases = j["phrases"];
+    if (phrases.isObject())
+    {
+        for (const std::string& key : phrases.keys())
+        {
+            bool ok = false;
+            const PhraseFeel f = phraseFeelFromName (key, ok);
+            if (! ok)
+            {
+                error = path + ": unknown phrase feel \"" + key + "\"";
+                return false;
+            }
+
+            const Json& value = phrases[key];
+            out.phraseKeys[static_cast<size_t> (f)] =
+                value.isNull() ? -1 : clampInt (value.asInt (-1), -1, 127);
+        }
+    }
+
+    return true;
+}
+
+void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
+{
+    // Phrase switches first. They are momentary keys, and they must arrive
+    // before the chord they apply to or the instrument plays one phrase behind.
+    for (const PhraseIntent& p : part.phrases)
+    {
+        const int key = keyFor (p.feel);
+        if (key < 0)
+            continue;   // this instrument has no such phrase; leave it as it was
+
+        const int on = std::max (0, p.tick - phraseLeadTicks);
+        track.addNoteOn  (on, channel, key, phraseVelocity);
+        track.addNoteOff (on + phraseBlipTicks, channel, key);
+    }
+
+    const int zoneSpan = chordHighest - chordLowest;
+
+    for (const ChordIntent& c : part.chords)
+    {
+        if (c.durationTicks <= 0)
+            continue;
+
+        const int lowPc = ((chordLowest % 12) + 12) % 12;
+        const int root  = chordLowest + ((((c.rootPc - lowPc) % 12) + 12) % 12);
+
+        // Voice the triad inside the zone. A phrase instrument reads the chord
+        // from these notes, so the third has to be there - it is the only way it
+        // can know major from minor.
+        std::vector<int> notes { root };
+        if (c.thirdSemis >= 0) notes.push_back (root + c.thirdSemis);
+        notes.push_back (root + c.fifthSemis);
+
+        const int vel = velocityFor (c.accent, velocityMin, velocityMax);
+
+        for (int n : notes)
+        {
+            while (n > chordHighest && zoneSpan >= 12) n -= 12;
+            if (n < chordLowest || n > chordHighest) continue;
+
+            track.addNoteOn  (c.tick, channel, n, vel);
+            track.addNoteOff (c.tick + c.durationTicks, channel, n);
+        }
+    }
 }
 
 void BassProfile::render (const std::vector<BassIntent>& intents,

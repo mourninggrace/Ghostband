@@ -160,6 +160,103 @@ SectionGroove buildSectionGroove (const GrooveContext& ctx, Rng& rng)
 
 //==============================================================================
 
+// Draws one entry from a weighted pool. Weights are relative, and a zero weight
+// removes an option entirely.
+static PhraseFeel drawFeel (const std::vector<std::pair<PhraseFeel, int>>& pool, Rng& rng)
+{
+    int total = 0;
+    for (const auto& e : pool) total += std::max (0, e.second);
+    if (total <= 0) return PhraseFeel::Driving;
+
+    int roll = rng.below (total);
+    for (const auto& e : pool)
+    {
+        roll -= std::max (0, e.second);
+        if (roll < 0) return e.first;
+    }
+    return pool.back().first;
+}
+
+PhraseFeel chooseGuitarFeel (const GrooveContext& ctx, Rng& rng)
+{
+    const double in = ctx.intensity;
+    const bool heavy = isHeavyStyle (ctx.style);
+    const bool halfTime = (ctx.feel == Feel::HalfTime);
+
+    std::vector<std::pair<PhraseFeel, int>> pool;
+
+    if (ctx.role == "intro")
+    {
+        pool = { { PhraseFeel::Sparse, 5 }, { PhraseFeel::Muted, 3 },
+                 { PhraseFeel::Silent, 3 }, { PhraseFeel::Open, 1 } };
+    }
+    else if (in < 0.35)
+    {
+        pool = { { PhraseFeel::Sparse, 5 }, { PhraseFeel::Muted, 4 },
+                 { PhraseFeel::Silent, 2 } };
+    }
+    else if (in < 0.60)
+    {
+        // The workhorse verse range. Muted chugging is the default in heavy
+        // styles; cleaner styles lean on a steadier strum.
+        pool = { { PhraseFeel::Muted, heavy ? 6 : 3 }, { PhraseFeel::Driving, 4 },
+                 { PhraseFeel::Sparse, 2 } };
+    }
+    else if (in < 0.80)
+    {
+        pool = { { PhraseFeel::Driving, 5 }, { PhraseFeel::Open, 4 },
+                 { PhraseFeel::Muted, 3 } };
+    }
+    else
+    {
+        pool = { { PhraseFeel::Open, 6 }, { PhraseFeel::Busy, 3 },
+                 { PhraseFeel::Driving, 3 } };
+    }
+
+    // Half-time wants length, not chatter.
+    if (halfTime)
+        pool.push_back ({ PhraseFeel::Open, 4 });
+
+    return drawFeel (pool, rng);
+}
+
+PhraseFeel choosePianoFeel (const GrooveContext& ctx, Rng& rng)
+{
+    const double in = ctx.intensity;
+    const bool heavy = isHeavyStyle (ctx.style);
+
+    std::vector<std::pair<PhraseFeel, int>> pool;
+
+    // A piano competing with a distorted guitar is the fastest way to make a mix
+    // sound cluttered, so in heavy styles it stays out of the quiet sections and
+    // arrives with the chorus. That entrance is the point of it.
+    if (ctx.role == "intro")
+    {
+        pool = { { PhraseFeel::Silent, heavy ? 6 : 3 }, { PhraseFeel::Sparse, 4 } };
+    }
+    else if (in < 0.35)
+    {
+        pool = { { PhraseFeel::Sparse, 5 }, { PhraseFeel::Silent, heavy ? 5 : 2 } };
+    }
+    else if (in < 0.60)
+    {
+        pool = { { PhraseFeel::Sparse, 4 }, { PhraseFeel::Driving, 3 },
+                 { PhraseFeel::Silent, heavy ? 4 : 1 } };
+    }
+    else if (in < 0.80)
+    {
+        pool = { { PhraseFeel::Driving, 4 }, { PhraseFeel::Open, 5 },
+                 { PhraseFeel::Sparse, 2 } };
+    }
+    else
+    {
+        pool = { { PhraseFeel::Open, 6 }, { PhraseFeel::Driving, 3 },
+                 { PhraseFeel::Busy, heavy ? 1 : 3 } };
+    }
+
+    return drawFeel (pool, rng);
+}
+
 BarGrid buildBarGrid (const GrooveContext& ctx,
                       const SectionGroove& groove,
                       int barIndexInSection,

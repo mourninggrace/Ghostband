@@ -1,0 +1,568 @@
+// Loads a VST3 headlessly, plays one note at a time, and measures what came out.
+//
+// The point is to work out a plugin's MIDI map without a human in the loop. We
+// cannot listen, but we can measure, and measurement answers the questions that
+// actually matter:
+//
+//   * Is this note mapped at all, or is it silent?
+//   * Is it bright or dark, short or long?  (hi-hat vs kick, keyswitch vs note)
+//   * Where does a phrase-driven instrument's chord zone end and its phrase
+//     zone begin?  A chord key alone behaves very differently from a phrase key.
+//
+// That is enough to verify a drum map, find a bass instrument's playable range
+// and its silent keyswitches, and locate a UJAM instrument's key zones.
+
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_gui_basics/juce_gui_basics.h>
+
+#include <cmath>
+#include <iostream>
+#include <memory>
+
+namespace {
+
+struct NoteMeasurement
+{
+    int    note      = 0;
+    float  peak      = 0.0f;
+    float  rms       = 0.0f;
+    float  brightness = 0.0f;   // 0 = dark, 1 = very bright
+    double decaySecs = 0.0;
+    bool   sounded   = false;
+};
+
+// Crude but robust brightness: mean absolute first difference over mean absolute
+// level. No FFT needed, and it separates a kick from a hi-hat decisively.
+float brightnessOf (const juce::AudioBuffer<float>& buf, int numSamples)
+{
+    double diff = 0.0, level = 0.0;
+    for (int ch = 0; ch < buf.getNumChannels(); ++ch)
+    {
+        const float* d = buf.getReadPointer (ch);
+        for (int i = 1; i < numSamples; ++i)
+        {
+            diff  += std::abs (d[i] - d[i - 1]);
+            level += std::abs (d[i]);
+        }
+    }
+    if (level < 1.0e-9) return 0.0f;
+    return static_cast<float> (juce::jlimit (0.0, 1.0, diff / level / 2.0));
+}
+
+class Probe
+{
+public:
+    bool load (const juce::String& path, juce::String& error)
+    {
+        // JUCE 8 split the processors module and removed addDefaultFormats().
+        // The UI-capable variant is used rather than the headless one because
+        // several sampled instruments only initialise their engine when an
+        // editor is created - the headless format refuses to make one, and the
+        // plugin then measures as silent on every note.
+        juce::addDefaultFormatsToManager (formatManager);
+
+        juce::OwnedArray<juce::PluginDescription> found;
+        for (juce::AudioPluginFormat* format : formatManager.getFormats())
+            if (format->fileMightContainThisPluginType (path))
+                format->findAllTypesForFile (found, path);
+
+        if (found.isEmpty())
+        {
+            error = "no plugin types found in " + path;
+            return false;
+        }
+
+        instance = formatManager.createPluginInstance (*found[0], sampleRate, blockSize, error);
+        if (instance == nullptr)
+            return false;
+
+        instance->enableAllBuses();
+        instance->setRateAndBufferSizeDetails (sampleRate, blockSize);
+        instance->prepareToPlay (sampleRate, blockSize);
+
+        name = instance->getName();
+        return true;
+    }
+
+    // Creates the plugin's editor without showing it. Nothing is drawn, but the
+    // plugin gets the initialisation it may be relying on.
+    bool openEditor()
+    {
+        if (instance == nullptr || ! instance->hasEditor())
+            return false;
+
+        editor.reset (instance->createEditorIfNeeded());
+        if (editor == nullptr)
+            return false;
+
+        editor->setOpaque (true);
+        editor->setSize (juce::jmax (100, editor->getWidth()),
+                         juce::jmax (100, editor->getHeight()));
+        editor->addToDesktop (juce::ComponentPeer::windowIsTemporary);
+        editor->setVisible (false);
+        return true;
+    }
+
+    void closeEditor() { editor.reset(); }
+
+    juce::String getName() const { return name; }
+
+    // A silent probe is ambiguous: the plugin might have no content loaded, be
+    // waiting on authorisation, or be listening on another channel. Printing
+    // what it says about itself distinguishes those.
+    void describe() const
+    {
+        if (instance == nullptr) return;
+
+        std::cout << "latency : " << instance->getLatencySamples() << " samples\n";
+        std::cout << "programs: " << instance->getNumPrograms();
+        if (instance->getNumPrograms() > 0)
+            std::cout << "  (current: \"" << instance->getProgramName (instance->getCurrentProgram()) << "\")";
+        std::cout << "\n";
+
+        const auto& params = instance->getParameters();
+        std::cout << "params  : " << params.size() << "\n";
+
+        for (int i = 0; i < juce::jmin (24, params.size()); ++i)
+            std::cout << "    [" << i << "] " << params[i]->getName (40)
+                      << " = " << params[i]->getCurrentValueAsText() << "\n";
+
+        std::cout << "buses   : in " << instance->getTotalNumInputChannels()
+                  << ", out " << instance->getTotalNumOutputChannels() << "\n";
+    }
+
+    // Some instruments only stream their content once transport is rolling.
+    void setPlayingTransport (bool shouldPlay)
+    {
+        playHead.playing = shouldPlay;
+        if (instance != nullptr)
+            instance->setPlayHead (&playHead);
+    }
+
+    struct SimplePlayHead : juce::AudioPlayHead
+    {
+        bool playing = false;
+        double ppq = 0.0;
+
+        juce::Optional<PositionInfo> getPosition() const override
+        {
+            PositionInfo info;
+            info.setIsPlaying (playing);
+            info.setBpm (120.0);
+            info.setPpqPosition (ppq);
+            info.setTimeInSeconds (ppq * 0.5);
+            return info;
+        }
+    };
+
+    SimplePlayHead playHead;
+
+    int outputChannels() const
+    {
+        return instance != nullptr ? instance->getTotalNumOutputChannels() : 0;
+    }
+
+    // Sampled instruments load their content asynchronously on the message
+    // thread. A console app has a MessageManager but never runs its loop, so
+    // without pumping it here the plugin never finishes loading and every note
+    // measures as silence - which looks exactly like an unmapped note.
+    static void pump (int milliseconds)
+    {
+        if (auto* mm = juce::MessageManager::getInstanceWithoutCreating())
+            mm->runDispatchLoopUntil (milliseconds);
+    }
+
+    void warmUp (double seconds)
+    {
+        juce::AudioBuffer<float> buf (juce::jmax (2, outputChannels()), blockSize);
+        juce::MidiBuffer midi;
+
+        const int steps = juce::jmax (1, static_cast<int> (seconds * 10));
+        for (int s = 0; s < steps; ++s)
+        {
+            pump (100);
+            for (int i = 0; i < 10; ++i)
+            {
+                buf.clear();
+                midi.clear();
+                instance->processBlock (buf, midi);
+            }
+        }
+    }
+
+    NoteMeasurement measureNote (int note, int channel, double holdSecs, double tailSecs,
+                                 int velocity = 100)
+    {
+        NoteMeasurement m;
+        m.note = note;
+
+        const int channels = juce::jmax (2, outputChannels());
+        juce::AudioBuffer<float> buf (channels, blockSize);
+        juce::MidiBuffer midi;
+
+        // Flush whatever the previous note left ringing, and give the plugin a
+        // moment of message-thread time in case it streams on demand.
+        pump (5);
+        for (int i = 0; i < 8; ++i)
+        {
+            buf.clear(); midi.clear();
+            instance->processBlock (buf, midi);
+        }
+
+        const int holdBlocks = juce::jmax (1, static_cast<int> (holdSecs * sampleRate / blockSize));
+        const int tailBlocks = juce::jmax (1, static_cast<int> (tailSecs * sampleRate / blockSize));
+
+        double sumSquares = 0.0;
+        int    totalSamples = 0;
+        double brightAccum = 0.0;
+        int    brightBlocks = 0;
+        int    lastLoudBlock = -1;
+
+        for (int b = 0; b < holdBlocks + tailBlocks; ++b)
+        {
+            buf.clear();
+            midi.clear();
+
+            if (b == 0)
+                midi.addEvent (juce::MidiMessage::noteOn (channel, note,
+                                                          static_cast<juce::uint8> (velocity)), 0);
+            else if (b == holdBlocks)
+                midi.addEvent (juce::MidiMessage::noteOff (channel, note), 0);
+
+            instance->processBlock (buf, midi);
+
+            float blockPeak = 0.0f;
+            for (int ch = 0; ch < buf.getNumChannels(); ++ch)
+                blockPeak = juce::jmax (blockPeak, buf.getMagnitude (ch, 0, blockSize));
+
+            m.peak = juce::jmax (m.peak, blockPeak);
+
+            for (int ch = 0; ch < buf.getNumChannels(); ++ch)
+            {
+                const float* d = buf.getReadPointer (ch);
+                for (int i = 0; i < blockSize; ++i)
+                    sumSquares += static_cast<double> (d[i]) * d[i];
+            }
+            totalSamples += blockSize * buf.getNumChannels();
+
+            if (blockPeak > 0.0005f)
+            {
+                lastLoudBlock = b;
+                brightAccum += brightnessOf (buf, blockSize);
+                ++brightBlocks;
+            }
+        }
+
+        m.rms       = totalSamples > 0 ? static_cast<float> (std::sqrt (sumSquares / totalSamples)) : 0.0f;
+        m.brightness = brightBlocks > 0 ? static_cast<float> (brightAccum / brightBlocks) : 0.0f;
+        m.decaySecs = lastLoudBlock >= 0 ? (lastLoudBlock + 1) * blockSize / sampleRate : 0.0;
+        m.sounded   = m.peak > 0.0015f;
+
+        return m;
+    }
+
+    // Holds a chord and measures it. A phrase-driven instrument answers very
+    // differently to a chord than to a phrase key, which is how the zones are
+    // found.
+    NoteMeasurement measureChord (const std::vector<int>& notes, int channel,
+                                  double holdSecs, int velocity = 100)
+    {
+        NoteMeasurement m;
+        m.note = notes.empty() ? 0 : notes.front();
+
+        const int channels = juce::jmax (2, outputChannels());
+        juce::AudioBuffer<float> buf (channels, blockSize);
+        juce::MidiBuffer midi;
+
+        for (int i = 0; i < 8; ++i) { buf.clear(); midi.clear(); instance->processBlock (buf, midi); }
+
+        const int blocks = juce::jmax (1, static_cast<int> (holdSecs * sampleRate / blockSize));
+        double sumSquares = 0.0; int totalSamples = 0;
+        double brightAccum = 0.0; int brightBlocks = 0;
+
+        for (int b = 0; b < blocks; ++b)
+        {
+            buf.clear();
+            midi.clear();
+            if (b == 0)
+                for (int n : notes)
+                    midi.addEvent (juce::MidiMessage::noteOn (channel, n,
+                                                              static_cast<juce::uint8> (velocity)), 0);
+
+            instance->processBlock (buf, midi);
+
+            float blockPeak = 0.0f;
+            for (int ch = 0; ch < buf.getNumChannels(); ++ch)
+                blockPeak = juce::jmax (blockPeak, buf.getMagnitude (ch, 0, blockSize));
+            m.peak = juce::jmax (m.peak, blockPeak);
+
+            for (int ch = 0; ch < buf.getNumChannels(); ++ch)
+            {
+                const float* d = buf.getReadPointer (ch);
+                for (int i = 0; i < blockSize; ++i) sumSquares += static_cast<double> (d[i]) * d[i];
+            }
+            totalSamples += blockSize * buf.getNumChannels();
+
+            if (blockPeak > 0.0005f) { brightAccum += brightnessOf (buf, blockSize); ++brightBlocks; }
+        }
+
+        midi.clear();
+        for (int n : notes) midi.addEvent (juce::MidiMessage::noteOff (channel, n), 0);
+        buf.clear();
+        instance->processBlock (buf, midi);
+
+        m.rms        = totalSamples > 0 ? static_cast<float> (std::sqrt (sumSquares / totalSamples)) : 0.0f;
+        m.brightness = brightBlocks > 0 ? static_cast<float> (brightAccum / brightBlocks) : 0.0f;
+        m.sounded    = m.peak > 0.0015f;
+        return m;
+    }
+
+    // Holds a key for a while and captures the output, counting attacks along
+    // the way. Transient density is the measurement that maps onto how a phrase
+    // actually feels: a sustained chord has one attack, a chugging riff has
+    // dozens. That is exactly the sparse-to-busy axis the generator asks for.
+    struct PhraseMeasurement
+    {
+        int    note = 0;
+        int    attacks = 0;
+        double attacksPerSecond = 0.0;
+        float  peak = 0.0f;
+        float  brightness = 0.0f;
+        std::vector<float> mono;   // captured for comparison against a baseline
+    };
+
+    PhraseMeasurement capture (const std::vector<int>& held, int channel, double seconds,
+                               bool keepAudio, int velocity = 100)
+    {
+        PhraseMeasurement m;
+        m.note = held.empty() ? 0 : held.back();
+
+        const int channels = juce::jmax (2, outputChannels());
+        juce::AudioBuffer<float> buf (channels, blockSize);
+        juce::MidiBuffer midi;
+
+        pump (5);
+        for (int i = 0; i < 16; ++i) { buf.clear(); midi.clear(); instance->processBlock (buf, midi); }
+
+        const int blocks = juce::jmax (1, static_cast<int> (seconds * sampleRate / blockSize));
+        if (keepAudio) m.mono.reserve (static_cast<size_t> (blocks));
+
+        double brightAccum = 0.0; int brightBlocks = 0;
+        float prevPeak = 0.0f;
+        bool  aboveGate = false;
+
+        for (int b = 0; b < blocks; ++b)
+        {
+            buf.clear();
+            midi.clear();
+            if (b == 0)
+                for (int n : held)
+                    midi.addEvent (juce::MidiMessage::noteOn (channel, n,
+                                                              static_cast<juce::uint8> (velocity)), 0);
+
+            instance->processBlock (buf, midi);
+
+            float blockPeak = 0.0f;
+            for (int ch = 0; ch < buf.getNumChannels(); ++ch)
+                blockPeak = juce::jmax (blockPeak, buf.getMagnitude (ch, 0, blockSize));
+
+            m.peak = juce::jmax (m.peak, blockPeak);
+            if (keepAudio) m.mono.push_back (blockPeak);
+
+            if (blockPeak > 0.0005f) { brightAccum += brightnessOf (buf, blockSize); ++brightBlocks; }
+
+            // An attack is a clear rise after the level has dipped. Gating on
+            // the dip stops one long swell being counted as many attacks.
+            if (! aboveGate && blockPeak > 0.04f && blockPeak > prevPeak * 1.5f)
+            {
+                ++m.attacks;
+                aboveGate = true;
+            }
+            else if (aboveGate && blockPeak < prevPeak * 0.7f)
+            {
+                aboveGate = false;
+            }
+            prevPeak = blockPeak;
+        }
+
+        midi.clear();
+        for (int n : held) midi.addEvent (juce::MidiMessage::noteOff (channel, n), 0);
+        buf.clear();
+        instance->processBlock (buf, midi);
+
+        m.brightness       = brightBlocks > 0 ? static_cast<float> (brightAccum / brightBlocks) : 0.0f;
+        m.attacksPerSecond = seconds > 0.0 ? m.attacks / seconds : 0.0;
+        return m;
+    }
+
+    double sampleRate = 48000.0;
+    int    blockSize  = 512;
+
+private:
+    juce::AudioPluginFormatManager formatManager;
+    std::unique_ptr<juce::AudioPluginInstance> instance;
+    std::unique_ptr<juce::AudioProcessorEditor> editor;
+    juce::String name;
+};
+
+juce::String noteName (int n)
+{
+    static const char* names[12] = { "C","C#","D","D#","E","F","F#","G","G#","A","A#","B" };
+    return juce::String (names[((n % 12) + 12) % 12]) + juce::String (n / 12 - 1);
+}
+
+} // namespace
+
+int main (int argc, char** argv)
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+
+    if (argc < 2)
+    {
+        std::cout <<
+            "Probe a VST3's MIDI map by measuring what each note actually produces.\n\n"
+            "  ghostband_probe <plugin.vst3> [options]\n\n"
+            "  --low <n>       first MIDI note to test (default 24)\n"
+            "  --high <n>      last MIDI note to test (default 96)\n"
+            "  --channel <n>   MIDI channel (default 1; use 10 for drums)\n"
+            "  --hold <secs>   how long to hold each note (default 0.35)\n"
+            "  --tail <secs>   how long to listen after release (default 1.2)\n"
+            "  --warmup <secs> settle time before probing (default 3)\n"
+            "  --chords        also test three-note chords, to find a chord zone\n";
+        return 1;
+    }
+
+    const juce::String path = argv[1];
+    int    low = 24, high = 96, channel = 1;
+    double hold = 0.35, tail = 1.2, warmup = 3.0;
+    bool   testChords = false;
+    juce::String mode = "sweep";
+    double phraseSecs = 4.0;
+    int    phraseKey  = -1;
+
+    for (int i = 2; i < argc; ++i)
+    {
+        const juce::String a = argv[i];
+        const bool hasNext = (i + 1 < argc);
+        if      (a == "--mode"       && hasNext) mode       = argv[++i];
+        else if (a == "--phrase-secs"&& hasNext) phraseSecs = juce::String (argv[++i]).getDoubleValue();
+        else if (a == "--phrase-key" && hasNext) phraseKey  = juce::String (argv[++i]).getIntValue();
+        else if (a == "--low"     && hasNext) low     = juce::String (argv[++i]).getIntValue();
+        else if (a == "--high"    && hasNext) high    = juce::String (argv[++i]).getIntValue();
+        else if (a == "--channel" && hasNext) channel = juce::String (argv[++i]).getIntValue();
+        else if (a == "--hold"    && hasNext) hold    = juce::String (argv[++i]).getDoubleValue();
+        else if (a == "--tail"    && hasNext) tail    = juce::String (argv[++i]).getDoubleValue();
+        else if (a == "--warmup"  && hasNext) warmup  = juce::String (argv[++i]).getDoubleValue();
+        else if (a == "--chords")             testChords = true;
+    }
+
+    Probe probe;
+    juce::String error;
+
+    std::cout << "loading " << path << " ...\n";
+    if (! probe.load (path, error))
+    {
+        std::cerr << "failed: " << error << "\n";
+        return 1;
+    }
+
+    std::cout << "loaded  : " << probe.getName() << "\n";
+    probe.describe();
+    std::cout << "editor  : " << (probe.openEditor() ? "created (hidden)" : "none") << "\n";
+    probe.setPlayingTransport (true);
+    std::cout << "warming up " << warmup << "s (sample streaming, presets)...\n";
+    probe.warmUp (warmup);
+
+    std::cout << "\nprobing notes " << low << "-" << high << " on channel " << channel << "\n";
+    std::cout << "note  name    peak      rms    bright   decay   verdict\n";
+    std::cout << "-------------------------------------------------------\n";
+
+    int sounded = 0;
+    for (int n = low; n <= high; ++n)
+    {
+        const NoteMeasurement m = probe.measureNote (n, channel, hold, tail);
+        if (m.sounded) ++sounded;
+
+        juce::String verdict;
+        if (! m.sounded)                       verdict = "silent";
+        else if (m.decaySecs < 0.35)           verdict = m.brightness > 0.25 ? "short/bright" : "short/dark";
+        else if (m.decaySecs < 1.0)            verdict = m.brightness > 0.25 ? "med/bright"   : "med/dark";
+        else                                   verdict = m.brightness > 0.25 ? "long/bright"  : "long/dark";
+
+        std::printf ("%4d  %-5s  %7.4f  %7.4f  %6.3f  %6.2f   %s\n",
+                     n, noteName (n).toRawUTF8(), m.peak, m.rms, m.brightness,
+                     m.decaySecs, verdict.toRawUTF8());
+    }
+
+    std::cout << "\n" << sounded << " of " << (high - low + 1) << " notes produced sound\n";
+
+    if (mode == "phrases")
+    {
+        // Rank every key in the range by how busy it is, so the generator's
+        // abstract "sparse" and "busy" can be mapped onto real phrase keys.
+        std::cout << "\nphrase character, holding each key for " << phraseSecs << "s\n";
+        std::cout << "note  name   attacks  per-sec    peak   bright\n";
+        std::cout << "------------------------------------------------\n";
+        for (int n = low; n <= high; ++n)
+        {
+            const auto m = probe.capture ({ n }, channel, phraseSecs, false);
+            std::printf ("%4d  %-5s  %7d  %7.2f  %6.3f  %6.3f\n",
+                         n, noteName (n).toRawUTF8(), m.attacks, m.attacksPerSecond,
+                         m.peak, m.brightness);
+        }
+        return 0;
+    }
+
+    if (mode == "zone")
+    {
+        // Find the chord zone by difference. Hold a phrase key alone, then hold
+        // it again with a triad added, and see whether the output changed. A
+        // key that changes the phrase is a chord key; one that changes nothing
+        // is outside the zone.
+        if (phraseKey < 0)
+        {
+            std::cerr << "--zone needs --phrase-key <n> (a key that makes sound on its own)\n";
+            return 1;
+        }
+
+        const auto baseline = probe.capture ({ phraseKey }, channel, 2.5, true);
+        std::cout << "\nbaseline: phrase key " << phraseKey << " alone, peak "
+                  << juce::String (baseline.peak, 4) << "\n\n";
+        std::cout << "root  name   difference   verdict\n";
+        std::cout << "------------------------------------\n";
+
+        for (int n = low; n <= high; ++n)
+        {
+            const auto withChord = probe.capture ({ n, n + 3, n + 7, phraseKey }, channel, 2.5, true);
+
+            double diff = 0.0, level = 0.0;
+            const size_t count = juce::jmin (baseline.mono.size(), withChord.mono.size());
+            for (size_t i = 0; i < count; ++i)
+            {
+                diff  += std::abs (withChord.mono[i] - baseline.mono[i]);
+                level += std::abs (baseline.mono[i]);
+            }
+            const double rel = level > 1.0e-9 ? diff / level : 0.0;
+
+            std::printf ("%4d  %-5s  %10.4f   %s\n", n, noteName (n).toRawUTF8(), rel,
+                         rel > 0.08 ? "CHORD KEY" : "no effect");
+        }
+        return 0;
+    }
+
+    if (testChords)
+    {
+        std::cout << "\nprobing three-note chords (finding a chord zone)\n";
+        std::cout << "root  name    peak      bright   verdict\n";
+        std::cout << "------------------------------------------\n";
+        for (int n = low; n <= high; ++n)
+        {
+            const NoteMeasurement m = probe.measureChord ({ n, n + 3, n + 7 }, channel, 1.5);
+            std::printf ("%4d  %-5s  %7.4f  %6.3f   %s\n",
+                         n, noteName (n).toRawUTF8(), m.peak, m.brightness,
+                         m.sounded ? "sounds" : "silent");
+        }
+    }
+
+    return 0;
+}

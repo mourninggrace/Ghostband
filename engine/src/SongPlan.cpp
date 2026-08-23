@@ -33,6 +33,38 @@ std::string inferRole (const std::string& sectionName)
     return s.empty() ? "verse" : s;
 }
 
+// "full", "none", or a list like "drums+bass" or "drums, guitar". Anything not
+// named is silent, which is how a section drops the band down to one part.
+static void parsePlays (const std::string& spec, SectionPlan& s)
+{
+    const std::string p = toLower (spec);
+
+    const bool all  = (p.empty() || p == "full" || p == "all" || p == "band");
+    const bool none = (p == "none" || p == "silent");
+
+    s.playsDrums = s.playsBass = s.playsGuitar = s.playsPiano = all;
+    if (all || none)
+        return;
+
+    std::string token;
+    auto commit = [&s, &token]
+    {
+        if (token.empty()) return;
+        if      (token == "drums"  || token == "drum")   s.playsDrums  = true;
+        else if (token == "bass")                        s.playsBass   = true;
+        else if (token == "guitar" || token == "gtr")    s.playsGuitar = true;
+        else if (token == "piano"  || token == "keys")   s.playsPiano  = true;
+        token.clear();
+    };
+
+    for (char c : p)
+    {
+        if (c == '+' || c == ',' || c == ' ' || c == '&') commit();
+        else token += c;
+    }
+    commit();
+}
+
 static void loadSection (const Json& j, SectionPlan& s, int index)
 {
     s.name = j.stringOr ("name", "section" + std::to_string (index + 1));
@@ -46,6 +78,11 @@ static void loadSection (const Json& j, SectionPlan& s, int index)
     s.bassPattern = toLower (j.stringOr ("bass", j.stringOr ("bass_pattern", "auto")));
     s.fill        = toLower (j.stringOr ("fill", "auto"));
     s.plays       = toLower (j.stringOr ("plays", "full"));
+    parsePlays (s.plays, s);
+
+    s.guitarPhrase = toLower (j.stringOr ("guitar", "auto"));
+    s.pianoPhrase  = toLower (j.stringOr ("piano",  "auto"));
+
     s.vary        = j.boolOr  ("vary", true);
 
     if (s.intensity < 0.0) s.intensity = 0.0;
@@ -85,8 +122,10 @@ static bool fromJson (const Json& j, const std::string& sourceName,
     out.seed       = static_cast<unsigned> (j.intOr ("seed", 1));
     out.ending     = toLower (j.stringOr ("ending", "hard_stop"));
 
-    out.drumProfile = j.stringOr ("drum_profile", out.drumProfile);
-    out.bassProfile = j.stringOr ("bass_profile", out.bassProfile);
+    out.drumProfile   = j.stringOr ("drum_profile", out.drumProfile);
+    out.bassProfile   = j.stringOr ("bass_profile", out.bassProfile);
+    out.guitarProfile = j.stringOr ("guitar_profile", "");
+    out.pianoProfile  = j.stringOr ("piano_profile", "");
 
     if (out.bpm < 20.0)  out.bpm = 20.0;
     if (out.bpm > 300.0) out.bpm = 300.0;

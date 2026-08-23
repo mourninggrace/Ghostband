@@ -43,6 +43,53 @@ struct BassIntent
     BassArtic artic         = BassArtic::Normal;
 };
 
+// Phrase-driven instruments - the UJAM family - are a different dialect
+// entirely. They do not want notes. You hold a chord in a low key zone and
+// press a key in a phrase zone, and the instrument plays a professionally
+// performed riff in that harmony. So Ghostband does not compose these parts:
+// it chooses a phrase and supplies the chord. The generators still speak only
+// in intent; a profile decides which keys that means for a given plugin.
+enum class PhraseFeel
+{
+    Silent,      // the part sits this section out
+    Sparse,      // long, open, minimal
+    Muted,       // tight and palm-muted, tracking the kick
+    Driving,     // steady rhythmic push
+    Open,        // full sustained chords, the chorus lift
+    Busy         // the most active option the instrument has
+};
+
+const char* phraseFeelName     (PhraseFeel f);
+PhraseFeel  phraseFeelFromName (const std::string& s, bool& ok);
+
+// Hold this harmony from tick for durationTicks. The profile voices it into
+// whatever key range the target plugin reads chords from.
+struct ChordIntent
+{
+    int    tick          = 0;
+    int    durationTicks = 0;
+    int    rootPc        = 0;   // 0..11
+    int    thirdSemis    = 3;   // -1 for no third
+    int    fifthSemis    = 7;
+    double accent        = 0.7;
+};
+
+// Switch the instrument to this phrase. Emitted at section and phrase changes,
+// never per note.
+struct PhraseIntent
+{
+    int        tick   = 0;
+    PhraseFeel feel   = PhraseFeel::Driving;
+    double     accent = 0.8;
+};
+
+// One phrase-driven part: the chords it holds and the phrases it switches to.
+struct PhrasePart
+{
+    std::vector<ChordIntent>  chords;
+    std::vector<PhraseIntent> phrases;
+};
+
 struct Marker
 {
     int         tick = 0;
@@ -54,6 +101,8 @@ struct Performance
 {
     std::vector<DrumIntent> drums;
     std::vector<BassIntent> bass;
+    PhrasePart              guitar;
+    PhrasePart              piano;
     std::vector<Marker>     markers;
 
     // Tempo changes, used only by endings that slow down.

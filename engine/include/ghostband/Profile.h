@@ -93,4 +93,48 @@ private:
     std::vector<ArticulationMapping> artics;
 };
 
+// Driver for a phrase-driven instrument: the UJAM family and anything else that
+// wants a chord held in one key zone and a phrase selected from another. The
+// engine never names a key here - it says "muted" or "open" and this decides
+// what that means for one specific plugin.
+class PhraseProfile
+{
+public:
+    PhraseProfile();
+
+    std::string name = "Generic phrase instrument";
+    std::string id   = "generic_phrase";
+    int  channel     = 2;
+    int  velocityMin = 60;
+    int  velocityMax = 127;
+
+    // Where chords are read from. Roots are folded into this range.
+    int  chordLowest  = 24;
+    int  chordHighest = 47;
+
+    // Phrase keys are momentary: a short blip switches the active phrase, and
+    // it must land before the chord it applies to.
+    int  phraseLeadTicks   = 60;
+    int  phraseBlipTicks   = 40;
+    int  phraseVelocity    = 100;
+
+    bool        needsVerification = false;
+    std::string verificationNote;
+
+    // -1 when this instrument has no key for that feel, in which case the
+    // generator's choice is quietly ignored rather than triggering the wrong one.
+    int keyFor (PhraseFeel f) const;
+    bool hasFeel (PhraseFeel f) const { return keyFor (f) >= 0; }
+
+    static bool load (const std::string& path, PhraseProfile& out, std::string& error);
+
+    void render (const PhrasePart& part, MidiTrack& track) const;
+
+    // Every phrase key this profile defines, lowest first, for calibration.
+    std::vector<std::pair<PhraseFeel, int>> allPhraseKeys() const;
+
+private:
+    std::vector<int> phraseKeys;   // indexed by PhraseFeel
+};
+
 } // namespace gb

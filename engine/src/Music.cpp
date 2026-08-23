@@ -180,6 +180,20 @@ static ChordQuality triadQuality (const std::vector<int>& sc, int degree)
     return third == 3 ? ChordQuality::Minor : ChordQuality::Major;
 }
 
+ChordQuality diatonicTriadQuality (int rootPc, int keyPc, Mode mode)
+{
+    const std::vector<int>& sc = scaleIntervals (mode);
+    const int wanted = (((rootPc - keyPc) % 12) + 12) % 12;
+
+    for (int degree = 0; degree < 7; ++degree)
+        if (sc[static_cast<size_t> (degree)] == wanted)
+            return triadQuality (sc, degree);
+
+    // Not in the key - very common in rock, where a bVII or a bIII is borrowed
+    // freely. Assume it behaves like the tonic does.
+    return triadQuality (sc, 0);
+}
+
 std::vector<Chord> autoProgression (int keyPc,
                                     Mode mode,
                                     const std::string& style,

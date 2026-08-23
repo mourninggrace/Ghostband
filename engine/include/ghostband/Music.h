@@ -56,4 +56,11 @@ std::vector<Chord> autoProgression (int keyPc,
 // True for styles that should be voiced as power chords throughout.
 bool styleUsesPowerChords (const std::string& style);
 
+// The triad quality a root implies inside a key. Power chords carry no third,
+// which is fine for a bass but useless to a phrase-driven instrument that has
+// to be told major or minor - so this recovers the harmony the power chord is
+// standing in for. Falls back to the mode's tonic quality when the root is not
+// diatonic.
+ChordQuality diatonicTriadQuality (int rootPc, int keyPc, Mode mode);
+
 } // namespace gb

@@ -77,6 +77,15 @@ void generateDrumBar (const GrooveContext& ctx,
                       Rng& rng,
                       std::vector<DrumIntent>& out);
 
+// Which phrase a phrase-driven part should be playing in this section.
+//
+// These are drawn from weighted pools rather than switched on thresholds. That
+// is deliberate: the drum skeleton was built on thresholds and ended up with no
+// audible variation between rerolls at all, which is the one thing these parts
+// must not repeat.
+PhraseFeel chooseGuitarFeel (const GrooveContext& ctx, Rng& rng);
+PhraseFeel choosePianoFeel  (const GrooveContext& ctx, Rng& rng);
+
 void generateBassBar (const GrooveContext& ctx,
                       const BarGrid& grid,
                       int barStartTick,

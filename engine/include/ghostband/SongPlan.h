@@ -20,7 +20,20 @@ struct SectionPlan
 
     std::string bassPattern = "auto";       // auto/lock_kick/lock_kick_octave/eighths/sixteenths/roots
     std::string fill        = "auto";       // auto/none/small/big
-    std::string plays       = "full";       // full/drums/bass/none
+
+    // "full", "none", or a list: "drums+bass", "drums,guitar". Parsed into the
+    // flags below, which are what the renderer actually reads.
+    std::string plays       = "full";
+    bool playsDrums  = true;
+    bool playsBass   = true;
+    bool playsGuitar = true;
+    bool playsPiano  = true;
+
+    // auto/silent/sparse/muted/driving/open/busy. "auto" lets the section's
+    // intensity and feel choose.
+    std::string guitarPhrase = "auto";
+    std::string pianoPhrase  = "auto";
+
     bool        vary        = true;         // false makes a repeated section identical
 };
 
@@ -50,6 +63,15 @@ struct SongPlan
 
     std::string drumProfile = "profiles/ssd5.json";
     std::string bassProfile = "profiles/modo-bass-2.json";
+
+    // Empty means the part does not exist in this song at all. Guitar and piano
+    // are opt-in precisely so that adding them to the engine leaves every plan
+    // written before them rendering exactly as it did.
+    std::string guitarProfile;
+    std::string pianoProfile;
+
+    bool hasGuitar() const { return ! guitarProfile.empty(); }
+    bool hasPiano()  const { return ! pianoProfile.empty(); }
 
     std::vector<SectionPlan> sections;
 
