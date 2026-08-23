@@ -65,8 +65,14 @@ set_target_properties(ghostband PROPERTIES
 set(GHOSTBAND_JUCE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/external/JUCE"
     CACHE PATH "Path to a JUCE 8.x checkout")
 
+# JUCE is a pinned submodule. It used to fall back to a hardcoded path into an
+# unrelated project on one particular machine, which meant this repository built
+# nowhere else - and failed with a confusing error when it did.
 if (NOT EXISTS "${GHOSTBAND_JUCE_PATH}/CMakeLists.txt")
-    set(GHOSTBAND_JUCE_PATH "C:/Projects/Polygraph/external/JUCE")
+    message(FATAL_ERROR
+        "JUCE is missing from ${GHOSTBAND_JUCE_PATH}.\n"
+        "Run:  git submodule update --init --recursive\n"
+        "Or point -DGHOSTBAND_JUCE_PATH=<path> at an existing JUCE 8.x checkout.")
 endif()
 
 if (EXISTS "${GHOSTBAND_JUCE_PATH}/CMakeLists.txt")

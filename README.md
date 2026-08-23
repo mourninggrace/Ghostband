@@ -251,3 +251,35 @@ emits silence until the rate is known.
 - A control lane for CC/OSC, for driving plugins that expose only audio pins and
   have to be steered through Gig Performer widgets instead of notes. The profile
   format is shaped to take it without a rewrite.
+
+## Licence
+
+Ghostband is free software under the **GNU AGPLv3** — see [LICENSE](LICENSE).
+
+That is the same licence JUCE itself offers, which is what makes this possible at
+no cost and with no revenue cap. If you distribute Ghostband, modified or not,
+you must pass on the same freedoms and make your source available.
+
+The engine deliberately contains **no third-party code at all** — no JSON library,
+no PRNG, nothing. The entire licensing surface is JUCE, and only the plugin layer
+touches it. `ghostband.exe` links the engine alone.
+
+The VST3 SDK is MIT-licensed as of late 2025, so it imposes nothing.
+
+## Supporting the project
+
+Ghostband is free and always will be. If it earns its place in your rig, there is
+a donate button in the plugin — it is a button, not a nag, and nothing is gated
+behind it.
+
+## Building it yourself
+
+```bash
+git clone --recursive https://github.com/mourninggrace/Ghostband
+cd Ghostband && Build.bat
+```
+
+If you forget `--recursive`, run `git submodule update --init --recursive`. The
+build tells you so rather than failing obscurely. JUCE is pinned to 8.0.15; the
+C++ runtime is linked statically, so the resulting plugin has no dependencies
+beyond Windows itself.
