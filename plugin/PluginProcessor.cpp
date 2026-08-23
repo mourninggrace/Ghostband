@@ -218,6 +218,175 @@ void GhostbandProcessor::loadPlan (const juce::File& file)
     regenerate();
 }
 
+//==============================================================================
+// Calibration
+
+void GhostbandProcessor::enterCalibration()
+{
+    std::vector<CalibrationStep> steps;
+
+    {
+        const juce::ScopedLock sl (stateLock);
+
+        // Drums first: seventeen voices is the biggest and most error-prone map,
+        // and the one the headless probe could not read.
+        for (int v = 0; v < static_cast<int> (gb::DrumVoice::Count); ++v)
+        {
+            const gb::DrumVoice voice = static_cast<gb::DrumVoice> (v);
+            const int note = kit.noteFor (voice);
+            if (note < 0) continue;
+
+            CalibrationStep s;
+            s.label   = juce::String (gb::drumVoiceName (voice)).replace ("_", " ");
+            s.hint    = "should sound like a " + s.label;
+            s.note    = note;
+            s.channel = kit.channel;
+            s.isDrum  = true;
+            steps.push_back (s);
+        }
+
+        // Then the bass, whose lowest playable note decides how heavy a drop
+        // tuning actually sounds.
+        CalibrationStep low;
+        low.label   = "bass lowest note";
+        low.hint    = "the lowest note the bass can play in " + juce::String (plan.bassTuning);
+        low.note    = bassProfile.lowestNoteFor (plan.bassTuning);
+        low.channel = bassProfile.channel;
+        low.isDrum  = false;
+        steps.push_back (low);
+    }
+
+    {
+        const juce::ScopedLock sl (stateLock);
+        calibrationSteps = std::move (steps);
+        calibrationEdited = false;
+    }
+
+    calibrating.store (true);
+    stateChanged.sendChangeMessage();
+}
+
+void GhostbandProcessor::exitCalibration()
+{
+    calibrating.store (false);
+    stateChanged.sendChangeMessage();
+}
+
+int GhostbandProcessor::getCalibrationStepCount() const
+{
+    const juce::ScopedLock sl (stateLock);
+    return static_cast<int> (calibrationSteps.size());
+}
+
+GhostbandProcessor::CalibrationStep GhostbandProcessor::getCalibrationStep (int index) const
+{
+    const juce::ScopedLock sl (stateLock);
+    if (index < 0 || index >= static_cast<int> (calibrationSteps.size()))
+        return {};
+    return calibrationSteps[static_cast<size_t> (index)];
+}
+
+void GhostbandProcessor::auditionStep (int index)
+{
+    const CalibrationStep s = getCalibrationStep (index);
+    if (s.note < 0) return;
+
+    // A drum is a one-shot, so a short note is plenty. A pitched note needs to
+    // ring long enough to judge its pitch.
+    const double holdSeconds = s.isDrum ? 0.12 : 0.9;
+    const int holdSamples = static_cast<int> (holdSeconds * juce::jmax (8000.0, getSampleRate()));
+
+    const juce::SpinLock::ScopedLockType lock (auditionLock);
+    pendingAuditions.push_back ({ 0, juce::MidiMessage::noteOn (s.channel, s.note, (juce::uint8) 100) });
+    pendingAuditions.push_back ({ holdSamples, juce::MidiMessage::noteOff (s.channel, s.note) });
+}
+
+void GhostbandProcessor::nudgeCalibrationNote (int index, int delta)
+{
+    {
+        const juce::ScopedLock sl (stateLock);
+        if (index < 0 || index >= static_cast<int> (calibrationSteps.size()))
+            return;
+        auto& s = calibrationSteps[static_cast<size_t> (index)];
+        s.note = juce::jlimit (0, 127, s.note + delta);
+        calibrationEdited = true;
+    }
+    auditionStep (index);   // hearing the result immediately is the whole point
+    stateChanged.sendChangeMessage();
+}
+
+bool GhostbandProcessor::saveCalibration (juce::String& error)
+{
+    juce::String drumPath;
+    std::vector<CalibrationStep> steps;
+
+    {
+        const juce::ScopedLock sl (stateLock);
+        steps = calibrationSteps;
+
+        const juce::File base = planFile.existsAsFile() ? planFile.getParentDirectory() : juce::File();
+        const juce::String rel (plan.drumProfile);
+        if (base != juce::File())
+        {
+            const juce::File a = base.getChildFile (rel);
+            const juce::File b = base.getParentDirectory().getChildFile (rel);
+            if (a.existsAsFile()) drumPath = a.getFullPathName();
+            else if (b.existsAsFile()) drumPath = b.getFullPathName();
+        }
+        if (drumPath.isEmpty() && juce::File (rel).existsAsFile())
+            drumPath = rel;
+    }
+
+    if (drumPath.isEmpty())
+    {
+        error = "No drum profile file to write to. Load a plan that names one.";
+        return false;
+    }
+
+    // Written as a complete standalone profile rather than patched in place:
+    // the file may inherit from a base, and silently rewriting an inherited file
+    // would change every other kit that shares it.
+    juce::String json;
+    json << "{\n"
+         << "  // Calibrated in Ghostband on this machine, by ear.\n"
+         << "  // Any note here was confirmed against the real plugin.\n\n"
+         << "  \"name\": \"" << juce::String (kit.name).replace ("\"", "'") << " (calibrated)\",\n"
+         << "  \"id\": \"" << juce::String (kit.id) << "_calibrated\",\n"
+         << "  \"channel\": " << kit.channel << ",\n\n"
+         << "  \"needs_verification\": false,\n\n"
+         << "  \"velocity_min\": " << kit.velocityMin << ",\n"
+         << "  \"velocity_max\": " << kit.velocityMax << ",\n\n"
+         << "  \"notes\": {\n";
+
+    juce::StringArray entries;
+    for (const CalibrationStep& s : steps)
+    {
+        if (! s.isDrum) continue;
+        entries.add ("    \"" + s.label.replace (" ", "_") + "\": " + juce::String (s.note));
+    }
+    json << entries.joinIntoString (",\n") << "\n  }\n}\n";
+
+    const juce::File target (drumPath);
+    const juce::File backup = target.getSiblingFile (target.getFileNameWithoutExtension()
+                                                     + "-before-calibration.json");
+    if (target.existsAsFile() && ! backup.existsAsFile())
+        target.copyFileTo (backup);   // never destroy the shipped map
+
+    if (! target.replaceWithText (json))
+    {
+        error = "Could not write " + target.getFullPathName();
+        return false;
+    }
+
+    {
+        const juce::ScopedLock sl (stateLock);
+        calibrationEdited = false;
+    }
+
+    reloadPlan();
+    return true;
+}
+
 int GhostbandProcessor::getKeyPitchClass() const
 {
     const juce::ScopedLock sl (stateLock);
@@ -475,6 +644,43 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     const int numSamples = buffer.getNumSamples();
     if (numSamples <= 0)
         return;
+
+    // Auditioned notes are emitted regardless of transport state, because
+    // calibration has to work with the host stopped. Try-locked, so a missed
+    // block just delays a note nobody is timing.
+    {
+        const juce::SpinLock::ScopedTryLockType auditions (auditionLock);
+        if (auditions.isLocked() && ! pendingAuditions.empty())
+        {
+            for (size_t i = 0; i < pendingAuditions.size(); )
+            {
+                PendingMessage& p = pendingAuditions[i];
+                if (p.samplesUntil < numSamples)
+                {
+                    midi.addEvent (p.message, juce::jmax (0, p.samplesUntil));
+                    pendingAuditions.erase (pendingAuditions.begin()
+                                            + static_cast<std::ptrdiff_t> (i));
+                }
+                else
+                {
+                    p.samplesUntil -= numSamples;
+                    ++i;
+                }
+            }
+        }
+    }
+
+    // While calibrating, the song stays silent - otherwise the part you are
+    // trying to identify is buried under a full band.
+    if (calibrating.load())
+    {
+        if (wasPlaying)
+        {
+            sendAllNotesOff (midi, 0);
+            wasPlaying = false;
+        }
+        return;
+    }
 
     const juce::SpinLock::ScopedTryLockType lock (sequenceLock);
     if (! lock.isLocked())

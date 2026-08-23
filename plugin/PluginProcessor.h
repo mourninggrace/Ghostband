@@ -114,6 +114,40 @@ public:
     // Song controls. These write to the plan and regenerate, so they are message
     // thread only. Key transposes rather than only affecting auto progressions,
     // because a plan with written chords would otherwise ignore it entirely.
+    //==========================================================================
+    // Calibration.
+    //
+    // A driver profile is a claim about which MIDI note makes which sound, and
+    // those claims are often wrong. Verifying them by playing a file and reading
+    // marker timecodes off a stopwatch is not a reasonable thing to ask of
+    // anyone. This does it by ear instead: pick a voice, hear it, nudge the note
+    // until it sounds right, save.
+    //
+    // It deliberately does not need the host transport - you press a button and
+    // hear the note immediately.
+    struct CalibrationStep
+    {
+        juce::String label;      // "snare", "palm mute", "phrase: driving"
+        juce::String hint;       // what it should sound like
+        int  note    = 36;
+        int  channel = 10;
+        bool isDrum  = true;     // drums are one-shots; pitched notes are held
+    };
+
+    void enterCalibration();
+    void exitCalibration();
+    bool isCalibrating() const { return calibrating.load(); }
+
+    int  getCalibrationStepCount() const;
+    CalibrationStep getCalibrationStep (int index) const;
+
+    void auditionStep (int index);
+    void nudgeCalibrationNote (int index, int delta);
+
+    // Writes the corrected map back over the profile the plan pointed at.
+    bool saveCalibration (juce::String& error);
+    bool calibrationHasEdits() const { return calibrationEdited; }
+
     void setKeyPitchClass (int pitchClass);
     void setStyle         (const juce::String& style);
     void setBassTuning    (const juce::String& tuning);
@@ -192,6 +226,17 @@ private:
     // thread. Counted rather than flagged because a drum voice can retrigger
     // before its previous note-off has gone out.
     unsigned char activeNoteCount[16][128] = {};
+
+    // Notes the message thread wants sounded right now, for auditioning during
+    // calibration. The audio thread only ever try-locks this, so a missed block
+    // costs nothing.
+    struct PendingMessage { int samplesUntil = 0; juce::MidiMessage message; };
+    juce::SpinLock                auditionLock;
+    std::vector<PendingMessage>   pendingAuditions;
+
+    std::atomic<bool>             calibrating { false };
+    std::vector<CalibrationStep>  calibrationSteps;
+    bool                          calibrationEdited = false;
 
     // Where the previous block's window ended. Consecutive blocks are stitched
     // to this rather than recomputed from the host's ppq, because deriving both

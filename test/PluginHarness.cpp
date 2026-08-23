@@ -397,6 +397,50 @@ int main (int argc, char** argv)
         }
     }
 
+    // ---- calibration ------------------------------------------------------
+    {
+        proc.loadPlan (juce::File (planPath));
+        check (! proc.isCalibrating(), "does not start in calibration mode");
+
+        proc.enterCalibration();
+        check (proc.isCalibrating(), "enters calibration");
+
+        const int steps = proc.getCalibrationStepCount();
+        check (steps > 10, "calibration covers the whole kit",
+               juce::String (steps) + " steps");
+
+        const auto before = proc.getCalibrationStep (0);
+        proc.nudgeCalibrationNote (0, +1);
+        const auto after = proc.getCalibrationStep (0);
+        check (after.note == before.note + 1, "nudging moves the note",
+               juce::String (before.note) + " -> " + juce::String (after.note));
+        check (proc.calibrationHasEdits(), "edits are tracked so Save can be offered");
+
+        // The whole point is that this works with the host stopped - otherwise
+        // you cannot calibrate without starting a full band over the top.
+        head.playing = false;
+        proc.setPlayHead (&head);
+        proc.auditionStep (0);
+
+        bool heard = false;
+        for (int b = 0; b < 4 && ! heard; ++b)
+        {
+            buffer.clear();
+            midi.clear();
+            proc.processBlock (buffer, midi);
+            for (const juce::MidiMessageMetadata m : midi)
+                if (m.getMessage().isNoteOn()) heard = true;
+        }
+        check (heard, "auditioning sounds a note with the transport stopped");
+
+        // Put it back, and never call saveCalibration here - it would overwrite
+        // the shipped profile from a test run.
+        proc.nudgeCalibrationNote (0, -1);
+        proc.exitCalibration();
+        check (! proc.isCalibrating(), "leaves calibration");
+        proc.setPlayHead (nullptr);
+    }
+
     proc.setPlayHead (nullptr);
 
     // Parity with the CLI. Pass the counts the CLI prints for the same plan and

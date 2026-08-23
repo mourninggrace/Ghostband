@@ -46,6 +46,27 @@ private:
     int hoverIndex   = -1;
 };
 
+// The list of things calibration steps through: every drum voice the kit
+// claims to have, then the bass's lowest note.
+class CalibrationList : public juce::Component
+{
+public:
+    struct Row { juce::String label; int note = 0; };
+
+    void setRows (std::vector<Row> r);
+    void setSelected (int index);
+    void paint (juce::Graphics& g) override;
+    void mouseDown (const juce::MouseEvent& e) override;
+
+    std::function<void (int)> onRowClicked;
+
+    static constexpr int rowHeight = 26;
+
+private:
+    std::vector<Row> rows;
+    int selected = 0;
+};
+
 class GhostbandEditor : public juce::AudioProcessorEditor,
                         private juce::ChangeListener,
                         private juce::Timer
@@ -96,6 +117,22 @@ private:
 
     juce::Viewport viewport;
     SectionList    sectionList;
+
+    // ---- calibration ----
+    void updateModeVisibility();
+    void refreshCalibration();
+
+    juce::TextButton calibrateButton { "Calibrate" };
+    juce::TextButton calDoneButton   { "Done" };
+    juce::TextButton calSaveButton   { "Save map" };
+    juce::TextButton calLowerButton  { "<" };
+    juce::TextButton calHigherButton { ">" };
+    juce::TextButton calPlayButton   { "Play" };
+    juce::Label      calHintLabel;
+    juce::Label      calNoteLabel;
+    juce::Viewport   calViewport;
+    CalibrationList  calList;
+    int              calSelected = 0;
 
     std::unique_ptr<juce::FileChooser> chooser;
 

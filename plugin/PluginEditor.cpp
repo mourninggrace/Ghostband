@@ -205,13 +205,69 @@ void SectionList::paint (juce::Graphics& g)
 
 //==============================================================================
 
+void CalibrationList::setRows (std::vector<Row> r)
+{
+    rows = std::move (r);
+    setSize (getWidth(), juce::jmax (1, static_cast<int> (rows.size()) * rowHeight));
+    repaint();
+}
+
+void CalibrationList::setSelected (int index)
+{
+    if (index == selected) return;
+    selected = index;
+    repaint();
+}
+
+void CalibrationList::mouseDown (const juce::MouseEvent& e)
+{
+    const int row = e.getPosition().y / rowHeight;
+    if (row >= 0 && row < static_cast<int> (rows.size()) && onRowClicked)
+        onRowClicked (row);
+}
+
+void CalibrationList::paint (juce::Graphics& g)
+{
+    g.fillAll (ghost::panel);
+
+    for (size_t i = 0; i < rows.size(); ++i)
+    {
+        const auto r = juce::Rectangle<int> (0, static_cast<int> (i) * rowHeight,
+                                             getWidth(), rowHeight);
+        const bool active = static_cast<int> (i) == selected;
+
+        if (active)
+        {
+            g.setColour (ghost::accent.withAlpha (0.15f));
+            g.fillRect (r);
+            g.setColour (ghost::accent);
+            g.fillRect (r.withWidth (3));
+        }
+
+        auto inner = r.reduced (12, 0);
+        g.setColour (active ? ghost::accent : ghost::text);
+        g.setFont (juce::Font (juce::FontOptions (12.0f)));
+        g.drawText (rows[i].label, inner.removeFromLeft (inner.getWidth() - 60),
+                    juce::Justification::centredLeft);
+
+        g.setColour (ghost::dim);
+        g.setFont (juce::Font (juce::FontOptions (11.0f)));
+        g.drawText ("note " + juce::String (rows[i].note), inner,
+                    juce::Justification::centredRight);
+    }
+}
+
+//==============================================================================
+
 GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
 {
     styleButton (loadButton, false);
     styleButton (reloadButton, false);
     styleButton (rollButton, true);
+    styleButton (calibrateButton, false);
 
+    addAndMakeVisible (calibrateButton);
     addAndMakeVisible (loadButton);
     addAndMakeVisible (reloadButton);
     addAndMakeVisible (rollButton);
@@ -358,8 +414,56 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     viewport.setColour (juce::ScrollBar::thumbColourId, ghost::line.brighter (0.4f));
     addAndMakeVisible (viewport);
 
+    // ---- calibration ----
+    for (juce::TextButton* b : std::initializer_list<juce::TextButton*> {
+             &calibrateButton, &calDoneButton, &calSaveButton,
+             &calLowerButton, &calHigherButton, &calPlayButton })
+    {
+        styleButton (*b, b == &calPlayButton);
+        addAndMakeVisible (*b);
+    }
+
+    initLabel (calHintLabel, "", 12.0f, ghost::text, juce::Justification::centredLeft);
+    initLabel (calNoteLabel, "", 22.0f, ghost::accent, juce::Justification::centred);
+
+    calibrateButton.onClick = [this] { processor.enterCalibration(); calSelected = 0; };
+    calDoneButton.onClick   = [this] { processor.exitCalibration(); };
+    calPlayButton.onClick   = [this] { processor.auditionStep (calSelected); };
+    calLowerButton.onClick  = [this] { processor.nudgeCalibrationNote (calSelected, -1); };
+    calHigherButton.onClick = [this] { processor.nudgeCalibrationNote (calSelected, +1); };
+
+    calSaveButton.onClick = [this]
+    {
+        juce::String err;
+        if (processor.saveCalibration (err))
+        {
+            calHintLabel.setText ("Saved. The old map was backed up alongside it.",
+                                  juce::dontSendNotification);
+            calHintLabel.setColour (juce::Label::textColourId, ghost::accent);
+        }
+        else
+        {
+            calHintLabel.setText (err, juce::dontSendNotification);
+            calHintLabel.setColour (juce::Label::textColourId, ghost::warn);
+        }
+    };
+
+    calList.onRowClicked = [this] (int row)
+    {
+        calSelected = row;
+        calList.setSelected (row);
+        processor.auditionStep (row);
+        refreshCalibration();
+    };
+
+    calViewport.setViewedComponent (&calList, false);
+    calViewport.setScrollBarsShown (true, false);
+    calViewport.setColour (juce::ScrollBar::thumbColourId, ghost::line.brighter (0.4f));
+    addChildComponent (calViewport);
+
     processor.stateChanged.addChangeListener (this);
     refreshFromProcessor();
+    updateModeVisibility();
 
     // Resizable, with a floor that keeps the controls from overlapping. The
     // size lives on the processor so it survives closing the window and is
@@ -475,6 +579,66 @@ void GhostbandEditor::styleSlider (juce::Slider& s)
 void GhostbandEditor::changeListenerCallback (juce::ChangeBroadcaster*)
 {
     refreshFromProcessor();
+    updateModeVisibility();
+}
+
+void GhostbandEditor::updateModeVisibility()
+{
+    const bool cal = processor.isCalibrating();
+
+    // Song controls and calibration controls occupy the same space; only one
+    // set is ever visible.
+    // Spelled as initializer_list<Component*> because the members are all
+    // different types and a bare braced list has nothing to deduce from.
+    for (juce::Component* c : std::initializer_list<juce::Component*> {
+             &loadButton, &reloadButton, &rollButton,
+             &complexitySlider, &humanizeSlider, &complexityLabel,
+             &humanizeLabel, &seedEditor, &seedLabel, &keyBox, &styleBox,
+             &tuningBox, &keyLabel, &styleLabel, &tuningLabel,
+             &tempoLabel, &transportLabel, &summaryLabel, &viewport })
+        c->setVisible (! cal);
+
+    for (juce::Component* c : std::initializer_list<juce::Component*> {
+             &calDoneButton, &calSaveButton, &calLowerButton, &calHigherButton,
+             &calPlayButton, &calHintLabel, &calNoteLabel, &calViewport })
+        c->setVisible (cal);
+
+    calibrateButton.setVisible (! cal);
+
+    if (cal)
+        refreshCalibration();
+
+    resized();
+}
+
+void GhostbandEditor::refreshCalibration()
+{
+    const int count = processor.getCalibrationStepCount();
+    calSelected = juce::jlimit (0, juce::jmax (0, count - 1), calSelected);
+
+    std::vector<CalibrationList::Row> rows;
+    rows.reserve (static_cast<size_t> (count));
+    for (int i = 0; i < count; ++i)
+    {
+        const auto s = processor.getCalibrationStep (i);
+        rows.push_back ({ s.label, s.note });
+    }
+    calList.setRows (std::move (rows));
+    calList.setSelected (calSelected);
+    calList.setSize (juce::jmax (100, calViewport.getWidth() - 10), calList.getHeight());
+
+    const auto s = processor.getCalibrationStep (calSelected);
+    calNoteLabel.setText ("note " + juce::String (s.note), juce::dontSendNotification);
+
+    if (! calHintLabel.getText().startsWith ("Saved"))
+    {
+        calHintLabel.setText ("Press Play. If it does not sound like a " + s.label
+                                  + ", use < and > until it does.",
+                              juce::dontSendNotification);
+        calHintLabel.setColour (juce::Label::textColourId, ghost::text);
+    }
+
+    calSaveButton.setEnabled (processor.calibrationHasEdits());
 }
 
 void GhostbandEditor::refreshFromProcessor()
@@ -554,6 +718,41 @@ void GhostbandEditor::resized()
     r = r.reduced (16, 12);
 
     auto planRow = r.removeFromTop (28);
+
+    if (processor.isCalibrating())
+    {
+        calDoneButton.setBounds (planRow.removeFromLeft (72));
+        planRow.removeFromLeft (6);
+        calSaveButton.setBounds (planRow.removeFromLeft (86));
+        planRow.removeFromLeft (10);
+        planLabel.setBounds (planRow);
+
+        r.removeFromTop (10);
+        calHintLabel.setBounds (r.removeFromTop (18));
+        r.removeFromTop (10);
+
+        auto nudge = r.removeFromTop (40);
+        calLowerButton.setBounds (nudge.removeFromLeft (52));
+        nudge.removeFromLeft (8);
+        calNoteLabel.setBounds (nudge.removeFromLeft (120));
+        nudge.removeFromLeft (8);
+        calHigherButton.setBounds (nudge.removeFromLeft (52));
+        nudge.removeFromLeft (16);
+        calPlayButton.setBounds (nudge.removeFromLeft (90));
+
+        r.removeFromTop (12);
+        auto footer = r.removeFromBottom (32);
+        statusLabel.setBounds (footer.removeFromTop (16));
+        profilesLabel.setBounds (footer);
+        r.removeFromBottom (8);
+
+        calViewport.setBounds (r);
+        calList.setSize (r.getWidth() - 10, calList.getHeight());
+        return;
+    }
+
+    calibrateButton.setBounds (planRow.removeFromRight (86));
+    planRow.removeFromRight (10);
     loadButton.setBounds (planRow.removeFromLeft (104));
     planRow.removeFromLeft (6);
     reloadButton.setBounds (planRow.removeFromLeft (72));
