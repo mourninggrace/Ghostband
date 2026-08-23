@@ -131,6 +131,39 @@ public:
                   << ", out " << instance->getTotalNumOutputChannels() << "\n";
     }
 
+    // Dumps every parameter whose name is not one of the generic MIDI CC
+    // passthroughs. A plugin's style or preset selector shows up here, which
+    // saves asking a human to read it off a UI.
+    void dumpInterestingParameters() const
+    {
+        if (instance == nullptr) return;
+
+        const auto& params = instance->getParameters();
+        std::cout << "\ninteresting parameters (excluding generic MIDI CC slots)\n";
+        std::cout << "-------------------------------------------------------\n";
+
+        int shown = 0;
+        for (int i = 0; i < params.size(); ++i)
+        {
+            const juce::String n = params[i]->getName (60);
+            if (n.startsWithIgnoreCase ("MIDI CC")) continue;
+
+            std::cout << "  [" << i << "] " << n
+                      << "  =  " << params[i]->getCurrentValueAsText();
+
+            const auto choices = params[i]->getAllValueStrings();
+            if (choices.size() > 1 && choices.size() <= 40)
+                std::cout << "   {" << choices.joinIntoString (" | ") << "}";
+
+            std::cout << "\n";
+            if (++shown > 200) { std::cout << "  ... truncated\n"; break; }
+        }
+        std::cout << shown << " non-CC parameters\n";
+
+        std::cout << "buses   : in " << instance->getTotalNumInputChannels()
+                  << ", out " << instance->getTotalNumOutputChannels() << "\n";
+    }
+
     // Some instruments only stream their content once transport is rolling.
     void setPlayingTransport (bool shouldPlay)
     {
@@ -495,6 +528,12 @@ int main (int argc, char** argv)
     }
 
     std::cout << "\n" << sounded << " of " << (high - low + 1) << " notes produced sound\n";
+
+    if (mode == "params")
+    {
+        probe.dumpInterestingParameters();
+        return 0;
+    }
 
     if (mode == "phrases")
     {
