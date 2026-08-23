@@ -133,6 +133,55 @@ A partial version of this was started and reverted to keep the tree coherent —
 **Constraint:** every option must be idiomatic on its own. More variety is only
 an improvement if every roll is still something a drummer would play.
 
+## Requested by the user, not yet started
+
+Both raised 2026-08-23 as "things to work on later".
+
+### 1. Song structure editing inside the plugin
+
+Sections — intro, verse, chorus, bridge, solo, ending — can currently only be
+defined by hand-editing a plan JSON. **The user has no DAW and no text-editing
+workflow**, so in practice the structure is not editable by them at all. This is
+the more consequential of the two requests: it is what makes Ghostband
+self-contained rather than a player for files someone else wrote.
+
+Needs, roughly in order:
+
+- Add / remove / reorder sections; reordering wants drag-and-drop.
+- Per section: name and role, bar count, intensity, feel, chords, which parts
+  play, fill, and the guitar/piano phrase override.
+- **A save path.** Today the plugin only *loads* plans. The moment structure is
+  editable in the UI, edits have to persist — "Save plan" and "Save plan as...".
+  This is easy to overlook and it is not optional.
+- The existing section list already draws rows, highlights the playing section
+  and tracks a playhead, and clicking a row jumps to it. That is the right
+  foundation; this is turning a read-only list into an editable one.
+
+Note the overlap with the AI planner: when Claude writes the chart, this editor
+is how the user adjusts it. Building the editor first makes the planner more
+useful, not less.
+
+### 2. Visual redesign of the plugin
+
+The user's words: plain and boring; wants a complete redesign — graphics,
+colours, borders, buttons, knobs, sliders — "more modern and techy like".
+
+The current UI is honest but unstyled: flat rectangles drawn from a small
+palette, stock JUCE sliders and buttons. Points worth carrying in:
+
+- Do it with a proper `juce::LookAndFeel_V4` subclass and custom-drawn controls,
+  not by scattering `setColour` calls as now.
+- **Draw procedurally, not from bitmap assets.** Vector drawing scales cleanly
+  across the user's mixed-DPI monitors, and keeps the plugin a single file with
+  nothing to install alongside it.
+- Do not regress the DPI fix (`JUCE_WIN_PER_MONITOR_DPI_AWARE=0`) — this user
+  drags the editor between monitors with different scaling, and that broke every
+  control once already.
+- Keep the section list, the playing-section highlight and the playhead. Those
+  are the parts that have proven useful in practice; the styling around them is
+  what needs the work.
+- The user likes dark UI. See [[user-audio-setup]].
+
 ## Other open items
 
 - **Latching section loop.** Jumping to a section plays on into whatever follows.
