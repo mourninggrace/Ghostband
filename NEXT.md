@@ -1,7 +1,34 @@
 # Where Ghostband stands, and what to do next
 
-Last updated 2026-08-23, end of session 3. Everything described as done is
+Last updated 2026-08-24, end of session 4. Everything described as done is
 committed, pushed, installed, and covered by the harness.
+
+## Session 4 — what changed, and what is still open
+
+The user tested and reported three faults, all real and all mine:
+
+1. **Guitar and piano silent.** `loadBuiltInPlan` never called `resolveProfiles`,
+   so profiles were never loaded and those parts were never enabled; and the
+   built-in plan named no profiles at all. Fixed, and profiles now ship inside
+   the VST3 bundle so the built-in song works on any machine.
+2. **The guitar cut out after a fraction of a second.** Phrase keys must be held,
+   not tapped — measured at 3% sustain for a 50ms press. Fixed.
+3. **Calibrate showed only drums.** Same root cause as (1); it now covers every
+   part the song has.
+
+The user then switched IRON 2 and Virtual Pianist to **Instrument mode**, which
+needs a different profile from Player mode. Instrument mode is now the default.
+
+**Still open, in the user's words:**
+
+- The interface has been redesigned flat in red / purple / black / silver /
+  white, per their direction, but they have not yet said whether it lands.
+- **Settings and About are a first pass.** Settings has per-part MIDI channel,
+  reload profiles and reset window size. About has version, author, description,
+  licence and a manual button. They asked for "the usual stuff" — expect gaps.
+- **The user manual PDF does not exist.** Agreed to write later; the About
+  button falls back to the README until it does.
+- Whether Player mode now sounds better than Instrument mode is untested.
 
 ## State
 
@@ -13,12 +40,19 @@ describes the plan.
 **Working, in the user's Gig Performer rig:**
 
 - Four parts — drums, bass, guitar, piano — driving SSD5, MODO Bass 2,
-  UJAM IRON 2 and UJAM Virtual Pianist.
+  UJAM IRON 2 and UJAM Virtual Pianist (both in **Instrument mode**).
 - Live section jumping, landing on the next bar line.
 - Rerolling, whole song or ctrl-clicked sections only.
-- In-plugin calibration: tune a drum map by ear, no MIDI knowledge needed.
+- In-plugin calibration covering every part, tuned by ear.
 - Song structure editor with save.
-- Dark industrial UI, resizable, procedurally drawn.
+- Per-part level knobs, sent as MIDI CC 7.
+- Five screens: song, calibrate, edit, settings, about.
+- Flat UI in red / purple / black / silver / white, resizable, drawn
+  procedurally so it scales across mixed-DPI monitors.
+
+**The rig needs one MIDI Channel Constrainer per instrument** (drums 10, bass 1,
+guitar 2, piano 3), because instrument plugins are omni. Channels are now also
+settable in the plugin's Settings screen.
 
 **Build:** `Build.bat`. JUCE 8.0.15 is a pinned submodule; clone with
 `--recursive`. The C++ runtime links statically, so the plugin has no
