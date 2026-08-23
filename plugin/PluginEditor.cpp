@@ -201,7 +201,8 @@ void SectionList::paint (juce::Graphics& g)
         g.fillRoundedRectangle (meter.withWidth (juce::roundToInt (meter.getWidth() * s.intensity))
                                      .toFloat(), 2.0f);
 
-        auto counts = r.removeFromRight (104);
+        r.removeFromRight (10);                    // keep the counts off the meter
+        auto counts = r.removeFromRight (96);
         g.setColour (ghost::dim);
         g.setFont (juce::Font (juce::FontOptions (11.0f)));
         g.drawText (juce::String (s.drumHits) + " / " + juce::String (s.bassNotes),
@@ -288,6 +289,17 @@ void CalibrationList::paint (juce::Graphics& g)
 GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
 {
+    setLookAndFeel (&lookAndFeel);
+
+    // Free plugin, quiet button. Opens in a browser rather than doing anything
+    // clever, so it works the same everywhere and asks nothing of the host.
+    styleButton (donateButton, false);
+    addAndMakeVisible (donateButton);
+    donateButton.onClick = []
+    {
+        juce::URL ("https://ko-fi.com/kyleyeroshefsky11806").launchInDefaultBrowser();
+    };
+
     styleButton (loadButton, false);
     styleButton (reloadButton, false);
     styleButton (rollButton, true);
@@ -391,10 +403,20 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         if (id > 0) processor.setBassTuning (tuningIdToName (id));
     };
 
-    styleSlider (complexitySlider);
-    styleSlider (humanizeSlider);
-    addAndMakeVisible (complexitySlider);
-    addAndMakeVisible (humanizeSlider);
+    // The two feel dials become machined knobs; the editor's intensity field
+    // stays a slider, because it sits in a form row of text fields.
+    for (juce::Slider* s : std::initializer_list<juce::Slider*> { &complexitySlider, &humanizeSlider })
+    {
+        s->setSliderStyle (juce::Slider::RotaryVerticalDrag);
+        s->setRotaryParameters (juce::MathConstants<float>::pi * 1.2f,
+                                juce::MathConstants<float>::pi * 2.8f, true);
+        s->setTextBoxStyle (juce::Slider::TextBoxBelow, false, 46, 15);
+        s->setRange (0.0, 1.0, 0.01);
+        s->setColour (juce::Slider::textBoxTextColourId, ghost::dim);
+        s->setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
+        s->setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+        addAndMakeVisible (*s);
+    }
 
     complexitySlider.onValueChange = [this]
     {
@@ -648,6 +670,7 @@ GhostbandEditor::~GhostbandEditor()
 {
     stopTimer();
     processor.stateChanged.removeChangeListener (this);
+    setLookAndFeel (nullptr);   // must outlive every child that uses it
 }
 
 void GhostbandEditor::markDialsDirty()
@@ -948,24 +971,59 @@ void GhostbandEditor::refreshFromProcessor()
 
 void GhostbandEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (ghost::background);
+    g.fillAll (ghost::colours::background);
 
-    auto header = getLocalBounds().removeFromTop (54);
-    g.setColour (ghost::panel);
-    g.fillRect (header);
-    g.setColour (ghost::line);
-    g.drawLine (0.0f, static_cast<float> (header.getBottom()),
-                static_cast<float> (getWidth()), static_cast<float> (header.getBottom()), 1.0f);
+    // ---- faceplate ----
+    auto header = getLocalBounds().removeFromTop (58).toFloat();
+    ghost::drawPanel (g, header.withTrimmedBottom (-2.0f), true, 0.0f,
+                      ghost::colours::panelRaised);
 
-    g.setColour (ghost::accent);
-    g.setFont (juce::Font (juce::FontOptions (20.0f).withStyle ("Bold")));
-    g.drawText ("GHOSTBAND", header.reduced (16, 0).withTrimmedBottom (18),
+    // Brushed metal: a few very faint horizontal strokes rather than a texture
+    // asset, so it stays crisp at any scale.
+    g.setColour (ghost::colours::bevelLight.withAlpha (0.05f));
+    for (float yy = header.getY() + 3.0f; yy < header.getBottom(); yy += 3.0f)
+        g.drawHorizontalLine (static_cast<int> (yy), header.getX(), header.getRight());
+
+    g.setColour (ghost::colours::bevelDark);
+    g.drawHorizontalLine (static_cast<int> (header.getBottom()), header.getX(), header.getRight());
+
+    const float sc = 7.0f;
+    ghost::drawScrew (g, { sc + 4.0f, header.getCentreY() }, 4.0f);
+    ghost::drawScrew (g, { header.getRight() - sc - 4.0f, header.getCentreY() }, 4.0f);
+
+    auto title = header.reduced (28.0f, 0.0f);
+
+    g.setColour (ghost::colours::text);
+    g.setFont (juce::Font (juce::FontOptions (21.0f).withStyle ("Bold")));
+    g.drawText ("GHOSTBAND", title.withTrimmedBottom (20.0f).toNearestInt(),
                 juce::Justification::centredLeft);
 
-    g.setColour (ghost::dim);
-    g.setFont (juce::Font (juce::FontOptions (10.0f)));
-    g.drawText ("MIDI OUT -> YOUR INSTRUMENTS", header.reduced (16, 0).withTrimmedTop (28),
+    g.setColour (ghost::colours::dim);
+    g.setFont (juce::Font (juce::FontOptions (9.5f)));
+    // Plain ASCII: a UTF-8 bullet written as escapes gets re-encoded on the way
+    // through and renders as mojibake.
+    g.drawText ("MIDI BRAIN   -   DRUMS   BASS   GUITAR   PIANO",
+                title.withTrimmedTop (32.0f).toNearestInt(),
                 juce::Justification::centredLeft);
+
+    // Transport lamp, so the panel shows at a glance whether it is running.
+    const bool running = processor.transportRunning.load();
+    const auto lamp = juce::Rectangle<float> (9.0f, 9.0f)
+                          .withCentre ({ header.getRight() - 34.0f, header.getCentreY() - 6.0f });
+    ghost::drawLamp (g, lamp, running);
+
+    g.setColour (running ? ghost::colours::accent : ghost::colours::dim);
+    g.setFont (juce::Font (juce::FontOptions (8.5f)));
+    g.drawText (running ? "RUN" : "IDLE",
+                juce::Rectangle<int> (static_cast<int> (header.getRight()) - 62,
+                                      static_cast<int> (header.getCentreY()) + 2, 56, 12),
+                juce::Justification::centredRight);
+
+    // ---- footer rail, where the donate button lives ----
+    auto footer = getLocalBounds().removeFromBottom (34).toFloat();
+    ghost::drawPanel (g, footer.withTrimmedTop (-2.0f), true, 0.0f, ghost::colours::panelRaised);
+    g.setColour (ghost::colours::bevelDark);
+    g.drawHorizontalLine (static_cast<int> (footer.getY()), footer.getX(), footer.getRight());
 }
 
 void GhostbandEditor::resized()
@@ -974,7 +1032,12 @@ void GhostbandEditor::resized()
     processor.editorHeight.store (getHeight());
 
     auto r = getLocalBounds();
-    r.removeFromTop (54);
+    r.removeFromTop (58);
+
+    // Footer rail: present on every screen, so the donate button never moves.
+    auto footerRail = r.removeFromBottom (34).reduced (16, 7);
+    donateButton.setBounds (footerRail.removeFromRight (150));
+
     r = r.reduced (16, 12);
 
     auto planRow = r.removeFromTop (28);
@@ -1109,21 +1172,28 @@ void GhostbandEditor::resized()
 
     r.removeFromTop (12);
 
-    auto dialRow = r.removeFromTop (22);
-    complexityLabel.setBounds (dialRow.removeFromLeft (86));
-    complexitySlider.setBounds (dialRow);
+    auto knobRow = r.removeFromTop (76);
 
-    r.removeFromTop (6);
-    dialRow = r.removeFromTop (22);
-    humanizeLabel.setBounds (dialRow.removeFromLeft (86));
-    humanizeSlider.setBounds (dialRow);
+    auto k1 = knobRow.removeFromLeft (80);
+    complexityLabel.setBounds (k1.removeFromTop (12));
+    complexitySlider.setBounds (k1);
 
-    r.removeFromTop (10);
-    auto seedRow = r.removeFromTop (28);
-    seedLabel.setBounds (seedRow.removeFromLeft (86));
-    seedEditor.setBounds (seedRow.removeFromLeft (90));
-    seedRow.removeFromLeft (10);
-    rollButton.setBounds (seedRow.removeFromLeft (78));
+    knobRow.removeFromLeft (8);
+    auto k2 = knobRow.removeFromLeft (80);
+    humanizeLabel.setBounds (k2.removeFromTop (12));
+    humanizeSlider.setBounds (k2);
+
+    // Seed and Roll sit beside the knobs rather than under them, so the section
+    // list keeps as much of the window as possible.
+    knobRow.removeFromLeft (18);
+    auto seedCol = knobRow.removeFromTop (58);
+    seedLabel.setBounds (seedCol.removeFromTop (12));
+    auto seedRow = seedCol.removeFromTop (26);
+    seedEditor.setBounds (seedRow.removeFromLeft (86));
+    seedRow.removeFromLeft (8);
+    // Fixed width: letting it take the remaining space made it span half the
+    // window, which read as the most important control on the panel.
+    rollButton.setBounds (seedRow.removeFromLeft (juce::jmin (130, seedRow.getWidth())));
 
     r.removeFromTop (10);
     transportLabel.setBounds (r.removeFromTop (16));

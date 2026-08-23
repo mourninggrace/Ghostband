@@ -2,18 +2,21 @@
 
 #include "PluginProcessor.h"
 
+#include "GhostbandLookAndFeel.h"
+
 #include <juce_gui_basics/juce_gui_basics.h>
 
 namespace ghost
 {
-    // One dark palette, defined once. Everything else refers back to it.
-    const juce::Colour background { 0xff101216 };
-    const juce::Colour panel      { 0xff181b21 };
-    const juce::Colour line       { 0xff262a33 };
-    const juce::Colour text       { 0xffd6dbe3 };
-    const juce::Colour dim        { 0xff7c8595 };
-    const juce::Colour accent     { 0xff7fe3d0 };
-    const juce::Colour warn       { 0xffe8b25f };
+    // The palette lives in GhostbandLookAndFeel.h. These are the names the rest
+    // of the editor already used, kept so the drawing code reads the same.
+    const juce::Colour background = colours::background;
+    const juce::Colour panel      = colours::panel;
+    const juce::Colour line       = colours::line;
+    const juce::Colour text       = colours::text;
+    const juce::Colour dim        = colours::dim;
+    const juce::Colour accent     = colours::accent;
+    const juce::Colour warn       = colours::warn;
 }
 
 // Read-only view of the arrangement, with the section currently sounding lit up.
@@ -171,6 +174,13 @@ private:
     int              calSelected = 0;
 
     std::unique_ptr<juce::FileChooser> chooser;
+
+    ghost::GhostbandLookAndFeel lookAndFeel;
+
+    // Ghostband is free; this is a button, not a nag, and nothing is gated
+    // behind it.
+    juce::TextButton donateButton { "Support Ghostband" };
+    juce::Label      donateLabel;
 
     // Dial moves are debounced rather than regenerating on every pixel: the
     // audio thread try-locks the sequence, and swapping it sixty times a second

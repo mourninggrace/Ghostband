@@ -609,6 +609,52 @@ int main (int argc, char** argv)
                    + " vs CLI " + juce::String (expectedDrums) + "/" + juce::String (expectedBass));
     }
 
+    // ---- editor snapshots --------------------------------------------------
+    // A layout bug is invisible to every check above. Rendering the editor to a
+    // PNG makes the one thing these tests cannot assert - what it actually looks
+    // like - reviewable without installing the plugin in a host.
+    {
+        const juce::String snapshotDir = [&]
+        {
+            for (int i = 1; i < argc - 1; ++i)
+                if (juce::String (argv[i]) == "--snapshot") return juce::String (argv[i + 1]);
+            return juce::String();
+        }();
+
+        if (snapshotDir.isNotEmpty())
+        {
+            proc.loadPlan (juce::File (planPath).getSiblingFile ("demo-band.json"));
+
+            if (auto* ed = proc.createEditorIfNeeded())
+            {
+                const juce::File dir (snapshotDir);
+                dir.createDirectory();
+
+                struct Shot { const char* name; int w, h; };
+                for (const Shot& shot : { Shot { "song", 560, 700 },
+                                          Shot { "song-wide", 900, 620 } })
+                {
+                    ed->setSize (shot.w, shot.h);
+                    const juce::Image img = ed->createComponentSnapshot (ed->getLocalBounds(), true);
+
+                    const juce::File out = dir.getChildFile (juce::String ("editor-")
+                                                             + shot.name + ".png");
+                    out.deleteFile();
+                    juce::FileOutputStream stream (out);
+                    if (stream.openedOk())
+                    {
+                        juce::PNGImageFormat png;
+                        png.writeImageToStream (img, stream);
+                        std::cout << "  snapshot: " << out.getFullPathName() << "\n";
+                    }
+                }
+
+                proc.editorBeingDeleted (ed);
+                delete ed;
+            }
+        }
+    }
+
     std::cout << "\n" << (failures == 0 ? "ALL CHECKS PASSED" : "FAILURES: " + juce::String (failures))
               << "\n\n";
     return failures == 0 ? 0 : 1;
