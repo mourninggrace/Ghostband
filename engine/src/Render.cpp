@@ -214,8 +214,14 @@ RenderResult renderPerformance (const SongPlan& plan,
         // A section that is not allowed to vary derives its seed from its role
         // alone, so verse 1 and verse 2 come out bit-identical. Varying sections
         // derive from their position, so they differ but stay reproducible.
-        const uint32_t salt = s.vary ? static_cast<uint32_t> (si + 1) * 7919u
-                                     : hashString (s.role) | 1u;
+        uint32_t salt = s.vary ? static_cast<uint32_t> (si + 1) * 7919u
+                               : hashString (s.role) | 1u;
+
+        // Fold in this section's own reroll counter. Rerolling one section
+        // changes its seed and nothing else's, which is what makes rerolling a
+        // single chorus safe when the rest of the song is already right.
+        salt = deriveSeed (salt, s.reroll + 1u);
+
         Rng rng (deriveSeed (plan.seed, salt));
 
         GrooveContext ctx;

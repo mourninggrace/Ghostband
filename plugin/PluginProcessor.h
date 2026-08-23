@@ -74,6 +74,10 @@ public:
     // plan when there is no file.
     void reloadPlan();
 
+    // Rerolls only the named sections. An empty list rerolls the whole song by
+    // taking a new global seed, which is the old behaviour.
+    void rerollSections (const std::vector<int>& indices);
+
     Status                         getStatus() const;
     std::vector<gb::SectionReport> getSections() const;
     juce::File                     getPlanFile() const;

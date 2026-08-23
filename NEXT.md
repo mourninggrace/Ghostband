@@ -255,8 +255,8 @@ palette, stock JUCE sliders and buttons. Points worth carrying in:
 
 ```bash
 Build.bat
-build\ghostband_plugin_test_artefacts\Release\ghostband_plugin_test.exe plans\demo-metal.json 1237 534
-build\ghostband_plugin_test_artefacts\Release\ghostband_plugin_test.exe plans\demo-rock.json 987 379
+build\ghostband_plugin_test_artefacts\Release\ghostband_plugin_test.exe plans\demo-metal.json 1231 629
+build\ghostband_plugin_test_artefacts\Release\ghostband_plugin_test.exe plans\demo-rock.json 996 423
 ```
 
 If a change is *meant* to alter the generated notes, those two trailing counts

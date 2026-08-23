@@ -2,6 +2,8 @@
 
 #include "ghostband/Groove.h"
 
+#include <algorithm>
+
 namespace {
 
 // The engine's own vocabulary. Combo ids are 1-based indices into these, so the
@@ -71,11 +73,25 @@ int SectionList::rowAt (juce::Point<int> p) const
     return row < static_cast<int> (sections.size()) ? row : -1;
 }
 
+void SectionList::setSelection (const std::vector<int>& indices)
+{
+    selection = indices;
+    repaint();
+}
+
 void SectionList::mouseDown (const juce::MouseEvent& e)
 {
     const int row = rowAt (e.getPosition());
-    if (row >= 0 && onSectionClicked)
+    if (row < 0) return;
+
+    if (e.mods.isCtrlDown() || e.mods.isCommandDown())
+    {
+        if (onSectionToggled) onSectionToggled (row);
+    }
+    else if (onSectionClicked)
+    {
         onSectionClicked (row);
+    }
 }
 
 void SectionList::mouseMove (const juce::MouseEvent& e)
@@ -144,6 +160,16 @@ void SectionList::paint (juce::Graphics& g)
         {
             g.setColour (ghost::text.withAlpha (0.05f));
             g.fillRect (row);
+        }
+
+        const bool picked = std::find (selection.begin(), selection.end(),
+                                       static_cast<int> (i)) != selection.end();
+        if (picked)
+        {
+            g.setColour (ghost::accent.withAlpha (0.10f));
+            g.fillRect (row);
+            g.setColour (ghost::accent.withAlpha (0.55f));
+            g.drawRect (row.reduced (1), 1);
         }
 
         if (queued)
@@ -295,12 +321,30 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 
     rollButton.onClick = [this]
     {
-        // A new seed is a new take of the same song - same chords, same
-        // structure, different drumming and different fills.
+        // With sections selected, reroll only those - the rest of the song is
+        // provably untouched, because each section derives its own seed. With
+        // nothing selected, take a new global seed and reroll everything.
+        if (! rerollSelection.empty())
+        {
+            processor.rerollSections (rerollSelection);
+            return;
+        }
+
         const int next = 1 + juce::Random::getSystemRandom().nextInt (999998);
         processor.seed.store (next);
         seedEditor.setText (juce::String (next), juce::dontSendNotification);
         processor.regenerate();
+    };
+
+    sectionList.onSectionToggled = [this] (int index)
+    {
+        const auto it = std::find (rerollSelection.begin(), rerollSelection.end(), index);
+        if (it == rerollSelection.end()) rerollSelection.push_back (index);
+        else                             rerollSelection.erase (it);
+
+        std::sort (rerollSelection.begin(), rerollSelection.end());
+        sectionList.setSelection (rerollSelection);
+        updateRollButtonText();
     };
 
     // ---- song controls ----
@@ -551,6 +595,17 @@ void GhostbandEditor::styleButton (juce::TextButton& b, bool primary)
                                                           : ghost::line);
 }
 
+void GhostbandEditor::updateRollButtonText()
+{
+    const int n = static_cast<int> (rerollSelection.size());
+    rollButton.setButtonText (n == 0 ? "Roll"
+                                     : "Roll " + juce::String (n)
+                                           + (n == 1 ? " section" : " sections"));
+    rollButton.setTooltip (n == 0
+        ? "Rerolls the whole song. Ctrl-click sections to reroll only those."
+        : "Rerolls only the selected sections; the rest of the song is untouched.");
+}
+
 void GhostbandEditor::styleCombo (juce::ComboBox& c)
 {
     c.setColour (juce::ComboBox::backgroundColourId, ghost::background);
@@ -684,6 +739,14 @@ void GhostbandEditor::refreshFromProcessor()
     sectionList.setSections (processor.getSections());
     sectionList.setSize (viewport.getWidth() > 0 ? viewport.getWidth() - 10 : 500,
                          sectionList.getHeight());
+
+    // Drop any selection that a newly loaded plan no longer has room for.
+    const int count = static_cast<int> (processor.getSections().size());
+    rerollSelection.erase (std::remove_if (rerollSelection.begin(), rerollSelection.end(),
+                                           [count] (int i) { return i >= count; }),
+                           rerollSelection.end());
+    sectionList.setSelection (rerollSelection);
+    updateRollButtonText();
 }
 
 void GhostbandEditor::paint (juce::Graphics& g)

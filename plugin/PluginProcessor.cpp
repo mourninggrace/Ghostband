@@ -446,6 +446,21 @@ void GhostbandProcessor::reloadPlan()
         loadBuiltInPlan();
 }
 
+void GhostbandProcessor::rerollSections (const std::vector<int>& indices)
+{
+    if (indices.empty())
+        return;
+
+    {
+        const juce::ScopedLock sl (stateLock);
+        for (int i : indices)
+            if (i >= 0 && i < static_cast<int> (plan.sections.size()))
+                ++plan.sections[static_cast<size_t> (i)].reroll;
+    }
+
+    regenerate();
+}
+
 void GhostbandProcessor::regenerate()
 {
     gb::SongPlan working;

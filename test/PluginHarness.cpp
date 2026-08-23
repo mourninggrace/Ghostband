@@ -299,7 +299,11 @@ int main (int argc, char** argv)
         head.ppq = 0.0;
         proc.setPlayHead (&head);
 
-        int onCount = 0, offCount = 0;
+        // Counted per pitch, not in total. "Nothing hangs" means no pitch is
+        // left sounding - a surplus note-off is a no-op on every instrument,
+        // whereas a surplus note-on is a stuck note. Comparing bare totals
+        // conflates the harmless direction with the dangerous one.
+        std::map<int, int> openByPitch;
         int jumpedAtTick = -1;
         int blocksAfterQueue = 0;
         const int targetSection = 3;
@@ -315,8 +319,9 @@ int main (int argc, char** argv)
             for (const juce::MidiMessageMetadata m : midi)
             {
                 const juce::MidiMessage msg = m.getMessage();
-                if (msg.isNoteOn())       ++onCount;
-                else if (msg.isNoteOff()) ++offCount;
+                const int key = msg.getChannel() * 1000 + msg.getNoteNumber();
+                if (msg.isNoteOn())       ++openByPitch[key];
+                else if (msg.isNoteOff()) openByPitch[key] = juce::jmax (0, openByPitch[key] - 1);
             }
 
             // Queue a jump once we are a little way into the song.
@@ -345,8 +350,26 @@ int main (int argc, char** argv)
                "bar = " + juce::String (barTicks) + " ticks");
         check (blocksAfterQueue > 0 && blocksAfterQueue < 900,
                "the jump happened promptly, not at the end of the song");
-        check (onCount == offCount, "nothing hangs across the jump",
-               juce::String (onCount) + " on vs " + juce::String (offCount) + " off");
+        // The walk ends part-way through the song, so notes ringing at that
+        // moment are correct, not hung. Stop the transport first - releasing
+        // everything on stop is the actual guarantee - and then check.
+        head.playing = false;
+        buffer.clear();
+        midi.clear();
+        proc.processBlock (buffer, midi);
+        for (const juce::MidiMessageMetadata m : midi)
+        {
+            const juce::MidiMessage msg = m.getMessage();
+            const int key = msg.getChannel() * 1000 + msg.getNoteNumber();
+            if (msg.isNoteOn())       ++openByPitch[key];
+            else if (msg.isNoteOff()) openByPitch[key] = juce::jmax (0, openByPitch[key] - 1);
+        }
+
+        int stillSounding = 0;
+        for (const auto& kv : openByPitch)
+            if (kv.second > 0) ++stillSounding;
+        check (stillSounding == 0, "nothing is left sounding after a jump and a stop",
+               juce::String (stillSounding) + " pitches still open");
 
         head.playing = false;
         buffer.clear(); midi.clear();
@@ -395,6 +418,49 @@ int main (int argc, char** argv)
                 if (sec.name == "intro" && sec.drumHits > 0) introHasDrums = true;
             check (introHasDrums, "but a section listing drums+bass still has drums");
         }
+    }
+
+    // ---- per-section reroll -----------------------------------------------
+    // The whole promise is that rerolling one section cannot disturb another.
+    // That is a property of how section seeds are derived, and it is exactly the
+    // kind of thing that quietly stops being true, so it is asserted.
+    {
+        proc.loadPlan (juce::File (planPath));
+        const auto before = proc.getSections();
+        check (before.size() > 4, "enough sections to test a targeted reroll");
+
+        const int target = 2;
+        proc.rerollSections ({ target });
+        const auto after = proc.getSections();
+
+        check (after.size() == before.size(), "reroll does not change the section count");
+
+        bool targetChanged = false;
+        int othersChanged = 0;
+        for (size_t i = 0; i < before.size() && i < after.size(); ++i)
+        {
+            const bool changed = before[i].drumHits != after[i].drumHits
+                              || before[i].bassNotes != after[i].bassNotes;
+            if (static_cast<int> (i) == target) targetChanged = changed;
+            else if (changed)                   ++othersChanged;
+        }
+
+        check (targetChanged, "the rerolled section actually changed",
+               juce::String (before[target].drumHits) + "/" + juce::String (before[target].bassNotes)
+                   + " -> " + juce::String (after[target].drumHits) + "/"
+                   + juce::String (after[target].bassNotes));
+
+        check (othersChanged == 0, "and no other section moved",
+               juce::String (othersChanged) + " others changed");
+
+        // Rerolling again must keep moving, not settle back.
+        proc.rerollSections ({ target });
+        const auto third = proc.getSections();
+        check (third[target].drumHits != after[target].drumHits
+                   || third[target].bassNotes != after[target].bassNotes,
+               "a second reroll of the same section moves again");
+
+        proc.loadPlan (juce::File (planPath));   // reset for later checks
     }
 
     // ---- calibration ------------------------------------------------------
@@ -452,6 +518,12 @@ int main (int argc, char** argv)
     {
         proc.loadPlan (juce::File (planPath));   // reset the dials the rolls changed
         const auto reloaded = proc.getStatus();
+
+        std::cout << "  parity state: seed " << proc.seed.load()
+                  << ", complexity " << proc.complexity.load()
+                  << ", humanize " << proc.humanize.load()
+                  << ", key pc " << proc.getKeyPitchClass()
+                  << ", " << reloaded.headline << "\n";
         const int expectedDrums = juce::String (argv[2]).getIntValue();
         const int expectedBass  = juce::String (argv[3]).getIntValue();
 

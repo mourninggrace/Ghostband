@@ -26,7 +26,13 @@ public:
     void setSections (std::vector<gb::SectionReport> s);
     void setPlayhead (int tick);          // -1 when the transport is stopped
     void setQueued   (int index);         // -1 when nothing is waiting
+    void setSelection (const std::vector<int>& indices);
     int  tickToY (int tick) const;
+
+    // Plain click jumps to a section; ctrl-click adds it to the reroll
+    // selection. Two gestures on one list, but jumping is by far the more
+    // common one so it keeps the unmodified click.
+    std::function<void (int)> onSectionToggled;
 
     void paint (juce::Graphics& g) override;
     void mouseDown (const juce::MouseEvent& e) override;
@@ -41,6 +47,7 @@ private:
     int rowAt (juce::Point<int> p) const;
 
     std::vector<gb::SectionReport> sections;
+    std::vector<int> selection;
     int playheadTick = -1;
     int queuedIndex  = -1;
     int hoverIndex   = -1;
@@ -140,11 +147,13 @@ private:
     // audio thread try-locks the sequence, and swapping it sixty times a second
     // would cost dropped blocks for no musical benefit.
     void styleCombo (juce::ComboBox& c);
+    void updateRollButtonText();
 
     bool     dialsDirty       = false;
     juce::uint32 lastDialMove = 0;
     int      lastPlayheadTick = -2;
     int      lastQueued       = -2;
+    std::vector<int> rerollSelection;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GhostbandEditor)
 };

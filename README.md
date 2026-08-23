@@ -2,34 +2,39 @@
 
 A MIDI brain that plays *your* instrument plugins to build full songs.
 
-Ghostband does not make any sound of its own. It writes an arrangement and
-performs it through the instruments you already own — SSD5 for drums, MODO Bass 2
-for bass — by sending them MIDI. The eventual form is a VST3 that sits in a Gig
-Performer rackspace with its MIDI out wired to each instrument. This repository is
-the stage before that: a command-line renderer that writes the same arrangement to
-a `.mid` file, so the musical engine can be judged by ear in Reaper long before any
-plugin scaffolding exists.
+Ghostband makes no sound of its own. It writes an arrangement and performs it
+through instruments you already own — sending MIDI to a drum sampler, a bass, a
+guitar, a piano — so the sounds are yours and the arranging is its job. It is a
+VST3 that sits in a Gig Performer rackspace with its MIDI out wired to each
+instrument.
 
-**Status:** v1, drums and bass only. Rock and metal. No guitars, no keys, no live
-following — those build on this engine rather than replacing it.
+**Status:** drums, bass, guitar and piano. Rock and metal. No live following yet.
+
+Ships with driver profiles for SSD5, MODO Bass 2, UJAM Virtual Guitarist IRON 2
+and UJAM Virtual Pianist, plus a General MIDI fallback that works with most drum
+plugins out of the box. Anything else is a small JSON file away, and the plugin
+can calibrate an unknown instrument by ear.
 
 Two things get built from the same engine:
 
-- **`build\bin\ghostband.exe`** — the CLI renderer, for judging grooves in Reaper.
-- **`build\GhostbandPlugin_artefacts\Release\VST3\Ghostband.vst3`** — the plugin,
-  for playing them live in Gig Performer.
+- **`Ghostband.vst3`** — the plugin, for playing songs live.
+- **`ghostband.exe`** — a CLI that renders the same arrangement to a `.mid` file.
+  Mostly a test harness, and the reason the engine can be verified without a host.
 
 They are held to producing byte-identical output; see *Determinism* below.
 
 ## Build
 
-Needs CMake 3.20+ and an MSVC toolchain. JUCE 8.x is not vendored — the build
-points at the Polygraph checkout by default, so it works with no network access.
-Override with `-DGHOSTBAND_JUCE_PATH=<path>`.
+Needs CMake 3.20+ and an MSVC toolchain. JUCE is a pinned submodule, so clone
+recursively:
 
 ```bash
-cd C:\Projects\Ghostband && Build.bat
+git clone --recursive https://github.com/mourninggrace/Ghostband
+cd Ghostband && Build.bat
 ```
+
+Forgot `--recursive`? Run `git submodule update --init --recursive` — the build
+says so rather than failing obscurely.
 
 ## The plugin
 
@@ -57,10 +62,12 @@ host before reinstalling** or the copy will silently leave the old build behind.
   generated ones; a key control that only affected auto progressions would
   silently do nothing on most plans.
 - **Style / Bass tuning** — change how the band plays and how low it sits.
-- **Roll** — new seed, regenerate. Same chords, same structure, same section
-  lengths; different drumming. Which kick pattern, where the fills land, how many
-  ghost and dead notes. It is a different take by the same band, not a different
-  song.
+- **Roll** — a different take by the same band, not a different song. Same chords,
+  same structure, same section lengths; different kick pattern, different backbeat
+  treatment, different fill shapes, different bass approach.
+  **Ctrl-click sections first to reroll only those** — the rest of the song is
+  provably untouched, because every section derives its own seed. The button says
+  how many are selected.
 - **Complexity / Humanize** — regenerate on their own a moment after you stop
   moving them. There is no Generate button to remember.
 
@@ -124,22 +131,25 @@ Options:
 | `--bass <file>` | bass driver profile |
 | `--tuning <name>` | `standard`, `drop_d`, `drop_c`, `b_standard` |
 
-## Calibration — read this before trusting the output
+## Calibration
 
-The SSD5 and MODO Bass 2 profiles that ship here are **derived, not verified**.
-The drum map uses the General MIDI positions SSD5's default mapping follows, and
-the MODO keyswitches are sensible defaults rather than confirmed assignments. The
-CLI says `[UNVERIFIED]` on every run for exactly that reason.
+A driver profile is a claim about which MIDI note makes which sound, and those
+claims are often wrong. The shipped SSD5 and MODO Bass 2 maps are **derived, not
+verified** — the drum map uses General MIDI positions, and the MODO keyswitches
+are sensible defaults rather than confirmed assignments. Everything says
+`[UNVERIFIED]` for exactly that reason.
 
-To check them by ear:
+**Press Calibrate in the plugin.** It steps through every voice the kit claims to
+have. Press Play to hear one; if it does not sound like a snare, press `<` or `>`
+until it does — each nudge re-auditions immediately. Save writes a corrected
+profile and backs up the original first.
 
-```bash
-build\bin\ghostband.exe calibrate -o out\calibration.mid
-```
+No note numbers involved, and it works with the host transport stopped, because
+identifying a hi-hat underneath a full band is impossible.
 
-That file plays every mapped drum voice and every bass articulation in turn, with
-a project marker naming what *should* be sounding underneath it. Anything that
-does not match, fix in the profile JSON. It is a text edit, not a rebuild.
+There is also `ghostband.exe calibrate`, which writes the same sequence to a MIDI
+file with markers. Useful if you have a DAW; the in-plugin version is better if
+you do not.
 
 ## The plan file
 
@@ -229,7 +239,7 @@ notes balanced, nothing emitted twice, nothing outside its block, all-notes-off 
 stop, and the seed behaving.
 
 ```bash
-build\ghostband_plugin_test_artefacts\Release\ghostband_plugin_test.exe plans\demo-metal.json 1237 534
+build\ghostband_plugin_test_artefacts\Release\ghostband_plugin_test.exe plans\demo-metal.json 1231 629
 ```
 
 The two trailing numbers are the drum and bass counts the CLI prints for that

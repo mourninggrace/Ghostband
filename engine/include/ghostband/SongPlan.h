@@ -35,6 +35,11 @@ struct SectionPlan
     std::string pianoPhrase  = "auto";
 
     bool        vary        = true;         // false makes a repeated section identical
+
+    // Bumped to reroll this section and only this section. It is folded into
+    // the section's seed, and because every section derives its own RNG from
+    // that seed, changing one provably cannot disturb another.
+    unsigned    reroll      = 0;
 };
 
 struct SongPlan
