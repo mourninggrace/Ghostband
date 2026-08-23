@@ -160,11 +160,21 @@ static void generatePhrasePart (const SectionPlan& s,
         for (int h = 0; h < hits; ++h)
         {
             ChordIntent ci;
-            ci.tick          = barStart + h * step
-                             + static_cast<int> (rng.bipolar (humanize * 4.0));
-            ci.tick          = std::max (0, ci.tick);
+
+            // No timing jitter for a phrase instrument. It performs its own
+            // rhythm, so jittering the chord only risks opening a gap - and a
+            // gap of even a few ticks reads to the instrument as "no chord
+            // held", which stops the phrase and restarts it on the next chord.
+            // That is what made the guitar cut out after a second at a time.
+            ci.tick = phraseDriven
+                        ? barStart
+                        : std::max (0, barStart + h * step
+                                       + static_cast<int> (rng.bipolar (humanize * 4.0)));
+
+            // Overlap the next chord rather than meeting it exactly, so the
+            // instrument never sees a moment with nothing held.
             ci.durationTicks = phraseDriven
-                                 ? barTicks
+                                 ? barTicks + kPPQ / 8
                                  : std::max (1, static_cast<int> (step * chordSustain (feel)));
             ci.rootPc        = c.rootPc;
             ci.thirdSemis    = third;

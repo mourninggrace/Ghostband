@@ -38,11 +38,23 @@
   "phrase_blip_ticks": 40,
   "phrase_velocity": 100,
 
+  // MEASURED by holding a chord plus each key for five seconds and counting
+  // attacks. Every key in 60-89 latches and sustains for as long as the chord is
+  // held, so none of them are one-shots - but their density varies enormously,
+  // and the first mapping here was guessed from pitch and got it backwards:
+  // "driving" pointed at a key with two attacks in five seconds while "sparse"
+  // pointed at one with a single sustained chord.
+  //
+  //   key 79  ->  1 attack   sustained
+  //   key 73  ->  2          sparse
+  //   key 70  ->  4          moderate
+  //   key 67  ->  7          driving
+  //   key 88  -> 16          busy
   "phrases": {
-    "sparse":  62,
-    "muted":   66,
-    "driving": 72,
-    "open":    80,
+    "open":    79,
+    "sparse":  73,
+    "muted":   70,
+    "driving": 67,
     "busy":    88
   }
 }

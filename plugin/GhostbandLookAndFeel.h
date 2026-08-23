@@ -4,38 +4,46 @@
 
 namespace ghost {
 
-// Dark industrial rack gear. Everything here is drawn procedurally rather than
-// from image assets: it scales cleanly across monitors with different DPI, and
-// it keeps the plugin a single file with nothing to install beside it.
+// Flat and minimal, in the idiom of UJAM's newer instruments: large calm areas,
+// generous spacing, hairline separators instead of bevels, and colour used to
+// mean something rather than to decorate.
+//
+// Everything is drawn procedurally rather than from image assets, so it scales
+// cleanly across monitors with different DPI and the plugin stays a single file.
 namespace colours
 {
-    const juce::Colour background   { 0xff0e0f11 };   // the space behind everything
-    const juce::Colour panel        { 0xff16181c };   // recessed surfaces
-    const juce::Colour panelRaised  { 0xff1d2025 };   // faceplate
-    const juce::Colour bevelLight   { 0xff2c313a };   // top-left edge
-    const juce::Colour bevelDark    { 0xff07080a };   // bottom-right edge
-    const juce::Colour line         { 0xff262a33 };
-    const juce::Colour text         { 0xffc8ced6 };
-    const juce::Colour dim          { 0xff6e7681 };
-    const juce::Colour accent       { 0xff6fd6c4 };   // equipment LED
-    const juce::Colour accentDim    { 0xff2f5a55 };
-    const juce::Colour warn         { 0xffe8a33d };
-    const juce::Colour screw        { 0xff23262c };
+    const juce::Colour background   { 0xff0a0a0c };   // near black
+    const juce::Colour card         { 0xff141419 };   // panel / list surface
+    const juce::Colour cardRaised   { 0xff1c1c23 };   // controls sitting on a card
+    const juce::Colour line         { 0xff2a2a33 };   // hairline separators
+
+    const juce::Colour text         { 0xfff2f3f5 };   // white
+    const juce::Colour silver       { 0xffc4c9d2 };   // secondary text
+    const juce::Colour dim          { 0xff8a8f99 };   // labels
+
+    const juce::Colour red          { 0xffe23b54 };   // primary accent
+    const juce::Colour purple       { 0xff8b5cf6 };   // secondary accent
+    const juce::Colour warn         { 0xffe2a03b };
+
+    // Kept so existing call sites read the same.
+    const juce::Colour panel        = card;
+    const juce::Colour panelRaised  = cardRaised;
+    const juce::Colour accent       = red;
+    const juce::Colour accentDim    { 0xff5c1f2a };
 }
 
-// A raised faceplate with a light top-left edge and a dark bottom-right one.
-// Inverted for anything recessed - slots, wells, displays.
+// The signature gradient: red into purple, left to right or around an arc. Used
+// for anything active, and nowhere else, so "lit up" always means the same thing.
+juce::ColourGradient accentGradient (juce::Rectangle<float> area);
+
+// A flat surface with an optional hairline. No bevels - the whole point of this
+// look is that depth is implied by spacing and contrast rather than drawn.
 void drawPanel (juce::Graphics& g, juce::Rectangle<float> r, bool raised,
-                float corner = 3.0f, juce::Colour face = colours::panelRaised);
+                float corner = 6.0f, juce::Colour face = colours::card);
 
-// Rack-panel screws. Purely decorative, and deliberately low contrast so they
-// read as texture rather than as controls someone might try to click.
-void drawScrew (juce::Graphics& g, juce::Point<float> centre, float radius);
-
-// A small indicator lamp. Lit lamps get a soft halo; unlit ones stay a dark
-// recessed lens so the panel does not look broken when nothing is happening.
+// A small indicator dot.
 void drawLamp (juce::Graphics& g, juce::Rectangle<float> r, bool lit,
-               juce::Colour colour = colours::accent);
+               juce::Colour colour = colours::red);
 
 class GhostbandLookAndFeel : public juce::LookAndFeel_V4
 {

@@ -226,8 +226,14 @@ bool GhostbandProcessor::resolveProfiles (juce::String& error)
             error = "Using generic settings: " + juce::String (named) + " was not found.";
     };
 
-    loadPhrase (plan.guitarProfile, 2, guitarProfile, haveGuitar);
-    loadPhrase (plan.pianoProfile,  3, pianoProfile,  havePiano);
+    loadPhrase (plan.guitarProfile, channelGuitar.load(), guitarProfile, haveGuitar);
+    loadPhrase (plan.pianoProfile,  channelPiano.load(),  pianoProfile,  havePiano);
+
+    // The user's channel assignment wins over whatever a profile happens to say.
+    kit.channel           = juce::jlimit (1, 16, channelDrums.load());
+    bassProfile.channel   = juce::jlimit (1, 16, channelBass.load());
+    guitarProfile.channel = juce::jlimit (1, 16, channelGuitar.load());
+    pianoProfile.channel  = juce::jlimit (1, 16, channelPiano.load());
 
     return error.isEmpty();
 }
@@ -384,6 +390,19 @@ GhostbandProcessor::CalibrationStep GhostbandProcessor::getCalibrationStep (int 
     if (index < 0 || index >= static_cast<int> (calibrationSteps.size()))
         return {};
     return calibrationSteps[static_cast<size_t> (index)];
+}
+
+void GhostbandProcessor::applyChannels()
+{
+    {
+        const juce::ScopedLock sl (stateLock);
+        kit.channel           = juce::jlimit (1, 16, channelDrums.load());
+        bassProfile.channel   = juce::jlimit (1, 16, channelBass.load());
+        guitarProfile.channel = juce::jlimit (1, 16, channelGuitar.load());
+        pianoProfile.channel  = juce::jlimit (1, 16, channelPiano.load());
+    }
+    regenerate();
+    sendLevels();
 }
 
 void GhostbandProcessor::sendLevels()
@@ -688,6 +707,22 @@ void GhostbandProcessor::setKeyPitchClass (int pitchClass)
         const int base = gb::pitchClassFromName (plan.key, ok);
         plan.transpose = (((pitchClass - (ok ? base : 4)) % 12) + 12) % 12;
     }
+    regenerate();
+}
+
+juce::String GhostbandProcessor::getMode() const
+{
+    const juce::ScopedLock sl (stateLock);
+    return juce::String (plan.mode);
+}
+
+void GhostbandProcessor::setMode (const juce::String& mode)
+{
+    {
+        const juce::ScopedLock sl (stateLock);
+        plan.mode = mode.toStdString();
+    }
+    planDirty = true;
     regenerate();
 }
 

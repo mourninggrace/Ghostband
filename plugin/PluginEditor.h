@@ -103,8 +103,10 @@ private:
     juce::TextButton rollButton   { "Roll" };
 
     juce::ComboBox keyBox;
+    juce::ComboBox modeBox;
     juce::ComboBox styleBox;
     juce::ComboBox tuningBox;
+    juce::Label    modeLabel;
     juce::Label    keyLabel;
     juce::Label    styleLabel;
     juce::Label    tuningLabel;

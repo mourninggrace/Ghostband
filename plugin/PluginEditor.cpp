@@ -367,10 +367,24 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     addAndMakeVisible (styleBox);
     addAndMakeVisible (tuningBox);
 
-    static const char* keyNames[12] = { "C", "C#", "D", "D#", "E", "F",
-                                        "F#", "G", "G#", "A", "A#", "B" };
+    // Both spellings, because a key is named by its music, not by its pitch
+    // class - nobody writes a song in "A# minor" when they mean B flat minor.
+    static const char* keyNames[12] = { "C", "C# / Db", "D", "D# / Eb", "E", "F",
+                                        "F# / Gb", "G", "G# / Ab", "A", "A# / Bb", "B" };
     for (int i = 0; i < 12; ++i)
         keyBox.addItem (keyNames[i], i + 1);
+
+    styleCombo (modeBox);
+    addAndMakeVisible (modeBox);
+    for (const char* m : { "major", "natural minor", "harmonic minor",
+                           "dorian", "phrygian", "phrygian dominant", "mixolydian" })
+        modeBox.addItem (m, modeBox.getNumItems() + 1);
+
+    modeBox.onChange = [this]
+    {
+        if (modeBox.getSelectedId() > 0)
+            processor.setMode (modeBox.getText().replace (" ", "_"));
+    };
 
     // Ids are 1-based; the id order here is the order of kStyleIds below.
     const juce::StringArray styleNames { "hard rock", "metal", "thrash", "groove metal",
@@ -474,6 +488,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     initLabel (levelGuitarLabel,  "GUITAR", 9.0f,  ghost::dim, juce::Justification::centred);
     initLabel (levelPianoLabel,   "PIANO",  9.0f,  ghost::dim, juce::Justification::centred);
     initLabel (keyLabel,        "KEY",        10.0f, ghost::dim,   juce::Justification::centredLeft);
+    initLabel (modeLabel,       "MODE",       10.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (styleLabel,      "STYLE",      10.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (tuningLabel,     "BASS TUNING",10.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (tempoLabel,      "",           10.0f, ghost::dim,   juce::Justification::centredRight);
@@ -769,6 +784,8 @@ void GhostbandEditor::timerCallback()
 
 void GhostbandEditor::styleButton (juce::TextButton& b, bool primary)
 {
+    b.getProperties().set ("primary", primary);
+
     b.setColour (juce::TextButton::buttonColourId, primary ? ghost::accent.withAlpha (0.16f)
                                                            : ghost::panel);
     b.setColour (juce::TextButton::buttonOnColourId, ghost::accent.withAlpha (0.30f));
@@ -833,6 +850,7 @@ void GhostbandEditor::updateModeVisibility()
              &complexitySlider, &humanizeSlider, &complexityLabel,
              &humanizeLabel, &seedEditor, &seedLabel, &keyBox, &styleBox,
              &tuningBox, &keyLabel, &styleLabel, &tuningLabel,
+             &modeBox, &modeLabel,
              &tempoLabel, &transportLabel, &summaryLabel,
              &mixLabel, &levelDrums, &levelBass, &levelGuitar, &levelPiano,
              &levelDrumsLabel, &levelBassLabel, &levelGuitarLabel, &levelPianoLabel })
@@ -987,6 +1005,11 @@ void GhostbandEditor::refreshFromProcessor()
     styleBox.setSelectedId (styleNameToId (processor.getStyle()), juce::dontSendNotification);
     tuningBox.setSelectedId (tuningNameToId (processor.getBassTuning()), juce::dontSendNotification);
 
+    const juce::String modeText = processor.getMode().replace ("_", " ");
+    for (int i = 1; i <= modeBox.getNumItems(); ++i)
+        if (modeBox.getItemText (i - 1) == modeText)
+            modeBox.setSelectedId (i, juce::dontSendNotification);
+
     sectionList.setSections (processor.getSections());
     sectionList.setSize (viewport.getWidth() > 0 ? viewport.getWidth() - 10 : 500,
                          sectionList.getHeight());
@@ -1009,57 +1032,47 @@ void GhostbandEditor::paint (juce::Graphics& g)
 {
     g.fillAll (ghost::colours::background);
 
-    // ---- faceplate ----
-    auto header = getLocalBounds().removeFromTop (58).toFloat();
-    ghost::drawPanel (g, header.withTrimmedBottom (-2.0f), true, 0.0f,
-                      ghost::colours::panelRaised);
+    // ---- header ----
+    // Flat, generous, and separated by a single gradient hairline rather than a
+    // bevel. The gradient is the one visual signature; it appears here and on
+    // anything active, and nowhere else.
+    auto header = getLocalBounds().removeFromTop (62).toFloat();
 
-    // Brushed metal: a few very faint horizontal strokes rather than a texture
-    // asset, so it stays crisp at any scale.
-    g.setColour (ghost::colours::bevelLight.withAlpha (0.05f));
-    for (float yy = header.getY() + 3.0f; yy < header.getBottom(); yy += 3.0f)
-        g.drawHorizontalLine (static_cast<int> (yy), header.getX(), header.getRight());
-
-    g.setColour (ghost::colours::bevelDark);
-    g.drawHorizontalLine (static_cast<int> (header.getBottom()), header.getX(), header.getRight());
-
-    const float sc = 7.0f;
-    ghost::drawScrew (g, { sc + 4.0f, header.getCentreY() }, 4.0f);
-    ghost::drawScrew (g, { header.getRight() - sc - 4.0f, header.getCentreY() }, 4.0f);
-
-    auto title = header.reduced (28.0f, 0.0f);
+    auto title = header.reduced (20.0f, 0.0f);
 
     g.setColour (ghost::colours::text);
-    g.setFont (juce::Font (juce::FontOptions (21.0f).withStyle ("Bold")));
-    g.drawText ("GHOSTBAND", title.withTrimmedBottom (20.0f).toNearestInt(),
+    g.setFont (juce::Font (juce::FontOptions (23.0f).withStyle ("Bold")));
+    g.drawText ("GHOSTBAND", title.withTrimmedBottom (22.0f).toNearestInt(),
                 juce::Justification::centredLeft);
 
     g.setColour (ghost::colours::dim);
     g.setFont (juce::Font (juce::FontOptions (9.5f)));
-    // Plain ASCII: a UTF-8 bullet written as escapes gets re-encoded on the way
-    // through and renders as mojibake.
     g.drawText ("MIDI BRAIN   -   DRUMS   BASS   GUITAR   PIANO",
-                title.withTrimmedTop (32.0f).toNearestInt(),
+                title.withTrimmedTop (36.0f).toNearestInt(),
                 juce::Justification::centredLeft);
 
-    // Transport lamp, so the panel shows at a glance whether it is running.
+    // Transport dot.
     const bool running = processor.transportRunning.load();
-    const auto lamp = juce::Rectangle<float> (9.0f, 9.0f)
-                          .withCentre ({ header.getRight() - 34.0f, header.getCentreY() - 6.0f });
+    const auto lamp = juce::Rectangle<float> (8.0f, 8.0f)
+                          .withCentre ({ header.getRight() - 24.0f, header.getCentreY() });
     ghost::drawLamp (g, lamp, running);
 
-    g.setColour (running ? ghost::colours::accent : ghost::colours::dim);
+    g.setColour (running ? ghost::colours::red : ghost::colours::dim);
     g.setFont (juce::Font (juce::FontOptions (8.5f)));
-    g.drawText (running ? "RUN" : "IDLE",
-                juce::Rectangle<int> (static_cast<int> (header.getRight()) - 62,
-                                      static_cast<int> (header.getCentreY()) + 2, 56, 12),
+    g.drawText (running ? "RUNNING" : "IDLE",
+                juce::Rectangle<int> (static_cast<int> (header.getRight()) - 110,
+                                      static_cast<int> (header.getCentreY()) - 6, 76, 12),
                 juce::Justification::centredRight);
 
-    // ---- footer rail, where the donate button lives ----
-    auto footer = getLocalBounds().removeFromBottom (34).toFloat();
-    ghost::drawPanel (g, footer.withTrimmedTop (-2.0f), true, 0.0f, ghost::colours::panelRaised);
-    g.setColour (ghost::colours::bevelDark);
-    g.drawHorizontalLine (static_cast<int> (footer.getY()), footer.getX(), footer.getRight());
+    const auto rule = juce::Rectangle<float> (header.getX(), header.getBottom() - 1.5f,
+                                              header.getWidth(), 1.5f);
+    g.setGradientFill (ghost::accentGradient (rule));
+    g.fillRect (rule);
+
+    // ---- footer ----
+    auto footer = getLocalBounds().removeFromBottom (38).toFloat();
+    g.setColour (ghost::colours::line);
+    g.fillRect (footer.withHeight (1.0f));
 }
 
 void GhostbandEditor::resized()
@@ -1068,13 +1081,13 @@ void GhostbandEditor::resized()
     processor.editorHeight.store (getHeight());
 
     auto r = getLocalBounds();
-    r.removeFromTop (58);
+    r.removeFromTop (62);
 
     // Footer rail: present on every screen, so the donate button never moves.
-    auto footerRail = r.removeFromBottom (34).reduced (16, 7);
+    auto footerRail = r.removeFromBottom (38).reduced (20, 8);
     donateButton.setBounds (footerRail.removeFromRight (150));
 
-    r = r.reduced (16, 12);
+    r = r.reduced (20, 14);
 
     auto planRow = r.removeFromTop (28);
 
@@ -1193,17 +1206,20 @@ void GhostbandEditor::resized()
 
     r.removeFromTop (12);
 
-    auto songRow = r.removeFromTop (24);
-    keyLabel.setBounds (songRow.removeFromLeft (34));
-    keyBox.setBounds (songRow.removeFromLeft (62));
-    songRow.removeFromLeft (14);
+    auto songRow = r.removeFromTop (26);
+    keyLabel.setBounds (songRow.removeFromLeft (32));
+    keyBox.setBounds (songRow.removeFromLeft (84));
+    songRow.removeFromLeft (12);
+    modeLabel.setBounds (songRow.removeFromLeft (42));
+    modeBox.setBounds (songRow.removeFromLeft (140));
+
+    r.removeFromTop (7);
+    songRow = r.removeFromTop (26);
     styleLabel.setBounds (songRow.removeFromLeft (44));
     styleBox.setBounds (songRow.removeFromLeft (132));
-
-    r.removeFromTop (6);
-    songRow = r.removeFromTop (24);
-    tuningLabel.setBounds (songRow.removeFromLeft (82));
-    tuningBox.setBounds (songRow.removeFromLeft (110));
+    songRow.removeFromLeft (12);
+    tuningLabel.setBounds (songRow.removeFromLeft (80));
+    tuningBox.setBounds (songRow.removeFromLeft (106));
     tempoLabel.setBounds (songRow);
 
     r.removeFromTop (12);

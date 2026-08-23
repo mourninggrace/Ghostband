@@ -190,6 +190,11 @@ public:
     juce::String getStyle() const;
     juce::String getBassTuning() const;
 
+    // The mode genuinely matters now that sections can be left without written
+    // chords: it decides which progressions get drawn and how a key is spelled.
+    void         setMode (const juce::String& mode);
+    juce::String getMode() const;
+
     // A plan compiled into the binary, so the plugin plays something the moment
     // it is added to a rackspace instead of sitting inert until a file is found.
     static const char* builtInPlanJson();
@@ -208,6 +213,16 @@ public:
     // sample layer a sampler plays, so scaling it makes a quiet kick a
     // *different* kick rather than a softer one. CC 7 changes level and leaves
     // the performance alone.
+    // MIDI channel per part. These override whatever the driver profiles say,
+    // because which channel an instrument listens on is a property of the user's
+    // rig rather than of the plugin they happen to be driving.
+    std::atomic<int> channelDrums  { 10 };
+    std::atomic<int> channelBass   { 1 };
+    std::atomic<int> channelGuitar { 2 };
+    std::atomic<int> channelPiano  { 3 };
+
+    void applyChannels();   // re-reads the atomics into the loaded profiles
+
     std::atomic<float> levelDrums  { 1.0f };
     std::atomic<float> levelBass   { 1.0f };
     std::atomic<float> levelGuitar { 1.0f };

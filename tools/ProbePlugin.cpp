@@ -361,6 +361,12 @@ public:
         double attacksPerSecond = 0.0;
         float  peak = 0.0f;
         float  brightness = 0.0f;
+        // Fraction of the hold during which anything was sounding. This is what
+        // separates a latching style phrase, which plays for as long as the
+        // chord is held, from a one-shot "common phrase" that fires once and
+        // stops - pressing one of those mid-song is what makes the band lurch.
+        double sustain = 0.0;
+        double firstGapAt = -1.0;   // seconds until the first silence
         std::vector<float> mono;   // captured for comparison against a baseline
     };
 
@@ -425,6 +431,30 @@ public:
 
         m.brightness       = brightBlocks > 0 ? static_cast<float> (brightAccum / brightBlocks) : 0.0f;
         m.attacksPerSecond = seconds > 0.0 ? m.attacks / seconds : 0.0;
+
+        // Sustain and the first gap, computed from the captured envelope.
+        if (! m.mono.empty())
+        {
+            const float gate = juce::jmax (0.004f, m.peak * 0.06f);
+            int sounding = 0;
+            int quietRun = 0;
+            const double perBlock = blockSize / sampleRate;
+
+            for (size_t i = 0; i < m.mono.size(); ++i)
+            {
+                if (m.mono[i] > gate) { ++sounding; quietRun = 0; }
+                else
+                {
+                    ++quietRun;
+                    // A tenth of a second of silence is a real gap, not the dip
+                    // between two notes of a riff.
+                    if (m.firstGapAt < 0.0 && quietRun * perBlock > 0.10 && sounding > 0)
+                        m.firstGapAt = (i - quietRun) * perBlock;
+                }
+            }
+            m.sustain = static_cast<double> (sounding) / m.mono.size();
+        }
+
         return m;
     }
 
@@ -528,6 +558,34 @@ int main (int argc, char** argv)
     }
 
     std::cout << "\n" << sounded << " of " << (high - low + 1) << " notes produced sound\n";
+
+    if (mode == "sustain")
+    {
+        // Hold a chord in the chord zone plus each candidate phrase key, and see
+        // which ones keep playing. A latching style phrase sustains for as long
+        // as the chord is held; a one-shot common phrase fires and stops, and
+        // triggering one of those mid-song is what makes an arrangement lurch.
+        std::cout << "\nholding a chord plus each key for " << phraseSecs << "s\n";
+        std::cout << "note  name   sustain  first gap   attacks   verdict\n";
+        std::cout << "--------------------------------------------------------\n";
+
+        for (int n = low; n <= high; ++n)
+        {
+            const auto m = probe.capture ({ 36, 40, 43, n }, channel, phraseSecs, true);
+
+            juce::String verdict;
+            if (m.peak < 0.01f)          verdict = "silent";
+            else if (m.sustain > 0.80)   verdict = "LATCHING - safe to select";
+            else if (m.sustain > 0.45)   verdict = "intermittent";
+            else                         verdict = "ONE-SHOT - do not use";
+
+            std::printf ("%4d  %-5s  %6.2f  %9.2f  %7d   %s\n",
+                         n, noteName (n).toRawUTF8(), m.sustain,
+                         m.firstGapAt < 0.0 ? phraseSecs : m.firstGapAt,
+                         m.attacks, verdict.toRawUTF8());
+        }
+        return 0;
+    }
 
     if (mode == "params")
     {
