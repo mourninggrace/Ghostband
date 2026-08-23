@@ -187,8 +187,18 @@ palette, stock JUCE sliders and buttons. Points worth carrying in:
 - **Latching section loop.** Jumping to a section plays on into whatever follows.
   The user asked about clicking once to repeat a section until told otherwise.
   The jump-offset machinery already supports it; it needs a latch flag and UI.
-- **Per-section reroll.** Currently Roll rerolls the whole song. Section seeds are
-  already derived per section (`deriveSeed`), so this is mostly UI work.
+- **Per-section reroll — explicitly requested 2026-08-23.** Roll currently
+  rerolls the whole song; the user wants to reroll only selected sections. The
+  engine is already most of the way there: each section's RNG is seeded from
+  `deriveSeed (plan.seed, salt)`, so a per-section reroll counter folded into
+  that salt rerolls one section and provably cannot disturb any other.
+  Suggested shape: add `unsigned rerollCounter` to `SectionPlan`; a
+  `rerollSections (indices)` on the processor bumps those counters and
+  regenerates; in the UI keep plain click as "jump to section" and add a second
+  gesture for selection (ctrl-click, or a small dice control per row), with Roll
+  applying to the selection and falling back to the whole song when nothing is
+  selected. Note this pairs naturally with the section editor, which will already
+  need per-row controls.
 - **The AI planner.** The remaining half of the agreed v1 brain: Claude writes the
   chart (chords, intensity curve, groove choices), the local engine renders it.
   The plan JSON is already the handoff format. Will need a background thread —

@@ -69,9 +69,118 @@ static std::vector<Chord> chordsForSection (const SectionPlan& s,
     return out;
 }
 
+// How many times a note-driven instrument restates the chord within a bar. A
+// phrase instrument performs its own rhythm, so this only applies when Ghostband
+// has to supply one.
+static int chordHitsPerBar (PhraseFeel feel)
+{
+    switch (feel)
+    {
+        case PhraseFeel::Silent:  return 0;
+        case PhraseFeel::Sparse:  return 1;
+        case PhraseFeel::Open:    return 1;
+        case PhraseFeel::Muted:   return 2;
+        case PhraseFeel::Driving: return 4;
+        case PhraseFeel::Busy:    return 8;
+        default:                  return 1;
+    }
+}
+
+// Open and sparse ring on; the busier feels want separation between hits or the
+// part turns into a wash.
+static double chordSustain (PhraseFeel feel)
+{
+    switch (feel)
+    {
+        case PhraseFeel::Open:   return 0.98;
+        case PhraseFeel::Sparse: return 0.94;
+        case PhraseFeel::Muted:  return 0.55;
+        case PhraseFeel::Busy:   return 0.60;
+        default:                 return 0.72;
+    }
+}
+
+static void generatePhrasePart (const SectionPlan& s,
+                                const std::vector<Chord>& chords,
+                                int sectionStartTick,
+                                int barTicks,
+                                int keyPc,
+                                Mode mode,
+                                bool phraseDriven,
+                                PhraseFeel feel,
+                                double humanize,
+                                Rng& rng,
+                                PhrasePart& out)
+{
+    PhraseIntent pi;
+    pi.tick   = sectionStartTick;
+    pi.feel   = feel;
+    pi.accent = 0.6 + s.intensity * 0.4;
+    out.phrases.push_back (pi);
+
+    if (feel == PhraseFeel::Silent || chords.empty())
+        return;
+
+    const int hits = phraseDriven ? 1 : chordHitsPerBar (feel);
+    if (hits <= 0)
+        return;
+
+    for (int bar = 0; bar < s.bars; ++bar)
+    {
+        const Chord& c = chords[static_cast<size_t> (bar) % chords.size()];
+
+        // A power chord carries no third, which is useless to anything that has
+        // to voice the harmony. Recover the third the power chord stands in for.
+        int third = c.thirdSemitones();
+        int fifth = c.fifthSemitones();
+        if (third < 0)
+        {
+            const ChordQuality q = diatonicTriadQuality (c.rootPc, keyPc, mode);
+            third = (q == ChordQuality::Minor || q == ChordQuality::Diminished) ? 3 : 4;
+            fifth = (q == ChordQuality::Diminished) ? 6 : 7;
+        }
+
+        const int barStart = sectionStartTick + bar * barTicks;
+
+        // A phrase instrument keeps performing while the chord is held, so a
+        // repeated chord is extended rather than retriggered - retriggering
+        // restarts the riff mid-bar and sounds like a stutter.
+        if (phraseDriven && ! out.chords.empty())
+        {
+            ChordIntent& prev = out.chords.back();
+            if (prev.rootPc == c.rootPc && prev.thirdSemis == third
+                && prev.tick + prev.durationTicks >= barStart)
+            {
+                prev.durationTicks += barTicks;
+                continue;
+            }
+        }
+
+        const int step = barTicks / hits;
+        for (int h = 0; h < hits; ++h)
+        {
+            ChordIntent ci;
+            ci.tick          = barStart + h * step
+                             + static_cast<int> (rng.bipolar (humanize * 4.0));
+            ci.tick          = std::max (0, ci.tick);
+            ci.durationTicks = phraseDriven
+                                 ? barTicks
+                                 : std::max (1, static_cast<int> (step * chordSustain (feel)));
+            ci.rootPc        = c.rootPc;
+            ci.thirdSemis    = third;
+            ci.fifthSemis    = fifth;
+            ci.accent        = (h == 0 ? 0.78 : 0.62) + s.intensity * 0.22
+                             + rng.bipolar (0.04);
+            out.chords.push_back (ci);
+        }
+    }
+}
+
 RenderResult renderPerformance (const SongPlan& plan,
                                 const DrumProfile& kit,
-                                const BassProfile& bass)
+                                const BassProfile& bass,
+                                const PhraseProfile* guitar,
+                                const PhraseProfile* piano)
 {
     RenderResult result;
 
@@ -171,8 +280,11 @@ RenderResult renderPerformance (const SongPlan& plan,
                     fillSize = "small";
             }
 
-            const bool playDrums = (s.plays == "full" || s.plays == "drums");
-            const bool playBass  = (s.plays == "full" || s.plays == "bass");
+            // Read the parsed flags, not the raw string. Comparing the string
+            // against "full" and "drums" silently dropped every section that
+            // used a list like "drums+bass" - they rendered completely empty.
+            const bool playDrums = s.playsDrums;
+            const bool playBass  = s.playsBass;
 
             if (playDrums)
                 generateDrumBar (ctx, groove, grid, barStart, bar == 0, fillSize,
@@ -191,6 +303,38 @@ RenderResult renderPerformance (const SongPlan& plan,
                 generateBassBar (ctx, grid, barStart, chord, next, s.bassPattern,
                                  lastBar, rng, result.performance.bass);
             }
+        }
+
+        // ---- guitar and piano ----
+        // Generated per section rather than per bar: a phrase instrument is
+        // told what to play once and then left alone, and even a note-driven
+        // one wants a single coherent treatment across the section.
+        if (guitar != nullptr && s.playsGuitar)
+        {
+            bool explicitFeel = false;
+            PhraseFeel feel = phraseFeelFromName (s.guitarPhrase, explicitFeel);
+            if (! explicitFeel) feel = chooseGuitarFeel (ctx, rng);
+
+            const size_t before = result.performance.guitar.chords.size();
+            generatePhrasePart (s, chords, tick, barTicks, keyPc, mode,
+                                guitar->isPhraseDriven(), feel, plan.humanize, rng,
+                                result.performance.guitar);
+            report.guitarChords = static_cast<int> (result.performance.guitar.chords.size() - before);
+            report.guitarFeel   = phraseFeelName (feel);
+        }
+
+        if (piano != nullptr && s.playsPiano)
+        {
+            bool explicitFeel = false;
+            PhraseFeel feel = phraseFeelFromName (s.pianoPhrase, explicitFeel);
+            if (! explicitFeel) feel = choosePianoFeel (ctx, rng);
+
+            const size_t before = result.performance.piano.chords.size();
+            generatePhrasePart (s, chords, tick, barTicks, keyPc, mode,
+                                piano->isPhraseDriven(), feel, plan.humanize, rng,
+                                result.performance.piano);
+            report.pianoChords = static_cast<int> (result.performance.piano.chords.size() - before);
+            report.pianoFeel   = phraseFeelName (feel);
         }
 
         report.drumHits  = static_cast<int> (result.performance.drums.size() - drumsBefore);
@@ -277,7 +421,9 @@ bool writeMidi (const SongPlan& plan,
                 const DrumProfile& kit,
                 const BassProfile& bass,
                 const std::string& path,
-                std::string& error)
+                std::string& error,
+                const PhraseProfile* guitar,
+                const PhraseProfile* piano)
 {
     MidiFile mf (kPPQ);
 
@@ -303,6 +449,24 @@ bool writeMidi (const SongPlan& plan,
     bassTrack.name = bass.name;
     bass.render (perf.bass, bassTrack, plan.bassTuning);
     mf.tracks.push_back (bassTrack);
+
+    // Only emitted when the song actually has the part, so a plan without a
+    // guitar does not gain an empty track.
+    if (guitar != nullptr && ! perf.guitar.chords.empty())
+    {
+        MidiTrack t;
+        t.name = guitar->name;
+        guitar->render (perf.guitar, t);
+        mf.tracks.push_back (t);
+    }
+
+    if (piano != nullptr && ! perf.piano.chords.empty())
+    {
+        MidiTrack t;
+        t.name = piano->name;
+        piano->render (perf.piano, t);
+        mf.tracks.push_back (t);
+    }
 
     return mf.write (path, error);
 }

@@ -354,6 +354,49 @@ int main (int argc, char** argv)
         proc.setPlayHead (nullptr);
     }
 
+    // ---- the full band --------------------------------------------------
+    // Guitar and piano are opt-in, so this also proves the opt-in works: the
+    // plans above must still have produced nothing on channels 2 and 3.
+    {
+        const juce::File band = juce::File (planPath).getSiblingFile ("demo-band.json");
+        if (band.existsAsFile())
+        {
+            check (proc.getSequenceNoteOnCount (2) == 0 && proc.getSequenceNoteOnCount (3) == 0,
+                   "a plan without guitar/piano produces nothing on their channels",
+                   juce::String (proc.getSequenceNoteOnCount (2)) + "/"
+                       + juce::String (proc.getSequenceNoteOnCount (3)));
+
+            proc.loadPlan (band);
+            const auto s = proc.getStatus();
+
+            check (s.ok, "full band plan loads", s.message);
+            check (s.guitarProfile.contains ("IRON"), "guitar profile resolved", s.guitarProfile);
+            check (s.pianoProfile.contains ("Pianist"), "piano profile resolved", s.pianoProfile);
+
+            const int gtr = proc.getSequenceNoteOnCount (2);
+            const int pno = proc.getSequenceNoteOnCount (3);
+            check (gtr > 0, "guitar plays", juce::String (gtr) + " note-ons on ch2");
+            check (pno > 0, "piano plays",  juce::String (pno) + " note-ons on ch3");
+
+            check (proc.getSequenceNoteOnCount (10) > 0 && proc.getSequenceNoteOnCount (1) > 0,
+                   "drums and bass still play alongside them");
+
+            // The intro is "drums+bass", so the guitar must not start at tick 0.
+            // Getting this wrong is how a list-valued "plays" silently becomes
+            // "everything", which is exactly the bug this caught once already.
+            const auto sections = proc.getSections();
+            bool introHasGuitar = false;
+            for (const gb::SectionReport& sec : sections)
+                if (sec.name == "intro" && sec.guitarChords > 0) introHasGuitar = true;
+            check (! introHasGuitar, "a section that excludes the guitar has none");
+
+            bool introHasDrums = false;
+            for (const gb::SectionReport& sec : sections)
+                if (sec.name == "intro" && sec.drumHits > 0) introHasDrums = true;
+            check (introHasDrums, "but a section listing drums+bass still has drums");
+        }
+    }
+
     proc.setPlayHead (nullptr);
 
     // Parity with the CLI. Pass the counts the CLI prints for the same plan and

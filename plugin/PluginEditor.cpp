@@ -361,7 +361,13 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     processor.stateChanged.addChangeListener (this);
     refreshFromProcessor();
 
-    setSize (560, 700);
+    // Resizable, with a floor that keeps the controls from overlapping. The
+    // size lives on the processor so it survives closing the window and is
+    // saved with the rest of the plugin state.
+    setResizable (true, true);
+    setResizeLimits (460, 520, 2200, 2000);
+    setSize (processor.editorWidth.load(), processor.editorHeight.load());
+
     startTimerHz (30);
 }
 
@@ -498,8 +504,10 @@ void GhostbandEditor::refreshFromProcessor()
     statusLabel.setColour (juce::Label::textColourId,
                            s.unverifiedProfiles || ! s.ok ? ghost::warn : ghost::dim);
 
-    profilesLabel.setText ("drums: " + s.drumProfile + "      bass: " + s.bassProfile,
-                           juce::dontSendNotification);
+    juce::String profiles = "drums: " + s.drumProfile + "    bass: " + s.bassProfile;
+    if (s.guitarProfile.isNotEmpty()) profiles += "    gtr: " + s.guitarProfile;
+    if (s.pianoProfile.isNotEmpty())  profiles += "    piano: " + s.pianoProfile;
+    profilesLabel.setText (profiles, juce::dontSendNotification);
 
     complexitySlider.setValue (processor.complexity.load(), juce::dontSendNotification);
     humanizeSlider.setValue (processor.humanize.load(), juce::dontSendNotification);
@@ -538,6 +546,9 @@ void GhostbandEditor::paint (juce::Graphics& g)
 
 void GhostbandEditor::resized()
 {
+    processor.editorWidth.store (getWidth());
+    processor.editorHeight.store (getHeight());
+
     auto r = getLocalBounds();
     r.removeFromTop (54);
     r = r.reduced (16, 12);

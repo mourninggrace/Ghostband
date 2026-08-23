@@ -7,6 +7,13 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Link the C++ runtime statically. Without this the plugin depends on
+# MSVCP140.dll and VCRUNTIME140.dll, so on any machine that has never had a
+# Visual C++ redistributable installed it does not fail gracefully - the host
+# simply cannot load it, usually with no useful message. A plugin someone copies
+# onto a strange machine has to be self-contained.
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 # ==============================================================================
 # Engine
 #

@@ -22,6 +22,10 @@ struct SectionReport
     std::string chords;      // rendered as text, for the console summary
     int         drumHits    = 0;
     int         bassNotes   = 0;
+    int         guitarChords = 0;
+    int         pianoChords  = 0;
+    std::string guitarFeel;      // empty when the part is not in this song
+    std::string pianoFeel;
 };
 
 struct RenderResult
@@ -35,16 +39,25 @@ struct RenderResult
 // Plan -> plugin-agnostic intent. The profiles are consulted only for their
 // capabilities: which pieces the kit actually has, and how low the bass can
 // physically go in the requested tuning. No note numbers cross this boundary.
+// Guitar and piano are optional: pass null and those parts are simply not
+// generated, which is what keeps every plan written before they existed
+// rendering byte-for-byte as it did. The profiles are consulted only for
+// capabilities - how low the bass reaches, which drum pieces the kit has, and
+// whether a phrase instrument performs its own rhythm or needs one supplied.
 RenderResult renderPerformance (const SongPlan& plan,
                                 const DrumProfile& kit,
-                                const BassProfile& bass);
+                                const BassProfile& bass,
+                                const PhraseProfile* guitar = nullptr,
+                                const PhraseProfile* piano  = nullptr);
 
 bool writeMidi (const SongPlan& plan,
                 const Performance& perf,
                 const DrumProfile& kit,
                 const BassProfile& bass,
                 const std::string& path,
-                std::string& error);
+                std::string& error,
+                const PhraseProfile* guitar = nullptr,
+                const PhraseProfile* piano  = nullptr);
 
 // Walks every mapped drum voice and bass articulation in turn, with a marker
 // naming each one, so a profile can be checked against the real plugin by ear

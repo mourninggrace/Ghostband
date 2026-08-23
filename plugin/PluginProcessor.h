@@ -57,6 +57,8 @@ public:
         juce::String  message    { "Load a plan to begin." };
         juce::String  drumProfile;
         juce::String  bassProfile;
+        juce::String  guitarProfile;   // empty when the song has no such part
+        juce::String  pianoProfile;
         juce::String  headline;
         int           bars    = 0;
         double        seconds = 0.0;
@@ -94,6 +96,11 @@ public:
 
     // Live transport position, so the editor can show which section is sounding.
     // Hearing a change is much easier when you can see what you are hearing.
+    // Editor size, kept here so it survives closing the window and is saved
+    // with the rest of the plugin state.
+    std::atomic<int> editorWidth  { 560 };
+    std::atomic<int> editorHeight { 700 };
+
     std::atomic<int>    playbackTick     { 0 };
     std::atomic<bool>   transportRunning { false };
     std::atomic<double> hostBpm          { 0.0 };
@@ -145,7 +152,9 @@ private:
     void rebuildSequence (const gb::RenderResult& result,
                           const gb::DrumProfile& kitToUse,
                           const gb::BassProfile& bassToUse,
-                          const gb::SongPlan& planToUse);
+                          const gb::SongPlan& planToUse,
+                          const gb::PhraseProfile* guitarToUse,
+                          const gb::PhraseProfile* pianoToUse);
     void sendAllNotesOff (juce::MidiBuffer& midi, int sampleOffset);
     bool resolveProfiles (juce::String& error);
 
@@ -168,6 +177,10 @@ private:
     gb::SongPlan                  plan;
     gb::DrumProfile               kit;
     gb::BassProfile               bassProfile;
+    gb::PhraseProfile             guitarProfile;
+    gb::PhraseProfile             pianoProfile;
+    bool                          haveGuitar = false;
+    bool                          havePiano  = false;
     std::vector<gb::SectionReport> sections;
     Status                        status;
     juce::File                    planFile;

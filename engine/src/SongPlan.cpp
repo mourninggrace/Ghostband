@@ -187,7 +187,6 @@ std::vector<std::string> SongPlan::validate() const
         warnings.push_back ("key \"" + key + "\" is not a recognised note name; falling back to E");
 
     static const char* feels[] = { "straight", "half_time", "double_time", "blast" };
-    static const char* plays[] = { "full", "drums", "bass", "none" };
     static const char* fills[] = { "auto", "none", "small", "big" };
 
     for (const SectionPlan& s : sections)
@@ -197,10 +196,14 @@ std::vector<std::string> SongPlan::validate() const
         if (! found)
             warnings.push_back ("section \"" + s.name + "\": unknown feel \"" + s.feel + "\"; using straight");
 
-        found = false;
-        for (const char* p : plays) if (s.plays == p) { found = true; break; }
-        if (! found)
-            warnings.push_back ("section \"" + s.name + "\": unknown plays \"" + s.plays + "\"; using full");
+        // "plays" is a list, so it is checked by whether parsing found anything
+        // rather than against a fixed set of whole strings.
+        if (! (s.playsDrums || s.playsBass || s.playsGuitar || s.playsPiano)
+            && s.plays != "none" && s.plays != "silent")
+        {
+            warnings.push_back ("section \"" + s.name + "\": nothing in plays \"" + s.plays
+                                + "\" names a part, so the section will be silent");
+        }
 
         found = false;
         for (const char* f : fills) if (s.fill == f) { found = true; break; }

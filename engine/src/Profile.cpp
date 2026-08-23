@@ -376,6 +376,7 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
     out.channel           = clampInt (j.intOr ("channel", out.channel), 1, 16);
     out.velocityMin       = clampInt (j.intOr ("velocity_min", out.velocityMin), 1, 127);
     out.velocityMax       = clampInt (j.intOr ("velocity_max", out.velocityMax), 1, 127);
+    out.phraseDriven      = (j.stringOr ("mode", "phrase") != "notes");
     out.phraseLeadTicks   = std::max (1, j.intOr ("phrase_lead_ticks", out.phraseLeadTicks));
     out.phraseBlipTicks   = std::max (1, j.intOr ("phrase_blip_ticks", out.phraseBlipTicks));
     out.phraseVelocity    = clampInt (j.intOr ("phrase_velocity", out.phraseVelocity), 1, 127);
@@ -420,8 +421,13 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
 {
     // Phrase switches first. They are momentary keys, and they must arrive
     // before the chord they apply to or the instrument plays one phrase behind.
+    // A note-driven target has no phrase keys at all - pressing one would just
+    // sound a wrong note - so they are skipped entirely.
     for (const PhraseIntent& p : part.phrases)
     {
+        if (! phraseDriven)
+            break;
+
         const int key = keyFor (p.feel);
         if (key < 0)
             continue;   // this instrument has no such phrase; leave it as it was

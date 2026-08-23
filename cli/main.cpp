@@ -211,6 +211,36 @@ int main (int argc, char** argv)
         return 1;
     }
 
+    // Guitar and piano are opt-in: a plan that names no profile simply has no
+    // such part, which is what keeps older plans rendering unchanged.
+    PhraseProfile guitarProfile, pianoProfile;
+    bool haveGuitar = false, havePiano = false;
+
+    if (! plan.guitarProfile.empty())
+    {
+        const std::string path = resolvePath (argv0, plan.guitarProfile);
+        if (! PhraseProfile::load (path, guitarProfile, error))
+        {
+            std::cerr << "ghostband: " << error << "\n";
+            return 1;
+        }
+        haveGuitar = true;
+    }
+
+    if (! plan.pianoProfile.empty())
+    {
+        const std::string path = resolvePath (argv0, plan.pianoProfile);
+        if (! PhraseProfile::load (path, pianoProfile, error))
+        {
+            std::cerr << "ghostband: " << error << "\n";
+            return 1;
+        }
+        havePiano = true;
+    }
+
+    const PhraseProfile* guitarPtr = haveGuitar ? &guitarProfile : nullptr;
+    const PhraseProfile* pianoPtr  = havePiano  ? &pianoProfile  : nullptr;
+
     // ---- calibrate -------------------------------------------------------
     if (command == "calibrate")
     {
@@ -234,12 +264,12 @@ int main (int argc, char** argv)
     // ---- render ----------------------------------------------------------
     const std::vector<std::string> warnings = plan.validate();
 
-    const RenderResult result = renderPerformance (plan, kit, bass);
+    const RenderResult result = renderPerformance (plan, kit, bass, guitarPtr, pianoPtr);
 
     if (outPath.empty())
         outPath = baseName (planPath) + ".mid";
 
-    if (! writeMidi (plan, result.performance, kit, bass, outPath, error))
+    if (! writeMidi (plan, result.performance, kit, bass, outPath, error, guitarPtr, pianoPtr))
     {
         std::cerr << "ghostband: " << error << "\n";
         return 1;
@@ -261,28 +291,39 @@ int main (int argc, char** argv)
 
     reportProfile ("drums", kit.name, kit.needsVerification, kit.verificationNote);
     reportProfile ("bass ", bass.name, bass.needsVerification, bass.verificationNote);
+    if (haveGuitar)
+        reportProfile ("gtr  ", guitarProfile.name, guitarProfile.needsVerification,
+                       guitarProfile.verificationNote);
+    if (havePiano)
+        reportProfile ("piano", pianoProfile.name, pianoProfile.needsVerification,
+                       pianoProfile.verificationNote);
     std::cout << "\n";
 
-    std::printf ("  %-12s %-10s %5s %5s %-11s %7s %6s\n",
-                 "section", "role", "bar", "bars", "feel", "drums", "bass");
-    std::printf ("  %s\n", std::string (64, '-').c_str());
+    std::printf ("  %-12s %-10s %5s %5s %-11s %7s %6s %-9s %-9s\n",
+                 "section", "role", "bar", "bars", "feel", "drums", "bass", "guitar", "piano");
+    std::printf ("  %s\n", std::string (86, '-').c_str());
 
     for (const SectionReport& s : result.sections)
     {
-        std::printf ("  %-12s %-10s %5d %5d %-11s %7d %6d\n",
+        std::printf ("  %-12s %-10s %5d %5d %-11s %7d %6d %-9s %-9s\n",
                      s.name.substr (0, 12).c_str(),
                      s.role.substr (0, 10).c_str(),
                      s.startBar + 1,
                      s.bars,
                      s.feel.substr (0, 11).c_str(),
                      s.drumHits,
-                     s.bassNotes);
+                     s.bassNotes,
+                     s.guitarFeel.empty() ? "-" : s.guitarFeel.c_str(),
+                     s.pianoFeel.empty()  ? "-" : s.pianoFeel.c_str());
         std::printf ("  %-12s %s\n", "", s.chords.c_str());
     }
 
     std::cout << "\n  " << result.totalBars << " bars, " << timecode (result.durationSeconds)
               << ", " << result.performance.drums.size() << " drum hits, "
-              << result.performance.bass.size() << " bass notes\n";
+              << result.performance.bass.size() << " bass notes";
+    if (haveGuitar) std::cout << ", " << result.performance.guitar.chords.size() << " guitar chords";
+    if (havePiano)  std::cout << ", " << result.performance.piano.chords.size() << " piano chords";
+    std::cout << "\n";
 
     if (! warnings.empty())
     {

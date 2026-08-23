@@ -1,0 +1,34 @@
+{
+  // UJAM Virtual Pianist.
+  //
+  // PROVISIONAL. Unlike IRON 2, this one could not be mapped reliably by probe:
+  // its output measured about five times quieter, the attack counts showed no
+  // phrase signature anywhere, the sounding-band boundaries moved between runs,
+  // and the plugin logged asset-manager errors on load. It appears not to fully
+  // initialise outside a real host.
+  //
+  // What the probe did establish, consistently across runs, is that MIDI notes
+  // 48-61 produce ordinary pitched notes with a ~1.5s decay and a single attack
+  // each. That is a piano, not a phrase player. So this profile drives it in
+  // "notes" mode: Ghostband voices the chords itself and supplies the rhythm,
+  // rather than pressing phrase keys it cannot identify.
+  //
+  // That choice is deliberately the safe one. A wrong phrase key would trigger
+  // the wrong riff; a chord voiced into a known-sounding range just plays the
+  // chord. Revisit once the in-plugin Calibrate button exists.
+
+  "name": "UJAM Virtual Pianist",
+  "id": "virtual_pianist",
+  "channel": 3,
+
+  "mode": "notes",
+
+  "needs_verification": true,
+  "verification_note": "Driven as a plain piano. Phrase keys not identified - calibrate to improve.",
+
+  // Sits under a rock band without competing with the guitar's register.
+  "chord_zone": { "lowest_note": 48, "highest_note": 61 },
+
+  "velocity_min": 55,
+  "velocity_max": 110
+}

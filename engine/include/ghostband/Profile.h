@@ -108,7 +108,20 @@ public:
     int  velocityMin = 60;
     int  velocityMax = 127;
 
-    // Where chords are read from. Roots are folded into this range.
+    // Two kinds of target live behind this one class.
+    //
+    // Phrase-driven (UJAM guitars): hold a chord in a low key zone, press a key
+    // in a phrase zone, and the instrument performs the riff. Ghostband states
+    // the harmony and picks the phrase; the rhythm belongs to the instrument.
+    //
+    // Note-driven (an ordinary piano): there is no phrase to pick, so Ghostband
+    // has to supply the rhythm itself by emitting chords repeatedly. The feel
+    // then decides how often, rather than which phrase key to press.
+    bool phraseDriven = true;
+
+    bool isPhraseDriven() const { return phraseDriven; }
+
+    // Where chords are voiced. Roots are folded into this range.
     int  chordLowest  = 24;
     int  chordHighest = 47;
 

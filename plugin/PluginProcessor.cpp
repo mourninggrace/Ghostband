@@ -147,6 +147,41 @@ bool GhostbandProcessor::resolveProfiles (juce::String& error)
             error = juce::String (e);
     }
 
+    // Guitar and piano are opt-in. A plan that names no profile has no such
+    // part, and the flags below are what stop it being generated at all.
+    haveGuitar = false;
+    havePiano  = false;
+
+    if (! plan.guitarProfile.empty())
+    {
+        const juce::String path = resolve (plan.guitarProfile);
+        gb::PhraseProfile loaded;
+        std::string e;
+        if (path.isNotEmpty() && gb::PhraseProfile::load (path.toStdString(), loaded, e))
+        {
+            guitarProfile = loaded;
+            haveGuitar = true;
+        }
+        else if (error.isEmpty())
+            error = e.empty() ? ("could not find " + juce::String (plan.guitarProfile))
+                              : juce::String (e);
+    }
+
+    if (! plan.pianoProfile.empty())
+    {
+        const juce::String path = resolve (plan.pianoProfile);
+        gb::PhraseProfile loaded;
+        std::string e;
+        if (path.isNotEmpty() && gb::PhraseProfile::load (path.toStdString(), loaded, e))
+        {
+            pianoProfile = loaded;
+            havePiano = true;
+        }
+        else if (error.isEmpty())
+            error = e.empty() ? ("could not find " + juce::String (plan.pianoProfile))
+                              : juce::String (e);
+    }
+
     return error.isEmpty();
 }
 
@@ -247,6 +282,8 @@ void GhostbandProcessor::regenerate()
     gb::SongPlan working;
     gb::DrumProfile workingKit;
     gb::BassProfile workingBass;
+    gb::PhraseProfile workingGuitar, workingPiano;
+    bool withGuitar = false, withPiano = false;
 
     {
         const juce::ScopedLock sl (stateLock);
@@ -257,10 +294,17 @@ void GhostbandProcessor::regenerate()
             stateChanged.sendChangeMessage();
             return;
         }
-        working     = plan;
-        workingKit  = kit;
-        workingBass = bassProfile;
+        working       = plan;
+        workingKit    = kit;
+        workingBass   = bassProfile;
+        workingGuitar = guitarProfile;
+        workingPiano  = pianoProfile;
+        withGuitar    = haveGuitar;
+        withPiano     = havePiano;
     }
+
+    const gb::PhraseProfile* guitarPtr = withGuitar ? &workingGuitar : nullptr;
+    const gb::PhraseProfile* pianoPtr  = withPiano  ? &workingPiano  : nullptr;
 
     working.complexity = complexity.load();
     working.humanize   = humanize.load();
@@ -270,9 +314,10 @@ void GhostbandProcessor::regenerate()
     // for a song this size, so it runs on the message thread. When the AI
     // planner lands it will need a network call, and that will have to move to
     // a background thread - the sequence swap below is already built for it.
-    const gb::RenderResult result = gb::renderPerformance (working, workingKit, workingBass);
+    const gb::RenderResult result = gb::renderPerformance (working, workingKit, workingBass,
+                                                           guitarPtr, pianoPtr);
 
-    rebuildSequence (result, workingKit, workingBass, working);
+    rebuildSequence (result, workingKit, workingBass, working, guitarPtr, pianoPtr);
 
     {
         const juce::ScopedLock sl (stateLock);
@@ -287,9 +332,15 @@ void GhostbandProcessor::regenerate()
         status.seconds   = result.durationSeconds;
         status.drumHits  = static_cast<int> (result.performance.drums.size());
         status.bassNotes = static_cast<int> (result.performance.bass.size());
-        status.drumProfile = workingKit.name;
-        status.bassProfile = workingBass.name;
-        status.unverifiedProfiles = workingKit.needsVerification || workingBass.needsVerification;
+        status.drumProfile   = workingKit.name;
+        status.bassProfile   = workingBass.name;
+        status.guitarProfile = withGuitar ? juce::String (workingGuitar.name) : juce::String();
+        status.pianoProfile  = withPiano  ? juce::String (workingPiano.name)  : juce::String();
+
+        status.unverifiedProfiles = workingKit.needsVerification
+                                 || workingBass.needsVerification
+                                 || (withGuitar && workingGuitar.needsVerification)
+                                 || (withPiano  && workingPiano.needsVerification);
 
         status.headline = juce::String (working.key) + " " + juce::String (working.mode).replace ("_", " ")
                         + "   " + juce::String (working.bpm, 0) + " bpm   "
@@ -308,7 +359,9 @@ void GhostbandProcessor::regenerate()
 void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
                                           const gb::DrumProfile& kitToUse,
                                           const gb::BassProfile& bassToUse,
-                                          const gb::SongPlan& planToUse)
+                                          const gb::SongPlan& planToUse,
+                                          const gb::PhraseProfile* guitarToUse,
+                                          const gb::PhraseProfile* pianoToUse)
 {
     // Reuse the exact same profile rendering the CLI uses, then flatten the two
     // tracks into one time-ordered stream the audio thread can walk. The
@@ -338,6 +391,20 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
 
     append (drums);
     append (bass);
+
+    if (guitarToUse != nullptr && ! result.performance.guitar.chords.empty())
+    {
+        gb::MidiTrack t;
+        guitarToUse->render (result.performance.guitar, t);
+        append (t);
+    }
+
+    if (pianoToUse != nullptr && ! result.performance.piano.chords.empty())
+    {
+        gb::MidiTrack t;
+        pianoToUse->render (result.performance.piano, t);
+        append (t);
+    }
 
     std::stable_sort (built.begin(), built.end(),
                       [] (const TimedMessage& a, const TimedMessage& b)
@@ -625,6 +692,8 @@ void GhostbandProcessor::getStateInformation (juce::MemoryBlock& destData)
     xml.setAttribute ("complexity", complexity.load());
     xml.setAttribute ("humanize",   humanize.load());
     xml.setAttribute ("seed",       seed.load());
+    xml.setAttribute ("editorW",    editorWidth.load());
+    xml.setAttribute ("editorH",    editorHeight.load());
     copyXmlToBinary (xml, destData);
 }
 
@@ -637,6 +706,8 @@ void GhostbandProcessor::setStateInformation (const void* data, int sizeInBytes)
     complexity.store (xml->getDoubleAttribute ("complexity", 0.5));
     humanize.store   (xml->getDoubleAttribute ("humanize", 0.5));
     seed.store       (xml->getIntAttribute ("seed", 1));
+    editorWidth.store  (juce::jlimit (460, 2200, xml->getIntAttribute ("editorW", 560)));
+    editorHeight.store (juce::jlimit (520, 2000, xml->getIntAttribute ("editorH", 700)));
 
     const juce::File file (xml->getStringAttribute ("plan"));
     if (file.existsAsFile())
