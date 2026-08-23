@@ -92,9 +92,22 @@ here and in the README.
 
 ## Measured facts worth keeping
 
-- **IRON 2**: notes 12–59 silent (chord zone), **60–89 phrase zone**, 90–120
-  silent. Attack density and brightness rise with pitch, so low key = sparse,
-  high key = busy. Measured on style *"120 bpm – Arm Pit"*.
+- **UJAM instruments have two modes and each needs its own profile.** In
+  *Instrument* mode they play the notes they are sent; in *Player* mode you hold
+  a chord in a low zone and hold a phrase key. Using the wrong profile sounds
+  broken rather than merely wrong. Instrument mode is the default here; the
+  measured Player mapping is kept in `vg-iron2-player.json`.
+- **Phrase keys must be HELD, not tapped.** Measured: pressing one for ~50ms
+  gives 3% sustain and the sound stops after 0.17s. This was reported as "the
+  guitar cuts out" and it was real. Note how it was missed first time — the
+  earlier sustain test held the key for the whole measurement, so it answered
+  "does this key keep playing" rather than "does Ghostband hold it long enough".
+  **When a test passes and the user still reports a fault, check the test is
+  asking the user's question.**
+- **IRON 2** (player mode): notes 12–59 silent (chord zone), **60–89 phrase
+  zone**, 90–120 silent. Density by attacks over 5s: key 79 = 1, 73 = 2, 70 = 4,
+  67 = 7, 88 = 16. The first mapping was guessed from pitch and had it backwards.
+  Measured on style *"120 bpm – Arm Pit"*.
 - **Virtual Pianist** could not be mapped by probe — output ~5× quieter, no
   phrase signature, boundaries moving between runs, AssetManager errors on load.
   It is driven as a plain piano instead, which is the safe failure mode.
