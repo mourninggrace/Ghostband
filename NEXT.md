@@ -1,255 +1,55 @@
 # Where Ghostband stands, and what to do next
 
-Written 2026-08-22, updated 2026-08-23. Everything described as done is
-committed, building, and covered by the harness.
+Last updated 2026-08-23, end of session 3. Everything described as done is
+committed, pushed, installed, and covered by the harness.
 
-## Session 2 (2026-08-23) — read this first
+## State
 
-**The rig is finally correct and the user has heard it working.** Their words:
-"its playing now and it sounds great to me."
+Public at <https://github.com/mourninggrace/Ghostband> under **AGPLv3**. Free,
+with a Ko-fi donate button (`ko-fi.com/kyleyeroshefsky11806`). Not being sold —
+see `COMMERCIAL.md`, which is retained for its licensing research but no longer
+describes the plan.
 
-**Solved: parts were bleeding into every instrument.** Ghostband separates parts
-by MIDI channel, but instrument plugins are omni — proven, not assumed: IRON 2
-returned byte-identical measurements on channels 1, 2, 10 and 16. So every
-instrument was playing every part. The fix is Gig Performer's own **MIDI Channel
-Constrainer** block, one per instrument, and the user has wired and saved it:
+**Working, in the user's Gig Performer rig:**
 
-```
-Ghostband ─┬─> Constrainer(10) ─> SSDSampler5
-           ├─> Constrainer(1)  ─> MODO BASS 2
-           ├─> Constrainer(3)  ─> Virtual Pianist
-           └─> Constrainer(2)  ─> VG-IRON2
-```
+- Four parts — drums, bass, guitar, piano — driving SSD5, MODO Bass 2,
+  UJAM IRON 2 and UJAM Virtual Pianist.
+- Live section jumping, landing on the next bar line.
+- Rerolling, whole song or ctrl-clicked sections only.
+- In-plugin calibration: tune a drum map by ear, no MIDI knowledge needed.
+- Song structure editor with save.
+- Dark industrial UI, resizable, procedurally drawn.
 
-This replaced a planned multi-instance workaround. Do not resurrect that.
+**Build:** `Build.bat`. JUCE 8.0.15 is a pinned submodule; clone with
+`--recursive`. The C++ runtime links statically, so the plugin has no
+dependencies beyond Windows.
 
-**The user cannot verify MIDI maps by ear** — they have no DAW (GP5 only), and
-being asked to read marker timecodes off a stopwatch made them feel useless.
-Build measurement tools instead. `ghostband_probe` does this: it loads a VST3
-headlessly and measures peak, RMS, brightness, decay and attack density per note.
+**Install:** `Install.bat`. It refuses to run while Gig Performer is open,
+because a host holds the DLL and the copy would silently do nothing.
 
-- **Works on UJAM.** IRON 2 fully mapped: 12–59 silent (chord zone), **60–89 =
-  phrase zone**, 90–120 silent; attack density and brightness rise monotonically
-  up the phrase zone, so low key = sparse, high key = busy. Written up in
-  `profiles/vg-iron2.json`. Its style is *"120 bpm – Arm Pit"*, Character Twang,
-  Amp Crunch — read from parameter 0, so the phrase mapping is valid for that
-  style only.
-- **Does NOT work on SSD5 or MODO Bass 2.** Both load and report buses and
-  parameters, but every note measures silent. Ruled out: the headless plugin
-  format, message-loop pumping, and editor creation. Remaining explanation is
-  licensing, which must not be worked around. These two need in-plugin
-  calibration.
-- **Virtual Pianist is inconclusive.** Output is ~5× quieter than IRON 2, attack
-  counts are low everywhere with no phrase signature, band boundaries shift
-  between runs, and the plugin logs `AssetManager ... category "undefined" is not
-  available` on load. It probably does not fully initialise headlessly. Do not
-  write a profile from those numbers. Installed editions are SCORE, VIBE, VOGUE,
-  GRIT, RELIC.
+## The only remaining planned item
 
-**Useful aside:** MODO Bass 2 exposes 2081 parameters named `MIDI CC 0|n` — a
-complete CC map, which will make its articulation profile straightforward.
+**The AI planner.** Claude writes the *chart* — chords, intensity curve, groove
+choices, section shape — and the local engine renders it, exactly as agreed in
+session 1. Decisions already made:
 
-**Watch the tempo.** GP is set to 120 BPM and Ghostband follows the host, so the
-metal demo (written for 168) plays slow. That is correct behaviour, not a bug.
+- **The user supplies their own API key.** Ghostband is donation-ware, so a
+  per-generation cost against no revenue makes no sense.
+- **It must remain entirely optional.** Everything works today with no key and
+  no network; `autoProgression` already writes progressions locally. The planner
+  raises musical sophistication, it is not a dependency, and playback must never
+  wait on a network call.
+- It needs a background thread. The sequence swap in the processor was built for
+  this and is already safe for it.
 
-### Guitar and piano: what is done and what is not
+## Waiting on the user
 
-Landed and building, but **not yet audible** — nothing is wired into Render, the
-CLI or the plugin, so IRON 2 and Virtual Pianist stay silent:
+They are testing the current build and reporting back. The two things most likely
+to have rough edges, because they are newest and least exercised:
 
-- `ChordIntent` / `PhraseIntent` / `PhrasePart` / `PhraseFeel` in `Intent.h`
-- `PhraseProfile` driver class, with chord-zone voicing and phrase blips
-- `SongPlan`: per-part `plays` parsing (`"drums+bass"`, `"guitar"`), opt-in
-  `guitar_profile` / `piano_profile` so every pre-existing plan renders
-  identically, plus per-section `guitar` / `piano` feel overrides
-- `chooseGuitarFeel` / `choosePianoFeel`, built on **weighted pools** rather than
-  thresholds — deliberately, so these parts do not inherit the drums' problem
-- `diatonicTriadQuality` in `Music.h`, to recover major/minor from a power chord
-  so a phrase instrument can be told which it is
-
-Remaining, in order: wire both parts into `Render.cpp`; add their tracks to the
-CLI's MIDI output; include them in the plugin's sequence; a demo plan that uses
-them; harness coverage. Then the in-plugin **Calibrate** button, which is now the
-only way SSD5 and MODO can be verified.
-
-## Working today
-
-- **Engine** — plan → groove → intent → profile → MIDI. No JUCE, no third-party
-  code, no plugin names anywhere in the C++.
-- **CLI** (`ghostband.exe`) — `render` and `calibrate`.
-- **VST3** — installed and confirmed running in Gig Performer 5. Orange MIDI out
-  pin present and wiring to SSD5 / MODO Bass 2 works.
-- **Harness** (`ghostband_plugin_test`) — 32 checks, including CLI parity.
-
-User has heard the demos and the plugin and signed off on the grooves.
-
-## SOLVED 2026-08-23: rerolling barely changed anything
-
-Fixed. Every element of the groove skeleton now draws from a pool instead of a
-threshold: kick patterns (4–6 genuine options per intensity band, with beat masks
-expressed procedurally so odd meters still work), snare treatment (plain, pickup,
-upbeat push, ghost-heavy), ride-vs-hats and hat subdivision (probabilities, not
-thresholds), five distinct fill shapes, and the bass `auto` pattern chosen per
-section rather than always being `lock_kick`.
-
-Measured before and after, across six seeds on the metal demo: note counts used
-to move under 1% between seeds and now move 9% on drums and 29% on bass, with the
-kick onset count itself ranging 476–553 — the patterns genuinely differ rather
-than the ornamentation wobbling.
-
-**The kick/bass lock survived**, which was the thing at risk: 89–93% of bass
-attacks still land within 12 ticks of a kick, still averaging 2.5 ticks ahead.
-
-The original diagnosis is kept below because it is a good record of how the
-problem was found.
-
-### The original problem, for the record
-
-The user's words: the changes from Roll "seem to be so small they are almost
-non-existent."
-
-### Why — this was diagnosed, not guessed
-
-Auditing every `rng.` call in `Groove.cpp` shows the *skeleton* of a groove is
-fully determined by intensity, style and feel, and only the *ornamentation* is
-random:
-
-| element | current state |
-| --- | --- |
-| snare placement | **no randomness at all** — purely `feel` + `beatsPerBar` |
-| ride vs hats (`useRide`) | **no randomness** — a hard threshold on intensity |
-| hat subdivision (`hatStep`) | **no randomness** — thresholds on intensity/complexity |
-| kick pattern | only 2 options, and only inside some intensity bands |
-| fill shape | **always the same** — open on snare, walk down the toms |
-| bass pattern when `auto` | **deterministic** — always `lock_kick` for heavy styles |
-| ghost notes, dead notes, jitter, crash choice | random ✓ |
-
-So two rolls of the same section produce the same drum pattern with slightly
-different ghost notes. That is exactly what "almost non-existent" sounds like.
-
-### The plan
-
-Give the *skeleton* real variety while keeping each section's identity. All of
-this lives in `buildSectionGroove` / `generateDrumBar` / `generateBassBar`.
-
-1. **Kick pools.** Replace the two hardcoded options with a pool of 4–6 genuinely
-   different `(beat mask, cell)` pairs per intensity band. Express beat masks
-   procedurally (`All`, `Even`, `FirstAndMid`, `AllButLast`, `FirstOnly`) so odd
-   time signatures still work.
-2. **Snare variants.** Add 3–4 backbeat treatments: plain; plain plus a pickup on
-   the last 16th; plain plus the "and" of the last beat; ghost-heavy.
-3. **Cymbals.** Randomise `useRide` and `hatStep` *within* sensible bands rather
-   than switching on a hard threshold.
-4. **Fill vocabulary.** Five shapes instead of one: tom descent, snare roll,
-   alternating snare/tom, near-silence into a crash, tom pairs.
-5. **Bass `auto`.** Weighted choice between `lock_kick`, `lock_kick_octave` and
-   `eighths`, resolved **once per section** (in `Render.cpp`, using that
-   section's RNG) so the part stays coherent across its bars.
-
-A partial version of this was started and reverted to keep the tree coherent —
-`SectionGroove` was to gain `snareVariant` and `fillShape`, plus a new
-`chooseBassPattern (ctx, rng)`.
-
-**Constraint:** every option must be idiomatic on its own. More variety is only
-an improvement if every roll is still something a drummer would play.
-
-## Requested by the user, not yet started
-
-Both raised 2026-08-23 as "things to work on later".
-
-### 1. Song structure editing inside the plugin
-
-Sections — intro, verse, chorus, bridge, solo, ending — can currently only be
-defined by hand-editing a plan JSON. **The user has no DAW and no text-editing
-workflow**, so in practice the structure is not editable by them at all. This is
-the more consequential of the two requests: it is what makes Ghostband
-self-contained rather than a player for files someone else wrote.
-
-Needs, roughly in order:
-
-- Add / remove / reorder sections; reordering wants drag-and-drop.
-- Per section: name and role, bar count, intensity, feel, chords, which parts
-  play, fill, and the guitar/piano phrase override.
-- **A save path.** Today the plugin only *loads* plans. The moment structure is
-  editable in the UI, edits have to persist — "Save plan" and "Save plan as...".
-  This is easy to overlook and it is not optional.
-- The existing section list already draws rows, highlights the playing section
-  and tracks a playhead, and clicking a row jumps to it. That is the right
-  foundation; this is turning a read-only list into an editable one.
-
-Note the overlap with the AI planner: when Claude writes the chart, this editor
-is how the user adjusts it. Building the editor first makes the planner more
-useful, not less.
-
-### 2. Visual redesign of the plugin
-
-The user's words: plain and boring; wants a complete redesign — graphics,
-colours, borders, buttons, knobs, sliders — "more modern and techy like".
-
-The current UI is honest but unstyled: flat rectangles drawn from a small
-palette, stock JUCE sliders and buttons. Points worth carrying in:
-
-- Do it with a proper `juce::LookAndFeel_V4` subclass and custom-drawn controls,
-  not by scattering `setColour` calls as now.
-- **Draw procedurally, not from bitmap assets.** Vector drawing scales cleanly
-  across the user's mixed-DPI monitors, and keeps the plugin a single file with
-  nothing to install alongside it.
-- Do not regress the DPI fix (`JUCE_WIN_PER_MONITOR_DPI_AWARE=0`) — this user
-  drags the editor between monitors with different scaling, and that broke every
-  control once already.
-- Keep the section list, the playing-section highlight and the playhead. Those
-  are the parts that have proven useful in practice; the styling around them is
-  what needs the work.
-- The user likes dark UI. See [[user-audio-setup]].
-
-## Other open items
-
-- **Latching section loop.** Jumping to a section plays on into whatever follows.
-  The user asked about clicking once to repeat a section until told otherwise.
-  The jump-offset machinery already supports it; it needs a latch flag and UI.
-- **Per-section reroll — explicitly requested 2026-08-23.** Roll currently
-  rerolls the whole song; the user wants to reroll only selected sections. The
-  engine is already most of the way there: each section's RNG is seeded from
-  `deriveSeed (plan.seed, salt)`, so a per-section reroll counter folded into
-  that salt rerolls one section and provably cannot disturb any other.
-  Suggested shape: add `unsigned rerollCounter` to `SectionPlan`; a
-  `rerollSections (indices)` on the processor bumps those counters and
-  regenerates; in the UI keep plain click as "jump to section" and add a second
-  gesture for selection (ctrl-click, or a small dice control per row), with Roll
-  applying to the selection and falling back to the whole song when nothing is
-  selected. Note this pairs naturally with the section editor, which will already
-  need per-row controls.
-- **The AI planner.** The remaining half of the agreed v1 brain: Claude writes the
-  chart (chords, intensity curve, groove choices), the local engine renders it.
-  The plan JSON is already the handoff format. Will need a background thread —
-  the sequence swap is already built for it.
-- **Audio pins.** Vestigial; they exist only so the plugin registers as an effect
-  rather than a MIDI-effect. User asked about them and was told. Could be hidden
-  by declaring the bus disabled-by-default, but that risks changing how GP
-  enumerates a plugin that currently works. Do not churn this without a reason.
-- **Profiles are still `[UNVERIFIED]`.** The SSD5 map is GM-derived and the MODO
-  keyswitches are defaults, not confirmed. `ghostband calibrate` exists to settle
-  this by ear; the user has not run it yet.
-- **`mode` is not in the UI**, deliberately — it only affects sections with auto
-  chords, so it would be a dead control on plans with written chords.
-
-## Operational gotchas, all learned the hard way
-
-- **Install with `Install.bat`, never PowerShell `Copy-Item -Recurse`.** Copy-Item
-  onto an *existing* directory copies INTO it, giving
-  `Ghostband.vst3\Ghostband.vst3\...` while the old DLL stays at top level. The
-  install appears to succeed and changes nothing.
-- **Close Gig Performer before installing.** It holds the DLL open.
-  `Install.bat` refuses to run while `GigPerformer5.exe` is alive.
-- **Never round or narrow a value that feeds the generator.** The RNG stream is
-  chaotic; holding the dials as `std::atomic<float>` once made the plugin and the
-  CLI produce different songs from the same seed. The harness guards this — pass
-  the CLI's counts as trailing arguments.
-- **Do not trust `getSampleRate()` blindly.** It returns 0 until the host sets it,
-  and guessing a fallback plays the song at the wrong speed and drifts, which
-  fails silently rather than loudly.
-- **All Notes Off is not enough** to stop notes. Many instruments ignore it. The
-  processor tracks sounding notes and releases them by name.
+1. **The structure editor loop** — Edit song, rearrange, rename, change chords,
+   Save as. Entirely untested by anyone but the harness.
+2. **How the redesign actually reads** on their monitors.
 
 ## Verifying a change
 
@@ -259,6 +59,61 @@ build\ghostband_plugin_test_artefacts\Release\ghostband_plugin_test.exe plans\de
 build\ghostband_plugin_test_artefacts\Release\ghostband_plugin_test.exe plans\demo-rock.json 996 423
 ```
 
-If a change is *meant* to alter the generated notes, those two trailing counts
-will change. Re-run the CLI on both plans, confirm the new numbers by ear, then
-update them here and in the commands above.
+Add `--snapshot <dir>` to render the editor to PNGs. Every other check is blind
+to layout; rendering it caught three real bugs the first time it ran.
+
+If a change is *meant* to alter the generated notes, those trailing counts will
+change. Re-render all three demo plans, confirm by ear, then update the numbers
+here and in the README.
+
+## Things that will bite again if forgotten
+
+- **Never ask this user to verify a MIDI map by ear against a stopwatch.** It was
+  tried; they have no DAW and it was an unreasonable ask. Build measurement tools
+  instead — `ghostband_probe` and the in-plugin Calibrate exist for this.
+- **Install with `Install.bat`, never PowerShell `Copy-Item -Recurse`.** Copy-Item
+  onto an existing directory copies *into* it, leaving the old DLL in place while
+  appearing to succeed.
+- **Never round or narrow a value that feeds the generator.** The RNG stream is
+  chaotic; holding the dials as `float` once made the plugin and CLI produce
+  different songs from the same seed.
+- **Do not trust `getSampleRate()` blindly.** It returns 0 until the host sets it,
+  and guessing a fallback plays at the wrong speed and drifts silently.
+- **All Notes Off is not enough** to stop notes — many instruments ignore it. The
+  processor tracks what is sounding and releases each note by name.
+- **Instrument plugins are omni.** MIDI-channel separation does nothing on its
+  own; the user's rig uses Gig Performer's MIDI Channel Constrainer, one per
+  instrument. Do not resurrect the multi-instance workaround.
+- **`ghostband_probe` cannot make SSD5 or MODO sound** — almost certainly
+  licensing. Ruled out headless format, message pumping, and editor creation. It
+  does work on UJAM plugins.
+- **Reference counts in the docs go stale** whenever seed derivation changes.
+  That has already caused one false parity failure.
+
+## Measured facts worth keeping
+
+- **IRON 2**: notes 12–59 silent (chord zone), **60–89 phrase zone**, 90–120
+  silent. Attack density and brightness rise with pitch, so low key = sparse,
+  high key = busy. Measured on style *"120 bpm – Arm Pit"*.
+- **Virtual Pianist** could not be mapped by probe — output ~5× quieter, no
+  phrase signature, boundaries moving between runs, AssetManager errors on load.
+  It is driven as a plain piano instead, which is the safe failure mode.
+- **MODO Bass 2** exposes 2081 parameters named `MIDI CC 0|n` — a complete CC
+  map, which will make its articulation profile straightforward.
+- **The kick/bass lock** sits at 89–93% of bass attacks within 12 ticks of a
+  kick, averaging 2.5 ticks ahead. This is the thing that makes it sound like a
+  band; check it survives any change to groove generation.
+
+## Ideas raised but not scheduled
+
+- **"Connect it to any plugin and it just works."** Reachable. Generic profiles
+  already cover GM-compatible drum plugins and ordinary pitched instruments; a
+  known map is a small JSON file; and auto-mapping by measurement is proven on
+  UJAM. The blocker for licensed plugins is that they will not sound in a
+  headless host — the answer is the vestigial audio *input* pins: route an
+  instrument's audio back into Ghostband and it can measure its own output from
+  inside the host, where everything is licensed and working.
+- **Latching section loop** — click once and a section repeats until told
+  otherwise. The jump-offset machinery already supports it.
+- **Live following** — Ghostband comping behind what the user plays. The largest
+  unbuilt idea, and the one that would need chord detection and tempo tracking.

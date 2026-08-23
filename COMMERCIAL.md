@@ -1,8 +1,13 @@
 # Shipping Ghostband commercially
 
-The intent to sell Ghostband was stated on 2026-08-23. This is the list of things
-that have to be true before money changes hands, ordered by how expensive they
-get if left late.
+> **Superseded 2026-08-23.** Selling Ghostband was considered and dropped the
+> same day — it changed too much for too little. It is free software under
+> AGPLv3 with a Ko-fi donate button instead, which is why the JUCE question
+> below resolved the easy way. Kept because the licensing research is accurate
+> and would have to be redone otherwise.
+
+The list below was written when the plan was to sell, and describes what would
+have to be true before money changed hands.
 
 **None of this is legal advice, and licence terms change.** Every licensing claim
 below should be re-read from the source before relying on it.
