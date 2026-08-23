@@ -1,0 +1,55 @@
+{
+  // UJAM Virtual Guitarist IRON 2 — PLAYER MODE.
+  //
+  // Use this only with IRON 2 set to Player mode. In that mode you hold a chord
+  // in a low key zone and hold a key in a phrase zone, and IRON 2 performs a
+  // riff in that harmony. The playing is better than anything generated note by
+  // note, because a guitarist recorded it; the trade is that Ghostband only
+  // chooses which phrase, not what is played.
+  //
+  // Everything here was MEASURED with ghostband_probe rather than guessed:
+  //
+  //   notes  12-59   silent when pressed alone   -> chord zone
+  //   notes  60-89   sound, and latch while held -> phrase zone
+  //   notes  90-120  silent                      -> outside the instrument
+  //
+  // Phrase keys must be HELD, not tapped. Pressing one for ~50ms and releasing
+  // gives three per cent sustain and the sound stops after about a sixth of a
+  // second — which is exactly how "the guitar cuts out" was reported. The engine
+  // holds each phrase until the next one begins.
+  //
+  // Density measured by counting attacks over five seconds while a chord was
+  // held, which is how the feels below were assigned:
+  //
+  //   key 79 -> 1 attack   sustained
+  //   key 73 -> 2          sparse
+  //   key 70 -> 4          moderate
+  //   key 67 -> 7          driving
+  //   key 88 -> 16         busy
+
+  "name": "UJAM VG IRON 2 (player mode)",
+  "id": "vg_iron2_player",
+  "channel": 2,
+
+  "mode": "phrase",
+
+  "needs_verification": true,
+  "verification_note": "Requires IRON 2 set to Player mode. Phrase character measured on style '120 bpm - Arm Pit'.",
+
+  "chord_zone": { "lowest_note": 24, "highest_note": 47 },
+
+  "phrase_lead_ticks": 60,
+  "phrase_blip_ticks": 40,
+  "phrase_velocity": 100,
+
+  "phrases": {
+    "open":    79,
+    "sparse":  73,
+    "muted":   70,
+    "driving": 67,
+    "busy":    88
+  },
+
+  "velocity_min": 70,
+  "velocity_max": 127
+}

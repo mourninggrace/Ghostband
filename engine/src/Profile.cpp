@@ -426,22 +426,45 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
 
 void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
 {
-    // Phrase switches first. They are momentary keys, and they must arrive
-    // before the chord they apply to or the instrument plays one phrase behind.
-    // A note-driven target has no phrase keys at all - pressing one would just
-    // sound a wrong note - so they are skipped entirely.
-    for (const PhraseIntent& p : part.phrases)
+    // Phrase keys are HELD, not tapped.
+    //
+    // This was measured, after a user reported the guitar cutting out: pressing
+    // a phrase key and releasing it after ~50ms gives three per cent sustain and
+    // the sound stops after about a sixth of a second. These instruments play
+    // for as long as the key is down - they do not latch - so each phrase is
+    // held until the next one begins, or until the last chord ends.
+    if (phraseDriven && ! part.phrases.empty())
     {
-        if (! phraseDriven)
-            break;
+        // Where the part stops sounding at all.
+        int partEnd = 0;
+        for (const ChordIntent& c : part.chords)
+            partEnd = std::max (partEnd, c.tick + c.durationTicks);
 
-        const int key = keyFor (p.feel);
-        if (key < 0)
-            continue;   // this instrument has no such phrase; leave it as it was
+        for (size_t i = 0; i < part.phrases.size(); ++i)
+        {
+            const PhraseIntent& p = part.phrases[i];
+            const int key = keyFor (p.feel);
+            if (key < 0)
+                continue;   // this instrument has no such phrase; leave it as it was
 
-        const int on = std::max (0, p.tick - phraseLeadTicks);
-        track.addNoteOn  (on, channel, key, phraseVelocity);
-        track.addNoteOff (on + phraseBlipTicks, channel, key);
+            const int on = std::max (0, p.tick - phraseLeadTicks);
+
+            // Held until the next phrase change, with a short gap so the two
+            // holds do not overlap on the same key.
+            int off = partEnd;
+            for (size_t j = i + 1; j < part.phrases.size(); ++j)
+            {
+                if (keyFor (part.phrases[j].feel) < 0) continue;
+                off = std::max (on + 1, part.phrases[j].tick - phraseLeadTicks - phraseBlipTicks);
+                break;
+            }
+
+            if (off <= on)
+                continue;
+
+            track.addNoteOn  (on, channel, key, phraseVelocity);
+            track.addNoteOff (off, channel, key);
+        }
     }
 
     const int zoneSpan = chordHighest - chordLowest;

@@ -102,8 +102,10 @@ public:
     // Hearing a change is much easier when you can see what you are hearing.
     // Editor size, kept here so it survives closing the window and is saved
     // with the rest of the plugin state.
-    std::atomic<int> editorWidth  { 560 };
-    std::atomic<int> editorHeight { 700 };
+    // Big enough that everything fits on first open. The old default cut the
+    // section list off before anything had been resized.
+    std::atomic<int> editorWidth  { 620 };
+    std::atomic<int> editorHeight { 780 };
 
     std::atomic<int>    playbackTick     { 0 };
     std::atomic<bool>   transportRunning { false };

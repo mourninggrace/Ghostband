@@ -24,10 +24,12 @@
   "mode": "notes",
 
   "needs_verification": true,
-  "verification_note": "Driven as a plain piano. Phrase keys not identified - calibrate to improve.",
+  "verification_note": "Requires Virtual Pianist set to Instrument mode, not Player mode.",
 
-  // Sits under a rock band without competing with the guitar's register.
-  "chord_zone": { "lowest_note": 48, "highest_note": 61 },
+  // Requires Virtual Pianist set to Instrument mode, where it plays the notes it
+  // is sent. Two octaves from C3, which sits under a rock band without
+  // competing with the guitar's register.
+  "chord_zone": { "lowest_note": 48, "highest_note": 72 },
 
   "velocity_min": 55,
   "velocity_max": 110

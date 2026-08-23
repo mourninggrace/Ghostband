@@ -1264,8 +1264,8 @@ void GhostbandProcessor::setStateInformation (const void* data, int sizeInBytes)
     complexity.store (xml->getDoubleAttribute ("complexity", 0.5));
     humanize.store   (xml->getDoubleAttribute ("humanize", 0.5));
     seed.store       (xml->getIntAttribute ("seed", 1));
-    editorWidth.store  (juce::jlimit (460, 2200, xml->getIntAttribute ("editorW", 560)));
-    editorHeight.store (juce::jlimit (520, 2000, xml->getIntAttribute ("editorH", 700)));
+    editorWidth.store  (juce::jlimit (560, 2200, xml->getIntAttribute ("editorW", 620)));
+    editorHeight.store (juce::jlimit (690, 2000, xml->getIntAttribute ("editorH", 780)));
 
     const juce::File file (xml->getStringAttribute ("plan"));
     if (file.existsAsFile())

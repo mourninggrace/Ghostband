@@ -101,6 +101,7 @@ if (EXISTS "${GHOSTBAND_JUCE_PATH}/CMakeLists.txt")
     )
 
     target_compile_definitions(GhostbandPlugin PUBLIC
+        GHOSTBAND_VERSION="${PROJECT_VERSION}"
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_VST3_CAN_REPLACE_VST2=0
@@ -150,6 +151,7 @@ if (EXISTS "${GHOSTBAND_JUCE_PATH}/CMakeLists.txt")
     target_include_directories(ghostband_plugin_test PRIVATE plugin)
 
     target_compile_definitions(ghostband_plugin_test PRIVATE
+        GHOSTBAND_VERSION="${PROJECT_VERSION}"
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_STANDALONE_APPLICATION=1
@@ -184,6 +186,7 @@ if (EXISTS "${GHOSTBAND_JUCE_PATH}/CMakeLists.txt")
     target_sources(ghostband_probe PRIVATE tools/ProbePlugin.cpp)
 
     target_compile_definitions(ghostband_probe PRIVATE
+        GHOSTBAND_VERSION="${PROJECT_VERSION}"
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_STANDALONE_APPLICATION=1

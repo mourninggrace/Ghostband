@@ -701,6 +701,82 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
                               });
     };
 
+    // ---- header navigation, settings and about ----
+    for (juce::TextButton* b : std::initializer_list<juce::TextButton*> {
+             &settingsButton, &aboutButton, &backButton,
+             &resetSizeButton, &reloadProfilesBtn, &manualButton, &repoButton })
+    {
+        styleButton (*b, false);
+        addAndMakeVisible (*b);
+    }
+
+    settingsButton.onClick = [this] { screen = Screen::Settings; updateModeVisibility(); };
+    aboutButton.onClick    = [this] { screen = Screen::About;    updateModeVisibility(); };
+    backButton.onClick     = [this] { screen = Screen::Song;     updateModeVisibility(); };
+
+    resetSizeButton.onClick = [this] { setSize (600, 720); };
+
+    reloadProfilesBtn.onClick = [this] { processor.reloadPlan(); };
+
+    repoButton.onClick = []
+    {
+        juce::URL ("https://github.com/mourninggrace/Ghostband").launchInDefaultBrowser();
+    };
+
+    manualButton.onClick = [this]
+    {
+        // Ships beside the plugin once it exists; until then, point at the
+        // written documentation rather than pretending the button is broken.
+        const juce::File pdf =
+            juce::File::getSpecialLocation (juce::File::currentExecutableFile)
+                .getParentDirectory().getParentDirectory()
+                .getChildFile ("Resources").getChildFile ("Ghostband-manual.pdf");
+
+        if (pdf.existsAsFile())
+            pdf.startAsProcess();
+        else
+            juce::URL ("https://github.com/mourninggrace/Ghostband#readme")
+                .launchInDefaultBrowser();
+    };
+
+    struct ChannelBox { juce::ComboBox* box; juce::Label* label; const char* name;
+                        std::atomic<int>* target; };
+    const ChannelBox channelBoxes[4] = {
+        { &chDrums,  &chDrumsLabel,  "DRUMS",  &processor.channelDrums  },
+        { &chBass,   &chBassLabel,   "BASS",   &processor.channelBass   },
+        { &chGuitar, &chGuitarLabel, "GUITAR", &processor.channelGuitar },
+        { &chPiano,  &chPianoLabel,  "PIANO",  &processor.channelPiano  },
+    };
+
+    for (const ChannelBox& c : channelBoxes)
+    {
+        styleCombo (*c.box);
+        for (int ch = 1; ch <= 16; ++ch)
+            c.box->addItem (juce::String (ch), ch);
+        c.box->setSelectedId (c.target->load(), juce::dontSendNotification);
+
+        auto* target = c.target;
+        auto& proc = processor;
+        c.box->onChange = [target, &proc, box = c.box]
+        {
+            if (box->getSelectedId() > 0)
+            {
+                target->store (box->getSelectedId());
+                proc.applyChannels();
+            }
+        };
+        addChildComponent (*c.box);
+
+        initLabel (*c.label, c.name, 10.0f, ghost::dim, juce::Justification::centredLeft);
+    }
+
+    initLabel (settingsHeading, "SETTINGS", 15.0f, ghost::text, juce::Justification::centredLeft);
+    initLabel (channelsHelp,
+               "Each part is sent on its own MIDI channel. Set the matching channel on each "
+               "instrument, or use a channel filter in your host.",
+               11.0f, ghost::dim, juce::Justification::topLeft);
+    channelsHelp.setJustificationType (juce::Justification::topLeft);
+
     processor.stateChanged.addChangeListener (this);
     refreshFromProcessor();
     updateModeVisibility();
@@ -709,7 +785,9 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     // size lives on the processor so it survives closing the window and is
     // saved with the rest of the plugin state.
     setResizable (true, true);
-    setResizeLimits (460, 520, 2200, 2000);
+    // The floor is what the song screen actually needs before the section list
+    // starts being clipped, not an arbitrary small number.
+    setResizeLimits (560, 690, 2200, 2000);
     setSize (processor.editorWidth.load(), processor.editorHeight.load());
 
     startTimerHz (30);
@@ -844,6 +922,29 @@ void GhostbandEditor::updateModeVisibility()
     const bool song = (screen == Screen::Song);
     const bool cal  = (screen == Screen::Calibrate);
     const bool edit = (screen == Screen::Edit);
+    const bool set  = (screen == Screen::Settings);
+    const bool abt  = (screen == Screen::About);
+
+    for (juce::Component* c : std::initializer_list<juce::Component*> {
+             &chDrums, &chBass, &chGuitar, &chPiano,
+             &chDrumsLabel, &chBassLabel, &chGuitarLabel, &chPianoLabel,
+             &settingsHeading, &channelsHelp, &resetSizeButton, &reloadProfilesBtn })
+        c->setVisible (set);
+
+    for (juce::Component* c : std::initializer_list<juce::Component*> {
+             &manualButton, &repoButton })
+        c->setVisible (abt);
+
+    // Settings and About are reachable from anywhere and lead back to the song.
+    settingsButton.setVisible (! set && ! abt);
+    aboutButton.setVisible    (! set && ! abt);
+    backButton.setVisible     (set || abt);
+
+    // About paints its own page, so every label belonging to the song view has
+    // to go - otherwise they keep their old bounds and bleed through it.
+    for (juce::Component* c : std::initializer_list<juce::Component*> {
+             &planLabel, &headlineLabel, &statusLabel, &profilesLabel })
+        c->setVisible (! abt);
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &loadButton, &reloadButton, &rollButton, &calibrateButton, &editButton,
@@ -878,6 +979,25 @@ void GhostbandEditor::updateModeVisibility()
     if (song) sectionList.setSelection (rerollSelection);
 
     resized();
+}
+
+const char* GhostbandEditor::screenName (int index)
+{
+    static const char* names[numScreens] = { "song", "calibrate", "edit", "settings", "about" };
+    return names[juce::jlimit (0, numScreens - 1, index)];
+}
+
+void GhostbandEditor::showScreenForSnapshot (int index)
+{
+    switch (juce::jlimit (0, numScreens - 1, index))
+    {
+        case 1:  screen = Screen::Calibrate; processor.enterCalibration(); break;
+        case 2:  screen = Screen::Edit;     break;
+        case 3:  screen = Screen::Settings; break;
+        case 4:  screen = Screen::About;    break;
+        default: screen = Screen::Song;     processor.exitCalibration(); break;
+    }
+    updateModeVisibility();
 }
 
 void GhostbandEditor::pullSectionEdit()
@@ -1073,6 +1193,56 @@ void GhostbandEditor::paint (juce::Graphics& g)
     auto footer = getLocalBounds().removeFromBottom (38).toFloat();
     g.setColour (ghost::colours::line);
     g.fillRect (footer.withHeight (1.0f));
+
+    if (screen == Screen::About)
+        paintAbout (g, getLocalBounds().withTrimmedTop (62).withTrimmedBottom (38).reduced (20, 14));
+}
+
+void GhostbandEditor::paintAbout (juce::Graphics& g, juce::Rectangle<int> area)
+{
+    auto a = area;
+
+    g.setColour (ghost::colours::text);
+    g.setFont (juce::Font (juce::FontOptions (26.0f).withStyle ("Bold")));
+    g.drawText ("Ghostband", a.removeFromTop (34), juce::Justification::topLeft);
+
+    g.setColour (ghost::colours::silver);
+    g.setFont (juce::Font (juce::FontOptions (12.5f)));
+    // From CMake, so the plugin and the test harness cannot disagree about it.
+   #ifndef GHOSTBAND_VERSION
+    #define GHOSTBAND_VERSION "dev"
+   #endif
+    g.drawText ("Version " GHOSTBAND_VERSION "   -   by Kyle Yeroshefsky",
+                a.removeFromTop (22), juce::Justification::topLeft);
+
+    a.removeFromTop (14);
+
+    const auto rule = a.removeFromTop (2).toFloat();
+    g.setGradientFill (ghost::accentGradient (rule));
+    g.fillRect (rule);
+
+    a.removeFromTop (16);
+
+    g.setColour (ghost::colours::text);
+    g.setFont (juce::Font (juce::FontOptions (13.0f)));
+    g.drawFittedText (
+        "Ghostband makes no sound of its own. It writes an arrangement - drums, bass, "
+        "guitar and piano - and performs it through the instruments you already own, "
+        "by sending them MIDI.\n\n"
+        "You own the song: its key, tempo, style and the order of its sections. Ghostband "
+        "fills in the playing, and every part is generated from a seed, so the same song "
+        "always comes back exactly as you left it.",
+        a.removeFromTop (120), juce::Justification::topLeft, 12, 1.0f);
+
+    a.removeFromTop (10);
+
+    g.setColour (ghost::colours::dim);
+    g.setFont (juce::Font (juce::FontOptions (11.5f)));
+    g.drawFittedText (
+        "Free software under the GNU AGPLv3. Built with JUCE.\n"
+        "Ghostband is free and always will be - the donate button is a button, not a nag, "
+        "and nothing is gated behind it.",
+        a.removeFromTop (54), juce::Justification::topLeft, 4, 1.0f);
 }
 
 void GhostbandEditor::resized()
@@ -1088,6 +1258,64 @@ void GhostbandEditor::resized()
     donateButton.setBounds (footerRail.removeFromRight (150));
 
     r = r.reduced (20, 14);
+
+    // Header navigation sits in the header band itself, above everything else.
+    {
+        auto nav = getLocalBounds().removeFromTop (62).reduced (20, 0);
+        nav = nav.removeFromRight (250).withSizeKeepingCentre (250, 26);
+        nav.removeFromRight (118);   // clear of the transport indicator
+        if (backButton.isVisible())
+        {
+            backButton.setBounds (nav.removeFromLeft (62));
+        }
+        else
+        {
+            settingsButton.setBounds (nav.removeFromLeft (66));
+            nav.removeFromLeft (6);
+            aboutButton.setBounds (nav.removeFromLeft (56));
+        }
+    }
+
+    if (screen == Screen::About)
+    {
+        auto a = r;
+        auto buttons = a.removeFromBottom (30);
+        manualButton.setBounds (buttons.removeFromLeft (120));
+        buttons.removeFromLeft (8);
+        repoButton.setBounds (buttons.removeFromLeft (120));
+        return;
+    }
+
+    if (screen == Screen::Settings)
+    {
+        auto s = r;
+        settingsHeading.setBounds (s.removeFromTop (24));
+        s.removeFromTop (10);
+
+        juce::ComboBox* boxes[4]  = { &chDrums, &chBass, &chGuitar, &chPiano };
+        juce::Label*    labels[4] = { &chDrumsLabel, &chBassLabel, &chGuitarLabel, &chPianoLabel };
+        for (int i = 0; i < 4; ++i)
+        {
+            auto row = s.removeFromTop (28);
+            labels[i]->setBounds (row.removeFromLeft (70));
+            boxes[i]->setBounds (row.removeFromLeft (78));
+            s.removeFromTop (6);
+        }
+
+        s.removeFromTop (6);
+        channelsHelp.setBounds (s.removeFromTop (38));
+        s.removeFromTop (14);
+
+        auto row = s.removeFromTop (28);
+        reloadProfilesBtn.setBounds (row.removeFromLeft (170));
+        row.removeFromLeft (8);
+        resetSizeButton.setBounds (row.removeFromLeft (150));
+
+        auto footer = r.removeFromBottom (32);
+        statusLabel.setBounds (footer.removeFromTop (16));
+        profilesLabel.setBounds (footer);
+        return;
+    }
 
     auto planRow = r.removeFromTop (28);
 

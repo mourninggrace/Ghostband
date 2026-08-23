@@ -10,6 +10,7 @@
 // paths has grown a bug the other does not have.
 
 #include "PluginProcessor.h"
+#include "PluginEditor.h"
 
 #include "ghostband/Groove.h"
 
@@ -655,15 +656,24 @@ int main (int argc, char** argv)
                 const juce::File dir (snapshotDir);
                 dir.createDirectory();
 
-                struct Shot { const char* name; int w, h; };
-                for (const Shot& shot : { Shot { "song", 560, 700 },
-                                          Shot { "song-wide", 900, 620 } })
+                auto* gbEd = dynamic_cast<GhostbandEditor*> (ed);
+
+                struct Shot { int screen; int w, h; };
+                std::vector<Shot> shots;
+                for (int s = 0; s < GhostbandEditor::numScreens; ++s)
+                    shots.push_back ({ s, 600, 720 });
+                shots.push_back ({ 0, 900, 640 });   // song, resized wide
+
+                for (const Shot& shot : shots)
                 {
+                    if (gbEd != nullptr) gbEd->showScreenForSnapshot (shot.screen);
+
                     ed->setSize (shot.w, shot.h);
                     const juce::Image img = ed->createComponentSnapshot (ed->getLocalBounds(), true);
 
-                    const juce::File out = dir.getChildFile (juce::String ("editor-")
-                                                             + shot.name + ".png");
+                    const juce::String label = juce::String (GhostbandEditor::screenName (shot.screen))
+                                             + (shot.w > 700 ? "-wide" : "");
+                    const juce::File out = dir.getChildFile ("editor-" + label + ".png");
                     out.deleteFile();
                     juce::FileOutputStream stream (out);
                     if (stream.openedOk())

@@ -458,6 +458,68 @@ public:
         return m;
     }
 
+    // Holds a chord for the whole span, but presses and releases the phrase key
+    // at the start - reproducing exactly what Ghostband emits.
+    PhraseMeasurement captureWithBlip (const std::vector<int>& chord, int phraseKey,
+                                       int channel, double seconds, double blipSeconds)
+    {
+        PhraseMeasurement m;
+        m.note = phraseKey;
+
+        const int channels = juce::jmax (2, outputChannels());
+        juce::AudioBuffer<float> buf (channels, blockSize);
+        juce::MidiBuffer midi;
+
+        pump (5);
+        for (int i = 0; i < 16; ++i) { buf.clear(); midi.clear(); instance->processBlock (buf, midi); }
+
+        const int blocks = juce::jmax (1, static_cast<int> (seconds * sampleRate / blockSize));
+        const int blipBlocks = juce::jmax (1, static_cast<int> (blipSeconds * sampleRate / blockSize));
+        m.mono.reserve (static_cast<size_t> (blocks));
+
+        for (int b = 0; b < blocks; ++b)
+        {
+            buf.clear();
+            midi.clear();
+
+            if (b == 0)
+            {
+                for (int n : chord)
+                    midi.addEvent (juce::MidiMessage::noteOn (channel, n, (juce::uint8) 100), 0);
+                midi.addEvent (juce::MidiMessage::noteOn (channel, phraseKey, (juce::uint8) 100), 1);
+            }
+            else if (b == blipBlocks)
+            {
+                midi.addEvent (juce::MidiMessage::noteOff (channel, phraseKey), 0);
+            }
+
+            instance->processBlock (buf, midi);
+
+            float blockPeak = 0.0f;
+            for (int ch = 0; ch < buf.getNumChannels(); ++ch)
+                blockPeak = juce::jmax (blockPeak, buf.getMagnitude (ch, 0, blockSize));
+            m.peak = juce::jmax (m.peak, blockPeak);
+            m.mono.push_back (blockPeak);
+        }
+
+        midi.clear();
+        for (int n : chord) midi.addEvent (juce::MidiMessage::noteOff (channel, n), 0);
+        buf.clear();
+        instance->processBlock (buf, midi);
+
+        const float gate = juce::jmax (0.004f, m.peak * 0.06f);
+        int sounding = 0, quietRun = 0;
+        const double perBlock = blockSize / sampleRate;
+        for (size_t i = 0; i < m.mono.size(); ++i)
+        {
+            if (m.mono[i] > gate) { ++sounding; quietRun = 0; }
+            else if (++quietRun * perBlock > 0.10 && m.firstGapAt < 0.0 && sounding > 0)
+                m.firstGapAt = (i - quietRun) * perBlock;
+        }
+        m.sustain = m.mono.empty() ? 0.0 : static_cast<double> (sounding) / m.mono.size();
+        return m;
+    }
+
     double sampleRate = 48000.0;
     int    blockSize  = 512;
 
@@ -558,6 +620,34 @@ int main (int argc, char** argv)
     }
 
     std::cout << "\n" << sounded << " of " << (high - low + 1) << " notes produced sound\n";
+
+    if (mode == "blip")
+    {
+        // The question the sustain test did not ask: does a phrase key have to
+        // stay held? Ghostband presses it for about fifty milliseconds and lets
+        // go, assuming it latches. If these instruments actually play only while
+        // the key is down, that blip yields a fraction of a second of sound and
+        // then silence - which is exactly what a user reported.
+        std::cout << "\nchord held " << phraseSecs << "s; phrase key pressed briefly then released\n";
+        std::cout << "note  name   sustain  first gap   verdict\n";
+        std::cout << "-----------------------------------------------\n";
+
+        for (int n = low; n <= high; ++n)
+        {
+            const auto m = probe.captureWithBlip ({ 36, 40, 43 }, n, channel, phraseSecs, 0.05);
+
+            juce::String verdict;
+            if (m.peak < 0.01f)        verdict = "silent";
+            else if (m.sustain > 0.80) verdict = "LATCHES - a blip is enough";
+            else                       verdict = "NEEDS HOLDING - blip is not enough";
+
+            std::printf ("%4d  %-5s  %6.2f  %9.2f   %s\n",
+                         n, noteName (n).toRawUTF8(), m.sustain,
+                         m.firstGapAt < 0.0 ? phraseSecs : m.firstGapAt,
+                         verdict.toRawUTF8());
+        }
+        return 0;
+    }
 
     if (mode == "sustain")
     {

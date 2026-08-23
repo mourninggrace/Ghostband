@@ -88,6 +88,13 @@ public:
     void paint (juce::Graphics& g) override;
     void resized() override;
 
+    // Lets the test harness render every screen to PNG. Layout bugs are
+    // invisible to every other check, and screens nobody looks at are exactly
+    // where they hide.
+    void showScreenForSnapshot (int screenIndex);
+    static const char* screenName (int screenIndex);
+    static constexpr int numScreens = 5;
+
 private:
     void changeListenerCallback (juce::ChangeBroadcaster*) override;
     void timerCallback() override;
@@ -139,8 +146,26 @@ private:
 
     // Three screens share the window: the normal song view, the calibration
     // view, and the structure editor.
-    enum class Screen { Song, Calibrate, Edit };
+    enum class Screen { Song, Calibrate, Edit, Settings, About };
     Screen screen = Screen::Song;
+
+    void paintAbout (juce::Graphics& g, juce::Rectangle<int> area);
+
+    // Header navigation, visible on every screen.
+    juce::TextButton settingsButton { "Settings" };
+    juce::TextButton aboutButton    { "About" };
+    juce::TextButton backButton     { "Back" };
+
+    // Settings
+    juce::ComboBox chDrums, chBass, chGuitar, chPiano;
+    juce::Label    chDrumsLabel, chBassLabel, chGuitarLabel, chPianoLabel;
+    juce::Label    settingsHeading, channelsHelp;
+    juce::TextButton resetSizeButton   { "Reset window size" };
+    juce::TextButton reloadProfilesBtn { "Reload driver profiles" };
+
+    // About
+    juce::TextButton manualButton { "User manual" };
+    juce::TextButton repoButton   { "Source code" };
 
     // ---- calibration ----
     void updateModeVisibility();
