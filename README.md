@@ -74,6 +74,25 @@ host before reinstalling** or the copy will silently leave the old build behind.
 The section list lights up and a playhead line tracks the song as it plays, so
 you can see which section you are hearing.
 
+### Building the song
+
+**Edit song** opens the structure editor. Click a section in the list to edit it:
+
+- **Name** — the role is inferred from it, so renaming a section to `chorus2`
+  genuinely makes it behave like a chorus.
+- **Bars**, **Intensity**, **Feel**, **Fill**
+- **Chords** — typed as text, e.g. `Em Em C D`. A shorter list repeats.
+- **Plays** — which of drums, bass, guitar and piano appear at all.
+
+**+ Add** copies the selected section, since a new section is nearly always a
+variation of the one before it. **Up** / **Down** reorder. The last section cannot
+be deleted, because a song with no sections cannot render.
+
+**Save** writes the plan back, keeping the previous version alongside it. **Save
+as...** writes a new one. A plan written by the editor and read back produces a
+byte-identical song — the harness checks that round-trip on every build, because
+saving is only safe if it is true.
+
 ### Jumping sections live
 
 **Click any section to go there.** The jump is queued — the clicked section is

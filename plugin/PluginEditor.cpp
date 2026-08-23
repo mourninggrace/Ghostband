@@ -449,6 +449,15 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     // line so the transition stays in time.
     sectionList.onSectionClicked = [this] (int index)
     {
+        // In the editor the same click picks a section to edit; in the song view
+        // it queues a live jump.
+        if (screen == Screen::Edit)
+        {
+            editSelected = index;
+            pullSectionEdit();
+            return;
+        }
+
         processor.queueSection (index);
         sectionList.setQueued (index);
     };
@@ -470,8 +479,9 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     initLabel (calHintLabel, "", 12.0f, ghost::text, juce::Justification::centredLeft);
     initLabel (calNoteLabel, "", 22.0f, ghost::accent, juce::Justification::centred);
 
-    calibrateButton.onClick = [this] { processor.enterCalibration(); calSelected = 0; };
-    calDoneButton.onClick   = [this] { processor.exitCalibration(); };
+    calibrateButton.onClick = [this] { screen = Screen::Calibrate; calSelected = 0;
+                                       processor.enterCalibration(); };
+    calDoneButton.onClick   = [this] { screen = Screen::Song; processor.exitCalibration(); };
     calPlayButton.onClick   = [this] { processor.auditionStep (calSelected); };
     calLowerButton.onClick  = [this] { processor.nudgeCalibrationNote (calSelected, -1); };
     calHigherButton.onClick = [this] { processor.nudgeCalibrationNote (calSelected, +1); };
@@ -504,6 +514,121 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     calViewport.setScrollBarsShown (true, false);
     calViewport.setColour (juce::ScrollBar::thumbColourId, ghost::line.brighter (0.4f));
     addChildComponent (calViewport);
+
+    // ---- structure editing ----
+    for (juce::TextButton* b : std::initializer_list<juce::TextButton*> {
+             &editButton, &edDoneButton, &edAddButton, &edDeleteButton,
+             &edUpButton, &edDownButton, &edSaveButton, &edSaveAsButton })
+    {
+        styleButton (*b, b == &edSaveButton);
+        addAndMakeVisible (*b);
+    }
+
+    auto initField = [this] (juce::TextEditor& t)
+    {
+        t.setColour (juce::TextEditor::backgroundColourId, ghost::background);
+        t.setColour (juce::TextEditor::outlineColourId, ghost::line);
+        t.setColour (juce::TextEditor::focusedOutlineColourId, ghost::accent.withAlpha (0.6f));
+        t.setColour (juce::TextEditor::textColourId, ghost::text);
+        t.setFont (juce::Font (juce::FontOptions (13.0f)));
+        t.onFocusLost = [this] { pushSectionEdit(); };
+        t.onReturnKey = [this] { pushSectionEdit(); };
+        addChildComponent (t);
+    };
+
+    initField (edName);
+    initField (edBars);
+    initField (edChords);
+    edBars.setInputRestrictions (3, "0123456789");
+
+    styleSlider (edIntensity);
+    addChildComponent (edIntensity);
+    edIntensity.onDragEnd = [this] { pushSectionEdit(); };
+
+    styleCombo (edFeel);
+    styleCombo (edFill);
+    addChildComponent (edFeel);
+    addChildComponent (edFill);
+    for (const char* f : { "straight", "half_time", "double_time", "blast" })
+        edFeel.addItem (juce::String (f).replace ("_", " "), edFeel.getNumItems() + 1);
+    for (const char* f : { "auto", "none", "small", "big" })
+        edFill.addItem (f, edFill.getNumItems() + 1);
+    edFeel.onChange = [this] { pushSectionEdit(); };
+    edFill.onChange = [this] { pushSectionEdit(); };
+
+    for (juce::ToggleButton* t : std::initializer_list<juce::ToggleButton*> {
+             &edDrums, &edBass, &edGuitar, &edPiano })
+    {
+        t->setColour (juce::ToggleButton::textColourId, ghost::text);
+        t->setColour (juce::ToggleButton::tickColourId, ghost::accent);
+        t->setColour (juce::ToggleButton::tickDisabledColourId, ghost::line);
+        t->onClick = [this] { pushSectionEdit(); };
+        addChildComponent (*t);
+    }
+
+    initLabel (edNameLabel,      "NAME",      10.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (edBarsLabel,      "BARS",      10.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (edIntensityLabel, "INTENSITY", 10.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (edFeelLabel,      "FEEL",      10.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (edFillLabel,      "FILL",      10.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (edChordsLabel,    "CHORDS",    10.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (edPlaysLabel,     "PLAYS",     10.0f, ghost::dim, juce::Justification::centredLeft);
+
+    editButton.onClick   = [this] { screen = Screen::Edit; editSelected = 0;
+                                    pullSectionEdit(); updateModeVisibility(); };
+    edDoneButton.onClick = [this] { screen = Screen::Song; updateModeVisibility(); };
+
+    edAddButton.onClick    = [this] { processor.addSection (editSelected);
+                                      editSelected = juce::jmin (editSelected + 1,
+                                                                 processor.getSectionCount() - 1);
+                                      pullSectionEdit(); };
+    edDeleteButton.onClick = [this] { processor.deleteSection (editSelected);
+                                      editSelected = juce::jlimit (0, processor.getSectionCount() - 1,
+                                                                   editSelected);
+                                      pullSectionEdit(); };
+    edUpButton.onClick     = [this] { if (editSelected > 0)
+                                      { processor.moveSection (editSelected, -1); --editSelected;
+                                        pullSectionEdit(); } };
+    edDownButton.onClick   = [this] { if (editSelected < processor.getSectionCount() - 1)
+                                      { processor.moveSection (editSelected, +1); ++editSelected;
+                                        pullSectionEdit(); } };
+
+    edSaveButton.onClick = [this]
+    {
+        const juce::File target = processor.getPlanFile();
+        if (! target.existsAsFile()) { edSaveAsButton.triggerClick(); return; }
+
+        juce::String err;
+        if (processor.savePlan (target, err))
+            statusLabel.setText ("Saved " + target.getFileName()
+                                     + "  (previous version kept alongside it)",
+                                 juce::dontSendNotification);
+        else
+            statusLabel.setText (err, juce::dontSendNotification);
+    };
+
+    edSaveAsButton.onClick = [this]
+    {
+        const juce::File start = processor.getPlanFile().existsAsFile()
+                                   ? processor.getPlanFile()
+                                   : juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                                         .getChildFile ("my-song.json");
+
+        chooser = std::make_unique<juce::FileChooser> ("Save the song", start, "*.json");
+        chooser->launchAsync (juce::FileBrowserComponent::saveMode
+                                  | juce::FileBrowserComponent::warnAboutOverwriting,
+                              [this] (const juce::FileChooser& fc)
+                              {
+                                  const juce::File f = fc.getResult();
+                                  if (f == juce::File()) return;
+                                  juce::String err;
+                                  if (processor.savePlan (f.withFileExtension ("json"), err))
+                                      statusLabel.setText ("Saved " + f.getFileName(),
+                                                           juce::dontSendNotification);
+                                  else
+                                      statusLabel.setText (err, juce::dontSendNotification);
+                              });
+    };
 
     processor.stateChanged.addChangeListener (this);
     refreshFromProcessor();
@@ -639,31 +764,98 @@ void GhostbandEditor::changeListenerCallback (juce::ChangeBroadcaster*)
 
 void GhostbandEditor::updateModeVisibility()
 {
-    const bool cal = processor.isCalibrating();
-
-    // Song controls and calibration controls occupy the same space; only one
-    // set is ever visible.
+    // Three screens share the window; exactly one set of controls is visible.
     // Spelled as initializer_list<Component*> because the members are all
     // different types and a bare braced list has nothing to deduce from.
+    const bool song = (screen == Screen::Song);
+    const bool cal  = (screen == Screen::Calibrate);
+    const bool edit = (screen == Screen::Edit);
+
     for (juce::Component* c : std::initializer_list<juce::Component*> {
-             &loadButton, &reloadButton, &rollButton,
+             &loadButton, &reloadButton, &rollButton, &calibrateButton, &editButton,
              &complexitySlider, &humanizeSlider, &complexityLabel,
              &humanizeLabel, &seedEditor, &seedLabel, &keyBox, &styleBox,
              &tuningBox, &keyLabel, &styleLabel, &tuningLabel,
-             &tempoLabel, &transportLabel, &summaryLabel, &viewport })
-        c->setVisible (! cal);
+             &tempoLabel, &transportLabel, &summaryLabel })
+        c->setVisible (song);
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &calDoneButton, &calSaveButton, &calLowerButton, &calHigherButton,
              &calPlayButton, &calHintLabel, &calNoteLabel, &calViewport })
         c->setVisible (cal);
 
-    calibrateButton.setVisible (! cal);
+    for (juce::Component* c : std::initializer_list<juce::Component*> {
+             &edDoneButton, &edAddButton, &edDeleteButton, &edUpButton, &edDownButton,
+             &edSaveButton, &edSaveAsButton, &edName, &edBars, &edChords,
+             &edIntensity, &edFeel, &edFill, &edDrums, &edBass, &edGuitar, &edPiano,
+             &edNameLabel, &edBarsLabel, &edIntensityLabel, &edFeelLabel,
+             &edFillLabel, &edChordsLabel, &edPlaysLabel })
+        c->setVisible (edit);
 
-    if (cal)
-        refreshCalibration();
+    // The section list is shared between the song view and the editor - the
+    // same list, selected for a different reason.
+    viewport.setVisible (song || edit);
+
+    if (cal)  refreshCalibration();
+    if (edit) pullSectionEdit();
+    if (song) sectionList.setSelection (rerollSelection);
 
     resized();
+}
+
+void GhostbandEditor::pullSectionEdit()
+{
+    const int count = processor.getSectionCount();
+    editSelected = juce::jlimit (0, juce::jmax (0, count - 1), editSelected);
+
+    const auto e = processor.getSectionEdit (editSelected);
+
+    // Guarded, because setting a control's value fires its callback, which would
+    // immediately write the half-populated form back over the section.
+    suppressEditCallbacks = true;
+    edName.setText (e.name, juce::dontSendNotification);
+    edBars.setText (juce::String (e.bars), juce::dontSendNotification);
+    edChords.setText (e.chords, juce::dontSendNotification);
+    edIntensity.setValue (e.intensity, juce::dontSendNotification);
+
+    const juce::String feelText = e.feel.replace ("_", " ");
+    for (int i = 1; i <= edFeel.getNumItems(); ++i)
+        if (edFeel.getItemText (i - 1) == feelText)
+            edFeel.setSelectedId (i, juce::dontSendNotification);
+    for (int i = 1; i <= edFill.getNumItems(); ++i)
+        if (edFill.getItemText (i - 1) == e.fill)
+            edFill.setSelectedId (i, juce::dontSendNotification);
+
+    edDrums.setToggleState  (e.drums,  juce::dontSendNotification);
+    edBass.setToggleState   (e.bass,   juce::dontSendNotification);
+    edGuitar.setToggleState (e.guitar, juce::dontSendNotification);
+    edPiano.setToggleState  (e.piano,  juce::dontSendNotification);
+    suppressEditCallbacks = false;
+
+    sectionList.setSelection ({ editSelected });
+    edDeleteButton.setEnabled (count > 1);
+    edUpButton.setEnabled (editSelected > 0);
+    edDownButton.setEnabled (editSelected < count - 1);
+}
+
+void GhostbandEditor::pushSectionEdit()
+{
+    if (suppressEditCallbacks || screen != Screen::Edit)
+        return;
+
+    GhostbandProcessor::SectionEdit e;
+    e.name      = edName.getText();
+    e.bars      = juce::jmax (1, edBars.getText().getIntValue());
+    e.intensity = edIntensity.getValue();
+    e.feel      = edFeel.getText().replace (" ", "_");
+    e.fill      = edFill.getText();
+    e.chords    = edChords.getText();
+    e.drums     = edDrums.getToggleState();
+    e.bass      = edBass.getToggleState();
+    e.guitar    = edGuitar.getToggleState();
+    e.piano     = edPiano.getToggleState();
+
+    processor.applySectionEdit (editSelected, e);
 }
 
 void GhostbandEditor::refreshCalibration()
@@ -745,8 +937,13 @@ void GhostbandEditor::refreshFromProcessor()
     rerollSelection.erase (std::remove_if (rerollSelection.begin(), rerollSelection.end(),
                                            [count] (int i) { return i >= count; }),
                            rerollSelection.end());
-    sectionList.setSelection (rerollSelection);
     updateRollButtonText();
+
+    // In the editor the highlight means "being edited", so leave it alone.
+    if (screen == Screen::Edit)
+        sectionList.setSelection ({ editSelected });
+    else
+        sectionList.setSelection (rerollSelection);
 }
 
 void GhostbandEditor::paint (juce::Graphics& g)
@@ -782,7 +979,73 @@ void GhostbandEditor::resized()
 
     auto planRow = r.removeFromTop (28);
 
-    if (processor.isCalibrating())
+    if (screen == Screen::Edit)
+    {
+        edDoneButton.setBounds (planRow.removeFromLeft (72));
+        planRow.removeFromLeft (6);
+        edSaveButton.setBounds (planRow.removeFromLeft (72));
+        planRow.removeFromLeft (6);
+        edSaveAsButton.setBounds (planRow.removeFromLeft (96));
+        planRow.removeFromLeft (10);
+        planLabel.setBounds (planRow);
+
+        r.removeFromTop (10);
+
+        auto row = r.removeFromTop (24);
+        edNameLabel.setBounds (row.removeFromLeft (44));
+        edName.setBounds (row.removeFromLeft (140));
+        row.removeFromLeft (12);
+        edBarsLabel.setBounds (row.removeFromLeft (40));
+        edBars.setBounds (row.removeFromLeft (52));
+
+        r.removeFromTop (6);
+        row = r.removeFromTop (24);
+        edIntensityLabel.setBounds (row.removeFromLeft (76));
+        edIntensity.setBounds (row);
+
+        r.removeFromTop (6);
+        row = r.removeFromTop (24);
+        edFeelLabel.setBounds (row.removeFromLeft (40));
+        edFeel.setBounds (row.removeFromLeft (110));
+        row.removeFromLeft (12);
+        edFillLabel.setBounds (row.removeFromLeft (34));
+        edFill.setBounds (row.removeFromLeft (86));
+
+        r.removeFromTop (6);
+        row = r.removeFromTop (24);
+        edChordsLabel.setBounds (row.removeFromLeft (60));
+        edChords.setBounds (row);
+
+        r.removeFromTop (6);
+        row = r.removeFromTop (24);
+        edPlaysLabel.setBounds (row.removeFromLeft (50));
+        edDrums.setBounds  (row.removeFromLeft (74));
+        edBass.setBounds   (row.removeFromLeft (66));
+        edGuitar.setBounds (row.removeFromLeft (76));
+        edPiano.setBounds  (row.removeFromLeft (70));
+
+        r.removeFromTop (10);
+        row = r.removeFromTop (26);
+        edAddButton.setBounds (row.removeFromLeft (66));
+        row.removeFromLeft (6);
+        edDeleteButton.setBounds (row.removeFromLeft (70));
+        row.removeFromLeft (14);
+        edUpButton.setBounds (row.removeFromLeft (54));
+        row.removeFromLeft (6);
+        edDownButton.setBounds (row.removeFromLeft (60));
+
+        r.removeFromTop (10);
+        auto footer = r.removeFromBottom (32);
+        statusLabel.setBounds (footer.removeFromTop (16));
+        profilesLabel.setBounds (footer);
+        r.removeFromBottom (8);
+
+        viewport.setBounds (r);
+        sectionList.setSize (r.getWidth() - 10, sectionList.getHeight());
+        return;
+    }
+
+    if (screen == Screen::Calibrate)
     {
         calDoneButton.setBounds (planRow.removeFromLeft (72));
         planRow.removeFromLeft (6);
@@ -815,6 +1078,8 @@ void GhostbandEditor::resized()
     }
 
     calibrateButton.setBounds (planRow.removeFromRight (86));
+    planRow.removeFromRight (6);
+    editButton.setBounds (planRow.removeFromRight (86));
     planRow.removeFromRight (10);
     loadButton.setBounds (planRow.removeFromLeft (104));
     planRow.removeFromLeft (6);

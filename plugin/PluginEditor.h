@@ -125,9 +125,38 @@ private:
     juce::Viewport viewport;
     SectionList    sectionList;
 
+    // Three screens share the window: the normal song view, the calibration
+    // view, and the structure editor.
+    enum class Screen { Song, Calibrate, Edit };
+    Screen screen = Screen::Song;
+
     // ---- calibration ----
     void updateModeVisibility();
     void refreshCalibration();
+
+    // ---- structure editing ----
+    void pushSectionEdit();
+    void pullSectionEdit();
+
+    juce::TextButton editButton     { "Edit song" };
+    juce::TextButton edDoneButton   { "Done" };
+    juce::TextButton edAddButton    { "+ Add" };
+    juce::TextButton edDeleteButton { "Delete" };
+    juce::TextButton edUpButton     { "Up" };
+    juce::TextButton edDownButton   { "Down" };
+    juce::TextButton edSaveButton   { "Save" };
+    juce::TextButton edSaveAsButton { "Save as..." };
+
+    juce::TextEditor edName, edBars, edChords;
+    juce::Slider     edIntensity;
+    juce::ComboBox   edFeel, edFill;
+    juce::ToggleButton edDrums { "drums" }, edBass { "bass" },
+                       edGuitar { "guitar" }, edPiano { "piano" };
+    juce::Label      edNameLabel, edBarsLabel, edIntensityLabel,
+                     edFeelLabel, edFillLabel, edChordsLabel, edPlaysLabel;
+
+    int  editSelected = 0;
+    bool suppressEditCallbacks = false;
 
     juce::TextButton calibrateButton { "Calibrate" };
     juce::TextButton calDoneButton   { "Done" };

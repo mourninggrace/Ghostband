@@ -420,6 +420,82 @@ int main (int argc, char** argv)
         }
     }
 
+    // ---- plan round-trip ---------------------------------------------------
+    // Saving is only safe if writing a plan out and reading it back produces the
+    // same song. Anything the loader reads must be written, and this is what
+    // catches a field that gets added to one side and not the other.
+    {
+        proc.loadPlan (juce::File (planPath));
+        const auto original = proc.getStatus();
+        const auto originalSections = proc.getSections();
+
+        const juce::String text = proc.planAsText();
+        check (text.contains ("\"sections\""), "a plan serialises to something plausible",
+               juce::String (text.length()) + " chars");
+
+        const juce::File tmp = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                   .getChildFile ("ghostband-roundtrip.json");
+        tmp.replaceWithText (text);
+
+        proc.loadPlan (tmp);
+        const auto reloaded = proc.getStatus();
+        const auto reloadedSections = proc.getSections();
+
+        check (reloaded.ok, "the serialised plan loads back", reloaded.message);
+        check (reloaded.bars == original.bars, "round-trip preserves the bar count",
+               juce::String (original.bars) + " -> " + juce::String (reloaded.bars));
+        check (reloaded.drumHits == original.drumHits && reloaded.bassNotes == original.bassNotes,
+               "round-trip produces an identical song",
+               juce::String (original.drumHits) + "/" + juce::String (original.bassNotes)
+                   + " -> " + juce::String (reloaded.drumHits) + "/"
+                   + juce::String (reloaded.bassNotes));
+
+        bool sectionsMatch = originalSections.size() == reloadedSections.size();
+        for (size_t i = 0; sectionsMatch && i < originalSections.size(); ++i)
+            sectionsMatch = originalSections[i].name == reloadedSections[i].name
+                         && originalSections[i].bars == reloadedSections[i].bars
+                         && originalSections[i].drumHits == reloadedSections[i].drumHits;
+        check (sectionsMatch, "and every section survives intact");
+
+        tmp.deleteFile();
+    }
+
+    // ---- structure editing --------------------------------------------------
+    {
+        proc.loadPlan (juce::File (planPath));
+        const int before = proc.getSectionCount();
+
+        proc.addSection (0);
+        check (proc.getSectionCount() == before + 1, "adding a section works",
+               juce::String (before) + " -> " + juce::String (proc.getSectionCount()));
+
+        proc.deleteSection (1);
+        check (proc.getSectionCount() == before, "deleting a section works");
+
+        auto edit = proc.getSectionEdit (1);
+        const juce::String originalName = edit.name;
+        edit.name = "chorus9";
+        edit.bars = 12;
+        proc.applySectionEdit (1, edit);
+
+        const auto after = proc.getSectionEdit (1);
+        check (after.name == "chorus9" && after.bars == 12, "editing a section applies",
+               after.name + ", " + juce::String (after.bars) + " bars");
+
+        const auto sections = proc.getSections();
+        check (sections.size() > 1 && sections[1].role == "chorus",
+               "renaming a section re-infers its role, so it behaves like one",
+               sections.size() > 1 ? juce::String (sections[1].role) : juce::String ("?"));
+
+        // Deleting down to nothing would leave a song that cannot render.
+        while (proc.getSectionCount() > 1) proc.deleteSection (0);
+        proc.deleteSection (0);
+        check (proc.getSectionCount() == 1, "the last section cannot be deleted");
+
+        proc.loadPlan (juce::File (planPath));
+        juce::ignoreUnused (originalName);
+    }
+
     // ---- per-section reroll -----------------------------------------------
     // The whole promise is that rerolling one section cannot disturb another.
     // That is a property of how section seeds are derived, and it is exactly the

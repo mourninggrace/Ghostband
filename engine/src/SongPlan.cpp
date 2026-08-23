@@ -3,6 +3,7 @@
 #include "ghostband/Music.h"
 
 #include <cctype>
+#include <cstdio>
 
 namespace gb {
 
@@ -175,6 +176,116 @@ bool SongPlan::parse (const std::string& text, const std::string& sourceName,
     }
 
     return fromJson (j, sourceName, out, error);
+}
+
+static std::string jsonEscape (const std::string& s)
+{
+    std::string out;
+    out.reserve (s.size() + 8);
+    for (char c : s)
+    {
+        switch (c)
+        {
+            case '"':  out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\n': out += "\\n";  break;
+            case '\r': out += "\\r";  break;
+            case '\t': out += "\\t";  break;
+            default:   out += c;      break;
+        }
+    }
+    return out;
+}
+
+static std::string jsonString (const std::string& s)
+{
+    return "\"" + jsonEscape (s) + "\"";
+}
+
+// Trims a double to something a human would have typed, so a saved plan stays
+// readable and diffs cleanly instead of filling up with 0.550000000000000044.
+static std::string jsonNumber (double v)
+{
+    char buf[64];
+    std::snprintf (buf, sizeof (buf), "%.4g", v);
+    return std::string (buf);
+}
+
+static std::string playsString (const SectionPlan& s)
+{
+    if (s.playsDrums && s.playsBass && s.playsGuitar && s.playsPiano) return "full";
+    if (! (s.playsDrums || s.playsBass || s.playsGuitar || s.playsPiano)) return "none";
+
+    std::string out;
+    auto add = [&out] (const char* n) { if (! out.empty()) out += "+"; out += n; };
+    if (s.playsDrums)  add ("drums");
+    if (s.playsBass)   add ("bass");
+    if (s.playsGuitar) add ("guitar");
+    if (s.playsPiano)  add ("piano");
+    return out;
+}
+
+std::string SongPlan::toJson() const
+{
+    std::string j;
+    j += "{\n";
+    j += "  \"title\": " + jsonString (title) + ",\n\n";
+
+    j += "  \"key\":  " + jsonString (key) + ",\n";
+    j += "  \"mode\": " + jsonString (mode) + ",\n";
+    j += "  \"bpm\":  " + jsonNumber (bpm) + ",\n";
+    j += "  \"time_signature\": [" + std::to_string (timeSigNumerator) + ", "
+                                   + std::to_string (timeSigDenominator) + "],\n\n";
+
+    j += "  \"style\":       " + jsonString (style) + ",\n";
+    j += "  \"bass_tuning\": " + jsonString (bassTuning) + ",\n";
+    j += "  \"play_style\":  " + jsonString (playStyle) + ",\n";
+    if (transpose != 0)
+        j += "  \"transpose\":   " + std::to_string (transpose) + ",\n";
+    j += "\n";
+
+    j += "  \"complexity\": " + jsonNumber (complexity) + ",\n";
+    j += "  \"humanize\":   " + jsonNumber (humanize) + ",\n";
+    j += "  \"seed\":       " + std::to_string (seed) + ",\n";
+    j += "  \"ending\":     " + jsonString (ending) + ",\n\n";
+
+    j += "  \"drum_profile\":   " + jsonString (drumProfile) + ",\n";
+    j += "  \"bass_profile\":   " + jsonString (bassProfile);
+    if (! guitarProfile.empty()) j += ",\n  \"guitar_profile\": " + jsonString (guitarProfile);
+    if (! pianoProfile.empty())  j += ",\n  \"piano_profile\":  " + jsonString (pianoProfile);
+    j += ",\n\n";
+
+    j += "  \"sections\": [\n";
+    for (size_t i = 0; i < sections.size(); ++i)
+    {
+        const SectionPlan& s = sections[i];
+        j += "    {\n";
+        j += "      \"name\": " + jsonString (s.name) + ", ";
+        j += "\"bars\": " + std::to_string (s.bars) + ", ";
+        j += "\"intensity\": " + jsonNumber (s.intensity) + ",\n";
+        j += "      \"feel\": " + jsonString (s.feel) + ", ";
+        j += "\"plays\": " + jsonString (playsString (s)) + ", ";
+        j += "\"fill\": " + jsonString (s.fill);
+
+        if (! s.chords.empty())
+        {
+            j += ",\n      \"chords\": [";
+            for (size_t c = 0; c < s.chords.size(); ++c)
+                j += (c ? ", " : "") + jsonString (s.chords[c]);
+            j += "]";
+        }
+
+        if (s.bassPattern != "auto")   j += ",\n      \"bass\": "   + jsonString (s.bassPattern);
+        if (s.guitarPhrase != "auto")  j += ", \"guitar\": "        + jsonString (s.guitarPhrase);
+        if (s.pianoPhrase != "auto")   j += ", \"piano\": "         + jsonString (s.pianoPhrase);
+        if (! s.vary)                  j += ",\n      \"vary\": false";
+
+        j += "\n    }";
+        j += (i + 1 < sections.size()) ? ",\n" : "\n";
+    }
+    j += "  ]\n}\n";
+
+    return j;
 }
 
 std::vector<std::string> SongPlan::validate() const

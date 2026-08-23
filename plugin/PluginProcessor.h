@@ -152,6 +152,36 @@ public:
     bool saveCalibration (juce::String& error);
     bool calibrationHasEdits() const { return calibrationEdited; }
 
+    //==========================================================================
+    // Song structure editing.
+    //
+    // Sections could previously only be defined by hand-editing a plan JSON,
+    // which for a user with no text-editing workflow meant the song structure
+    // was not editable at all - every song was one whose skeleton came with the
+    // plugin. Editing implies saving, so that lands here too.
+    struct SectionEdit
+    {
+        juce::String name;
+        int          bars      = 8;
+        double       intensity = 0.5;
+        juce::String feel      = "straight";
+        juce::String chords;                  // space separated, as typed
+        juce::String fill      = "auto";
+        bool drums = true, bass = true, guitar = true, piano = true;
+    };
+
+    int         getSectionCount() const;
+    SectionEdit getSectionEdit (int index) const;
+    void        applySectionEdit (int index, const SectionEdit& edit);
+
+    void addSection (int afterIndex);
+    void deleteSection (int index);
+    void moveSection (int index, int delta);
+
+    bool savePlan (const juce::File& target, juce::String& error);
+    bool planHasUnsavedEdits() const { return planDirty; }
+    juce::String planAsText() const;
+
     void setKeyPitchClass (int pitchClass);
     void setStyle         (const juce::String& style);
     void setBassTuning    (const juce::String& tuning);
@@ -241,6 +271,7 @@ private:
     std::atomic<bool>             calibrating { false };
     std::vector<CalibrationStep>  calibrationSteps;
     bool                          calibrationEdited = false;
+    bool                          planDirty = false;
 
     // Where the previous block's window ended. Consecutive blocks are stitched
     // to this rather than recomputed from the host's ppq, because deriving both

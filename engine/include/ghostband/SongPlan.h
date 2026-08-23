@@ -88,6 +88,11 @@ struct SongPlan
     static bool parse (const std::string& text, const std::string& sourceName,
                        SongPlan& out, std::string& error);
 
+    // Serialises back to the same format load() reads. Round-tripping a plan
+    // through this must produce an identical song - the harness checks it - so
+    // anything the loader reads has to be written here too.
+    std::string toJson() const;
+
     // Non-fatal problems worth telling the user about before they hit play.
     std::vector<std::string> validate() const;
 };

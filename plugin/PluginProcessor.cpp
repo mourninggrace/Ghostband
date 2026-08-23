@@ -387,6 +387,170 @@ bool GhostbandProcessor::saveCalibration (juce::String& error)
     return true;
 }
 
+//==============================================================================
+// Song structure editing
+
+int GhostbandProcessor::getSectionCount() const
+{
+    const juce::ScopedLock sl (stateLock);
+    return static_cast<int> (plan.sections.size());
+}
+
+GhostbandProcessor::SectionEdit GhostbandProcessor::getSectionEdit (int index) const
+{
+    const juce::ScopedLock sl (stateLock);
+    SectionEdit e;
+    if (index < 0 || index >= static_cast<int> (plan.sections.size()))
+        return e;
+
+    const gb::SectionPlan& s = plan.sections[static_cast<size_t> (index)];
+    e.name      = s.name;
+    e.bars      = s.bars;
+    e.intensity = s.intensity;
+    e.feel      = s.feel;
+    e.fill      = s.fill;
+    e.drums     = s.playsDrums;
+    e.bass      = s.playsBass;
+    e.guitar    = s.playsGuitar;
+    e.piano     = s.playsPiano;
+
+    juce::StringArray chords;
+    for (const std::string& c : s.chords) chords.add (c);
+    e.chords = chords.joinIntoString (" ");
+
+    return e;
+}
+
+void GhostbandProcessor::applySectionEdit (int index, const SectionEdit& edit)
+{
+    {
+        const juce::ScopedLock sl (stateLock);
+        if (index < 0 || index >= static_cast<int> (plan.sections.size()))
+            return;
+
+        gb::SectionPlan& s = plan.sections[static_cast<size_t> (index)];
+        s.name      = edit.name.trim().toStdString();
+        s.bars      = juce::jlimit (1, 512, edit.bars);
+        s.intensity = juce::jlimit (0.0, 1.0, edit.intensity);
+        s.feel      = edit.feel.toStdString();
+        s.fill      = edit.fill.toStdString();
+
+        s.playsDrums  = edit.drums;
+        s.playsBass   = edit.bass;
+        s.playsGuitar = edit.guitar;
+        s.playsPiano  = edit.piano;
+
+        // The role drives which progression families and phrases get drawn, and
+        // it is inferred from the name - so renaming a section to "chorus"
+        // genuinely makes it behave like one.
+        s.role = gb::inferRole (s.name);
+
+        s.chords.clear();
+        for (const juce::String& c : juce::StringArray::fromTokens (edit.chords, " ,", ""))
+            if (c.trim().isNotEmpty())
+                s.chords.push_back (c.trim().toStdString());
+    }
+
+    planDirty = true;
+    regenerate();
+}
+
+void GhostbandProcessor::addSection (int afterIndex)
+{
+    {
+        const juce::ScopedLock sl (stateLock);
+
+        gb::SectionPlan s;
+        // Copy the neighbour rather than starting from defaults: a new section
+        // is nearly always a variation on the one before it.
+        if (afterIndex >= 0 && afterIndex < static_cast<int> (plan.sections.size()))
+            s = plan.sections[static_cast<size_t> (afterIndex)];
+
+        s.name   = s.name.empty() ? "section" : s.name + " copy";
+        s.role   = gb::inferRole (s.name);
+        s.reroll = 0;
+
+        const size_t at = static_cast<size_t> (juce::jlimit (0, static_cast<int> (plan.sections.size()),
+                                                             afterIndex + 1));
+        plan.sections.insert (plan.sections.begin() + static_cast<std::ptrdiff_t> (at), s);
+    }
+
+    planDirty = true;
+    regenerate();
+}
+
+void GhostbandProcessor::deleteSection (int index)
+{
+    {
+        const juce::ScopedLock sl (stateLock);
+        // A song with no sections cannot render, so the last one stays.
+        if (plan.sections.size() <= 1) return;
+        if (index < 0 || index >= static_cast<int> (plan.sections.size())) return;
+        plan.sections.erase (plan.sections.begin() + static_cast<std::ptrdiff_t> (index));
+    }
+
+    planDirty = true;
+    regenerate();
+}
+
+void GhostbandProcessor::moveSection (int index, int delta)
+{
+    {
+        const juce::ScopedLock sl (stateLock);
+        const int count = static_cast<int> (plan.sections.size());
+        const int to = index + delta;
+        if (index < 0 || index >= count || to < 0 || to >= count) return;
+        std::swap (plan.sections[static_cast<size_t> (index)],
+                   plan.sections[static_cast<size_t> (to)]);
+    }
+
+    planDirty = true;
+    regenerate();
+}
+
+juce::String GhostbandProcessor::planAsText() const
+{
+    const juce::ScopedLock sl (stateLock);
+    return juce::String (plan.toJson());
+}
+
+bool GhostbandProcessor::savePlan (const juce::File& target, juce::String& error)
+{
+    if (target == juce::File())
+    {
+        error = "No file to save to.";
+        return false;
+    }
+
+    const juce::String text = planAsText();
+
+    // Never overwrite a file without leaving the previous version behind.
+    if (target.existsAsFile())
+    {
+        const juce::File backup = target.getSiblingFile (target.getFileNameWithoutExtension()
+                                                         + "-previous.json");
+        target.copyFileTo (backup);
+    }
+
+    if (! target.getParentDirectory().exists())
+        target.getParentDirectory().createDirectory();
+
+    if (! target.replaceWithText (text))
+    {
+        error = "Could not write " + target.getFullPathName();
+        return false;
+    }
+
+    {
+        const juce::ScopedLock sl (stateLock);
+        planFile = target;
+    }
+
+    planDirty = false;
+    stateChanged.sendChangeMessage();
+    return true;
+}
+
 int GhostbandProcessor::getKeyPitchClass() const
 {
     const juce::ScopedLock sl (stateLock);
