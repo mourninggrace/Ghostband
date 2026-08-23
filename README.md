@@ -229,7 +229,7 @@ notes balanced, nothing emitted twice, nothing outside its block, all-notes-off 
 stop, and the seed behaving.
 
 ```bash
-build\ghostband_plugin_test_artefacts\Release\ghostband_plugin_test.exe plans\demo-metal.json 1173 615
+build\ghostband_plugin_test_artefacts\Release\ghostband_plugin_test.exe plans\demo-metal.json 1237 534
 ```
 
 The two trailing numbers are the drum and bass counts the CLI prints for that

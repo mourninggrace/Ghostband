@@ -49,7 +49,22 @@ struct SectionGroove
     bool   openHatOnAnd  = false;
     double ghostDensity  = 0.0;
     bool   doubleKick    = false;
+
+    // Which backbeat treatment and which fill vocabulary this section uses.
+    //
+    // These exist because the first version had none of them. Snare placement,
+    // ride-versus-hats and hat subdivision were pure functions of intensity, the
+    // kick had two options, and every fill was the same tom descent - so only
+    // the ornamentation moved between rerolls and the user reported the changes
+    // as "almost non-existent". Every element of the skeleton now draws from a
+    // pool.
+    int snareVariant = 0;          // 0 plain, 1 pickup, 2 upbeat push, 3 ghost-heavy
+    int fillShape    = 0;          // 0 toms, 1 snare roll, 2 alternating, 3 gap, 4 tom pairs
 };
+
+// Resolves a section's "auto" bass pattern to a concrete one, once per section
+// so the part keeps one identity across its bars.
+std::string chooseBassPattern (const GrooveContext& ctx, Rng& rng);
 
 // The rhythmic skeleton of one bar. Kick and bass both read `kickOnsets`, and
 // that shared read is the entire reason the two parts lock together.

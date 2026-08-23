@@ -26,12 +26,45 @@ static bool isMetalStyle (const std::string& style)
         || style == "doom"  || style == "sludge" || style == "prog_metal";
 }
 
+static double clamp01 (double v) { return v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v); }
+
 static bool isHeavyStyle (const std::string& style)
 {
     return isMetalStyle (style) || style == "hard_rock" || style == "punk";
 }
 
 //==============================================================================
+
+// Which beats of the bar the kick cell applies to. Expressed as a shape rather
+// than a literal list so odd time signatures still work.
+enum class BeatMask { All, Even, FirstAndMid, AllButLast, FirstOnly, Offbeats };
+
+static std::vector<int> expandMask (BeatMask m, int beats)
+{
+    std::vector<int> out;
+    for (int b = 0; b < beats; ++b)
+    {
+        bool take = false;
+        switch (m)
+        {
+            case BeatMask::All:         take = true; break;
+            case BeatMask::Even:        take = (b % 2) == 0; break;
+            case BeatMask::Offbeats:    take = (b % 2) == 1; break;
+            case BeatMask::AllButLast:  take = b < beats - 1; break;
+            case BeatMask::FirstOnly:   take = b == 0; break;
+            case BeatMask::FirstAndMid: take = (b == 0 || b == beats / 2); break;
+        }
+        if (take) out.push_back (b);
+    }
+    if (out.empty()) out.push_back (0);
+    return out;
+}
+
+struct KickOption
+{
+    BeatMask mask;
+    std::vector<int> cell;   // 16th offsets within a beat
+};
 
 SectionGroove buildSectionGroove (const GrooveContext& ctx, Rng& rng)
 {
@@ -41,76 +74,91 @@ SectionGroove buildSectionGroove (const GrooveContext& ctx, Rng& rng)
     const bool metal = isMetalStyle (ctx.style);
     const double in = ctx.intensity;
 
-    std::vector<int> allBeats;
-    for (int b = 0; b < beats; ++b) allBeats.push_back (b);
-
     // ---- kick ------------------------------------------------------------
-    // Cell offsets are in 16ths within a single beat: {0,2,3} is the gallop,
-    // {0,1,2,3} is straight double kick, {0} is a plain quarter pulse.
+    // Every band offers several genuinely different patterns rather than one or
+    // two, because this is the single biggest thing a reroll can change: the
+    // bass reads these onsets too, so a new kick pattern moves the whole band.
+    std::vector<KickOption> pool;
+
     switch (ctx.feel)
     {
         case Feel::Blast:
-            g.kickBeats  = allBeats;
-            g.kickCell   = { 0, 2 };
+            pool = { { BeatMask::All, { 0, 2 } },
+                     { BeatMask::All, { 0, 1, 2, 3 } },
+                     { BeatMask::All, { 0 } } };
             g.doubleKick = true;
             break;
 
         case Feel::HalfTime:
-            g.kickBeats = { 0 };
-            if (beats >= 3) g.kickBeats.push_back (beats >= 4 ? 2 : 1);
-            g.kickCell  = in > 0.6 ? std::vector<int> { 0, 3 } : std::vector<int> { 0 };
+            pool = { { BeatMask::FirstAndMid, { 0 } },
+                     { BeatMask::FirstOnly,   { 0, 3 } },
+                     { BeatMask::FirstAndMid, { 0, 2 } },
+                     { BeatMask::FirstOnly,   { 0 } },
+                     { BeatMask::Even,        { 0 } } };
             break;
 
         case Feel::DoubleTime:
-            g.kickBeats = allBeats;
-            g.kickCell  = { 0, 2 };
+            pool = { { BeatMask::All, { 0, 2 } },
+                     { BeatMask::All, { 0 } },
+                     { BeatMask::All, { 0, 1, 2, 3 } },
+                     { BeatMask::Even, { 0, 2, 3 } } };
             break;
 
         case Feel::Straight:
         default:
             if (metal && in > 0.78)
             {
-                g.kickBeats  = allBeats;
-                g.kickCell   = rng.chance (0.5) ? std::vector<int> { 0, 1, 2, 3 }
-                                                : std::vector<int> { 0, 2, 3 };
+                pool = { { BeatMask::All,  { 0, 1, 2, 3 } },
+                         { BeatMask::All,  { 0, 2, 3 } },
+                         { BeatMask::All,  { 0, 2 } },
+                         { BeatMask::Even, { 0, 1, 2, 3 } } };
                 g.doubleKick = true;
             }
             else if (metal && in > 0.48)
             {
-                g.kickBeats = allBeats;
-                g.kickCell  = rng.chance (0.6) ? std::vector<int> { 0, 2, 3 }   // gallop
-                                               : std::vector<int> { 0, 1, 2 };  // reverse gallop
+                pool = { { BeatMask::All,  { 0, 2, 3 } },   // gallop
+                         { BeatMask::All,  { 0, 1, 2 } },   // reverse gallop
+                         { BeatMask::All,  { 0, 2 } },
+                         { BeatMask::Even, { 0, 1, 2, 3 } },
+                         { BeatMask::All,  { 0, 3 } } };
             }
             else if (metal && in > 0.30)
             {
-                // Without this rung, metal falls straight from a gallop to a
-                // sparse rock pattern, and two verses half a step apart in
-                // intensity come out as different arrangements rather than
-                // variations of one.
-                g.kickBeats = allBeats;
-                g.kickCell  = { 0, 2 };
+                pool = { { BeatMask::All,  { 0, 2 } },
+                         { BeatMask::All,  { 0 } },
+                         { BeatMask::Even, { 0, 2, 3 } },
+                         { BeatMask::AllButLast, { 0, 2 } } };
             }
             else if (in > 0.62)
             {
-                g.kickBeats = allBeats;
-                g.kickCell  = { 0 };
+                pool = { { BeatMask::All,        { 0 } },
+                         { BeatMask::All,        { 0, 2 } },
+                         { BeatMask::Even,       { 0, 2, 3 } },
+                         { BeatMask::AllButLast, { 0, 2 } },
+                         { BeatMask::All,        { 0, 3 } } };
             }
             else if (in > 0.34)
             {
-                g.kickBeats = { 0 };
-                if (beats >= 3) g.kickBeats.push_back (2);
-                if (beats >= 4 && rng.chance (0.5)) g.kickBeats.push_back (3);
-                g.kickCell = rng.chance (0.45) ? std::vector<int> { 0, 3 }
-                                               : std::vector<int> { 0 };
+                pool = { { BeatMask::Even,        { 0, 3 } },
+                         { BeatMask::AllButLast,  { 0 } },
+                         { BeatMask::All,         { 0 } },
+                         { BeatMask::Even,        { 0, 2 } },
+                         { BeatMask::FirstAndMid, { 0, 2, 3 } } };
             }
             else
             {
-                g.kickBeats = { 0 };
-                if (beats >= 3) g.kickBeats.push_back (2);
-                g.kickCell = { 0 };
+                pool = { { BeatMask::FirstAndMid, { 0 } },
+                         { BeatMask::Even,        { 0 } },
+                         { BeatMask::FirstAndMid, { 0, 3 } },
+                         { BeatMask::FirstOnly,   { 0, 2 } },
+                         { BeatMask::AllButLast,  { 0 } } };
             }
             break;
     }
+
+    const KickOption& chosen = pool[static_cast<size_t> (rng.below (static_cast<int> (pool.size())))];
+    g.kickBeats = expandMask (chosen.mask, beats);
+    g.kickCell  = chosen.cell;
 
     // A single alternate cell, used on the last beat of alternating bars. This
     // is what stops an eight-bar section sounding like one bar looped.
@@ -120,42 +168,79 @@ SectionGroove buildSectionGroove (const GrooveContext& ctx, Rng& rng)
 
     // ---- snare -----------------------------------------------------------
     if (ctx.feel == Feel::HalfTime)
-    {
         g.snareBeats = { beats >= 4 ? 2 : beats / 2 };
-    }
     else if (beats == 4)
-    {
         g.snareBeats = { 1, 3 };
-    }
     else if (beats >= 6)
-    {
         g.snareBeats = { beats / 2, beats - 1 };
-    }
     else
-    {
         g.snareBeats = { beats / 2 };
+
+    // The backbeat itself stays where it belongs - moving it stops the groove
+    // being the groove - but what happens around it varies.
+    {
+        const int roll = rng.below (100);
+        if      (roll < 45) g.snareVariant = 0;   // plain
+        else if (roll < 68) g.snareVariant = 1;   // pickup on the last 16th
+        else if (roll < 85) g.snareVariant = 2;   // push on the last upbeat
+        else                g.snareVariant = 3;   // ghost-heavy
     }
 
     // ---- cymbals ---------------------------------------------------------
-    g.useRide = (in > 0.66) || ctx.role == "chorus" || ctx.feel == Feel::Blast;
+    // Probabilities rather than thresholds, so two rolls at the same intensity
+    // can legitimately differ.
+    double rideChance = clamp01 (in - 0.30);
+    if (ctx.role == "chorus") rideChance += 0.25;
+    if (metal)                rideChance += 0.10;
+    g.useRide = (ctx.feel == Feel::Blast) || rng.chance (clamp01 (rideChance));
 
-    if (ctx.feel == Feel::Blast || ctx.feel == Feel::DoubleTime)
-        g.hatStep = 2;
-    else if (ctx.complexity > 0.6 && in < 0.7)
-        g.hatStep = 1;                      // sixteenth-note hat work
-    else if (in < 0.25)
-        g.hatStep = 4;                      // quarters, for sparse intros
-    else
-        g.hatStep = 2;
+    {
+        // Weighted pick across quarters, eighths and sixteenths.
+        int wQuarter = in < 0.30 ? 30 : 4;
+        int wEighth  = 60;
+        int wSixteen = static_cast<int> (10 + ctx.complexity * 45 * (in < 0.75 ? 1.0 : 0.4));
+        if (ctx.feel == Feel::Blast || ctx.feel == Feel::DoubleTime) { wQuarter = 0; wSixteen /= 2; }
 
-    g.openHatOnAnd = (! g.useRide) && in > 0.38 && in < 0.72 && rng.chance (0.6);
+        const int total = std::max (1, wQuarter + wEighth + wSixteen);
+        const int roll = rng.below (total);
+        g.hatStep = (roll < wQuarter) ? 4 : ((roll < wQuarter + wEighth) ? 2 : 1);
+    }
 
-    // Ghost notes are what separate a groove from a drum machine, but they turn
-    // to mud at high intensity where the backbeat should dominate.
+    g.openHatOnAnd = (! g.useRide) && in > 0.30 && rng.chance (0.45);
+
+    // Ghost notes separate a groove from a drum machine, but they turn to mud at
+    // high intensity where the backbeat should dominate.
     g.ghostDensity = ctx.complexity * 0.45 * (in > 0.8 ? 0.35 : 1.0);
-    if (isMetalStyle (ctx.style)) g.ghostDensity *= 0.5;
+    if (metal) g.ghostDensity *= 0.5;
+    if (g.snareVariant == 3) g.ghostDensity *= 1.8;
+
+    // ---- fills -----------------------------------------------------------
+    g.fillShape = rng.below (5);
 
     return g;
+}
+
+std::string chooseBassPattern (const GrooveContext& ctx, Rng& rng)
+{
+    const bool metal = isMetalStyle (ctx.style);
+    const double in = ctx.intensity;
+
+    // Locking to the kick is the default in heavy styles and stays the most
+    // likely draw, but it is no longer the only one - a bass that only ever
+    // mirrors the kick makes every reroll sound the same even when the drums
+    // changed underneath it.
+    int lock = metal ? 60 : 35;
+    int octave = static_cast<int> (10 + in * 25);
+    int eighths = metal ? 15 : 40;
+    int roots = in < 0.4 ? 20 : 5;
+
+    const int total = lock + octave + eighths + roots;
+    int roll = rng.below (total);
+
+    if ((roll -= lock)    < 0) return "lock_kick";
+    if ((roll -= octave)  < 0) return "lock_kick_octave";
+    if ((roll -= eighths) < 0) return "eighths";
+    return "roots";
 }
 
 //==============================================================================
@@ -309,6 +394,20 @@ BarGrid buildBarGrid (const GrooveContext& ctx,
             if (! contains (grid.snareOnsets, tick))
                 grid.snareOnsets.push_back (tick);
         }
+    }
+
+    // The section's backbeat treatment, applied on alternating bars so it reads
+    // as a recurring detail rather than a tic on every bar.
+    if (barIndexInSection % 2 == 1)
+    {
+        int extra = -1;
+        if (groove.snareVariant == 1)
+            extra = ctx.barTicks - sixteenth;                          // pickup into the next bar
+        else if (groove.snareVariant == 2 && beats >= 2)
+            extra = (beats - 1) * ctx.beatTicks + ctx.beatTicks / 2;   // push on the last upbeat
+
+        if (extra > 0 && extra < ctx.barTicks && ! contains (grid.snareOnsets, extra))
+            grid.snareOnsets.push_back (extra);
     }
 
     std::sort (grid.kickOnsets.begin(), grid.kickOnsets.end());
@@ -470,16 +569,46 @@ void generateDrumBar (const GrooveContext& ctx,
         {
             const int t = fillFromTick + s * sixteenth;
             const double progress = steps > 1 ? static_cast<double> (s) / (steps - 1) : 1.0;
-            const double accent = 0.62 + progress * 0.32 + rng.bipolar (0.05);
+            double accent = 0.62 + progress * 0.32 + rng.bipolar (0.05);
 
-            // Open on the snare, then walk down the toms.
-            DrumVoice v;
-            if (s == 0)                       v = DrumVoice::Snare;
-            else if (rng.chance (0.3))        v = DrumVoice::Snare;
-            else                              v = pickTom (kit, tomIndex++ % 4);
+            // Five distinct shapes rather than one. A fill is the most audible
+            // moment in a bar, so having every one of them be the same tom
+            // descent was most of why rerolling sounded like nothing changed.
+            DrumVoice v = DrumVoice::Snare;
+            bool play = true;
 
-            emit (out, barStartTick + t + static_cast<int> (rng.bipolar (jitterSnare)),
-                  v, accent, kit);
+            switch (groove.fillShape)
+            {
+                case 1:     // snare roll, crescendo
+                    v = DrumVoice::Snare;
+                    accent = 0.40 + progress * 0.55;
+                    break;
+
+                case 2:     // strict alternation, snare against descending toms
+                    v = (s % 2 == 0) ? DrumVoice::Snare : pickTom (kit, tomIndex++ % 4);
+                    break;
+
+                case 3:     // near silence, then one hard accent into the change
+                    play = (s == 0) || (progress > 0.74);
+                    v = (progress > 0.74) ? pickTom (kit, 3) : DrumVoice::Snare;
+                    accent = (progress > 0.74) ? 0.95 : 0.55;
+                    break;
+
+                case 4:     // tom pairs walking down
+                    v = pickTom (kit, (s / 2) % 4);
+                    break;
+
+                case 0:
+                default:    // open on the snare, then walk down the toms
+                    if (s == 0)                v = DrumVoice::Snare;
+                    else if (rng.chance (0.3)) v = DrumVoice::Snare;
+                    else                       v = pickTom (kit, tomIndex++ % 4);
+                    break;
+            }
+
+            if (play)
+                emit (out, barStartTick + t + static_cast<int> (rng.bipolar (jitterSnare)),
+                      v, accent, kit);
         }
 
         // Keep the kick under the fill so the bar does not lose its floor.

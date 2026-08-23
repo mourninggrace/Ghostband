@@ -83,10 +83,30 @@ only way SSD5 and MODO can be verified.
 
 User has heard the demos and the plugin and signed off on the grooves.
 
-## The one open musical problem: rerolling barely changes anything
+## SOLVED 2026-08-23: rerolling barely changed anything
 
-**This is the next thing to work on.** The user's words: the changes from Roll
-"seem to be so small they are almost non-existent."
+Fixed. Every element of the groove skeleton now draws from a pool instead of a
+threshold: kick patterns (4–6 genuine options per intensity band, with beat masks
+expressed procedurally so odd meters still work), snare treatment (plain, pickup,
+upbeat push, ghost-heavy), ride-vs-hats and hat subdivision (probabilities, not
+thresholds), five distinct fill shapes, and the bass `auto` pattern chosen per
+section rather than always being `lock_kick`.
+
+Measured before and after, across six seeds on the metal demo: note counts used
+to move under 1% between seeds and now move 9% on drums and 29% on bass, with the
+kick onset count itself ranging 476–553 — the patterns genuinely differ rather
+than the ornamentation wobbling.
+
+**The kick/bass lock survived**, which was the thing at risk: 89–93% of bass
+attacks still land within 12 ticks of a kick, still averaging 2.5 ticks ahead.
+
+The original diagnosis is kept below because it is a good record of how the
+problem was found.
+
+### The original problem, for the record
+
+The user's words: the changes from Roll "seem to be so small they are almost
+non-existent."
 
 ### Why — this was diagnosed, not guessed
 
@@ -235,8 +255,8 @@ palette, stock JUCE sliders and buttons. Points worth carrying in:
 
 ```bash
 Build.bat
-build\ghostband_plugin_test_artefacts\Release\ghostband_plugin_test.exe plans\demo-metal.json 1173 615
-build\ghostband_plugin_test_artefacts\Release\ghostband_plugin_test.exe plans\demo-rock.json 868 319
+build\ghostband_plugin_test_artefacts\Release\ghostband_plugin_test.exe plans\demo-metal.json 1237 534
+build\ghostband_plugin_test_artefacts\Release\ghostband_plugin_test.exe plans\demo-rock.json 987 379
 ```
 
 If a change is *meant* to alter the generated notes, those two trailing counts

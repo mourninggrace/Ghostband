@@ -232,6 +232,12 @@ RenderResult renderPerformance (const SongPlan& plan,
         ctx.highestBassNote = highestBass;
 
         const SectionGroove groove = buildSectionGroove (ctx, rng);
+
+        // Resolved once per section rather than per bar, so the bass keeps one
+        // identity across the section while still varying between rerolls.
+        const std::string bassPattern = (s.bassPattern.empty() || s.bassPattern == "auto")
+                                          ? chooseBassPattern (ctx, rng)
+                                          : s.bassPattern;
         const std::vector<Chord> chords = chordsForSection (s, keyPc, mode, plan.style,
                                                             plan.transpose, rng);
 
@@ -300,7 +306,7 @@ RenderResult renderPerformance (const SongPlan& plan,
                 else if (! isLastSection)
                     next = Chord();     // unknown until the next section is built
 
-                generateBassBar (ctx, grid, barStart, chord, next, s.bassPattern,
+                generateBassBar (ctx, grid, barStart, chord, next, bassPattern,
                                  lastBar, rng, result.performance.bass);
             }
         }
