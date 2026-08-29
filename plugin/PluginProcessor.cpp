@@ -455,6 +455,33 @@ void GhostbandProcessor::testPart (int part)
     }
 }
 
+void GhostbandProcessor::teachControl (int part, int cc)
+{
+    int channel = 2;
+    {
+        const juce::ScopedLock sl (stateLock);
+        switch (part)
+        {
+            case 0:  channel = kit.channel;           break;
+            case 1:  channel = bassProfile.channel;   break;
+            case 3:  channel = pianoProfile.channel;  break;
+            default: channel = guitarProfile.channel; break;
+        }
+    }
+
+    const double sr = juce::jmax (8000.0, getSampleRate());
+
+    const juce::SpinLock::ScopedLockType lock (auditionLock);
+    // A full sweep down and back up over about a second, so the movement is
+    // unmistakable to whatever is listening.
+    for (int i = 0; i <= 24; ++i)
+    {
+        const int value = (i <= 12) ? (i * 127 / 12) : ((24 - i) * 127 / 12);
+        pendingAuditions.push_back ({ static_cast<int> (i * 0.04 * sr),
+                                      juce::MidiMessage::controllerEvent (channel, cc, value) });
+    }
+}
+
 void GhostbandProcessor::sendLevels()
 {
     struct Part { int channel; float level; };

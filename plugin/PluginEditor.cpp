@@ -778,6 +778,34 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         addChildComponent (*testButtons[i]);
     }
 
+    // ---- MIDI Learn helpers ----
+    styleCombo (learnPart);
+    addChildComponent (learnPart);
+    learnPart.addItem ("guitar", 1);
+    learnPart.addItem ("piano",  2);
+    learnPart.setSelectedId (1, juce::dontSendNotification);
+
+    struct Learn { juce::TextButton* b; int cc; };
+    const Learn learns[3] = { { &learnDrive, 22 }, { &learnTone, 23 }, { &learnEffect, 24 } };
+    for (const Learn& l : learns)
+    {
+        styleButton (*l.b, false);
+        auto& proc = processor;
+        auto* partBox = &learnPart;
+        l.b->onClick = [&proc, partBox, cc = l.cc]
+        {
+            proc.teachControl (partBox->getSelectedId() == 2 ? 3 : 2, cc);
+        };
+        addChildComponent (*l.b);
+    }
+
+    initLabel (learnHeading, "MIDI LEARN", 11.0f, ghost::text, juce::Justification::centredLeft);
+    initLabel (learnHelp,
+               "In the instrument, right-click a knob and choose MIDI Learn, then press the "
+               "matching button here. Drive is CC22, Tone CC23, Effect CC24.",
+               11.0f, ghost::dim, juce::Justification::topLeft);
+    learnHelp.setJustificationType (juce::Justification::topLeft);
+
     initLabel (settingsHeading, "SETTINGS", 15.0f, ghost::text, juce::Justification::centredLeft);
     initLabel (channelsHelp,
                "Each part is sent on its own MIDI channel. Set the matching channel on each "
@@ -943,7 +971,9 @@ void GhostbandEditor::updateModeVisibility()
              &chDrums, &chBass, &chGuitar, &chPiano,
              &chDrumsLabel, &chBassLabel, &chGuitarLabel, &chPianoLabel,
              &settingsHeading, &channelsHelp, &resetSizeButton, &reloadProfilesBtn,
-             &testDrums, &testBass, &testGuitar, &testPiano })
+             &testDrums, &testBass, &testGuitar, &testPiano,
+             &learnPart, &learnDrive, &learnTone, &learnEffect,
+             &learnHeading, &learnHelp })
         c->setVisible (set);
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
@@ -1324,10 +1354,25 @@ void GhostbandEditor::resized()
             s.removeFromTop (6);
         }
 
-        s.removeFromTop (6);
-        channelsHelp.setBounds (s.removeFromTop (38));
-        s.removeFromTop (14);
+        s.removeFromTop (4);
+        channelsHelp.setBounds (s.removeFromTop (34));
+        s.removeFromTop (12);
 
+        learnHeading.setBounds (s.removeFromTop (16));
+        s.removeFromTop (4);
+        learnHelp.setBounds (s.removeFromTop (34));
+        s.removeFromTop (6);
+
+        auto learnRow = s.removeFromTop (28);
+        learnPart.setBounds (learnRow.removeFromLeft (92));
+        learnRow.removeFromLeft (10);
+        learnDrive.setBounds (learnRow.removeFromLeft (104));
+        learnRow.removeFromLeft (6);
+        learnTone.setBounds (learnRow.removeFromLeft (100));
+        learnRow.removeFromLeft (6);
+        learnEffect.setBounds (learnRow.removeFromLeft (108));
+
+        s.removeFromTop (14);
         auto row = s.removeFromTop (28);
         reloadProfilesBtn.setBounds (row.removeFromLeft (170));
         row.removeFromLeft (8);

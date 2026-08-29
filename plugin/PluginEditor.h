@@ -161,6 +161,13 @@ private:
     juce::Label    chDrumsLabel, chBassLabel, chGuitarLabel, chPianoLabel;
     juce::TextButton testDrums { "Test" }, testBass { "Test" },
                      testGuitar { "Test" }, testPiano { "Test" };
+    // MIDI Learn helpers: sweep a CC at an instrument so it can latch onto it.
+    juce::ComboBox   learnPart;
+    juce::TextButton learnDrive  { "Teach Drive" };
+    juce::TextButton learnTone   { "Teach Tone" };
+    juce::TextButton learnEffect { "Teach Effect" };
+    juce::Label      learnHeading, learnHelp;
+
     juce::Label    settingsHeading, channelsHelp;
     juce::TextButton resetSizeButton   { "Reset window size" };
     juce::TextButton reloadProfilesBtn { "Reload driver profiles" };

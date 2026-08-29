@@ -231,6 +231,11 @@ public:
     // leaving it to guesswork.
     void testPart (int part);   // 0 drums, 1 bass, 2 guitar, 3 piano
 
+    // Sweeps a CC on a part's channel so an instrument in MIDI-Learn mode can
+    // latch onto it. A sweep rather than a single value, because most learn
+    // implementations want to see a control move, not one message.
+    void teachControl (int part, int cc);
+
     std::atomic<float> levelDrums  { 1.0f };
     std::atomic<float> levelBass   { 1.0f };
     std::atomic<float> levelGuitar { 1.0f };
