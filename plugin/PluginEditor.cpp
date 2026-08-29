@@ -866,7 +866,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     // An open-ended list rather than fixed slots: how many knobs, buttons and
     // switches are worth automating is the owner's decision.
     for (juce::TextButton* b : std::initializer_list<juce::TextButton*> {
-             &ctlAdd, &ctlRemove, &ctlTeach, &ctlSave })
+             &ctlAdd, &ctlRemove, &ctlTeach, &ctlSave, &ctlSend, &ctlWalk })
     {
         styleButton (*b, b == &ctlTeach);
         addChildComponent (*b);
@@ -918,6 +918,22 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
                                        ctlSelected = 0; refreshControls(); };
     ctlTeach.onClick  = [this, part] { processor.teachControlSlot (part(), ctlSelected); };
 
+    ctlSend.onClick = [this, part]
+    {
+        pushControlEdit();          // commit a value still being typed
+        processor.sendControlNow (part(), ctlSelected);
+        statusLabel.setText ("Sent. Look at the instrument to see where it landed.",
+                             juce::dontSendNotification);
+    };
+
+    ctlWalk.onClick = [this, part]
+    {
+        pushControlEdit();
+        processor.walkControl (part(), ctlSelected);
+        statusLabel.setText ("Stepping through every position, half a second each. Count them.",
+                             juce::dontSendNotification);
+    };
+
     ctlSave.onClick = [this, part]
     {
         juce::String err;
@@ -938,7 +954,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     initLabel (ctlFollowsLabel, "FOLLOWS", 10.0f, ghost::dim, juce::Justification::centredLeft);
     initLabel (ctlTypeLabel,    "TYPE",    10.0f, ghost::dim, juce::Justification::centredLeft);
     initLabel (ctlPositionsLabel, "CHOICES", 10.0f, ghost::dim, juce::Justification::centredLeft);
-    initLabel (ctlPositionsHint, "positions on the selector", 10.0f, ghost::dim,
+    initLabel (ctlPositionsHint, "how many choices", 10.0f, ghost::dim,
                juce::Justification::centredLeft);
     initLabel (ctlValueLabel, "VALUE", 10.0f, ghost::dim, juce::Justification::centredLeft);
     initLabel (ctlValueHint, "", 10.0f, ghost::dim, juce::Justification::centredLeft);
@@ -1119,7 +1135,8 @@ void GhostbandEditor::updateModeVisibility()
              &ctlAdd, &ctlRemove, &ctlTeach, &ctlSave, &ctlName,
              &ctlFollows, &ctlType, &ctlPositions, &ctlViewport,
              &ctlNameLabel, &ctlFollowsLabel, &ctlTypeLabel, &ctlPositionsLabel,
-             &ctlPositionsHint, &ctlValue, &ctlValueLabel, &ctlValueHint })
+             &ctlPositionsHint, &ctlValue, &ctlValueLabel, &ctlValueHint,
+             &ctlSend, &ctlWalk })
         c->setVisible (set);
 
     if (set)
@@ -1282,6 +1299,7 @@ void GhostbandEditor::refreshControls()
     ctlPositions.setVisible (showChoices);
     ctlPositionsLabel.setVisible (showChoices);
     ctlPositionsHint.setVisible (showChoices);
+    ctlWalk.setVisible (showChoices);
 
     // The value box only means anything for a parked control, and the layout
     // gives back its row when it is not there.
@@ -1289,6 +1307,7 @@ void GhostbandEditor::refreshControls()
     ctlValue.setVisible (showValue);
     ctlValueLabel.setVisible (showValue);
     ctlValueHint.setVisible (showValue);
+    ctlSend.setVisible (showValue);
 
     suppressControlCallbacks = false;
 
@@ -1702,6 +1721,8 @@ void GhostbandEditor::resized()
         ctlPositionsLabel.setBounds (teachRow.removeFromLeft (54));
         ctlPositions.setBounds (teachRow.removeFromLeft (52).withSizeKeepingCentre (52, 26));
         teachRow.removeFromLeft (8);
+        ctlWalk.setBounds (teachRow.removeFromLeft (112));
+        teachRow.removeFromLeft (8);
         ctlPositionsHint.setBounds (teachRow);
 
         if (ctlValue.isVisible())
@@ -1711,6 +1732,8 @@ void GhostbandEditor::resized()
             valueRow.removeFromLeft (186);          // line up under the choices box
             ctlValueLabel.setBounds (valueRow.removeFromLeft (54));
             ctlValue.setBounds (valueRow.removeFromLeft (52).withSizeKeepingCentre (52, 26));
+            valueRow.removeFromLeft (8);
+            ctlSend.setBounds (valueRow.removeFromLeft (72));
             valueRow.removeFromLeft (8);
             ctlValueHint.setBounds (valueRow);
         }

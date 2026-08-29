@@ -237,6 +237,18 @@ public:
     // implementations want to see a control move, not one message.
     void teachControl (int part, int cc);
 
+    // Sends one control at one value, right now and once. Teach sweeps, which
+    // is what MIDI Learn needs and is useless for reading an instrument's
+    // display: it is over before you can see where it landed. This parks the
+    // control so you can look at it.
+    void sendControlNow (int part, int index);
+    int  channelForPart (int part) const;
+
+    // Steps a control through every one of its positions, holding each long
+    // enough to read, and reports how many there were. The only reliable way to
+    // find out how many choices a list really has is to watch it go past.
+    void walkControl (int part, int index);
+
     //==========================================================================
     // Control mappings.
     //

@@ -482,6 +482,88 @@ void GhostbandProcessor::teachControl (int part, int cc)
     }
 }
 
+// The channel a part speaks on. Duplicated nowhere else, because getting it
+// wrong sends a controller message to the wrong instrument.
+int GhostbandProcessor::channelForPart (int part) const
+{
+    const juce::ScopedLock sl (stateLock);
+    switch (part)
+    {
+        case 0:  return kit.channel;
+        case 1:  return bassProfile.channel;
+        case 3:  return pianoProfile.channel;
+        default: return guitarProfile.channel;
+    }
+}
+
+void GhostbandProcessor::sendControlNow (int part, int index)
+{
+    int cc = -1;
+    double amount = 0.0;
+
+    {
+        const juce::ScopedLock sl (stateLock);
+        const auto* prof = phraseProfileFor (part);
+        if (prof == nullptr || index < 0
+            || index >= static_cast<int> (prof->allControls().size()))
+            return;
+
+        const auto& def = prof->allControls()[static_cast<size_t> (index)];
+        cc = def.cc;
+
+        // valueAt(0) is the bottom of the declared range, which for a parked
+        // control is the value it was parked at.
+        amount = def.valueAt (0.0);
+    }
+
+    if (cc < 0)
+        return;
+
+    const int value   = juce::jlimit (0, 127, juce::roundToInt (amount * 127.0));
+
+    // Resolved before the audition lock is taken: channelForPart wants the
+    // state lock, and taking the two in this order here and the other order
+    // anywhere else is how a deadlock gets built.
+    const int channel = channelForPart (part);
+
+    const juce::SpinLock::ScopedLockType lock (auditionLock);
+    pendingAuditions.push_back ({ 0, juce::MidiMessage::controllerEvent (channel, cc, value) });
+}
+
+void GhostbandProcessor::walkControl (int part, int index)
+{
+    int cc = -1, positions = 0;
+
+    {
+        const juce::ScopedLock sl (stateLock);
+        const auto* prof = phraseProfileFor (part);
+        if (prof == nullptr || index < 0
+            || index >= static_cast<int> (prof->allControls().size()))
+            return;
+
+        const auto& def = prof->allControls()[static_cast<size_t> (index)];
+        cc        = def.cc;
+        positions = def.isSelect() ? def.positions : 0;
+    }
+
+    if (cc < 0 || positions < 2)
+        return;
+
+    const double sr      = juce::jmax (8000.0, getSampleRate());
+    const int    channel = channelForPart (part);
+
+    // Half a second on each, which is slow enough to read a name off a plugin's
+    // display and still finishes a thirty-way list in fifteen seconds.
+    const juce::SpinLock::ScopedLockType lock (auditionLock);
+    for (int p = 0; p < positions; ++p)
+    {
+        const int value = juce::jlimit (0, 127,
+                              juce::roundToInt (p * 127.0 / (positions - 1)));
+        pendingAuditions.push_back ({ static_cast<int> (p * 0.5 * sr),
+                                      juce::MidiMessage::controllerEvent (channel, cc, value) });
+    }
+}
+
 gb::PhraseProfile* GhostbandProcessor::phraseProfileFor (int part)
 {
     if (part == 3) return havePiano  ? &pianoProfile  : nullptr;

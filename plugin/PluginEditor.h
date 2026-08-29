@@ -192,6 +192,12 @@ private:
     juce::TextButton ctlAdd    { "+ Add" };
     juce::TextButton ctlRemove { "Remove" };
     juce::TextButton ctlTeach  { "Teach this control" };
+
+    // Teach sweeps, which MIDI Learn needs and a person cannot read. These two
+    // are for looking at the instrument: park it on one value, or step through
+    // every position slowly enough to count them.
+    juce::TextButton ctlSend   { "Send" };
+    juce::TextButton ctlWalk   { "Walk the list" };
     juce::TextButton ctlSave   { "Save mappings" };
     juce::TextEditor ctlName;
     juce::ComboBox   ctlFollows, ctlType;
