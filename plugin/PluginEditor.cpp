@@ -985,10 +985,15 @@ void GhostbandEditor::updateModeVisibility()
     aboutButton.setVisible    (! set && ! abt);
     backButton.setVisible     (set || abt);
 
-    // About paints its own page, so every label belonging to the song view has
-    // to go - otherwise they keep their old bounds and bleed through it.
+    // Labels keep their bounds when a screen stops laying them out, so any that
+    // the current screen does not position have to be hidden or they bleed
+    // through it. Settings and About both paint over the song view's area.
     for (juce::Component* c : std::initializer_list<juce::Component*> {
-             &planLabel, &headlineLabel, &statusLabel, &profilesLabel })
+             &planLabel, &headlineLabel })
+        c->setVisible (song || cal || edit);
+
+    for (juce::Component* c : std::initializer_list<juce::Component*> {
+             &statusLabel, &profilesLabel })
         c->setVisible (! abt);
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
