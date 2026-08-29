@@ -785,24 +785,39 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     learnPart.addItem ("piano",  2);
     learnPart.setSelectedId (1, juce::dontSendNotification);
 
-    struct Learn { juce::TextButton* b; int cc; };
-    const Learn learns[3] = { { &learnDrive, 22 }, { &learnTone, 23 }, { &learnEffect, 24 } };
-    for (const Learn& l : learns)
+    // A CC picker rather than one button per control: these instruments have far
+    // more knobs than a fixed set of buttons could cover, and the label says
+    // what each number will make the knob follow.
+    styleCombo (learnCC);
+    addChildComponent (learnCC);
+    static const char* ccMeanings[8] = {
+        "22  drive - follows loudness",
+        "23  tone - up when leading",
+        "24  effect - on for choruses",
+        "25  motion - follows loudness",
+        "26  depth - on for choruses",
+        "27  character - up when leading",
+        "28  build - climbs through the song",
+        "29  space - more when quiet"
+    };
+    for (int i = 0; i < 8; ++i)
+        learnCC.addItem (ccMeanings[i], i + 1);
+    learnCC.setSelectedId (1, juce::dontSendNotification);
+
+    styleButton (learnDrive, true);
+    learnDrive.setButtonText ("Teach this knob");
+    learnDrive.onClick = [this]
     {
-        styleButton (*l.b, false);
-        auto& proc = processor;
-        auto* partBox = &learnPart;
-        l.b->onClick = [&proc, partBox, cc = l.cc]
-        {
-            proc.teachControl (partBox->getSelectedId() == 2 ? 3 : 2, cc);
-        };
-        addChildComponent (*l.b);
-    }
+        const int cc = 21 + juce::jmax (1, learnCC.getSelectedId());
+        processor.teachControl (learnPart.getSelectedId() == 2 ? 3 : 2, cc);
+    };
+    addChildComponent (learnDrive);
 
     initLabel (learnHeading, "MIDI LEARN", 11.0f, ghost::text, juce::Justification::centredLeft);
     initLabel (learnHelp,
-               "In the instrument, right-click a knob and choose MIDI Learn, then press the "
-               "matching button here. Drive is CC22, Tone CC23, Effect CC24.",
+               "Right-click a knob in the instrument and choose MIDI Learn, pick what you want "
+               "it to follow below, then press Teach. Repeat for as many knobs as you like; "
+               "anything you do not teach simply ignores it.",
                11.0f, ghost::dim, juce::Justification::topLeft);
     learnHelp.setJustificationType (juce::Justification::topLeft);
 
@@ -972,7 +987,7 @@ void GhostbandEditor::updateModeVisibility()
              &chDrumsLabel, &chBassLabel, &chGuitarLabel, &chPianoLabel,
              &settingsHeading, &channelsHelp, &resetSizeButton, &reloadProfilesBtn,
              &testDrums, &testBass, &testGuitar, &testPiano,
-             &learnPart, &learnDrive, &learnTone, &learnEffect,
+             &learnPart, &learnCC, &learnDrive,
              &learnHeading, &learnHelp })
         c->setVisible (set);
 
@@ -1369,13 +1384,11 @@ void GhostbandEditor::resized()
         s.removeFromTop (6);
 
         auto learnRow = s.removeFromTop (28);
-        learnPart.setBounds (learnRow.removeFromLeft (92));
-        learnRow.removeFromLeft (10);
-        learnDrive.setBounds (learnRow.removeFromLeft (104));
-        learnRow.removeFromLeft (6);
-        learnTone.setBounds (learnRow.removeFromLeft (100));
-        learnRow.removeFromLeft (6);
-        learnEffect.setBounds (learnRow.removeFromLeft (108));
+        learnPart.setBounds (learnRow.removeFromLeft (88));
+        learnRow.removeFromLeft (8);
+        learnCC.setBounds (learnRow.removeFromLeft (juce::jmax (170, learnRow.getWidth() - 150)));
+        learnRow.removeFromLeft (8);
+        learnDrive.setBounds (learnRow.removeFromLeft (juce::jmin (140, learnRow.getWidth())));
 
         s.removeFromTop (14);
         auto row = s.removeFromTop (28);

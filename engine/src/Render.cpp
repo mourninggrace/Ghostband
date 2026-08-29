@@ -100,9 +100,6 @@ static double chordSustain (PhraseFeel feel)
     }
 }
 
-// What a part plays when it is not leading the section: long and out of the
-// way. A supporting part that keeps its own busy feel is just two instruments
-// competing, which is the thing this exists to prevent.
 // Where in the bar a note-driven part strikes, as sixteenth-note offsets.
 //
 // Evenly dividing the bar into two or four gives block chords on the beat,
@@ -157,27 +154,47 @@ static std::vector<int> chordRhythm (PhraseFeel feel, Rng& rng)
 // drive where the section is loud, brighter where it leads, the effect brought
 // in for the biggest moments and pulled out of the quiet ones. What each name
 // actually reaches is the profile's business, and an unmapped one is ignored.
-static void addControls (PhrasePart& out, int tick, double intensity,
-                         bool leading, const std::string& role)
-{
-    auto add = [&out, tick] (const char* name, double amount)
-    {
-        ControlIntent c;
-        c.tick    = tick;
-        c.control = name;
-        c.amount  = amount < 0.0 ? 0.0 : (amount > 1.0 ? 1.0 : amount);
-        out.controls.push_back (c);
-    };
+static double juce_clamp (double v) { return v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v); }
 
-    // A supporting part stays cleaner and darker so it sits behind the lead
-    // rather than competing with it for the same space.
-    add ("drive", leading ? 0.25 + intensity * 0.75 : 0.15 + intensity * 0.35);
-    add ("tone",  leading ? 0.35 + intensity * 0.55 : 0.25 + intensity * 0.25);
+static void addControls (const PhraseProfile* prof, PhrasePart& out, int tick,
+                         double intensity, bool leading, const std::string& role,
+                         double throughSong)
+{
+    if (prof == nullptr)
+        return;
 
     const bool bigMoment = (role == "chorus" || role == "solo") && intensity > 0.7;
-    add ("effect", bigMoment ? 0.7 : (intensity < 0.4 ? 0.0 : 0.25));
+
+    // Every control the profile declares gets a value, whatever it is called.
+    // The generator does not need to know what knob it is reaching - only what
+    // the section is like - which is what lets a profile map as many of an
+    // instrument's controls as its owner cares to.
+    for (const PhraseProfile::ControlDef& def : prof->allControls())
+    {
+        double t = 0.5;
+
+        if      (def.follows == "lead")   t = leading ? 0.85 : 0.25;
+        else if (def.follows == "peaks")  t = bigMoment ? 1.0 : (intensity < 0.4 ? 0.0 : 0.25);
+        else if (def.follows == "rising") t = throughSong;
+        else if (def.follows == "fixed")  t = 0.0;
+        else                              t = intensity;   // "intensity"
+
+        // A supporting part is held back across the board, so it sits behind
+        // the lead rather than competing for the same space.
+        if (! leading && def.follows != "fixed")
+            t *= 0.6;
+
+        ControlIntent c;
+        c.tick    = tick;
+        c.control = def.name;
+        c.amount  = juce_clamp (def.low + t * (def.high - def.low));
+        out.controls.push_back (c);
+    }
 }
 
+// What a part plays when it is not leading the section: long and out of the
+// way. A supporting part that keeps its own busy feel is just two instruments
+// competing, which is the thing this exists to prevent.
 static PhraseFeel supportFeel (PhraseFeel wanted)
 {
     switch (wanted)
@@ -195,10 +212,11 @@ static void generatePhrasePart (const SectionPlan& s,
                                 int barTicks,
                                 int keyPc,
                                 Mode mode,
-                                bool phraseDriven,
+                                const PhraseProfile* profile,
                                 PhraseFeel feel,
                                 double humanize,
                                 bool supporting,
+                                double throughSong,
                                 Rng& rng,
                                 PhrasePart& out)
 {
@@ -211,8 +229,10 @@ static void generatePhrasePart (const SectionPlan& s,
     if (feel == PhraseFeel::Silent || chords.empty())
         return;
 
-    addControls (out, sectionStartTick, s.intensity, ! supporting, s.role);
+    addControls (profile, out, sectionStartTick, s.intensity, ! supporting, s.role,
+                 throughSong);
 
+    const bool phraseDriven = (profile != nullptr && profile->isPhraseDriven());
     const int hits = phraseDriven ? 1 : chordHitsPerBar (feel);
     if (hits <= 0)
         return;
@@ -459,6 +479,12 @@ RenderResult renderPerformance (const SongPlan& plan,
             const bool playGuitar = (guitar != nullptr && s.playsGuitar);
             const bool playPiano  = (piano  != nullptr && s.playsPiano);
 
+            // How far through the song this section sits, for any control the
+            // user wants building across the whole thing.
+            const double throughSong = plan.sections.size() > 1
+                                         ? static_cast<double> (si) / (plan.sections.size() - 1)
+                                         : 1.0;
+
             bool guitarExplicit = false, pianoExplicit = false;
             PhraseFeel guitarFeel = phraseFeelFromName (s.guitarPhrase, guitarExplicit);
             PhraseFeel pianoFeel  = phraseFeelFromName (s.pianoPhrase,  pianoExplicit);
@@ -487,9 +513,9 @@ RenderResult renderPerformance (const SongPlan& plan,
             {
                 const size_t before = result.performance.guitar.chords.size();
                 generatePhrasePart (s, chords, tick, barTicks, keyPc, mode,
-                                    guitar->isPhraseDriven(),
+                                    guitar,
                                     guitarSupports ? supportFeel (guitarFeel) : guitarFeel,
-                                    plan.humanize, guitarSupports, rng,
+                                    plan.humanize, guitarSupports, throughSong, rng,
                                     result.performance.guitar);
                 report.guitarChords = static_cast<int> (result.performance.guitar.chords.size() - before);
                 report.guitarFeel   = std::string (phraseFeelName (guitarSupports ? supportFeel (guitarFeel)
@@ -502,9 +528,9 @@ RenderResult renderPerformance (const SongPlan& plan,
             {
                 const size_t before = result.performance.piano.chords.size();
                 generatePhrasePart (s, chords, tick, barTicks, keyPc, mode,
-                                    piano->isPhraseDriven(),
+                                    piano,
                                     pianoSupports ? supportFeel (pianoFeel) : pianoFeel,
-                                    plan.humanize, pianoSupports, rng,
+                                    plan.humanize, pianoSupports, throughSong, rng,
                                     result.performance.piano);
                 report.pianoChords = static_cast<int> (result.performance.piano.chords.size() - before);
                 report.pianoFeel   = std::string (phraseFeelName (pianoSupports ? supportFeel (pianoFeel)

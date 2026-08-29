@@ -137,13 +137,27 @@ public:
     // Zero for a piano, where the notes genuinely do land together.
     int  strumTicks = 0;
 
-    // Named controls mapped to MIDI CC numbers. Empty by default: a CC sent to
-    // an instrument that has not been told to listen for it does nothing, so
-    // guessing numbers is harmless but useless, and these have to be assigned in
-    // the instrument (UJAM has MIDI Learn) before they mean anything.
+    // One of the instrument's own knobs, and what the arrangement should make it
+    // follow. Any number of these can be declared - these instruments have far
+    // more controls than a fixed set of names could cover, so the profile names
+    // them and the generator drives whatever it finds.
+    struct ControlDef
+    {
+        std::string name;
+        int    cc      = -1;
+        // intensity - tracks how loud the section is
+        // lead      - up when this part leads, down when it supports
+        // peaks     - on for choruses and solos, off in quiet sections
+        // rising    - climbs across the song, for something that should build
+        // fixed     - held at `low`
+        std::string follows = "intensity";
+        double low  = 0.0;      // value at the bottom of its range
+        double high = 1.0;      // value at the top
+    };
+
     int  ccFor (const std::string& control) const;   // -1 when not mapped
-    bool hasControls() const { return ! controlMap.empty(); }
-    std::vector<std::pair<std::string, int>> allControls() const { return controlMap; }
+    bool hasControls() const { return ! controlDefs.empty(); }
+    const std::vector<ControlDef>& allControls() const { return controlDefs; }
 
     bool        needsVerification = false;
     std::string verificationNote;
@@ -162,7 +176,7 @@ public:
 
 private:
     std::vector<int> phraseKeys;   // indexed by PhraseFeel
-    std::vector<std::pair<std::string, int>> controlMap;
+    std::vector<ControlDef> controlDefs;
 };
 
 } // namespace gb

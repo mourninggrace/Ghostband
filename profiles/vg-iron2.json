@@ -44,10 +44,24 @@
   // brighter when the guitar is leading, effect in for a chorus or solo. They do
   // nothing until IRON 2 has been taught them - right-click a knob, choose MIDI
   // Learn, then press the matching button in Ghostband's Settings.
+  // Eight slots, so there is one for every knob worth automating rather than a
+  // fixed three. Teach a knob whichever CC has the behaviour you want from it,
+  // in Ghostband's Settings; anything not taught simply ignores its messages.
+  //
+  //   follows "intensity" - tracks how loud the section is
+  //   follows "lead"      - up when the guitar leads, down when it supports
+  //   follows "peaks"     - on for choruses and solos, off in quiet sections
+  //   follows "rising"    - climbs across the whole song
+  //   follows "fixed"     - parked at "low", for a knob that should not move
   "controls": {
-    "drive":  22,
-    "tone":   23,
-    "effect": 24
+    "drive":     { "cc": 22, "follows": "intensity", "low": 0.15, "high": 0.95 },
+    "tone":      { "cc": 23, "follows": "lead",      "low": 0.25, "high": 0.90 },
+    "effect":    { "cc": 24, "follows": "peaks",     "low": 0.00, "high": 0.80 },
+    "motion":    { "cc": 25, "follows": "intensity", "low": 0.00, "high": 0.70 },
+    "depth":     { "cc": 26, "follows": "peaks",     "low": 0.10, "high": 0.75 },
+    "character": { "cc": 27, "follows": "lead",      "low": 0.20, "high": 0.85 },
+    "build":     { "cc": 28, "follows": "rising",    "low": 0.10, "high": 0.90 },
+    "space":     { "cc": 29, "follows": "intensity", "low": 0.60, "high": 0.10 }
   },
 
   "velocity_min": 70,

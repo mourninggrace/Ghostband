@@ -162,10 +162,8 @@ private:
     juce::TextButton testDrums { "Test" }, testBass { "Test" },
                      testGuitar { "Test" }, testPiano { "Test" };
     // MIDI Learn helpers: sweep a CC at an instrument so it can latch onto it.
-    juce::ComboBox   learnPart;
-    juce::TextButton learnDrive  { "Teach Drive" };
-    juce::TextButton learnTone   { "Teach Tone" };
-    juce::TextButton learnEffect { "Teach Effect" };
+    juce::ComboBox   learnPart, learnCC;
+    juce::TextButton learnDrive { "Teach this knob" };
     juce::Label      learnHeading, learnHelp;
 
     juce::Label    settingsHeading, channelsHelp;

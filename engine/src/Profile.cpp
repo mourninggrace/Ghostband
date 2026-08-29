@@ -351,8 +351,8 @@ PhraseProfile::PhraseProfile()
 
 int PhraseProfile::ccFor (const std::string& control) const
 {
-    for (const auto& kv : controlMap)
-        if (kv.first == control) return kv.second;
+    for (const ControlDef& c : controlDefs)
+        if (c.name == control) return c.cc;
     return -1;
 }
 
@@ -410,11 +410,33 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
             std::swap (out.chordLowest, out.chordHighest);
     }
 
-    // "controls": { "drive": 22, "tone": 23, "effect": 24 }
+    // Either the short form, "drive": 22, or the full one:
+    //   "drive": { "cc": 22, "follows": "intensity", "low": 0.2, "high": 0.9 }
     const Json& controls = j["controls"];
     if (controls.isObject())
+    {
         for (const std::string& key : controls.keys())
-            out.controlMap.emplace_back (key, clampInt (controls[key].asInt (-1), 0, 127));
+        {
+            const Json& def = controls[key];
+            PhraseProfile::ControlDef c;
+            c.name = key;
+
+            if (def.isObject())
+            {
+                c.cc      = clampInt (def.intOr ("cc", -1), -1, 127);
+                c.follows = def.stringOr ("follows", "intensity");
+                c.low     = def.numberOr ("low", 0.0);
+                c.high    = def.numberOr ("high", 1.0);
+            }
+            else
+            {
+                c.cc = clampInt (def.asInt (-1), -1, 127);
+            }
+
+            if (c.cc >= 0)
+                out.controlDefs.push_back (c);
+        }
+    }
 
     const Json& phrases = j["phrases"];
     if (phrases.isObject())
