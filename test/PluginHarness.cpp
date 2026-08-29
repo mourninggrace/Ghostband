@@ -775,6 +775,40 @@ int main (int argc, char** argv)
                "a parked selector stays on its chosen position whatever the section",
                juce::String (ccOf (parked, 0.0)) + " / " + juce::String (ccOf (parked, 1.0)));
 
+        // An inverted range, which is the whole answer for a control that reads
+        // backwards. The engine interpolates either way round, so putting the
+        // higher end first is all inversion needs to be.
+        gb::PhraseProfile::ControlDef backwards;
+        backwards.low = 1.0; backwards.high = 0.0;
+        check (ccOf (backwards, 0.0) == 127 && ccOf (backwards, 1.0) == 0
+                   && ccOf (backwards, 0.25) == 95,
+               "a knob with its range reversed runs backwards");
+
+        gb::PhraseProfile::ControlDef backSwitch;
+        backSwitch.type = "switch"; backSwitch.low = 1.0; backSwitch.high = 0.0;
+        check (ccOf (backSwitch, 0.0) == 127 && ccOf (backSwitch, 1.0) == 0,
+               "a switch with its range reversed is on when it would be off");
+
+        gb::PhraseProfile::ControlDef backSelect;
+        backSelect.type = "select"; backSelect.positions = 6;
+        backSelect.low = 1.0; backSelect.high = 0.0;
+        check (ccOf (backSelect, 0.0) == 127 && ccOf (backSelect, 1.0) == 0,
+               "a selector with its range reversed counts down");
+
+        // Narrowing a long list to one bank of it - the reason ranges exist for
+        // a rolled control at all. A 62-way list, held inside the first 30.
+        gb::PhraseProfile::ControlDef bank;
+        bank.type = "select"; bank.positions = 62;
+        bank.low = 0.0; bank.high = 29.0 / 61.0;
+
+        bool stayedInBank = true;
+        for (int i = 0; i <= 500; ++i)
+        {
+            const int pos = juce::roundToInt (ccOf (bank, i / 500.0) / 127.0 * 61.0);
+            if (pos < 0 || pos > 29) stayedInBank = false;
+        }
+        check (stayedInBank, "a narrowed selector never leaves its bank");
+
         // A "select" with too few positions is not a selector at all; it must
         // degrade to a plain sweep rather than divide by zero.
         gb::PhraseProfile::ControlDef broken;
@@ -1042,9 +1076,9 @@ int main (int argc, char** argv)
                 const int before  = proc.getControlCount (guitar);
                 const char* names[] = { "amp model", "latch",  "presence" };
                 const char* types[] = { "select",    "switch", "knob"  };
-                // Parked, so the shot renders both the choices box and the
-                // value box - the tightest the row ever gets.
-                const char* folls[] = { "fixed",     "none",   "intensity" };
+                // Driven, so the shot renders the choices box and the range
+                // pair together - the tightest those rows ever get.
+                const char* folls[] = { "random once", "none",  "intensity" };
                 int firstAdded = -1;
 
                 for (int i = 0; i < 3; ++i)

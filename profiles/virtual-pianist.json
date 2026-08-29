@@ -1,21 +1,5 @@
 {
-  // UJAM Virtual Pianist.
-  //
-  // PROVISIONAL. Unlike IRON 2, this one could not be mapped reliably by probe:
-  // its output measured about five times quieter, the attack counts showed no
-  // phrase signature anywhere, the sounding-band boundaries moved between runs,
-  // and the plugin logged asset-manager errors on load. It appears not to fully
-  // initialise outside a real host.
-  //
-  // What the probe did establish, consistently across runs, is that MIDI notes
-  // 48-61 produce ordinary pitched notes with a ~1.5s decay and a single attack
-  // each. That is a piano, not a phrase player. So this profile drives it in
-  // "notes" mode: Ghostband voices the chords itself and supplies the rhythm,
-  // rather than pressing phrase keys it cannot identify.
-  //
-  // That choice is deliberately the safe one. A wrong phrase key would trigger
-  // the wrong riff; a chord voiced into a known-sounding range just plays the
-  // chord. Revisit once the in-plugin Calibrate button exists.
+  // Written by Ghostband. Control mappings were made in the plugin.
 
   "name": "UJAM Virtual Pianist",
   "id": "virtual_pianist",
@@ -26,11 +10,21 @@
   "needs_verification": true,
   "verification_note": "Requires Virtual Pianist set to Instrument mode, not Player mode.",
 
-  // Requires Virtual Pianist set to Instrument mode, where it plays the notes it
-  // is sent. Two octaves from C3, which sits under a rock band without
-  // competing with the guitar's register.
   "chord_zone": { "lowest_note": 48, "highest_note": 72 },
 
   "velocity_min": 55,
-  "velocity_max": 110
+  "velocity_max": 110,
+  "strum_ticks": 0,
+
+  "controls": {
+    "character": { "cc": 22, "follows": "random once", "type": "select", "positions": 5, "low": 0, "high": 1 },
+    "tone": { "cc": 23, "follows": "random", "type": "knob", "low": 0, "high": 1 },
+    "finisher": { "cc": 24, "follows": "fixed", "type": "switch", "low": 0, "high": 0 },
+    "finisher selection": { "cc": 25, "follows": "random once", "type": "select", "positions": 45, "low": 0, "high": 0 },
+    "ambience": { "cc": 26, "follows": "fixed", "type": "switch", "low": 1, "high": 1 },
+    "ambience selection": { "cc": 27, "follows": "random once", "type": "select", "positions": 45, "low": 0, "high": 1 },
+    "volume": { "cc": 28, "follows": "none", "type": "knob", "low": 0, "high": 1 },
+    "dynamics": { "cc": 29, "follows": "intensity", "type": "knob", "low": 0, "high": 1 },
+    "tune": { "cc": 30, "follows": "none", "type": "knob", "low": 0, "high": 1 }
+  }
 }

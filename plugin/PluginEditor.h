@@ -188,6 +188,14 @@ private:
     void refreshControls();
     void pushControlEdit();
 
+    // A control's value in the units it is actually described in - per cent for
+    // a knob, a position number for a selector, one or zero for a switch - and
+    // back again. One place, so the boxes that read it and the boxes that write
+    // it cannot drift apart.
+    static double controlUnitsToNorm (const juce::String& type, int positions, int typed);
+    static int    normToControlUnits (const juce::String& type, int positions, double v);
+    static juce::String controlUnitsHint (const juce::String& type, int positions);
+
     juce::ComboBox   learnPart;
     juce::TextButton ctlAdd    { "+ Add" };
     juce::TextButton ctlRemove { "Remove" };
@@ -210,9 +218,16 @@ private:
     // Where a "fixed" control is parked. Without it, fixed could only ever mean
     // the bottom of the range, which is rarely the value anyone wanted.
     juce::TextEditor ctlValue;
+
+    // The two ends of the range a driven control travels between, in the
+    // control's own units. Putting the higher number first inverts it, which is
+    // the whole answer for a control that reads backwards - and narrowing the
+    // range is how a rolled selector is kept inside one bank of a long list.
+    juce::TextEditor ctlFrom, ctlTo;
     juce::Label      learnHeading, learnHelp, ctlNameLabel, ctlFollowsLabel,
                      ctlTypeLabel, ctlPositionsLabel, ctlPositionsHint,
-                     ctlValueLabel, ctlValueHint;
+                     ctlValueLabel, ctlValueHint,
+                     ctlRangeLabel, ctlRangeToLabel, ctlRangeHint;
     juce::Viewport   ctlViewport;
     ControlList      ctlList;
     int              ctlSelected = 0;

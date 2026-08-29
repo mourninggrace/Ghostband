@@ -58,11 +58,16 @@
     "amp": { "cc": 23, "follows": "fixed", "type": "select", "positions": 6, "low": 0, "high": 1 },
     "character": { "cc": 24, "follows": "fixed", "type": "select", "positions": 4, "low": 0, "high": 1 },
     "pickup": { "cc": 25, "follows": "intensity", "type": "knob", "low": 0, "high": 1 },
-    "tune": { "cc": 26, "follows": "fixed", "type": "knob", "low": 0, "high": 1 },
+    "tune": { "cc": 26, "follows": "none", "type": "knob", "low": 0, "high": 1 },
     "variance": { "cc": 27, "follows": "fixed", "type": "knob", "low": 0, "high": 1 },
     "amount": { "cc": 28, "follows": "fixed", "type": "knob", "low": 0, "high": 1 },
     "stomp box": { "cc": 29, "follows": "fixed", "type": "switch", "positions": 4, "low": 0, "high": 1 },
-    "finisher": { "cc": 30, "follows": "fixed", "type": "switch", "low": 0, "high": 1 }
+    "finisher": { "cc": 30, "follows": "random once", "type": "select", "positions": 62, "low": 1, "high": 1 },
+    "finisher amount": { "cc": 31, "follows": "random", "type": "knob", "low": 0, "high": 1 },
+    "width": { "cc": 32, "follows": "random", "type": "knob", "low": 0, "high": 1 },
+    "focus": { "cc": 33, "follows": "random", "type": "knob", "low": 0, "high": 1 },
+    "volume": { "cc": 34, "follows": "none", "type": "knob", "low": 0.62, "high": 0.62 },
+    "latch": { "cc": 35, "follows": "random", "type": "switch", "low": 0, "high": 1 }
   },
 
   "velocity_min": 70,
