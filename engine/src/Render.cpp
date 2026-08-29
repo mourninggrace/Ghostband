@@ -156,7 +156,7 @@ static std::vector<int> chordRhythm (PhraseFeel feel, Rng& rng)
 // actually reaches is the profile's business, and an unmapped one is ignored.
 static void addControls (const PhraseProfile* prof, PhrasePart& out, int tick,
                          double intensity, bool leading, const std::string& role,
-                         double throughSong)
+                         double throughSong, uint32_t sectionSeed, uint32_t songSeed)
 {
     if (prof == nullptr)
         return;
@@ -178,15 +178,43 @@ static void addControls (const PhraseProfile* prof, PhrasePart& out, int tick,
 
         double t = 0.5;
 
+        const bool rollsEachSection = def.follows == "random";
+        const bool rollsOncePerSong  = def.follows == "random once";
+
         if      (def.follows == "lead")   t = leading ? 0.85 : 0.25;
         else if (def.follows == "peaks")  t = bigMoment ? 1.0 : (intensity < 0.4 ? 0.0 : 0.25);
         else if (def.follows == "rising") t = throughSong;
         else if (def.follows == "fixed")  t = 0.0;   // parks at `low`, whatever that means for its type
+        else if (rollsEachSection || rollsOncePerSong)
+        {
+            // Some of an instrument's controls have no right answer to tie to
+            // the arrangement: which amp, which character, which effect. They
+            // change the sound rather than the dynamics, and any of them is
+            // valid, so the useful thing to do is choose.
+            //
+            // Each control draws from its own stream rather than the section's,
+            // so adding a mapping cannot shift a single note of a song that was
+            // already right. The stream is still derived from the seed, so a
+            // song stays reproducible and a reroll genuinely rerolls it.
+            //
+            // "random once" is keyed off the song rather than the section, so
+            // one choice holds for the whole song - nobody swaps amps between
+            // the verse and the chorus. "random" is keyed off the section, so a
+            // pedal can come in for the chorus and go away again.
+            const uint32_t base = rollsOncePerSong ? songSeed : sectionSeed;
+            const uint32_t salt = hashString (prof->id + "/" + def.name);
+
+            Rng ctlRng (deriveSeed (base, salt));
+            t = ctlRng.unit();
+        }
         else                              t = intensity;   // "intensity"
 
         // A supporting part is held back across the board, so it sits behind
-        // the lead rather than competing for the same space.
-        if (! leading && def.follows != "fixed")
+        // the lead rather than competing for the same space. A parked or rolled
+        // control is exempt: it is a choice of sound, not a level, and skewing
+        // it low would just mean the supporting guitar always got amp one.
+        if (! leading && def.follows != "fixed"
+                      && ! rollsEachSection && ! rollsOncePerSong)
             t *= 0.6;
 
         ControlIntent c;
@@ -228,6 +256,8 @@ static void generatePhrasePart (const SectionPlan& s,
                                 double humanize,
                                 bool supporting,
                                 double throughSong,
+                                uint32_t sectionSeed,
+                                uint32_t songSeed,
                                 Rng& rng,
                                 PhrasePart& out)
 {
@@ -241,7 +271,7 @@ static void generatePhrasePart (const SectionPlan& s,
         return;
 
     addControls (profile, out, sectionStartTick, s.intensity, ! supporting, s.role,
-                 throughSong);
+                 throughSong, sectionSeed, songSeed);
 
     const bool phraseDriven = (profile != nullptr && profile->isPhraseDriven());
     const int hits = phraseDriven ? 1 : chordHitsPerBar (feel);
@@ -381,7 +411,8 @@ RenderResult renderPerformance (const SongPlan& plan,
         // single chorus safe when the rest of the song is already right.
         salt = deriveSeed (salt, s.reroll + 1u);
 
-        Rng rng (deriveSeed (plan.seed, salt));
+        const uint32_t sectionSeed = deriveSeed (plan.seed, salt);
+        Rng rng (sectionSeed);
 
         GrooveContext ctx;
         ctx.feel        = feelFromString (s.feel);
@@ -538,7 +569,8 @@ RenderResult renderPerformance (const SongPlan& plan,
                 generatePhrasePart (s, chords, tick, barTicks, keyPc, mode,
                                     guitar,
                                     guitarSupports ? supportFeel (guitarFeel) : guitarFeel,
-                                    plan.humanize, guitarSupports, throughSong, rng,
+                                    plan.humanize, guitarSupports, throughSong,
+                                    sectionSeed, plan.seed, rng,
                                     result.performance.guitar);
                 report.guitarChords = static_cast<int> (result.performance.guitar.chords.size() - before);
                 report.guitarFeel   = std::string (phraseFeelName (guitarSupports ? supportFeel (guitarFeel)
@@ -553,7 +585,8 @@ RenderResult renderPerformance (const SongPlan& plan,
                 generatePhrasePart (s, chords, tick, barTicks, keyPc, mode,
                                     piano,
                                     pianoSupports ? supportFeel (pianoFeel) : pianoFeel,
-                                    plan.humanize, pianoSupports, throughSong, rng,
+                                    plan.humanize, pianoSupports, throughSong,
+                                    sectionSeed, plan.seed, rng,
                                     result.performance.piano);
                 report.pianoChords = static_cast<int> (result.performance.piano.chords.size() - before);
                 report.pianoFeel   = std::string (phraseFeelName (pianoSupports ? supportFeel (pianoFeel)

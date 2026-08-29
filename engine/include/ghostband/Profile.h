@@ -153,6 +153,18 @@ public:
         // none      - never sent at all, leaving whatever the instrument is set
         //             to alone. "fixed" is not this: it actively drives the
         //             control to the bottom of its range.
+        //
+        // Some controls have no right answer to tie to the arrangement - which
+        // amp, which character, which pedal. They change the sound rather than
+        // the dynamics, so the useful thing is to choose one:
+        //
+        // random      - a fresh choice every section, for something that can
+        //               come and go, like a pedal kicking in for the chorus
+        // random once - one choice held for the whole song, for something a
+        //               band would not change mid-song, like the amp
+        //
+        // Both draw from a stream derived from the song seed, so the result is
+        // reproducible and a reroll rerolls it.
         std::string follows = "intensity";
 
         // "knob"   sweeps continuously through its range.

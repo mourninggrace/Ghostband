@@ -898,7 +898,8 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     ctlValue.onFocusLost = [this] { pushControlEdit(); };
     ctlValue.onReturnKey = [this] { pushControlEdit(); };
     addChildComponent (ctlValue);
-    for (const char* f : { "intensity", "lead", "peaks", "rising", "fixed", "none" })
+    for (const char* f : { "intensity", "lead", "peaks", "rising",
+                           "random", "random once", "fixed", "none" })
         ctlFollows.addItem (f, ctlFollows.getNumItems() + 1);
     for (const char* t : { "knob", "switch", "select" })
         ctlType.addItem (t, ctlType.getNumItems() + 1);
@@ -944,7 +945,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 
     initLabel (learnHeading, "MIDI LEARN", 11.0f, ghost::text, juce::Justification::centredLeft);
     initLabel (learnHelp,
-               "Add a control, name it, choose what it should follow. Knob sweeps, switch is on or off, select holds one of a fixed set of choices for the section. Then put the control into MIDI Learn in the instrument and press Teach. Save writes the mappings into the instrument profile.",
+               "Add a control, name it, choose what it should follow. Knob sweeps, switch is on or off, select holds one of a fixed set of choices. Use random for a control with no right answer - random once picks one for the song, random picks again each section. Then put the control into MIDI Learn in the instrument and press Teach.",
                11.0f, ghost::dim, juce::Justification::topLeft);
     learnHelp.setJustificationType (juce::Justification::topLeft);
 

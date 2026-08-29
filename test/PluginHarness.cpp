@@ -14,6 +14,8 @@
 
 #include "ghostband/Groove.h"
 #include "ghostband/MidiFile.h"
+#include "ghostband/Render.h"
+#include "ghostband/SongPlan.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
@@ -815,6 +817,117 @@ int main (int argc, char** argv)
         check (on40 > 0, "a driven control is sent");
         check (on41 == 0, "a control set to none is never sent",
                juce::String (on41) + " messages");
+    }
+
+    // ---- random controls ----------------------------------------------------
+    // Some controls have no right answer to tie to the arrangement, so they get
+    // chosen instead. Two things have to hold: the choice must be reproducible
+    // from the seed, and adding one must not move a single note of a song that
+    // was already right.
+    {
+        gb::SongPlan plan;
+        std::string planErr;
+        const bool planOk = gb::SongPlan::load (juce::File (planPath).getFullPathName().toStdString(),
+                                                plan, planErr);
+        check (planOk, "plan loads for the random-control test", juce::String (planErr));
+
+        if (planOk)
+        {
+            gb::DrumProfile kit;
+            gb::BassProfile bass;
+
+            // A guitar with one of each kind of rolled control.
+            const auto guitarWith = [] (const std::string& follows)
+            {
+                gb::PhraseProfile g;
+                g.id = "test_guitar";
+                g.phraseDriven = false;
+                g.chordLowest = 60; g.chordHighest = 84;
+
+                gb::PhraseProfile::ControlDef amp;
+                amp.name = "amp"; amp.cc = 23; amp.type = "select";
+                amp.positions = 6; amp.follows = follows;
+                g.editableControls().push_back (amp);
+                return g;
+            };
+
+            // Where each section's controls end up, section by section.
+            const auto ampPerSection = [&] (const gb::PhraseProfile& g)
+            {
+                const gb::RenderResult r = gb::renderPerformance (plan, kit, bass, &g, nullptr);
+
+                std::vector<double> values;
+                for (const gb::ControlIntent& c : r.performance.guitar.controls)
+                    if (c.control == "amp")
+                        values.push_back (c.amount);
+                return values;
+            };
+
+            const gb::PhraseProfile once = guitarWith ("random once");
+            const gb::PhraseProfile each = guitarWith ("random");
+
+            const std::vector<double> onceValues = ampPerSection (once);
+            const std::vector<double> eachValues = ampPerSection (each);
+
+            check (onceValues.size() > 2, "a rolled control is sent in every section",
+                   juce::String (static_cast<int> (onceValues.size())) + " sections");
+
+            const auto distinct = [] (const std::vector<double>& v)
+            {
+                std::set<int> seen;
+                for (double d : v) seen.insert (juce::roundToInt (d * 127.0));
+                return static_cast<int> (seen.size());
+            };
+
+            check (distinct (onceValues) == 1,
+                   "random once holds one choice for the whole song",
+                   juce::String (distinct (onceValues)) + " distinct values");
+
+            check (distinct (eachValues) > 1,
+                   "random picks again from section to section",
+                   juce::String (distinct (eachValues)) + " distinct values");
+
+            // Reproducible, or a song is not a song.
+            check (ampPerSection (each) == eachValues,
+                   "the same seed rolls the same choices again");
+
+            gb::SongPlan reseeded = plan;
+            reseeded.seed = plan.seed + 1u;
+            {
+                const gb::RenderResult r = gb::renderPerformance (reseeded, kit, bass, &each, nullptr);
+                std::vector<double> other;
+                for (const gb::ControlIntent& c : r.performance.guitar.controls)
+                    if (c.control == "amp") other.push_back (c.amount);
+                check (other != eachValues, "a different seed rolls different choices");
+            }
+
+            // Every rolled value still has to be one of the selector's six
+            // positions - a random amp that lands between two amps is no amp.
+            bool onPositions = true;
+            for (double d : eachValues)
+            {
+                const int cc = juce::roundToInt (d * 127.0);
+                if (cc != 0 && cc != 25 && cc != 51 && cc != 76 && cc != 102 && cc != 127)
+                    onPositions = false;
+            }
+            check (onPositions, "a rolled selector still lands on a real position");
+
+            // The one that matters most: a rolled control draws from its own
+            // stream, so adding one cannot shift the notes of a finished song.
+            gb::PhraseProfile plainGuitar = guitarWith ("random");
+            plainGuitar.editableControls().clear();
+
+            const gb::RenderResult withCtl = gb::renderPerformance (plan, kit, bass, &each, nullptr);
+            const gb::RenderResult without = gb::renderPerformance (plan, kit, bass, &plainGuitar, nullptr);
+
+            bool sameNotes = withCtl.sections.size() == without.sections.size();
+            for (size_t i = 0; sameNotes && i < withCtl.sections.size(); ++i)
+                sameNotes = withCtl.sections[i].drumHits     == without.sections[i].drumHits
+                         && withCtl.sections[i].bassNotes    == without.sections[i].bassNotes
+                         && withCtl.sections[i].guitarChords == without.sections[i].guitarChords;
+
+            check (sameNotes, "adding a rolled control moves no note of the song");
+        }
     }
 
     // ---- saving a profile keeps the profile --------------------------------
