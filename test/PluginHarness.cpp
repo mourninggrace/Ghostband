@@ -635,6 +635,40 @@ int main (int argc, char** argv)
                    + " vs CLI " + juce::String (expectedDrums) + "/" + juce::String (expectedBass));
     }
 
+    // ---- editor size is remembered -----------------------------------------
+    // The editor used to clobber the remembered size during construction, so it
+    // opened at the minimum however the user left it. Closing and reopening is
+    // the exact thing that was broken, so that is what is tested.
+    {
+        proc.editorWidth.store (900);
+        proc.editorHeight.store (820);
+
+        if (auto* ed = proc.createEditorIfNeeded())
+        {
+            check (ed->getWidth() == 900 && ed->getHeight() == 820,
+                   "the editor opens at the remembered size",
+                   juce::String (ed->getWidth()) + "x" + juce::String (ed->getHeight()));
+
+            ed->setSize (760, 900);
+            proc.editorBeingDeleted (ed);
+            delete ed;
+
+            check (proc.editorWidth.load() == 760 && proc.editorHeight.load() == 900,
+                   "resizing is remembered after the window closes",
+                   juce::String (proc.editorWidth.load()) + "x"
+                       + juce::String (proc.editorHeight.load()));
+        }
+
+        if (auto* ed = proc.createEditorIfNeeded())
+        {
+            check (ed->getWidth() == 760 && ed->getHeight() == 900,
+                   "and comes back on reopening",
+                   juce::String (ed->getWidth()) + "x" + juce::String (ed->getHeight()));
+            proc.editorBeingDeleted (ed);
+            delete ed;
+        }
+    }
+
     // ---- editor snapshots --------------------------------------------------
     // A layout bug is invisible to every check above. Rendering the editor to a
     // PNG makes the one thing these tests cannot assert - what it actually looks

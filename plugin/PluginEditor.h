@@ -228,6 +228,12 @@ private:
     juce::uint32 lastDialMove = 0;
     int      lastPlayheadTick = -2;
     int      lastQueued       = -2;
+
+    // resized() runs during construction, before setSize has been called, when
+    // the editor is still zero by zero. Without this guard it stored that zero
+    // over the remembered size, which was then read back and clamped to the
+    // minimum - so the window opened small every time however it was left.
+    bool     sizeInitialised  = false;
     std::vector<int> rerollSelection;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GhostbandEditor)

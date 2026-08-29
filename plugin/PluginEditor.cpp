@@ -796,7 +796,13 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     // The floor is what the song screen actually needs before the section list
     // starts being clipped, not an arbitrary small number.
     setResizeLimits (560, 690, 2200, 2000);
-    setSize (processor.editorWidth.load(), processor.editorHeight.load());
+
+    // Restore the remembered size, then start recording changes to it. The
+    // order matters: recording before this point captures the zero-sized
+    // editor and loses what was remembered.
+    setSize (juce::jmax (560, processor.editorWidth.load()),
+             juce::jmax (690, processor.editorHeight.load()));
+    sizeInitialised = true;
 
     startTimerHz (30);
 }
@@ -1256,8 +1262,12 @@ void GhostbandEditor::paintAbout (juce::Graphics& g, juce::Rectangle<int> area)
 
 void GhostbandEditor::resized()
 {
-    processor.editorWidth.store (getWidth());
-    processor.editorHeight.store (getHeight());
+    // Only remember a size the user can actually have chosen.
+    if (sizeInitialised && getWidth() > 0 && getHeight() > 0)
+    {
+        processor.editorWidth.store (getWidth());
+        processor.editorHeight.store (getHeight());
+    }
 
     auto r = getLocalBounds();
     r.removeFromTop (62);
