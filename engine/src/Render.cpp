@@ -504,9 +504,21 @@ RenderResult renderPerformance (const SongPlan& plan,
                 if (s.intensity < 0.40)           guitarLeadWeight -= 20;
                 if (s.role == "bridge")           guitarLeadWeight -= 25;
 
-                const bool guitarLeads = rng.below (100) < std::max (5, std::min (95, guitarLeadWeight));
+                bool guitarLeads = rng.below (100) < std::max (5, std::min (95, guitarLeadWeight));
+
+                // An explicit choice always wins. Weighing the section is right
+                // most of the time, but not when you already know what you want
+                // out front.
+                if      (s.lead == "guitar") guitarLeads = true;
+                else if (s.lead == "piano")  guitarLeads = false;
+
                 guitarSupports = ! guitarLeads;
                 pianoSupports  = guitarLeads;
+
+                // "both" is occasionally what a big chorus wants and usually a
+                // mess, so it is available and never chosen automatically.
+                if (s.lead == "both")
+                    guitarSupports = pianoSupports = false;
             }
 
             if (playGuitar)

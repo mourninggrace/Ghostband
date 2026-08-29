@@ -83,6 +83,7 @@ static void loadSection (const Json& j, SectionPlan& s, int index)
 
     s.guitarPhrase = toLower (j.stringOr ("guitar", "auto"));
     s.pianoPhrase  = toLower (j.stringOr ("piano",  "auto"));
+    s.lead         = toLower (j.stringOr ("lead",   "auto"));
 
     s.vary        = j.boolOr  ("vary", true);
 
@@ -278,6 +279,7 @@ std::string SongPlan::toJson() const
         if (s.bassPattern != "auto")   j += ",\n      \"bass\": "   + jsonString (s.bassPattern);
         if (s.guitarPhrase != "auto")  j += ", \"guitar\": "        + jsonString (s.guitarPhrase);
         if (s.pianoPhrase != "auto")   j += ", \"piano\": "         + jsonString (s.pianoPhrase);
+        if (s.lead != "auto")          j += ", \"lead\": "          + jsonString (s.lead);
         if (! s.vary)                  j += ",\n      \"vary\": false";
 
         j += "\n    }";

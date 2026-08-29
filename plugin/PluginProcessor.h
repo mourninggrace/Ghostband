@@ -169,6 +169,7 @@ public:
         juce::String feel      = "straight";
         juce::String chords;                  // space separated, as typed
         juce::String fill      = "auto";
+        juce::String lead      = "auto";      // auto / guitar / piano / both
         bool drums = true, bass = true, guitar = true, piano = true;
     };
 

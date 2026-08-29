@@ -34,6 +34,13 @@ struct SectionPlan
     std::string guitarPhrase = "auto";
     std::string pianoPhrase  = "auto";
 
+    // Which of guitar and piano is out front here: auto/guitar/piano/both.
+    // "auto" weighs the section - a distorted guitar wins a loud one, a piano
+    // wins a half-time or quiet one - which is right most of the time, but not
+    // when you already know what you want. "both" lets them share, which is
+    // occasionally what a big chorus wants and usually a mess.
+    std::string lead = "auto";
+
     bool        vary        = true;         // false makes a repeated section identical
 
     // Bumped to reroll this section and only this section. It is folded into

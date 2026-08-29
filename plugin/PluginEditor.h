@@ -193,7 +193,8 @@ private:
 
     juce::TextEditor edName, edBars, edChords;
     juce::Slider     edIntensity;
-    juce::ComboBox   edFeel, edFill;
+    juce::ComboBox   edFeel, edFill, edLead;
+    juce::Label      edLeadLabel;
     juce::ToggleButton edDrums { "drums" }, edBass { "bass" },
                        edGuitar { "guitar" }, edPiano { "piano" };
     juce::Label      edNameLabel, edBarsLabel, edIntensityLabel,

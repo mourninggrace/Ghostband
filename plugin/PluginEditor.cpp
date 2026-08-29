@@ -624,8 +624,14 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         edFeel.addItem (juce::String (f).replace ("_", " "), edFeel.getNumItems() + 1);
     for (const char* f : { "auto", "none", "small", "big" })
         edFill.addItem (f, edFill.getNumItems() + 1);
+    styleCombo (edLead);
+    addChildComponent (edLead);
+    for (const char* l : { "auto", "guitar", "piano", "both" })
+        edLead.addItem (l, edLead.getNumItems() + 1);
+
     edFeel.onChange = [this] { pushSectionEdit(); };
     edFill.onChange = [this] { pushSectionEdit(); };
+    edLead.onChange = [this] { pushSectionEdit(); };
 
     for (juce::ToggleButton* t : std::initializer_list<juce::ToggleButton*> {
              &edDrums, &edBass, &edGuitar, &edPiano })
@@ -644,6 +650,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     initLabel (edFillLabel,      "FILL",      10.0f, ghost::dim, juce::Justification::centredLeft);
     initLabel (edChordsLabel,    "CHORDS",    10.0f, ghost::dim, juce::Justification::centredLeft);
     initLabel (edPlaysLabel,     "PLAYS",     10.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (edLeadLabel,      "LEAD",      10.0f, ghost::dim, juce::Justification::centredLeft);
 
     editButton.onClick   = [this] { screen = Screen::Edit; editSelected = 0;
                                     pullSectionEdit(); updateModeVisibility(); };
@@ -1030,9 +1037,9 @@ void GhostbandEditor::updateModeVisibility()
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &edDoneButton, &edAddButton, &edDeleteButton, &edUpButton, &edDownButton,
              &edSaveButton, &edSaveAsButton, &edName, &edBars, &edChords,
-             &edIntensity, &edFeel, &edFill, &edDrums, &edBass, &edGuitar, &edPiano,
+             &edIntensity, &edFeel, &edFill, &edLead, &edDrums, &edBass, &edGuitar, &edPiano,
              &edNameLabel, &edBarsLabel, &edIntensityLabel, &edFeelLabel,
-             &edFillLabel, &edChordsLabel, &edPlaysLabel })
+             &edFillLabel, &edChordsLabel, &edPlaysLabel, &edLeadLabel })
         c->setVisible (edit);
 
     // The section list is shared between the song view and the editor - the
@@ -1087,6 +1094,9 @@ void GhostbandEditor::pullSectionEdit()
     for (int i = 1; i <= edFill.getNumItems(); ++i)
         if (edFill.getItemText (i - 1) == e.fill)
             edFill.setSelectedId (i, juce::dontSendNotification);
+    for (int i = 1; i <= edLead.getNumItems(); ++i)
+        if (edLead.getItemText (i - 1) == e.lead)
+            edLead.setSelectedId (i, juce::dontSendNotification);
 
     edDrums.setToggleState  (e.drums,  juce::dontSendNotification);
     edBass.setToggleState   (e.bass,   juce::dontSendNotification);
@@ -1111,6 +1121,7 @@ void GhostbandEditor::pushSectionEdit()
     e.intensity = edIntensity.getValue();
     e.feel      = edFeel.getText().replace (" ", "_");
     e.fill      = edFill.getText();
+    e.lead      = edLead.getText();
     e.chords    = edChords.getText();
     e.drums     = edDrums.getToggleState();
     e.bass      = edBass.getToggleState();
@@ -1435,6 +1446,9 @@ void GhostbandEditor::resized()
         row.removeFromLeft (12);
         edFillLabel.setBounds (row.removeFromLeft (34));
         edFill.setBounds (row.removeFromLeft (86));
+        row.removeFromLeft (12);
+        edLeadLabel.setBounds (row.removeFromLeft (38));
+        edLead.setBounds (row.removeFromLeft (90));
 
         r.removeFromTop (6);
         row = r.removeFromTop (24);

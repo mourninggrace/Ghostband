@@ -626,6 +626,7 @@ GhostbandProcessor::SectionEdit GhostbandProcessor::getSectionEdit (int index) c
     e.intensity = s.intensity;
     e.feel      = s.feel;
     e.fill      = s.fill;
+    e.lead      = s.lead;
     e.drums     = s.playsDrums;
     e.bass      = s.playsBass;
     e.guitar    = s.playsGuitar;
@@ -651,6 +652,7 @@ void GhostbandProcessor::applySectionEdit (int index, const SectionEdit& edit)
         s.intensity = juce::jlimit (0.0, 1.0, edit.intensity);
         s.feel      = edit.feel.toStdString();
         s.fill      = edit.fill.toStdString();
+        s.lead      = edit.lead.toStdString();
 
         s.playsDrums  = edit.drums;
         s.playsBass   = edit.bass;
