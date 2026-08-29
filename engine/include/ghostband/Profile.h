@@ -152,15 +152,34 @@ public:
         // fixed     - held at `low`
         std::string follows = "intensity";
 
-        // "knob" sweeps through its range; "switch" lands on fully off or fully
-        // on, because a button or a toggle has no meaningful middle and half a
-        // switch is not a thing an instrument can be.
+        // "knob"   sweeps continuously through its range.
+        // "switch" lands on fully off or fully on, because a button has no
+        //          meaningful middle and half a switch is not a thing an
+        //          instrument can be.
+        // "select" is a chooser with a fixed number of named positions - an amp
+        //          model, a voicing, a mic. It picks one position and holds it
+        //          for the whole section, because a selector that drifts
+        //          between its choices mid-section is a fault, not a
+        //          performance. Needs `positions` to know how many there are.
         std::string type = "knob";
 
         double low  = 0.0;      // value at the bottom of its range
         double high = 1.0;      // value at the top
 
+        // How many choices a "select" offers. Ignored by the other types.
+        // A selector's positions are evenly spread across the controller's
+        // range, which is how a host maps a stepped parameter: position p of n
+        // sits at p/(n-1), so the first is fully down and the last fully up.
+        int positions = 0;
+
         bool isSwitch() const { return type == "switch"; }
+        bool isSelect() const { return type == "select" && positions >= 2; }
+
+        // The value this control sits at when `t` of its range is called for,
+        // as 0..1 across the controller. Kept here rather than in the generator
+        // so the plugin's list, the CLI and the renderer cannot disagree about
+        // what a mapping actually does.
+        double valueAt (double t) const;
     };
 
     int  ccFor (const std::string& control) const;   // -1 when not mapped
@@ -178,6 +197,12 @@ public:
     // Writes the profile back in the format load() reads, so a mapping made in
     // the plugin survives and travels with the profile.
     std::string toJson() const;
+
+    // Only the controls block. save() splices this into the existing file
+    // rather than rewriting it, so a profile's comments - which are the
+    // measured findings about the instrument - survive being saved over.
+    std::string controlsJson() const;
+
     bool save (const std::string& path, std::string& error) const;
 
     std::string sourcePath;   // where this was loaded from, for saving back

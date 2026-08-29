@@ -53,7 +53,9 @@
   //   follows "peaks"     - on for choruses and solos, off in quiet sections
   //   follows "rising"    - climbs across the whole song
   //   follows "fixed"     - parked at "low", for a knob that should not move
-  "controls": {},
+  "controls": {
+    "drive": { "cc": 22, "follows": "intensity", "type": "knob", "low": 0, "high": 1 }
+  },
 
   "velocity_min": 70,
   "velocity_max": 120

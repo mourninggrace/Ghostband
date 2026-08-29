@@ -18,6 +18,7 @@
 
 #include <iostream>
 #include <map>
+#include <set>
 
 namespace {
 
@@ -669,6 +670,160 @@ int main (int argc, char** argv)
         }
     }
 
+    // ---- control types -----------------------------------------------------
+    // A selector that lands one choice off is not audibly "a bit wrong", it is
+    // the wrong amp. The arithmetic is worth asserting rather than eyeballing.
+    {
+        const auto ccOf = [] (const gb::PhraseProfile::ControlDef& d, double t)
+        {
+            const double v = d.valueAt (t);
+            return juce::jlimit (0, 127, static_cast<int> (v * 127.0 + 0.5));
+        };
+
+        gb::PhraseProfile::ControlDef knob;
+        check (ccOf (knob, 0.0) == 0 && ccOf (knob, 1.0) == 127
+                   && ccOf (knob, 0.5) == 64,
+               "a knob sweeps its whole range");
+
+        gb::PhraseProfile::ControlDef ranged;
+        ranged.low = 0.25; ranged.high = 0.75;
+        check (ccOf (ranged, 0.0) == 32 && ccOf (ranged, 1.0) == 95,
+               "a knob stays inside its declared range",
+               juce::String (ccOf (ranged, 0.0)) + ".." + juce::String (ccOf (ranged, 1.0)));
+
+        gb::PhraseProfile::ControlDef sw;
+        sw.type = "switch";
+        check (ccOf (sw, 0.0) == 0 && ccOf (sw, 1.0) == 127 && ccOf (sw, 0.49) == 0
+                   && ccOf (sw, 0.51) == 127,
+               "a switch is only ever fully off or fully on");
+
+        // The bug this replaced: "fixed" drove t to zero, so a switch could be
+        // parked off but never on, which made a latch button unmappable.
+        gb::PhraseProfile::ControlDef latched;
+        latched.type = "switch"; latched.low = 1.0; latched.high = 1.0;
+        check (ccOf (latched, 0.0) == 127,
+               "a switch declared on stays on when it is parked");
+
+        // Positions are spread endpoint to endpoint, which is how a host maps a
+        // stepped parameter: first choice fully down, last fully up.
+        gb::PhraseProfile::ControlDef five;
+        five.type = "select"; five.positions = 5;
+
+        std::set<int> landed;
+        bool onlyOnPositions = true;
+        for (int i = 0; i <= 100; ++i)
+        {
+            const int cc = ccOf (five, i / 100.0);
+            landed.insert (cc);
+            if (cc != 0 && cc != 32 && cc != 64 && cc != 95 && cc != 127)
+                onlyOnPositions = false;
+        }
+
+        check (onlyOnPositions, "a selector only ever lands on one of its choices");
+        check (landed.size() == 5, "a 5-way selector reaches all five choices",
+               juce::String (static_cast<int> (landed.size())) + " distinct values");
+        check (ccOf (five, 0.0) == 0 && ccOf (five, 1.0) == 127,
+               "a selector reaches its first and last choice");
+
+        gb::PhraseProfile::ControlDef three;
+        three.type = "select"; three.positions = 3;
+        check (ccOf (three, 0.0) == 0 && ccOf (three, 0.5) == 64 && ccOf (three, 1.0) == 127,
+               "a 3-way selector puts its middle choice in the middle");
+
+        // Narrowing a selector keeps a song out of the choices it should not use.
+        gb::PhraseProfile::ControlDef upper;
+        upper.type = "select"; upper.positions = 5; upper.low = 0.5; upper.high = 1.0;
+        check (ccOf (upper, 0.0) == 64 && ccOf (upper, 1.0) == 127,
+               "a narrowed selector never leaves its declared choices");
+
+        // A "select" with too few positions is not a selector at all; it must
+        // degrade to a plain sweep rather than divide by zero.
+        gb::PhraseProfile::ControlDef broken;
+        broken.type = "select"; broken.positions = 1;
+        check (ccOf (broken, 0.0) == 0 && ccOf (broken, 1.0) == 127,
+               "a selector with too few choices degrades to a sweep");
+    }
+
+    // ---- saving a profile keeps the profile --------------------------------
+    // Pressing Save once rewrote a driver profile from scratch and took every
+    // comment in it along with it - and in these files the comments are the
+    // measured findings about the instrument, not decoration. A save must edit
+    // the controls block and leave the rest of the file alone.
+    {
+        const juce::File src (juce::File (planPath).getParentDirectory()
+                                  .getParentDirectory()
+                                  .getChildFile ("profiles")
+                                  .getChildFile ("vg-iron2.json"));
+        const juce::File tmp (juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                  .getChildFile ("gb-save-test.json"));
+        tmp.deleteFile();
+
+        if (src.existsAsFile() && src.copyFileTo (tmp))
+        {
+            gb::PhraseProfile prof;
+            std::string err;
+            const bool loaded = gb::PhraseProfile::load (tmp.getFullPathName().toStdString(),
+                                                         prof, err);
+            check (loaded, "a documented profile loads", juce::String (err));
+
+            if (loaded)
+            {
+                gb::PhraseProfile::ControlDef c;
+                c.name = "cab"; c.cc = 41; c.type = "select"; c.positions = 4;
+                prof.editableControls().push_back (c);
+
+                std::string saveErr;
+                check (prof.save (tmp.getFullPathName().toStdString(), saveErr),
+                       "the profile saves", juce::String (saveErr));
+
+                const juce::String afterText = tmp.loadFileAsString();
+
+                // The line that records why the guitar range is what it is.
+                check (afterText.contains ("60 to 89"),
+                       "saving keeps the measured findings written in the profile");
+                check (afterText.contains ("Player mode"),
+                       "saving keeps the note about which mode the file is for");
+
+                int keptComments = 0;
+                for (const auto& line : juce::StringArray::fromLines (afterText))
+                    if (line.trim().startsWith ("//")) ++keptComments;
+                check (keptComments > 20, "saving keeps the profile's comments",
+                       juce::String (keptComments) + " comment lines survived");
+
+                check (afterText.contains ("\"cab\"")
+                           && afterText.contains ("\"positions\": 4"),
+                       "and the new mapping is actually written");
+
+                // It has to survive a round trip, not merely look right.
+                gb::PhraseProfile back;
+                std::string backErr;
+                const bool reloaded = gb::PhraseProfile::load (tmp.getFullPathName().toStdString(),
+                                                              back, backErr);
+                bool foundCab = false;
+                for (const auto& d : back.allControls())
+                    if (d.name == "cab" && d.type == "select" && d.positions == 4)
+                        foundCab = true;
+
+                check (reloaded && foundCab, "and reads back as a 4-way selector",
+                       juce::String (backErr));
+
+                // Saving twice must not drift: the second save has to be a
+                // no-op on everything outside the controls block.
+                check (prof.save (tmp.getFullPathName().toStdString(), saveErr),
+                       "the profile saves again", juce::String (saveErr));
+                check (tmp.loadFileAsString() == afterText,
+                       "saving twice changes nothing the second time");
+            }
+        }
+        else
+        {
+            check (false, "profile save test could set up a scratch copy",
+                   src.getFullPathName());
+        }
+
+        tmp.deleteFile();
+    }
+
     // ---- editor snapshots --------------------------------------------------
     // A layout bug is invisible to every check above. Rendering the editor to a
     // PNG makes the one thing these tests cannot assert - what it actually looks
@@ -684,6 +839,60 @@ int main (int argc, char** argv)
         if (snapshotDir.isNotEmpty())
         {
             proc.loadPlan (juce::File (planPath).getSiblingFile ("demo-band.json"));
+
+            // Populate the guitar's mapping list so the Settings shot shows the
+            // table doing its job. An empty list cannot reveal a layout bug in
+            // the rows, and the rows are the part that keeps growing.
+            {
+                const int guitar = 2;
+
+                // Clear first so the selector ends up as row zero and is the
+                // one selected in the shot. The choices box only appears for a
+                // selector, and a screen nobody renders is where layout bugs
+                // live - two have shipped that way already.
+                while (proc.getControlCount (guitar) > 0)
+                    proc.removeControl (guitar, 0);
+
+                const int before  = proc.getControlCount (guitar);
+                const char* names[] = { "amp model", "latch",  "presence" };
+                const char* types[] = { "select",    "switch", "knob"  };
+                const char* folls[] = { "peaks",     "fixed",  "intensity" };
+                int firstAdded = -1;
+
+                for (int i = 0; i < 3; ++i)
+                {
+                    proc.addControl (guitar);
+                    const int idx = proc.getControlCount (guitar) - 1;
+                    if (idx < 0) break;
+                    if (firstAdded < 0) firstAdded = idx;
+
+                    auto slot = proc.getControl (guitar, idx);
+                    slot.name      = names[i];
+                    slot.type      = types[i];
+                    slot.follows   = folls[i];
+                    slot.positions = 5;
+                    proc.updateControl (guitar, idx, slot);
+                }
+
+                check (proc.getControlCount (guitar) == before + 3,
+                       "controls can be added, named and retyped through the plugin",
+                       juce::String (proc.getControlCount (guitar)) + " mapped");
+
+                const auto sel = proc.getControl (guitar, firstAdded);
+                check (sel.type == "select" && sel.positions == 5
+                           && sel.name == "amp model",
+                       "a selector keeps its name and choice count",
+                       sel.name + " / " + sel.type + " / " + juce::String (sel.positions));
+
+                // Distinct CCs matter more than which ones: two controls on one
+                // CC would move together whatever they are named.
+                std::set<int> ccs;
+                bool allDistinct = true;
+                for (int i = 0; i < proc.getControlCount (guitar); ++i)
+                    if (! ccs.insert (proc.getControl (guitar, i).cc).second)
+                        allDistinct = false;
+                check (allDistinct, "no two controls share a CC");
+            }
 
             if (auto* ed = proc.createEditorIfNeeded())
             {

@@ -519,9 +519,10 @@ GhostbandProcessor::ControlSlot GhostbandProcessor::getControl (int part, int in
     s.name    = c.name;
     s.cc      = c.cc;
     s.follows = c.follows;
-    s.type    = c.type;
-    s.low     = c.low;
-    s.high    = c.high;
+    s.type      = c.type;
+    s.positions = c.positions;
+    s.low       = c.low;
+    s.high      = c.high;
     return s;
 }
 
@@ -568,9 +569,16 @@ void GhostbandProcessor::updateControl (int part, int index, const ControlSlot& 
         auto& c = list[static_cast<size_t> (index)];
         c.name    = slot.name.trim().isEmpty() ? "control" : slot.name.trim().toStdString();
         c.follows = slot.follows.toStdString();
-        c.type    = slot.type.toStdString();
-        c.low     = juce::jlimit (0.0, 1.0, slot.low);
-        c.high    = juce::jlimit (0.0, 1.0, slot.high);
+        c.type      = slot.type.toStdString();
+        c.positions = juce::jlimit (0, 128, slot.positions);
+        c.low       = juce::jlimit (0.0, 1.0, slot.low);
+        c.high      = juce::jlimit (0.0, 1.0, slot.high);
+
+        // A selector with fewer than two positions is not a selector. Rather
+        // than silently behaving as a knob, give it a sane default the moment
+        // the type is chosen, so the list never shows an impossible mapping.
+        if (c.type == "select" && c.positions < 2)
+            c.positions = 3;
     }
     regenerate();
 }

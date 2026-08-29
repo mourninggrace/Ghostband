@@ -154,8 +154,6 @@ static std::vector<int> chordRhythm (PhraseFeel feel, Rng& rng)
 // drive where the section is loud, brighter where it leads, the effect brought
 // in for the biggest moments and pulled out of the quiet ones. What each name
 // actually reaches is the profile's business, and an unmapped one is ignored.
-static double juce_clamp (double v) { return v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v); }
-
 static void addControls (const PhraseProfile* prof, PhrasePart& out, int tick,
                          double intensity, bool leading, const std::string& role,
                          double throughSong)
@@ -176,7 +174,7 @@ static void addControls (const PhraseProfile* prof, PhrasePart& out, int tick,
         if      (def.follows == "lead")   t = leading ? 0.85 : 0.25;
         else if (def.follows == "peaks")  t = bigMoment ? 1.0 : (intensity < 0.4 ? 0.0 : 0.25);
         else if (def.follows == "rising") t = throughSong;
-        else if (def.follows == "fixed")  t = 0.0;
+        else if (def.follows == "fixed")  t = 0.0;   // parks at `low`, whatever that means for its type
         else                              t = intensity;   // "intensity"
 
         // A supporting part is held back across the board, so it sits behind
@@ -188,9 +186,11 @@ static void addControls (const PhraseProfile* prof, PhrasePart& out, int tick,
         c.tick    = tick;
         c.control = def.name;
 
-        // A switch has no meaningful middle: it is fully on or fully off.
-        c.amount = def.isSwitch() ? (t > 0.5 ? 1.0 : 0.0)
-                                  : juce_clamp (def.low + t * (def.high - def.low));
+        // What a knob, a switch and a selector each make of that is the
+        // control's own business. This is emitted once at the top of the
+        // section and held, so a selector genuinely stays on one choice for the
+        // section rather than hunting through its positions.
+        c.amount = def.valueAt (t);
 
         out.controls.push_back (c);
     }

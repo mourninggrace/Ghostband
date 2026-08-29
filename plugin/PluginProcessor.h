@@ -249,7 +249,10 @@ public:
         juce::String name    = "new control";
         int          cc      = -1;
         juce::String follows = "intensity";
-        juce::String type    = "knob";     // "knob" sweeps, "switch" is on or off
+        // "knob" sweeps, "switch" is on or off, "select" holds one of
+        // `positions` choices for the section.
+        juce::String type    = "knob";
+        int          positions = 0;
         double       low     = 0.0;
         double       high    = 1.0;
     };

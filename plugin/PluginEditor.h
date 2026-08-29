@@ -83,7 +83,8 @@ private:
 class ControlList : public juce::Component
 {
 public:
-    struct Row { juce::String name; int cc = 0; juce::String follows, type; };
+    struct Row { juce::String name; int cc = 0; juce::String follows, type;
+                 int positions = 0; };
 
     void setRows (std::vector<Row> r);
     void setSelected (int index);
@@ -193,8 +194,9 @@ private:
     juce::TextButton ctlTeach  { "Teach this control" };
     juce::TextButton ctlSave   { "Save mappings" };
     juce::TextEditor ctlName;
-    juce::ComboBox   ctlFollows, ctlType;
-    juce::Label      learnHeading, learnHelp, ctlNameLabel, ctlFollowsLabel, ctlTypeLabel;
+    juce::ComboBox   ctlFollows, ctlType, ctlPositions;
+    juce::Label      learnHeading, learnHelp, ctlNameLabel, ctlFollowsLabel,
+                     ctlTypeLabel, ctlPositionsLabel;
     juce::Viewport   ctlViewport;
     ControlList      ctlList;
     int              ctlSelected = 0;
