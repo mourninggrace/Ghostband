@@ -187,7 +187,11 @@ static void addControls (const PhraseProfile* prof, PhrasePart& out, int tick,
         ControlIntent c;
         c.tick    = tick;
         c.control = def.name;
-        c.amount  = juce_clamp (def.low + t * (def.high - def.low));
+
+        // A switch has no meaningful middle: it is fully on or fully off.
+        c.amount = def.isSwitch() ? (t > 0.5 ? 1.0 : 0.0)
+                                  : juce_clamp (def.low + t * (def.high - def.low));
+
         out.controls.push_back (c);
     }
 }

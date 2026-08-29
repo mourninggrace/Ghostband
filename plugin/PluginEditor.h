@@ -77,6 +77,28 @@ private:
     int selected = 0;
 };
 
+// The control mappings for one instrument. Grows as long as the owner wants,
+// each entry named by them, because no fixed list of knob names was ever going
+// to match a real instrument.
+class ControlList : public juce::Component
+{
+public:
+    struct Row { juce::String name; int cc = 0; juce::String follows, type; };
+
+    void setRows (std::vector<Row> r);
+    void setSelected (int index);
+    void paint (juce::Graphics& g) override;
+    void mouseDown (const juce::MouseEvent& e) override;
+
+    std::function<void (int)> onRowClicked;
+
+    static constexpr int rowHeight = 26;
+
+private:
+    std::vector<Row> rows;
+    int selected = 0;
+};
+
 class GhostbandEditor : public juce::AudioProcessorEditor,
                         private juce::ChangeListener,
                         private juce::Timer
@@ -162,9 +184,21 @@ private:
     juce::TextButton testDrums { "Test" }, testBass { "Test" },
                      testGuitar { "Test" }, testPiano { "Test" };
     // MIDI Learn helpers: sweep a CC at an instrument so it can latch onto it.
-    juce::ComboBox   learnPart, learnCC;
-    juce::TextButton learnDrive { "Teach this knob" };
-    juce::Label      learnHeading, learnHelp;
+    void refreshControls();
+    void pushControlEdit();
+
+    juce::ComboBox   learnPart;
+    juce::TextButton ctlAdd    { "+ Add" };
+    juce::TextButton ctlRemove { "Remove" };
+    juce::TextButton ctlTeach  { "Teach this control" };
+    juce::TextButton ctlSave   { "Save mappings" };
+    juce::TextEditor ctlName;
+    juce::ComboBox   ctlFollows, ctlType;
+    juce::Label      learnHeading, learnHelp, ctlNameLabel, ctlFollowsLabel, ctlTypeLabel;
+    juce::Viewport   ctlViewport;
+    ControlList      ctlList;
+    int              ctlSelected = 0;
+    bool             suppressControlCallbacks = false;
 
     juce::Label    settingsHeading, channelsHelp;
     juce::TextButton resetSizeButton   { "Reset window size" };

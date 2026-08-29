@@ -482,6 +482,140 @@ void GhostbandProcessor::teachControl (int part, int cc)
     }
 }
 
+gb::PhraseProfile* GhostbandProcessor::phraseProfileFor (int part)
+{
+    if (part == 3) return havePiano  ? &pianoProfile  : nullptr;
+    return              haveGuitar ? &guitarProfile : nullptr;
+}
+
+const gb::PhraseProfile* GhostbandProcessor::phraseProfileFor (int part) const
+{
+    return const_cast<GhostbandProcessor*> (this)->phraseProfileFor (part);
+}
+
+juce::String GhostbandProcessor::controlOwnerName (int part) const
+{
+    const juce::ScopedLock sl (stateLock);
+    const auto* p = phraseProfileFor (part);
+    return p != nullptr ? juce::String (p->name) : juce::String ("no instrument");
+}
+
+int GhostbandProcessor::getControlCount (int part) const
+{
+    const juce::ScopedLock sl (stateLock);
+    const auto* p = phraseProfileFor (part);
+    return p != nullptr ? static_cast<int> (p->allControls().size()) : 0;
+}
+
+GhostbandProcessor::ControlSlot GhostbandProcessor::getControl (int part, int index) const
+{
+    const juce::ScopedLock sl (stateLock);
+    ControlSlot s;
+    const auto* p = phraseProfileFor (part);
+    if (p == nullptr || index < 0 || index >= static_cast<int> (p->allControls().size()))
+        return s;
+
+    const auto& c = p->allControls()[static_cast<size_t> (index)];
+    s.name    = c.name;
+    s.cc      = c.cc;
+    s.follows = c.follows;
+    s.type    = c.type;
+    s.low     = c.low;
+    s.high    = c.high;
+    return s;
+}
+
+void GhostbandProcessor::addControl (int part)
+{
+    {
+        const juce::ScopedLock sl (stateLock);
+        auto* p = phraseProfileFor (part);
+        if (p == nullptr) return;
+
+        gb::PhraseProfile::ControlDef c;
+        c.name    = "new control";
+        c.cc      = p->nextFreeCC();
+        c.follows = "intensity";
+        if (c.cc < 0) return;   // every controller already spoken for
+
+        p->editableControls().push_back (c);
+    }
+    stateChanged.sendChangeMessage();
+}
+
+void GhostbandProcessor::removeControl (int part, int index)
+{
+    {
+        const juce::ScopedLock sl (stateLock);
+        auto* p = phraseProfileFor (part);
+        if (p == nullptr) return;
+        auto& list = p->editableControls();
+        if (index < 0 || index >= static_cast<int> (list.size())) return;
+        list.erase (list.begin() + static_cast<std::ptrdiff_t> (index));
+    }
+    regenerate();
+}
+
+void GhostbandProcessor::updateControl (int part, int index, const ControlSlot& slot)
+{
+    {
+        const juce::ScopedLock sl (stateLock);
+        auto* p = phraseProfileFor (part);
+        if (p == nullptr) return;
+        auto& list = p->editableControls();
+        if (index < 0 || index >= static_cast<int> (list.size())) return;
+
+        auto& c = list[static_cast<size_t> (index)];
+        c.name    = slot.name.trim().isEmpty() ? "control" : slot.name.trim().toStdString();
+        c.follows = slot.follows.toStdString();
+        c.type    = slot.type.toStdString();
+        c.low     = juce::jlimit (0.0, 1.0, slot.low);
+        c.high    = juce::jlimit (0.0, 1.0, slot.high);
+    }
+    regenerate();
+}
+
+void GhostbandProcessor::teachControlSlot (int part, int index)
+{
+    const ControlSlot s = getControl (part, index);
+    if (s.cc >= 0)
+        teachControl (part, s.cc);
+}
+
+bool GhostbandProcessor::saveControls (int part, juce::String& error)
+{
+    std::string path, e;
+    bool ok = false;
+
+    {
+        const juce::ScopedLock sl (stateLock);
+        const auto* p = phraseProfileFor (part);
+        if (p == nullptr)
+        {
+            error = "That part has no instrument in this song.";
+            return false;
+        }
+
+        path = p->sourcePath;
+        if (path.empty())
+        {
+            error = "This profile was not loaded from a file, so there is nowhere to save it.";
+            return false;
+        }
+
+        ok = p->save (path, e);
+    }
+
+    if (! ok)
+    {
+        error = juce::String (e);
+        return false;
+    }
+
+    error.clear();
+    return true;
+}
+
 void GhostbandProcessor::sendLevels()
 {
     struct Part { int channel; float level; };

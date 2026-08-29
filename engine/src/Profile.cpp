@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
+#include <fstream>
 
 namespace gb {
 
@@ -356,6 +358,98 @@ int PhraseProfile::ccFor (const std::string& control) const
     return -1;
 }
 
+int PhraseProfile::nextFreeCC() const
+{
+    for (int cc = 22; cc <= 119; ++cc)
+    {
+        bool taken = false;
+        for (const ControlDef& c : controlDefs)
+            if (c.cc == cc) { taken = true; break; }
+
+        // Skip the controllers that already mean something universally, so a
+        // mapping never fights channel volume or the sustain pedal.
+        if (cc == 64 || cc == 7 || cc == 1 || cc == 11 || cc == 10)
+            continue;
+
+        if (! taken) return cc;
+    }
+    return -1;
+}
+
+std::string PhraseProfile::toJson() const
+{
+    auto q = [] (const std::string& s) { return "\"" + s + "\""; };
+    auto num = [] (double v)
+    {
+        char buf[32];
+        std::snprintf (buf, sizeof (buf), "%.3g", v);
+        return std::string (buf);
+    };
+
+    std::string j = "{\n";
+    j += "  // Written by Ghostband. Control mappings were made in the plugin.\n\n";
+    j += "  \"name\": " + q (name) + ",\n";
+    j += "  \"id\": "   + q (id)   + ",\n";
+    j += "  \"channel\": " + std::to_string (channel) + ",\n\n";
+    j += "  \"mode\": " + q (phraseDriven ? "phrase" : "notes") + ",\n\n";
+    j += "  \"needs_verification\": " + std::string (needsVerification ? "true" : "false") + ",\n";
+    if (! verificationNote.empty())
+        j += "  \"verification_note\": " + q (verificationNote) + ",\n";
+    j += "\n";
+    j += "  \"chord_zone\": { \"lowest_note\": " + std::to_string (chordLowest)
+       + ", \"highest_note\": " + std::to_string (chordHighest) + " },\n\n";
+    j += "  \"velocity_min\": " + std::to_string (velocityMin) + ",\n";
+    j += "  \"velocity_max\": " + std::to_string (velocityMax) + ",\n";
+    j += "  \"strum_ticks\": "  + std::to_string (strumTicks) + ",\n";
+
+    if (phraseDriven)
+    {
+        j += "  \"phrase_lead_ticks\": " + std::to_string (phraseLeadTicks) + ",\n";
+        j += "  \"phrase_blip_ticks\": " + std::to_string (phraseBlipTicks) + ",\n";
+        j += "  \"phrase_velocity\": "   + std::to_string (phraseVelocity) + ",\n";
+
+        std::string ph;
+        for (size_t i = 0; i < phraseKeys.size(); ++i)
+            if (phraseKeys[i] >= 0)
+                ph += (ph.empty() ? "" : ",\n") + std::string ("    ")
+                    + q (phraseFeelName (static_cast<PhraseFeel> (i))) + ": "
+                    + std::to_string (phraseKeys[i]);
+        if (! ph.empty())
+            j += "\n  \"phrases\": {\n" + ph + "\n  },\n";
+    }
+
+    std::string ctl;
+    for (const ControlDef& c : controlDefs)
+        ctl += (ctl.empty() ? "" : ",\n") + std::string ("    ") + q (c.name)
+             + ": { \"cc\": " + std::to_string (c.cc)
+             + ", \"follows\": " + q (c.follows)
+             + ", \"type\": " + q (c.type)
+             + ", \"low\": " + num (c.low)
+             + ", \"high\": " + num (c.high) + " }";
+
+    j += "\n  \"controls\": {\n" + ctl + "\n  }\n}\n";
+    return j;
+}
+
+bool PhraseProfile::save (const std::string& path, std::string& error) const
+{
+    std::ofstream f (path, std::ios::trunc);
+    if (! f)
+    {
+        error = "could not open " + path + " for writing";
+        return false;
+    }
+
+    const std::string text = toJson();
+    f.write (text.data(), static_cast<std::streamsize> (text.size()));
+    if (! f)
+    {
+        error = "failed while writing " + path;
+        return false;
+    }
+    return true;
+}
+
 int PhraseProfile::keyFor (PhraseFeel f) const
 {
     const size_t i = static_cast<size_t> (f);
@@ -395,6 +489,7 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
     out.phraseBlipTicks   = std::max (1, j.intOr ("phrase_blip_ticks", out.phraseBlipTicks));
     out.phraseVelocity    = clampInt (j.intOr ("phrase_velocity", out.phraseVelocity), 1, 127);
     out.strumTicks        = clampInt (j.intOr ("strum_ticks", out.strumTicks), 0, 240);
+    out.sourcePath        = path;
     out.needsVerification = j.boolOr ("needs_verification", false);
     out.verificationNote  = j.stringOr ("verification_note", "");
 
@@ -425,6 +520,7 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
             {
                 c.cc      = clampInt (def.intOr ("cc", -1), -1, 127);
                 c.follows = def.stringOr ("follows", "intensity");
+                c.type    = def.stringOr ("type", "knob");
                 c.low     = def.numberOr ("low", 0.0);
                 c.high    = def.numberOr ("high", 1.0);
             }

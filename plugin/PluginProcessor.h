@@ -237,6 +237,32 @@ public:
     // implementations want to see a control move, not one message.
     void teachControl (int part, int cc);
 
+    //==========================================================================
+    // Control mappings.
+    //
+    // How many knobs are worth automating is the owner's decision, not
+    // something a fixed set of slots can anticipate - so the list grows, each
+    // entry carries the name its owner gave it, and it saves back to the
+    // profile so it travels with the instrument.
+    struct ControlSlot
+    {
+        juce::String name    = "new control";
+        int          cc      = -1;
+        juce::String follows = "intensity";
+        juce::String type    = "knob";     // "knob" sweeps, "switch" is on or off
+        double       low     = 0.0;
+        double       high    = 1.0;
+    };
+
+    int         getControlCount (int part) const;
+    ControlSlot getControl (int part, int index) const;
+    void        addControl (int part);
+    void        removeControl (int part, int index);
+    void        updateControl (int part, int index, const ControlSlot& slot);
+    void        teachControlSlot (int part, int index);
+    bool        saveControls (int part, juce::String& error);
+    juce::String controlOwnerName (int part) const;
+
     std::atomic<float> levelDrums  { 1.0f };
     std::atomic<float> levelBass   { 1.0f };
     std::atomic<float> levelGuitar { 1.0f };
@@ -259,6 +285,9 @@ private:
         int               order = 0;
         juce::MidiMessage message;
     };
+
+    gb::PhraseProfile*       phraseProfileFor (int part);
+    const gb::PhraseProfile* phraseProfileFor (int part) const;
 
     void loadBuiltInPlan();
     void rebuildSequence (const gb::RenderResult& result,

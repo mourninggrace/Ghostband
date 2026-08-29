@@ -151,13 +151,36 @@ public:
         // rising    - climbs across the song, for something that should build
         // fixed     - held at `low`
         std::string follows = "intensity";
+
+        // "knob" sweeps through its range; "switch" lands on fully off or fully
+        // on, because a button or a toggle has no meaningful middle and half a
+        // switch is not a thing an instrument can be.
+        std::string type = "knob";
+
         double low  = 0.0;      // value at the bottom of its range
         double high = 1.0;      // value at the top
+
+        bool isSwitch() const { return type == "switch"; }
     };
 
     int  ccFor (const std::string& control) const;   // -1 when not mapped
     bool hasControls() const { return ! controlDefs.empty(); }
     const std::vector<ControlDef>& allControls() const { return controlDefs; }
+
+    // Editable, because which knobs are worth automating is the owner's
+    // decision and there is no sensible fixed list of them.
+    std::vector<ControlDef>& editableControls() { return controlDefs; }
+
+    // The next CC not already spoken for, so a newly added control never
+    // collides with one that has already been taught.
+    int nextFreeCC() const;
+
+    // Writes the profile back in the format load() reads, so a mapping made in
+    // the plugin survives and travels with the profile.
+    std::string toJson() const;
+    bool save (const std::string& path, std::string& error) const;
+
+    std::string sourcePath;   // where this was loaded from, for saving back
 
     bool        needsVerification = false;
     std::string verificationNote;

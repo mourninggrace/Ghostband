@@ -286,6 +286,72 @@ void CalibrationList::paint (juce::Graphics& g)
 
 //==============================================================================
 
+void ControlList::setRows (std::vector<Row> r)
+{
+    rows = std::move (r);
+    setSize (getWidth(), juce::jmax (1, static_cast<int> (rows.size()) * rowHeight));
+    repaint();
+}
+
+void ControlList::setSelected (int index)
+{
+    if (index == selected) return;
+    selected = index;
+    repaint();
+}
+
+void ControlList::mouseDown (const juce::MouseEvent& e)
+{
+    const int row = e.getPosition().y / rowHeight;
+    if (row >= 0 && row < static_cast<int> (rows.size()) && onRowClicked)
+        onRowClicked (row);
+}
+
+void ControlList::paint (juce::Graphics& g)
+{
+    g.fillAll (ghost::colours::card);
+
+    if (rows.empty())
+    {
+        g.setColour (ghost::dim);
+        g.setFont (juce::Font (juce::FontOptions (12.0f)));
+        g.drawText ("No controls mapped yet. Press Add.",
+                    getLocalBounds().reduced (12), juce::Justification::centredTop);
+        return;
+    }
+
+    for (size_t i = 0; i < rows.size(); ++i)
+    {
+        const auto r = juce::Rectangle<int> (0, static_cast<int> (i) * rowHeight,
+                                             getWidth(), rowHeight);
+        const bool active = static_cast<int> (i) == selected;
+
+        if (active)
+        {
+            g.setColour (ghost::accent.withAlpha (0.16f));
+            g.fillRect (r);
+            g.setColour (ghost::accent);
+            g.fillRect (r.withWidth (3));
+        }
+
+        auto inner = r.reduced (12, 0);
+
+        g.setColour (ghost::dim);
+        g.setFont (juce::Font (juce::FontOptions (11.0f)));
+        g.drawText ("CC " + juce::String (rows[i].cc), inner.removeFromLeft (52),
+                    juce::Justification::centredLeft);
+
+        g.drawText (rows[i].follows + (rows[i].type == "switch" ? "  (switch)" : ""),
+                    inner.removeFromRight (150), juce::Justification::centredRight);
+
+        g.setColour (active ? ghost::accent : ghost::text);
+        g.setFont (juce::Font (juce::FontOptions (12.5f)));
+        g.drawText (rows[i].name, inner, juce::Justification::centredLeft);
+    }
+}
+
+//==============================================================================
+
 GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
 {
@@ -792,39 +858,66 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     learnPart.addItem ("piano",  2);
     learnPart.setSelectedId (1, juce::dontSendNotification);
 
-    // A CC picker rather than one button per control: these instruments have far
-    // more knobs than a fixed set of buttons could cover, and the label says
-    // what each number will make the knob follow.
-    styleCombo (learnCC);
-    addChildComponent (learnCC);
-    static const char* ccMeanings[8] = {
-        "22  drive - follows loudness",
-        "23  tone - up when leading",
-        "24  effect - on for choruses",
-        "25  motion - follows loudness",
-        "26  depth - on for choruses",
-        "27  character - up when leading",
-        "28  build - climbs through the song",
-        "29  space - more when quiet"
-    };
-    for (int i = 0; i < 8; ++i)
-        learnCC.addItem (ccMeanings[i], i + 1);
-    learnCC.setSelectedId (1, juce::dontSendNotification);
-
-    styleButton (learnDrive, true);
-    learnDrive.setButtonText ("Teach this knob");
-    learnDrive.onClick = [this]
+    // An open-ended list rather than fixed slots: how many knobs, buttons and
+    // switches are worth automating is the owner's decision.
+    for (juce::TextButton* b : std::initializer_list<juce::TextButton*> {
+             &ctlAdd, &ctlRemove, &ctlTeach, &ctlSave })
     {
-        const int cc = 21 + juce::jmax (1, learnCC.getSelectedId());
-        processor.teachControl (learnPart.getSelectedId() == 2 ? 3 : 2, cc);
+        styleButton (*b, b == &ctlTeach);
+        addChildComponent (*b);
+    }
+
+    ctlName.setColour (juce::TextEditor::textColourId, ghost::text);
+    ctlName.setFont (juce::Font (juce::FontOptions (13.0f)));
+    ctlName.onFocusLost = [this] { pushControlEdit(); };
+    ctlName.onReturnKey = [this] { pushControlEdit(); };
+    addChildComponent (ctlName);
+
+    styleCombo (ctlFollows);
+    styleCombo (ctlType);
+    addChildComponent (ctlFollows);
+    addChildComponent (ctlType);
+    for (const char* f : { "intensity", "lead", "peaks", "rising", "fixed" })
+        ctlFollows.addItem (f, ctlFollows.getNumItems() + 1);
+    for (const char* t : { "knob", "switch" })
+        ctlType.addItem (t, ctlType.getNumItems() + 1);
+    ctlFollows.onChange = [this] { pushControlEdit(); };
+    ctlType.onChange    = [this] { pushControlEdit(); };
+
+    const auto part = [this] { return learnPart.getSelectedId() == 2 ? 3 : 2; };
+
+    learnPart.onChange = [this] { ctlSelected = 0; refreshControls(); };
+
+    ctlAdd.onClick    = [this, part] { processor.addControl (part());
+                                       ctlSelected = juce::jmax (0, processor.getControlCount (part()) - 1);
+                                       refreshControls(); };
+    ctlRemove.onClick = [this, part] { processor.removeControl (part(), ctlSelected);
+                                       ctlSelected = 0; refreshControls(); };
+    ctlTeach.onClick  = [this, part] { processor.teachControlSlot (part(), ctlSelected); };
+
+    ctlSave.onClick = [this, part]
+    {
+        juce::String err;
+        if (processor.saveControls (part(), err))
+            statusLabel.setText ("Mappings saved to the instrument's profile.",
+                                 juce::dontSendNotification);
+        else
+            statusLabel.setText (err, juce::dontSendNotification);
     };
-    addChildComponent (learnDrive);
+
+    ctlList.onRowClicked = [this] (int row) { ctlSelected = row; refreshControls(); };
+
+    ctlViewport.setViewedComponent (&ctlList, false);
+    ctlViewport.setScrollBarsShown (true, false);
+    addChildComponent (ctlViewport);
+
+    initLabel (ctlNameLabel,    "NAME",    10.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (ctlFollowsLabel, "FOLLOWS", 10.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (ctlTypeLabel,    "TYPE",    10.0f, ghost::dim, juce::Justification::centredLeft);
 
     initLabel (learnHeading, "MIDI LEARN", 11.0f, ghost::text, juce::Justification::centredLeft);
     initLabel (learnHelp,
-               "Right-click a knob in the instrument and choose MIDI Learn, pick what you want "
-               "it to follow below, then press Teach. Repeat for as many knobs as you like; "
-               "anything you do not teach simply ignores it.",
+               "Add a control, name it, choose what it should follow. Then put the knob, button or switch into MIDI Learn in the instrument and press Teach. Save writes the mappings into the instrument profile.",
                11.0f, ghost::dim, juce::Justification::topLeft);
     learnHelp.setJustificationType (juce::Justification::topLeft);
 
@@ -994,9 +1087,14 @@ void GhostbandEditor::updateModeVisibility()
              &chDrumsLabel, &chBassLabel, &chGuitarLabel, &chPianoLabel,
              &settingsHeading, &channelsHelp, &resetSizeButton, &reloadProfilesBtn,
              &testDrums, &testBass, &testGuitar, &testPiano,
-             &learnPart, &learnCC, &learnDrive,
-             &learnHeading, &learnHelp })
+             &learnPart, &learnHeading, &learnHelp,
+             &ctlAdd, &ctlRemove, &ctlTeach, &ctlSave, &ctlName,
+             &ctlFollows, &ctlType, &ctlViewport,
+             &ctlNameLabel, &ctlFollowsLabel, &ctlTypeLabel })
         c->setVisible (set);
+
+    if (set)
+        refreshControls();
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &manualButton, &repoButton })
@@ -1070,6 +1168,68 @@ void GhostbandEditor::showScreenForSnapshot (int index)
         default: screen = Screen::Song;     processor.exitCalibration(); break;
     }
     updateModeVisibility();
+}
+
+void GhostbandEditor::refreshControls()
+{
+    const int part = learnPart.getSelectedId() == 2 ? 3 : 2;
+    const int count = processor.getControlCount (part);
+    ctlSelected = juce::jlimit (0, juce::jmax (0, count - 1), ctlSelected);
+
+    std::vector<ControlList::Row> rows;
+    for (int i = 0; i < count; ++i)
+    {
+        const auto c = processor.getControl (part, i);
+        rows.push_back ({ c.name, c.cc, c.follows, c.type });
+    }
+    ctlList.setRows (std::move (rows));
+    ctlList.setSelected (ctlSelected);
+    ctlList.setSize (juce::jmax (100, ctlViewport.getWidth() - 10), ctlList.getHeight());
+
+    const bool any = count > 0;
+    ctlRemove.setEnabled (any);
+    ctlTeach.setEnabled (any);
+    ctlName.setEnabled (any);
+    ctlFollows.setEnabled (any);
+    ctlType.setEnabled (any);
+
+    suppressControlCallbacks = true;
+    if (any)
+    {
+        const auto c = processor.getControl (part, ctlSelected);
+        ctlName.setText (c.name, juce::dontSendNotification);
+        for (int i = 1; i <= ctlFollows.getNumItems(); ++i)
+            if (ctlFollows.getItemText (i - 1) == c.follows)
+                ctlFollows.setSelectedId (i, juce::dontSendNotification);
+        for (int i = 1; i <= ctlType.getNumItems(); ++i)
+            if (ctlType.getItemText (i - 1) == c.type)
+                ctlType.setSelectedId (i, juce::dontSendNotification);
+
+        ctlTeach.setButtonText ("Teach  (CC " + juce::String (c.cc) + ")");
+    }
+    else
+    {
+        ctlName.setText ({}, juce::dontSendNotification);
+        ctlTeach.setButtonText ("Teach this control");
+    }
+    suppressControlCallbacks = false;
+}
+
+void GhostbandEditor::pushControlEdit()
+{
+    if (suppressControlCallbacks || screen != Screen::Settings)
+        return;
+
+    const int part = learnPart.getSelectedId() == 2 ? 3 : 2;
+    if (processor.getControlCount (part) == 0)
+        return;
+
+    GhostbandProcessor::ControlSlot s = processor.getControl (part, ctlSelected);
+    s.name    = ctlName.getText();
+    s.follows = ctlFollows.getText();
+    s.type    = ctlType.getText();
+    processor.updateControl (part, ctlSelected, s);
+    refreshControls();
 }
 
 void GhostbandEditor::pullSectionEdit()
@@ -1368,6 +1528,13 @@ void GhostbandEditor::resized()
 
     if (screen == Screen::Settings)
     {
+        // Reserve the footer before anything else takes the space, or the list
+        // grows straight over it.
+        auto footerArea = r.removeFromBottom (32);
+        statusLabel.setBounds (footerArea.removeFromTop (16));
+        profilesLabel.setBounds (footerArea);
+        r.removeFromBottom (10);
+
         auto s = r;
         settingsHeading.setBounds (s.removeFromTop (24));
         s.removeFromTop (10);
@@ -1395,21 +1562,38 @@ void GhostbandEditor::resized()
         s.removeFromTop (6);
 
         auto learnRow = s.removeFromTop (28);
-        learnPart.setBounds (learnRow.removeFromLeft (88));
-        learnRow.removeFromLeft (8);
-        learnCC.setBounds (learnRow.removeFromLeft (juce::jmax (170, learnRow.getWidth() - 150)));
-        learnRow.removeFromLeft (8);
-        learnDrive.setBounds (learnRow.removeFromLeft (juce::jmin (140, learnRow.getWidth())));
+        learnPart.setBounds (learnRow.removeFromLeft (96));
+        learnRow.removeFromLeft (10);
+        ctlAdd.setBounds (learnRow.removeFromLeft (70));
+        learnRow.removeFromLeft (6);
+        ctlRemove.setBounds (learnRow.removeFromLeft (78));
+        learnRow.removeFromLeft (6);
+        ctlSave.setBounds (learnRow.removeFromLeft (124));
 
-        s.removeFromTop (14);
+        s.removeFromTop (8);
+        auto editRow = s.removeFromTop (26);
+        ctlNameLabel.setBounds (editRow.removeFromLeft (42));
+        ctlName.setBounds (editRow.removeFromLeft (130));
+        editRow.removeFromLeft (10);
+        ctlFollowsLabel.setBounds (editRow.removeFromLeft (54));
+        ctlFollows.setBounds (editRow.removeFromLeft (98));
+        editRow.removeFromLeft (10);
+        ctlTypeLabel.setBounds (editRow.removeFromLeft (36));
+        ctlType.setBounds (editRow.removeFromLeft (84));
+
+        s.removeFromTop (8);
+        ctlTeach.setBounds (s.removeFromTop (28).removeFromLeft (170));
+        s.removeFromTop (8);
+
+        auto listArea = s.removeFromTop (juce::jmax (60, s.getHeight() - 46));
+        ctlViewport.setBounds (listArea);
+        ctlList.setSize (listArea.getWidth() - 10, ctlList.getHeight());
+        s.removeFromTop (8);
+
         auto row = s.removeFromTop (28);
         reloadProfilesBtn.setBounds (row.removeFromLeft (170));
         row.removeFromLeft (8);
         resetSizeButton.setBounds (row.removeFromLeft (150));
-
-        auto footer = r.removeFromBottom (32);
-        statusLabel.setBounds (footer.removeFromTop (16));
-        profilesLabel.setBounds (footer);
         return;
     }
 

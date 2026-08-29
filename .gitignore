@@ -4,3 +4,6 @@ out/
 !plans/*.mid
 .vs/
 *.user
+
+# Backups the plugin writes next to a plan when you Save over it.
+*-previous.json
