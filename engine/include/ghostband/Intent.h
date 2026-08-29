@@ -84,11 +84,25 @@ struct PhraseIntent
     double     accent = 0.8;
 };
 
-// One phrase-driven part: the chords it holds and the phrases it switches to.
+// A change to one of the instrument's own controls - gain, tone, an effect, a
+// style. Ghostband cannot set another plugin's parameters directly, but these
+// instruments listen to MIDI CC, so an arrangement decision can be expressed as
+// a control move rather than only as notes. Which CC a name means is the
+// profile's business; the generator only ever asks for "more drive".
+struct ControlIntent
+{
+    int         tick   = 0;
+    std::string control;      // "drive", "tone", "effect", "style"
+    double      amount = 0.5; // 0..1, scaled to 0..127 by the profile
+};
+
+// One phrase-driven part: the chords it holds, the phrases it switches to, and
+// the controls it moves.
 struct PhrasePart
 {
-    std::vector<ChordIntent>  chords;
-    std::vector<PhraseIntent> phrases;
+    std::vector<ChordIntent>   chords;
+    std::vector<PhraseIntent>  phrases;
+    std::vector<ControlIntent> controls;
 };
 
 struct Marker

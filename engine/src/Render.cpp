@@ -153,6 +153,31 @@ static std::vector<int> chordRhythm (PhraseFeel feel, Rng& rng)
     return pool[static_cast<size_t> (rng.below (static_cast<int> (pool.size())))];
 }
 
+// Arrangement decisions expressed as control moves rather than notes: more
+// drive where the section is loud, brighter where it leads, the effect brought
+// in for the biggest moments and pulled out of the quiet ones. What each name
+// actually reaches is the profile's business, and an unmapped one is ignored.
+static void addControls (PhrasePart& out, int tick, double intensity,
+                         bool leading, const std::string& role)
+{
+    auto add = [&out, tick] (const char* name, double amount)
+    {
+        ControlIntent c;
+        c.tick    = tick;
+        c.control = name;
+        c.amount  = amount < 0.0 ? 0.0 : (amount > 1.0 ? 1.0 : amount);
+        out.controls.push_back (c);
+    };
+
+    // A supporting part stays cleaner and darker so it sits behind the lead
+    // rather than competing with it for the same space.
+    add ("drive", leading ? 0.25 + intensity * 0.75 : 0.15 + intensity * 0.35);
+    add ("tone",  leading ? 0.35 + intensity * 0.55 : 0.25 + intensity * 0.25);
+
+    const bool bigMoment = (role == "chorus" || role == "solo") && intensity > 0.7;
+    add ("effect", bigMoment ? 0.7 : (intensity < 0.4 ? 0.0 : 0.25));
+}
+
 static PhraseFeel supportFeel (PhraseFeel wanted)
 {
     switch (wanted)
@@ -185,6 +210,8 @@ static void generatePhrasePart (const SectionPlan& s,
 
     if (feel == PhraseFeel::Silent || chords.empty())
         return;
+
+    addControls (out, sectionStartTick, s.intensity, ! supporting, s.role);
 
     const int hits = phraseDriven ? 1 : chordHitsPerBar (feel);
     if (hits <= 0)

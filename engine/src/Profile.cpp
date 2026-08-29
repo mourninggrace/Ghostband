@@ -349,6 +349,13 @@ PhraseProfile::PhraseProfile()
     chordHighest = 72;
 }
 
+int PhraseProfile::ccFor (const std::string& control) const
+{
+    for (const auto& kv : controlMap)
+        if (kv.first == control) return kv.second;
+    return -1;
+}
+
 int PhraseProfile::keyFor (PhraseFeel f) const
 {
     const size_t i = static_cast<size_t> (f);
@@ -402,6 +409,12 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
         if (out.chordHighest < out.chordLowest)
             std::swap (out.chordLowest, out.chordHighest);
     }
+
+    // "controls": { "drive": 22, "tone": 23, "effect": 24 }
+    const Json& controls = j["controls"];
+    if (controls.isObject())
+        for (const std::string& key : controls.keys())
+            out.controlMap.emplace_back (key, clampInt (controls[key].asInt (-1), 0, 127));
 
     const Json& phrases = j["phrases"];
     if (phrases.isObject())
@@ -466,6 +479,18 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
             track.addNoteOn  (on, channel, key, phraseVelocity);
             track.addNoteOff (off, channel, key);
         }
+    }
+
+    // Control moves go out before anything they are meant to affect. A control
+    // the profile does not map is skipped in silence: the generator is allowed
+    // to ask for "more drive" from an instrument that has no such knob.
+    for (const ControlIntent& c : part.controls)
+    {
+        const int cc = ccFor (c.control);
+        if (cc < 0) continue;
+
+        const int value = clampInt (static_cast<int> (c.amount * 127.0 + 0.5), 0, 127);
+        track.addCC (std::max (0, c.tick - phraseLeadTicks), channel, cc, value);
     }
 
     const int zoneSpan = chordHighest - chordLowest;
