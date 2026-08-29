@@ -53,6 +53,60 @@ untouched so the audio pins can be left unwired.
 Note that a host holds the plugin DLL open while it is loaded, so **close the
 host before reinstalling** or the copy will silently leave the old build behind.
 
+### Driving the instrument's own controls
+
+Ghostband can move an instrument's knobs, switches and selectors as the song
+goes: more drive where the section is loud, a pedal in for the chorus, a
+different amp each time you roll the song. It reaches them over MIDI CC, so it
+works with anything that has MIDI Learn.
+
+Mappings are built in **Settings**, not in code. Pick the instrument, press
+**+ Add**, name the control whatever it is called on the plugin, then put that
+control into MIDI Learn and press **Teach** — Ghostband sweeps the CC so the
+instrument latches onto it. **Save mappings** writes them into the driver
+profile, so they travel with it. There is no limit on how many.
+
+Each mapping says what kind of control it is:
+
+| type | behaviour | for |
+|------|-----------|-----|
+| `knob` | sweeps continuously | knobs, sliders, faders |
+| `switch` | fully off or fully on | buttons, toggles, latches |
+| `select` | holds one of N choices for the whole section | dropdowns, multi-position switches |
+
+The type is about behaviour, not the widget's shape: a slider that snaps to
+positions is a `select`, not a `knob`.
+
+And what should move it:
+
+| follows | what it does |
+|---------|--------------|
+| `intensity` | tracks how loud the section is |
+| `lead` | up when this part leads, down when it supports |
+| `peaks` | on for choruses and solos, off in the quiet sections |
+| `rising` | climbs across the whole song |
+| `random` | a fresh choice every section |
+| `random once` | one choice held for the whole song |
+| `fixed` | parked at a value you type |
+| `none` | never sent, leaving the instrument as you set it |
+
+`random` and `random once` are for controls with no right answer — which amp,
+which cabinet, which effect. They change the sound rather than the dynamics, so
+the useful thing is to choose one. Both are derived from the song seed, so the
+result is reproducible and rerolling rerolls it. `random once` is the one you
+want for anything a band would not change mid-song.
+
+A driven control also has a **range**, in its own units — per cent for a knob,
+position numbers for a selector. Putting the higher end first inverts it, which
+is the answer for a control that reads backwards. Narrowing it keeps a rolled
+selector inside part of a long list.
+
+Two buttons exist for reading an instrument back rather than driving it.
+**Send** parks a control on one value and sends it once, so its display can be
+read at leisure. **Walk the list** steps a selector through every position at
+half a second each, which is how you find out how many choices it really has —
+Teach is deliberately too fast to read.
+
 ### The controls
 
 - **Load plan...** — swap in a plan file. Its own profiles come with it.
@@ -277,9 +331,6 @@ emits silence until the rate is known.
 - Live following, chord detection
 - The VST3 wrapper. The engine has no JUCE dependency and no audio-thread
   assumptions specifically so that wrapping it later is mechanical.
-- A control lane for CC/OSC, for driving plugins that expose only audio pins and
-  have to be steered through Gig Performer widgets instead of notes. The profile
-  format is shaped to take it without a rewrite.
 
 ## Licence
 

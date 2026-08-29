@@ -1,7 +1,77 @@
 # Where Ghostband stands, and what to do next
 
-Last updated 2026-08-24, end of session 4. Everything described as done is
+Last updated 2026-08-29, end of session 5. Everything described as done is
 committed, pushed, installed, and covered by the harness.
+
+## Session 5 — the control mapping system
+
+The whole session went into one thing: letting the user drive an instrument's
+own knobs, buttons, switches and selectors from the arrangement. It started as
+three fixed knob slots and ended as an open table, because their instruments
+have far more controls than any list could have guessed at.
+
+**The shape they asked for, in their words:** "you pick the instrument, next to
+it is a blank button you select and next to it is the teach this knob button. it
+then saves to a list underneath, showing all buttons i mapped, however many
+there is to map, all with custom labels so i know what they are." That is what
+Settings now does.
+
+**Four control types, because the widget is not the point — the behaviour is:**
+
+| type | behaviour | widgets |
+|------|-----------|---------|
+| `knob` | sweeps continuously | knobs, sliders, faders |
+| `switch` | fully off or fully on | buttons, toggles, latches |
+| `select` | holds one of N choices for the section | dropdowns, multi-position switches |
+
+A stepped slider is a `select`, not a `knob`. Selector positions are spread
+endpoint to endpoint (p/(n-1)), which is how a host maps a stepped parameter.
+
+**The follows vocabulary grew twice, both times because the user hit a real
+gap the list did not cover:**
+
+- `intensity`, `lead`, `peaks`, `rising` — as before.
+- `fixed` now takes a **VALUE**, in the control's own units. It previously
+  parked everything at the bottom of its range, which is why seven of the
+  user's nine mappings were silently being driven to zero.
+- `none` — send nothing at all, leave the instrument as set. This did not
+  exist, and `fixed` was being used for it, which does the opposite.
+- `random` and `random once` — for controls with no right answer: which amp,
+  which character, which pedal. In their words, these "can be changed at any
+  time for any reason, depending on the sound you are going for." `random once`
+  holds one choice for the song (nobody swaps amps mid-song); `random` picks
+  again each section (a pedal in for the chorus).
+
+**RANGE** — two ends in the control's own units, for any driven control. Putting
+the higher number first **inverts** it, which is the whole answer for a control
+that reads backwards. Narrowing it keeps a rolled selector inside one bank of a
+long list.
+
+**Send and Walk.** Teach sweeps fast, which is what MIDI Learn needs and useless
+for reading an instrument's display — the user tried to count a list from one
+and could not. `Send` parks a control on the typed value and sends it once.
+`Walk the list` steps a selector through every position at half a second each,
+slow enough to count.
+
+### Two real bugs found by reading their saved data, not by testing
+
+1. **Save destroyed the profile it saved to.** `toJson()` rewrote the whole file
+   and took all forty comment lines of `vg-iron2.json` with it — including the
+   measured 60-89 range finding. `save()` now splices only the controls block.
+   The harness loads a saved file back and asserts the findings are still in it.
+2. **A switch could be parked off but never on.** `fixed` drove the value to
+   zero before the declared range applied, so a latch button was unmappable.
+
+### Still open from this session
+
+- The user is mid-way through mapping IRON 2 and Virtual Pianist. The finisher
+  preset list is unresolved: it shows 30 FX and 32 Ambience entries, and whether
+  that is one 62-way parameter or two separate ones was not determined. `Walk
+  the list` and `Send` exist to answer it — VALUE 1 then VALUE 31 says which.
+- An adversarial review of the whole control system was running at end of
+  session (six dimensions, each finding challenged by a skeptic). Its results
+  were not read. Re-run it or check the workflow transcript.
+- Profiles remain `[UNVERIFIED]` for SSD5 and MODO — still needs a Calibrate run.
 
 ## Session 4 — what changed, and what is still open
 
@@ -47,10 +117,11 @@ describes the plan.
 - Song structure editor with save.
 - Per-part level knobs, sent as MIDI CC 7.
 - An unlimited control mapping table per instrument, built in Settings and
-  saved into the driver profile. Each entry is named by whoever made it, and
-  is a **knob** (sweeps), a **switch** (on or off) or a **select** (holds one
-  of N choices for the section). Teach sweeps the CC so the instrument's MIDI
-  Learn can latch onto it.
+  saved into the driver profile. Each entry is named by whoever made it and is
+  a **knob**, a **switch** or a **select**; each says what it follows, and a
+  driven one has a range while a parked one has a value. Teach sweeps the CC so
+  MIDI Learn can latch on; Send and Walk exist for reading the instrument back.
+  See the session 5 notes above for the full vocabulary.
 - Five screens: song, calibrate, edit, settings, about.
 - Flat UI in red / purple / black / silver / white, resizable, drawn
   procedurally so it scales across mixed-DPI monitors.
@@ -112,6 +183,18 @@ change. Re-render all three demo plans, confirm by ear, then update the numbers
 here and in the README.
 
 ## Things that will bite again if forgotten
+
+- **A generated writer must never clobber a hand-written file.** Saving a
+  mapping used to rewrite the whole profile from the struct, which threw away
+  every comment in it — and in these files the comments are the measured
+  findings, not decoration. Splice the one block that changed.
+- **Rolled and derived values must draw from their own seed stream.** Adding a
+  control that uses the section generator's RNG would shift every note of a song
+  that was already right. Each one derives from the song seed and its own name.
+- **When the user reaches for an option that is nearly right, the option they
+  want is probably missing.** Seven of nine mappings on `fixed` was not a
+  preference; it was the absence of `none` and of `random`. Read the data they
+  produce, not just the faults they report.
 
 - **Never ask this user to verify a MIDI map by ear against a stopwatch.** It was
   tried; they have no DAW and it was an unreasonable ask. Build measurement tools
