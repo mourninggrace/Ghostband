@@ -46,6 +46,11 @@ describes the plan.
 - In-plugin calibration covering every part, tuned by ear.
 - Song structure editor with save.
 - Per-part level knobs, sent as MIDI CC 7.
+- An unlimited control mapping table per instrument, built in Settings and
+  saved into the driver profile. Each entry is named by whoever made it, and
+  is a **knob** (sweeps), a **switch** (on or off) or a **select** (holds one
+  of N choices for the section). Teach sweeps the CC so the instrument's MIDI
+  Learn can latch onto it.
 - Five screens: song, calibrate, edit, settings, about.
 - Flat UI in red / purple / black / silver / white, resizable, drawn
   procedurally so it scales across mixed-DPI monitors.
@@ -60,6 +65,12 @@ dependencies beyond Windows.
 
 **Install:** `Install.bat`. It refuses to run while Gig Performer is open,
 because a host holds the DLL and the copy would silently do nothing.
+
+**Driver profiles carry the findings.** The comments in `profiles/*.json` record
+what was measured rather than assumed - IRON 2 sounds from 60 to 89 and is
+silent below it, which is why the chord zone is 60-84 and not a guitar's range.
+Saving a mapping from the plugin splices only the controls block, so those notes
+survive; do not replace that with a whole-file rewrite.
 
 ## The only remaining planned item
 
