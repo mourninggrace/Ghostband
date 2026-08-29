@@ -13,6 +13,7 @@
 #include "PluginEditor.h"
 
 #include "ghostband/Groove.h"
+#include "ghostband/MidiFile.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
@@ -763,12 +764,57 @@ int main (int argc, char** argv)
         check (widestValues.size() == 128, "a 128-way selector still has no two choices alike",
                juce::String (static_cast<int> (widestValues.size())) + " distinct values");
 
+        // Parking a selector on a chosen position, which is what "fixed" plus a
+        // value has to mean. Position 3 of 6 sits two steps up from the bottom.
+        gb::PhraseProfile::ControlDef parked;
+        parked.type = "select"; parked.positions = 6;
+        parked.low = parked.high = 2.0 / 5.0;
+        check (ccOf (parked, 0.0) == 51 && ccOf (parked, 1.0) == 51,
+               "a parked selector stays on its chosen position whatever the section",
+               juce::String (ccOf (parked, 0.0)) + " / " + juce::String (ccOf (parked, 1.0)));
+
         // A "select" with too few positions is not a selector at all; it must
         // degrade to a plain sweep rather than divide by zero.
         gb::PhraseProfile::ControlDef broken;
         broken.type = "select"; broken.positions = 1;
         check (ccOf (broken, 0.0) == 0 && ccOf (broken, 1.0) == 127,
                "a selector with too few choices degrades to a sweep");
+    }
+
+    // ---- a control set to "none" is left alone -----------------------------
+    // "fixed" was the only way to say "do not automate this", and it does the
+    // opposite: it drives the control to the bottom of its range, so a mix knob
+    // lands on zero and an effect gets switched off. "none" sends nothing.
+    {
+        gb::PhraseProfile prof;
+        prof.channel = 2;
+
+        gb::PhraseProfile::ControlDef driven;
+        driven.name = "driven"; driven.cc = 40; driven.follows = "intensity";
+        prof.editableControls().push_back (driven);
+
+        gb::PhraseProfile::ControlDef left;
+        left.name = "left alone"; left.cc = 41; left.follows = "none";
+        prof.editableControls().push_back (left);
+
+        gb::PhrasePart part;
+        part.controls.push_back ({ 0, "driven",     0.8 });
+        part.controls.push_back ({ 0, "left alone", 0.8 });
+
+        gb::MidiTrack track;
+        prof.render (part, track);
+
+        int on40 = 0, on41 = 0;
+        for (const gb::MidiEvent& ev : track.events)
+            if (ev.bytes.size() >= 3 && (ev.bytes[0] & 0xF0) == 0xB0)
+            {
+                if (ev.bytes[1] == 40) ++on40;
+                if (ev.bytes[1] == 41) ++on41;
+            }
+
+        check (on40 > 0, "a driven control is sent");
+        check (on41 == 0, "a control set to none is never sent",
+               juce::String (on41) + " messages");
     }
 
     // ---- saving a profile keeps the profile --------------------------------
@@ -883,7 +929,9 @@ int main (int argc, char** argv)
                 const int before  = proc.getControlCount (guitar);
                 const char* names[] = { "amp model", "latch",  "presence" };
                 const char* types[] = { "select",    "switch", "knob"  };
-                const char* folls[] = { "peaks",     "fixed",  "intensity" };
+                // Parked, so the shot renders both the choices box and the
+                // value box - the tightest the row ever gets.
+                const char* folls[] = { "fixed",     "none",   "intensity" };
                 int firstAdded = -1;
 
                 for (int i = 0; i < 3; ++i)

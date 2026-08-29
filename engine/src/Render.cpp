@@ -169,6 +169,13 @@ static void addControls (const PhraseProfile* prof, PhrasePart& out, int tick,
     // instrument's controls as its owner cares to.
     for (const PhraseProfile::ControlDef& def : prof->allControls())
     {
+        // A mapping worth remembering is not always a mapping worth driving.
+        // Without this the only way to leave a control alone was "fixed", which
+        // does not leave it alone at all - it pins it to the bottom of its
+        // range, so a mix knob ends up at zero and an effect gets switched off.
+        if (def.follows == "none")
+            continue;
+
         double t = 0.5;
 
         if      (def.follows == "lead")   t = leading ? 0.85 : 0.25;

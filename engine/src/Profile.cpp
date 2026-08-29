@@ -733,11 +733,22 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
     // to ask for "more drive" from an instrument that has no such knob.
     for (const ControlIntent& c : part.controls)
     {
-        const int cc = ccFor (c.control);
-        if (cc < 0) continue;
+        const ControlDef* def = nullptr;
+        for (const ControlDef& d : controlDefs)
+            if (d.name == c.control) { def = &d; break; }
+
+        if (def == nullptr || def->cc < 0)
+            continue;
+
+        // "none" means leave the instrument's own setting alone. Enforced here
+        // rather than only in the generator, because this is the one place a
+        // controller message can actually be written - a guard anywhere else
+        // can be walked around.
+        if (def->follows == "none")
+            continue;
 
         const int value = clampInt (static_cast<int> (c.amount * 127.0 + 0.5), 0, 127);
-        track.addCC (std::max (0, c.tick - phraseLeadTicks), channel, cc, value);
+        track.addCC (std::max (0, c.tick - phraseLeadTicks), channel, def->cc, value);
     }
 
     const int zoneSpan = chordHighest - chordLowest;

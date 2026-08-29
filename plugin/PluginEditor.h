@@ -200,8 +200,13 @@ private:
     // counts is eventually too short - a stompbox selector runs to thirty - and
     // the number is known exactly by whoever is looking at the instrument.
     juce::TextEditor ctlPositions;
+
+    // Where a "fixed" control is parked. Without it, fixed could only ever mean
+    // the bottom of the range, which is rarely the value anyone wanted.
+    juce::TextEditor ctlValue;
     juce::Label      learnHeading, learnHelp, ctlNameLabel, ctlFollowsLabel,
-                     ctlTypeLabel, ctlPositionsLabel, ctlPositionsHint;
+                     ctlTypeLabel, ctlPositionsLabel, ctlPositionsHint,
+                     ctlValueLabel, ctlValueHint;
     juce::Viewport   ctlViewport;
     ControlList      ctlList;
     int              ctlSelected = 0;

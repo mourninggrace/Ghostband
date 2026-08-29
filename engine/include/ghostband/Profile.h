@@ -149,7 +149,10 @@ public:
         // lead      - up when this part leads, down when it supports
         // peaks     - on for choruses and solos, off in quiet sections
         // rising    - climbs across the song, for something that should build
-        // fixed     - held at `low`
+        // fixed     - parked at `low`, and sent once per section
+        // none      - never sent at all, leaving whatever the instrument is set
+        //             to alone. "fixed" is not this: it actively drives the
+        //             control to the bottom of its range.
         std::string follows = "intensity";
 
         // "knob"   sweeps continuously through its range.

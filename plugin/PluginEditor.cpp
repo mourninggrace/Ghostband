@@ -890,7 +890,15 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     ctlPositions.onFocusLost = [this] { pushControlEdit(); };
     ctlPositions.onReturnKey = [this] { pushControlEdit(); };
     addChildComponent (ctlPositions);
-    for (const char* f : { "intensity", "lead", "peaks", "rising", "fixed" })
+
+    ctlValue.setColour (juce::TextEditor::textColourId, ghost::text);
+    ctlValue.setFont (juce::Font (juce::FontOptions (13.0f)));
+    ctlValue.setJustification (juce::Justification::centred);
+    ctlValue.setInputRestrictions (3, "0123456789");
+    ctlValue.onFocusLost = [this] { pushControlEdit(); };
+    ctlValue.onReturnKey = [this] { pushControlEdit(); };
+    addChildComponent (ctlValue);
+    for (const char* f : { "intensity", "lead", "peaks", "rising", "fixed", "none" })
         ctlFollows.addItem (f, ctlFollows.getNumItems() + 1);
     for (const char* t : { "knob", "switch", "select" })
         ctlType.addItem (t, ctlType.getNumItems() + 1);
@@ -931,6 +939,8 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     initLabel (ctlPositionsLabel, "CHOICES", 10.0f, ghost::dim, juce::Justification::centredLeft);
     initLabel (ctlPositionsHint, "positions on the selector", 10.0f, ghost::dim,
                juce::Justification::centredLeft);
+    initLabel (ctlValueLabel, "VALUE", 10.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (ctlValueHint, "", 10.0f, ghost::dim, juce::Justification::centredLeft);
 
     initLabel (learnHeading, "MIDI LEARN", 11.0f, ghost::text, juce::Justification::centredLeft);
     initLabel (learnHelp,
@@ -1108,7 +1118,7 @@ void GhostbandEditor::updateModeVisibility()
              &ctlAdd, &ctlRemove, &ctlTeach, &ctlSave, &ctlName,
              &ctlFollows, &ctlType, &ctlPositions, &ctlViewport,
              &ctlNameLabel, &ctlFollowsLabel, &ctlTypeLabel, &ctlPositionsLabel,
-             &ctlPositionsHint })
+             &ctlPositionsHint, &ctlValue, &ctlValueLabel, &ctlValueHint })
         c->setVisible (set);
 
     if (set)
@@ -1213,6 +1223,7 @@ void GhostbandEditor::refreshControls()
 
     suppressControlCallbacks = true;
     bool isSelect = false;
+    bool isFixed  = false;
     if (any)
     {
         const auto c = processor.getControl (part, ctlSelected);
@@ -1229,6 +1240,33 @@ void GhostbandEditor::refreshControls()
             ctlPositions.setText (juce::String (juce::jmax (2, c.positions)),
                                   juce::dontSendNotification);
 
+        isFixed = c.follows == "fixed";
+        if (isFixed)
+        {
+            // The same box means a different number for each type, because
+            // "which position" and "how far up" are not the same question.
+            if (isSelect)
+            {
+                const int last = juce::jmax (1, c.positions - 1);
+                ctlValue.setText (juce::String (juce::roundToInt (c.low * last) + 1),
+                                  juce::dontSendNotification);
+                ctlValueHint.setText ("which position, 1 to " + juce::String (c.positions),
+                                      juce::dontSendNotification);
+            }
+            else if (c.type == "switch")
+            {
+                ctlValue.setText (c.low > 0.5 ? "1" : "0", juce::dontSendNotification);
+                ctlValueHint.setText ("1 for on, 0 for off", juce::dontSendNotification);
+            }
+            else
+            {
+                ctlValue.setText (juce::String (juce::roundToInt (c.low * 100.0)),
+                                  juce::dontSendNotification);
+                ctlValueHint.setText ("per cent of the knob's travel",
+                                      juce::dontSendNotification);
+            }
+        }
+
         ctlTeach.setButtonText ("Teach  (CC " + juce::String (c.cc) + ")");
     }
     else
@@ -1244,7 +1282,18 @@ void GhostbandEditor::refreshControls()
     ctlPositionsLabel.setVisible (showChoices);
     ctlPositionsHint.setVisible (showChoices);
 
+    // The value box only means anything for a parked control, and the layout
+    // gives back its row when it is not there.
+    const bool showValue = any && isFixed && screen == Screen::Settings;
+    ctlValue.setVisible (showValue);
+    ctlValueLabel.setVisible (showValue);
+    ctlValueHint.setVisible (showValue);
+
     suppressControlCallbacks = false;
+
+    // The value row appears and disappears, so the rows under it have to move.
+    if (screen == Screen::Settings)
+        resized();
 }
 
 void GhostbandEditor::pushControlEdit()
@@ -1269,6 +1318,29 @@ void GhostbandEditor::pushControlEdit()
         s.positions = typed >= 2 ? juce::jmin (128, typed)
                                  : juce::jmax (2, s.positions);
     }
+    if (s.follows == "fixed" && ctlValue.getText().isNotEmpty())
+    {
+        const int typed = ctlValue.getText().getIntValue();
+        double parked = 0.0;
+
+        if (s.type == "select")
+        {
+            const int last = juce::jmax (1, s.positions - 1);
+            parked = juce::jlimit (0, last, typed - 1) / static_cast<double> (last);
+        }
+        else if (s.type == "switch")
+        {
+            parked = typed != 0 ? 1.0 : 0.0;
+        }
+        else
+        {
+            parked = juce::jlimit (0, 100, typed) / 100.0;
+        }
+
+        // low and high both move: a parked control has no range to travel.
+        s.low = s.high = parked;
+    }
+
     processor.updateControl (part, ctlSelected, s);
     refreshControls();
 }
@@ -1630,6 +1702,17 @@ void GhostbandEditor::resized()
         ctlPositions.setBounds (teachRow.removeFromLeft (52).withSizeKeepingCentre (52, 26));
         teachRow.removeFromLeft (8);
         ctlPositionsHint.setBounds (teachRow);
+
+        if (ctlValue.isVisible())
+        {
+            s.removeFromTop (6);
+            auto valueRow = s.removeFromTop (26);
+            valueRow.removeFromLeft (186);          // line up under the choices box
+            ctlValueLabel.setBounds (valueRow.removeFromLeft (54));
+            ctlValue.setBounds (valueRow.removeFromLeft (52).withSizeKeepingCentre (52, 26));
+            valueRow.removeFromLeft (8);
+            ctlValueHint.setBounds (valueRow);
+        }
         s.removeFromTop (8);
 
         auto listArea = s.removeFromTop (juce::jmax (60, s.getHeight() - 46));
