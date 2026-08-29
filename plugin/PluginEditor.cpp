@@ -880,23 +880,23 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 
     styleCombo (ctlFollows);
     styleCombo (ctlType);
-    styleCombo (ctlPositions);
     addChildComponent (ctlFollows);
     addChildComponent (ctlType);
+
+    ctlPositions.setColour (juce::TextEditor::textColourId, ghost::text);
+    ctlPositions.setFont (juce::Font (juce::FontOptions (13.0f)));
+    ctlPositions.setJustification (juce::Justification::centred);
+    ctlPositions.setInputRestrictions (3, "0123456789");
+    ctlPositions.onFocusLost = [this] { pushControlEdit(); };
+    ctlPositions.onReturnKey = [this] { pushControlEdit(); };
     addChildComponent (ctlPositions);
     for (const char* f : { "intensity", "lead", "peaks", "rising", "fixed" })
         ctlFollows.addItem (f, ctlFollows.getNumItems() + 1);
     for (const char* t : { "knob", "switch", "select" })
         ctlType.addItem (t, ctlType.getNumItems() + 1);
 
-    // How many choices a selector offers. Counted, not typed, because getting
-    // this wrong by one puts every position on the wrong choice.
-    for (int n = 2; n <= 16; ++n)
-        ctlPositions.addItem (juce::String (n) + " positions", n - 1);
-
-    ctlFollows.onChange   = [this] { pushControlEdit(); };
-    ctlType.onChange      = [this] { pushControlEdit(); };
-    ctlPositions.onChange = [this] { pushControlEdit(); };
+    ctlFollows.onChange = [this] { pushControlEdit(); };
+    ctlType.onChange    = [this] { pushControlEdit(); };
 
     const auto part = [this] { return learnPart.getSelectedId() == 2 ? 3 : 2; };
 
@@ -929,6 +929,8 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     initLabel (ctlFollowsLabel, "FOLLOWS", 10.0f, ghost::dim, juce::Justification::centredLeft);
     initLabel (ctlTypeLabel,    "TYPE",    10.0f, ghost::dim, juce::Justification::centredLeft);
     initLabel (ctlPositionsLabel, "CHOICES", 10.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (ctlPositionsHint, "positions on the selector", 10.0f, ghost::dim,
+               juce::Justification::centredLeft);
 
     initLabel (learnHeading, "MIDI LEARN", 11.0f, ghost::text, juce::Justification::centredLeft);
     initLabel (learnHelp,
@@ -1105,7 +1107,8 @@ void GhostbandEditor::updateModeVisibility()
              &learnPart, &learnHeading, &learnHelp,
              &ctlAdd, &ctlRemove, &ctlTeach, &ctlSave, &ctlName,
              &ctlFollows, &ctlType, &ctlPositions, &ctlViewport,
-             &ctlNameLabel, &ctlFollowsLabel, &ctlTypeLabel, &ctlPositionsLabel })
+             &ctlNameLabel, &ctlFollowsLabel, &ctlTypeLabel, &ctlPositionsLabel,
+             &ctlPositionsHint })
         c->setVisible (set);
 
     if (set)
@@ -1223,8 +1226,8 @@ void GhostbandEditor::refreshControls()
 
         isSelect = c.type == "select";
         if (isSelect)
-            ctlPositions.setSelectedId (juce::jlimit (2, 16, c.positions) - 1,
-                                        juce::dontSendNotification);
+            ctlPositions.setText (juce::String (juce::jmax (2, c.positions)),
+                                  juce::dontSendNotification);
 
         ctlTeach.setButtonText ("Teach  (CC " + juce::String (c.cc) + ")");
     }
@@ -1239,6 +1242,7 @@ void GhostbandEditor::refreshControls()
     const bool showChoices = any && isSelect && screen == Screen::Settings;
     ctlPositions.setVisible (showChoices);
     ctlPositionsLabel.setVisible (showChoices);
+    ctlPositionsHint.setVisible (showChoices);
 
     suppressControlCallbacks = false;
 }
@@ -1257,7 +1261,14 @@ void GhostbandEditor::pushControlEdit()
     s.follows = ctlFollows.getText();
     s.type    = ctlType.getText();
     if (s.type == "select")
-        s.positions = juce::jmax (2, ctlPositions.getSelectedId() + 1);
+    {
+        // 128 is the ceiling because a controller has no more values than that.
+        // An empty or half-typed box must not collapse the mapping to two
+        // choices, so a number below two is left as it was.
+        const int typed = ctlPositions.getText().getIntValue();
+        s.positions = typed >= 2 ? juce::jmin (128, typed)
+                                 : juce::jmax (2, s.positions);
+    }
     processor.updateControl (part, ctlSelected, s);
     refreshControls();
 }
@@ -1616,7 +1627,9 @@ void GhostbandEditor::resized()
         ctlTeach.setBounds (teachRow.removeFromLeft (170));
         teachRow.removeFromLeft (16);
         ctlPositionsLabel.setBounds (teachRow.removeFromLeft (54));
-        ctlPositions.setBounds (teachRow.removeFromLeft (110).withSizeKeepingCentre (110, 26));
+        ctlPositions.setBounds (teachRow.removeFromLeft (52).withSizeKeepingCentre (52, 26));
+        teachRow.removeFromLeft (8);
+        ctlPositionsHint.setBounds (teachRow);
         s.removeFromTop (8);
 
         auto listArea = s.removeFromTop (juce::jmax (60, s.getHeight() - 46));

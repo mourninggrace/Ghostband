@@ -736,6 +736,33 @@ int main (int argc, char** argv)
         check (ccOf (upper, 0.0) == 64 && ccOf (upper, 1.0) == 127,
                "a narrowed selector never leaves its declared choices");
 
+        // A stompbox list runs to thirty, which is well past any count worth
+        // offering in a dropdown - and every one of those thirty has to be
+        // reachable and distinct, or two of them are the same pedal.
+        gb::PhraseProfile::ControlDef stomp;
+        stomp.type = "select"; stomp.positions = 30;
+
+        std::set<int> stompValues;
+        for (int i = 0; i <= 2000; ++i)
+            stompValues.insert (ccOf (stomp, i / 2000.0));
+
+        check (stompValues.size() == 30, "a 30-way selector reaches all thirty choices",
+               juce::String (static_cast<int> (stompValues.size())) + " distinct values");
+        check (ccOf (stomp, 0.0) == 0 && ccOf (stomp, 1.0) == 127,
+               "a 30-way selector reaches its first and last choice");
+
+        // The widest a controller can express. Beyond this two choices would
+        // have to share a value.
+        gb::PhraseProfile::ControlDef widest;
+        widest.type = "select"; widest.positions = 128;
+
+        std::set<int> widestValues;
+        for (int i = 0; i <= 5000; ++i)
+            widestValues.insert (ccOf (widest, i / 5000.0));
+
+        check (widestValues.size() == 128, "a 128-way selector still has no two choices alike",
+               juce::String (static_cast<int> (widestValues.size())) + " distinct values");
+
         // A "select" with too few positions is not a selector at all; it must
         // degrade to a plain sweep rather than divide by zero.
         gb::PhraseProfile::ControlDef broken;
@@ -870,7 +897,7 @@ int main (int argc, char** argv)
                     slot.name      = names[i];
                     slot.type      = types[i];
                     slot.follows   = folls[i];
-                    slot.positions = 5;
+                    slot.positions = 30;   // a real stompbox list, not a tidy number
                     proc.updateControl (guitar, idx, slot);
                 }
 
@@ -879,7 +906,7 @@ int main (int argc, char** argv)
                        juce::String (proc.getControlCount (guitar)) + " mapped");
 
                 const auto sel = proc.getControl (guitar, firstAdded);
-                check (sel.type == "select" && sel.positions == 5
+                check (sel.type == "select" && sel.positions == 30
                            && sel.name == "amp model",
                        "a selector keeps its name and choice count",
                        sel.name + " / " + sel.type + " / " + juce::String (sel.positions));

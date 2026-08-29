@@ -194,9 +194,14 @@ private:
     juce::TextButton ctlTeach  { "Teach this control" };
     juce::TextButton ctlSave   { "Save mappings" };
     juce::TextEditor ctlName;
-    juce::ComboBox   ctlFollows, ctlType, ctlPositions;
+    juce::ComboBox   ctlFollows, ctlType;
+
+    // How many choices a selector has, typed rather than picked. Any list of
+    // counts is eventually too short - a stompbox selector runs to thirty - and
+    // the number is known exactly by whoever is looking at the instrument.
+    juce::TextEditor ctlPositions;
     juce::Label      learnHeading, learnHelp, ctlNameLabel, ctlFollowsLabel,
-                     ctlTypeLabel, ctlPositionsLabel;
+                     ctlTypeLabel, ctlPositionsLabel, ctlPositionsHint;
     juce::Viewport   ctlViewport;
     ControlList      ctlList;
     int              ctlSelected = 0;
