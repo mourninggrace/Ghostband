@@ -159,6 +159,8 @@ private:
     // Settings
     juce::ComboBox chDrums, chBass, chGuitar, chPiano;
     juce::Label    chDrumsLabel, chBassLabel, chGuitarLabel, chPianoLabel;
+    juce::TextButton testDrums { "Test" }, testBass { "Test" },
+                     testGuitar { "Test" }, testPiano { "Test" };
     juce::Label    settingsHeading, channelsHelp;
     juce::TextButton resetSizeButton   { "Reset window size" };
     juce::TextButton reloadProfilesBtn { "Reload driver profiles" };

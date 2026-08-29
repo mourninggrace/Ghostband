@@ -387,6 +387,7 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
     out.phraseLeadTicks   = std::max (1, j.intOr ("phrase_lead_ticks", out.phraseLeadTicks));
     out.phraseBlipTicks   = std::max (1, j.intOr ("phrase_blip_ticks", out.phraseBlipTicks));
     out.phraseVelocity    = clampInt (j.intOr ("phrase_velocity", out.phraseVelocity), 1, 127);
+    out.strumTicks        = clampInt (j.intOr ("strum_ticks", out.strumTicks), 0, 240);
     out.needsVerification = j.boolOr ("needs_verification", false);
     out.verificationNote  = j.stringOr ("verification_note", "");
 
@@ -486,13 +487,29 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
 
         const int vel = velocityFor (c.accent, velocityMin, velocityMax);
 
+        // Strum. Alternating direction, so consecutive chords do not all sweep
+        // the same way, and the trailing notes slightly softer as a real pick
+        // loses energy across the strings.
+        std::vector<int> voiced;
         for (int n : notes)
         {
             while (n > chordHighest && zoneSpan >= 12) n -= 12;
-            if (n < chordLowest || n > chordHighest) continue;
+            if (n >= chordLowest && n <= chordHighest) voiced.push_back (n);
+        }
+        if (voiced.empty())
+            continue;
 
-            track.addNoteOn  (c.tick, channel, n, vel);
-            track.addNoteOff (c.tick + c.durationTicks, channel, n);
+        std::sort (voiced.begin(), voiced.end());
+        if (c.strumUp)
+            std::reverse (voiced.begin(), voiced.end());
+
+        for (size_t i = 0; i < voiced.size(); ++i)
+        {
+            const int offset = strumTicks * static_cast<int> (i);
+            const int noteVel = clampInt (vel - static_cast<int> (i) * 4, 1, 127);
+
+            track.addNoteOn  (c.tick + offset, channel, voiced[i], noteVel);
+            track.addNoteOff (c.tick + offset + c.durationTicks, channel, voiced[i]);
         }
     }
 }

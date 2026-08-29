@@ -770,6 +770,14 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         initLabel (*c.label, c.name, 10.0f, ghost::dim, juce::Justification::centredLeft);
     }
 
+    juce::TextButton* testButtons[4] = { &testDrums, &testBass, &testGuitar, &testPiano };
+    for (int i = 0; i < 4; ++i)
+    {
+        styleButton (*testButtons[i], false);
+        testButtons[i]->onClick = [this, i] { processor.testPart (i); };
+        addChildComponent (*testButtons[i]);
+    }
+
     initLabel (settingsHeading, "SETTINGS", 15.0f, ghost::text, juce::Justification::centredLeft);
     initLabel (channelsHelp,
                "Each part is sent on its own MIDI channel. Set the matching channel on each "
@@ -928,7 +936,8 @@ void GhostbandEditor::updateModeVisibility()
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &chDrums, &chBass, &chGuitar, &chPiano,
              &chDrumsLabel, &chBassLabel, &chGuitarLabel, &chPianoLabel,
-             &settingsHeading, &channelsHelp, &resetSizeButton, &reloadProfilesBtn })
+             &settingsHeading, &channelsHelp, &resetSizeButton, &reloadProfilesBtn,
+             &testDrums, &testBass, &testGuitar, &testPiano })
         c->setVisible (set);
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
@@ -1294,11 +1303,14 @@ void GhostbandEditor::resized()
 
         juce::ComboBox* boxes[4]  = { &chDrums, &chBass, &chGuitar, &chPiano };
         juce::Label*    labels[4] = { &chDrumsLabel, &chBassLabel, &chGuitarLabel, &chPianoLabel };
+        juce::TextButton* tests[4] = { &testDrums, &testBass, &testGuitar, &testPiano };
         for (int i = 0; i < 4; ++i)
         {
             auto row = s.removeFromTop (28);
             labels[i]->setBounds (row.removeFromLeft (70));
             boxes[i]->setBounds (row.removeFromLeft (78));
+            row.removeFromLeft (10);
+            tests[i]->setBounds (row.removeFromLeft (66));
             s.removeFromTop (6);
         }
 

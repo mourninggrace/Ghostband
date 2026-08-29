@@ -225,6 +225,12 @@ public:
 
     void applyChannels();   // re-reads the atomics into the loaded profiles
 
+    // Plays a few obvious notes on one part's channel, right now, with the
+    // transport stopped. Turns "nothing is playing" into "drums arrive and bass
+    // does not", which points straight at that part's routing instead of
+    // leaving it to guesswork.
+    void testPart (int part);   // 0 drums, 1 bass, 2 guitar, 3 piano
+
     std::atomic<float> levelDrums  { 1.0f };
     std::atomic<float> levelBass   { 1.0f };
     std::atomic<float> levelGuitar { 1.0f };

@@ -100,6 +100,70 @@ static double chordSustain (PhraseFeel feel)
     }
 }
 
+// What a part plays when it is not leading the section: long and out of the
+// way. A supporting part that keeps its own busy feel is just two instruments
+// competing, which is the thing this exists to prevent.
+// Where in the bar a note-driven part strikes, as sixteenth-note offsets.
+//
+// Evenly dividing the bar into two or four gives block chords on the beat,
+// which is what made the guitar sound like one strum per chord. These are
+// actual rhythms - syncopations, chugs, pushes - drawn from a pool so a section
+// does not repeat one figure for eight bars.
+static std::vector<int> chordRhythm (PhraseFeel feel, Rng& rng)
+{
+    std::vector<std::vector<int>> pool;
+
+    switch (feel)
+    {
+        case PhraseFeel::Open:
+            pool = { { 0 }, { 0, 8 } };
+            break;
+
+        case PhraseFeel::Sparse:
+            pool = { { 0, 8 }, { 0, 6 }, { 0, 10 }, { 0 } };
+            break;
+
+        case PhraseFeel::Muted:
+            // Chugs: eighths, a gallop, and a pushed figure that anticipates
+            // the beat rather than landing on it.
+            pool = { { 0, 2, 4, 6, 8, 10, 12, 14 },
+                     { 0, 2, 3, 4, 6, 7, 8, 10, 11, 12, 14, 15 },
+                     { 0, 3, 4, 7, 8, 11, 12, 15 },
+                     { 0, 2, 4, 7, 8, 10, 12, 15 } };
+            break;
+
+        case PhraseFeel::Driving:
+            pool = { { 0, 4, 6, 8, 12, 14 },
+                     { 0, 2, 4, 8, 10, 12 },
+                     { 0, 3, 6, 8, 11, 14 },
+                     { 0, 4, 8, 11, 12 } };
+            break;
+
+        case PhraseFeel::Busy:
+            pool = { { 0, 2, 3, 4, 6, 7, 8, 10, 11, 12, 14, 15 },
+                     { 0, 1, 2, 3, 4, 6, 8, 9, 10, 11, 12, 14 },
+                     { 0, 2, 4, 6, 8, 10, 12, 13, 14, 15 } };
+            break;
+
+        default:
+            pool = { { 0 } };
+            break;
+    }
+
+    return pool[static_cast<size_t> (rng.below (static_cast<int> (pool.size())))];
+}
+
+static PhraseFeel supportFeel (PhraseFeel wanted)
+{
+    switch (wanted)
+    {
+        case PhraseFeel::Silent: return PhraseFeel::Silent;
+        case PhraseFeel::Busy:
+        case PhraseFeel::Driving: return PhraseFeel::Sparse;
+        default:                  return PhraseFeel::Open;
+    }
+}
+
 static void generatePhrasePart (const SectionPlan& s,
                                 const std::vector<Chord>& chords,
                                 int sectionStartTick,
@@ -109,6 +173,7 @@ static void generatePhrasePart (const SectionPlan& s,
                                 bool phraseDriven,
                                 PhraseFeel feel,
                                 double humanize,
+                                bool supporting,
                                 Rng& rng,
                                 PhrasePart& out)
 {
@@ -156,10 +221,21 @@ static void generatePhrasePart (const SectionPlan& s,
             }
         }
 
-        const int step = barTicks / hits;
-        for (int h = 0; h < hits; ++h)
+        // A note-driven part plays a rhythm; a phrase instrument is simply
+        // handed the harmony and performs its own.
+        const int sixteenth = std::max (1, barTicks / 16);
+        const std::vector<int> pattern = phraseDriven ? std::vector<int> { 0 }
+                                                      : chordRhythm (feel, rng);
+
+        const int hitCount = static_cast<int> (pattern.size());
+        for (int h = 0; h < hitCount; ++h)
         {
+            const int step = pattern[static_cast<size_t> (h)] * sixteenth;
+            const int nextOffset = (h + 1 < hitCount)
+                                     ? pattern[static_cast<size_t> (h + 1)] * sixteenth
+                                     : barTicks;
             ChordIntent ci;
+            ci.strumUp = (h % 2) == 1;
 
             // No timing jitter for a phrase instrument. It performs its own
             // rhythm, so jittering the chord only risks opening a gap - and a
@@ -168,19 +244,34 @@ static void generatePhrasePart (const SectionPlan& s,
             // That is what made the guitar cut out after a second at a time.
             ci.tick = phraseDriven
                         ? barStart
-                        : std::max (0, barStart + h * step
-                                       + static_cast<int> (rng.bipolar (humanize * 4.0)));
+                        : std::max (0, barStart + step
+                                       + static_cast<int> (rng.bipolar (humanize * 3.0)));
 
-            // Overlap the next chord rather than meeting it exactly, so the
-            // instrument never sees a moment with nothing held.
+            // Overlap the next chord rather than meeting it exactly, so a phrase
+            // instrument never sees a moment with nothing held. A note-driven
+            // part is cut short of the next strike instead, which is what gives
+            // a muted chug its separation.
+            const int gap = std::max (sixteenth, nextOffset - step);
             ci.durationTicks = phraseDriven
                                  ? barTicks + kPPQ / 8
-                                 : std::max (1, static_cast<int> (step * chordSustain (feel)));
+                                 : std::max (sixteenth / 2,
+                                             static_cast<int> (gap * chordSustain (feel)));
             ci.rootPc        = c.rootPc;
             ci.thirdSemis    = third;
             ci.fifthSemis    = fifth;
             ci.accent        = (h == 0 ? 0.78 : 0.62) + s.intensity * 0.22
                              + rng.bipolar (0.04);
+
+            // A supporting part sits back and gets out of the lead's register.
+            // Dropping the third keeps it from doubling the harmony note for
+            // note, so it reads as a pad rather than a second rhythm part.
+            if (supporting)
+            {
+                ci.accent     *= 0.72;
+                ci.thirdSemis  = -1;
+                ci.fifthSemis  = 7;
+            }
+
             out.chords.push_back (ci);
         }
     }
@@ -331,32 +422,69 @@ RenderResult renderPerformance (const SongPlan& plan,
         // Generated per section rather than per bar: a phrase instrument is
         // told what to play once and then left alone, and even a note-driven
         // one wants a single coherent treatment across the section.
-        if (guitar != nullptr && s.playsGuitar)
+        //
+        // Two chordal instruments both playing a full part fight each other, so
+        // one leads the section and the other supports. The support part is
+        // thinned to long held chords and dropped an octave clear of the lead,
+        // which is what a real arrangement does rather than simply turning it
+        // down.
         {
-            bool explicitFeel = false;
-            PhraseFeel feel = phraseFeelFromName (s.guitarPhrase, explicitFeel);
-            if (! explicitFeel) feel = chooseGuitarFeel (ctx, rng);
+            const bool playGuitar = (guitar != nullptr && s.playsGuitar);
+            const bool playPiano  = (piano  != nullptr && s.playsPiano);
 
-            const size_t before = result.performance.guitar.chords.size();
-            generatePhrasePart (s, chords, tick, barTicks, keyPc, mode,
-                                guitar->isPhraseDriven(), feel, plan.humanize, rng,
-                                result.performance.guitar);
-            report.guitarChords = static_cast<int> (result.performance.guitar.chords.size() - before);
-            report.guitarFeel   = phraseFeelName (feel);
-        }
+            bool guitarExplicit = false, pianoExplicit = false;
+            PhraseFeel guitarFeel = phraseFeelFromName (s.guitarPhrase, guitarExplicit);
+            PhraseFeel pianoFeel  = phraseFeelFromName (s.pianoPhrase,  pianoExplicit);
+            if (! guitarExplicit) guitarFeel = chooseGuitarFeel (ctx, rng);
+            if (! pianoExplicit)  pianoFeel  = choosePianoFeel (ctx, rng);
 
-        if (piano != nullptr && s.playsPiano)
-        {
-            bool explicitFeel = false;
-            PhraseFeel feel = phraseFeelFromName (s.pianoPhrase, explicitFeel);
-            if (! explicitFeel) feel = choosePianoFeel (ctx, rng);
+            bool guitarSupports = false, pianoSupports = false;
 
-            const size_t before = result.performance.piano.chords.size();
-            generatePhrasePart (s, chords, tick, barTicks, keyPc, mode,
-                                piano->isPhraseDriven(), feel, plan.humanize, rng,
-                                result.performance.piano);
-            report.pianoChords = static_cast<int> (result.performance.piano.chords.size() - before);
-            report.pianoFeel   = phraseFeelName (feel);
+            if (playGuitar && playPiano
+                && guitarFeel != PhraseFeel::Silent && pianoFeel != PhraseFeel::Silent)
+            {
+                // A distorted guitar wins a loud section; a piano wins a quiet
+                // or half-time one, where a guitar would only get in the way.
+                int guitarLeadWeight = styleUsesPowerChords (plan.style) ? 65 : 45;
+                if (ctx.feel == Feel::HalfTime)   guitarLeadWeight -= 30;
+                if (s.intensity > 0.75)           guitarLeadWeight += 20;
+                if (s.intensity < 0.40)           guitarLeadWeight -= 20;
+                if (s.role == "bridge")           guitarLeadWeight -= 25;
+
+                const bool guitarLeads = rng.below (100) < std::max (5, std::min (95, guitarLeadWeight));
+                guitarSupports = ! guitarLeads;
+                pianoSupports  = guitarLeads;
+            }
+
+            if (playGuitar)
+            {
+                const size_t before = result.performance.guitar.chords.size();
+                generatePhrasePart (s, chords, tick, barTicks, keyPc, mode,
+                                    guitar->isPhraseDriven(),
+                                    guitarSupports ? supportFeel (guitarFeel) : guitarFeel,
+                                    plan.humanize, guitarSupports, rng,
+                                    result.performance.guitar);
+                report.guitarChords = static_cast<int> (result.performance.guitar.chords.size() - before);
+                report.guitarFeel   = std::string (phraseFeelName (guitarSupports ? supportFeel (guitarFeel)
+                                                                                  : guitarFeel))
+                                    + (playPiano && pianoFeel != PhraseFeel::Silent
+                                         ? (guitarSupports ? " (support)" : " (lead)") : "");
+            }
+
+            if (playPiano)
+            {
+                const size_t before = result.performance.piano.chords.size();
+                generatePhrasePart (s, chords, tick, barTicks, keyPc, mode,
+                                    piano->isPhraseDriven(),
+                                    pianoSupports ? supportFeel (pianoFeel) : pianoFeel,
+                                    plan.humanize, pianoSupports, rng,
+                                    result.performance.piano);
+                report.pianoChords = static_cast<int> (result.performance.piano.chords.size() - before);
+                report.pianoFeel   = std::string (phraseFeelName (pianoSupports ? supportFeel (pianoFeel)
+                                                                                : pianoFeel))
+                                   + (playGuitar && guitarFeel != PhraseFeel::Silent
+                                        ? (pianoSupports ? " (support)" : " (lead)") : "");
+            }
         }
 
         report.drumHits  = static_cast<int> (result.performance.drums.size() - drumsBefore);

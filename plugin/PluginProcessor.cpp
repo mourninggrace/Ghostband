@@ -405,6 +405,56 @@ void GhostbandProcessor::applyChannels()
     sendLevels();
 }
 
+void GhostbandProcessor::testPart (int part)
+{
+    // Deliberately unmistakable: a drum pattern, a walking bass figure, and a
+    // held chord for the pitched parts. If you hear nothing, that part's MIDI is
+    // not arriving.
+    struct Figure { int channel; std::vector<int> notes; bool chord; };
+
+    Figure f;
+    {
+        const juce::ScopedLock sl (stateLock);
+        switch (part)
+        {
+            case 1:  f = { bassProfile.channel,   { 40, 43, 45, 47 }, false }; break;
+            case 2:  f = { guitarProfile.channel, { 52, 55, 59 },     true  }; break;
+            case 3:  f = { pianoProfile.channel,  { 60, 64, 67 },     true  }; break;
+            default: f = { kit.channel,           { 36, 42, 38, 42 }, false }; break;
+        }
+    }
+
+    const double sr = juce::jmax (8000.0, getSampleRate());
+    const int step = static_cast<int> (0.32 * sr);
+    const int hold = static_cast<int> (0.28 * sr);
+
+    const juce::SpinLock::ScopedLockType lock (auditionLock);
+
+    // Make sure the part is audible before testing it - a level knob left down
+    // would look exactly like broken routing.
+    pendingAuditions.push_back ({ 0, juce::MidiMessage::controllerEvent (f.channel, 7, 127) });
+
+    if (f.chord)
+    {
+        for (int n : f.notes)
+        {
+            pendingAuditions.push_back ({ 0, juce::MidiMessage::noteOn (f.channel, n, (juce::uint8) 100) });
+            pendingAuditions.push_back ({ static_cast<int> (1.2 * sr),
+                                          juce::MidiMessage::noteOff (f.channel, n) });
+        }
+    }
+    else
+    {
+        int at = 0;
+        for (int n : f.notes)
+        {
+            pendingAuditions.push_back ({ at, juce::MidiMessage::noteOn (f.channel, n, (juce::uint8) 105) });
+            pendingAuditions.push_back ({ at + hold, juce::MidiMessage::noteOff (f.channel, n) });
+            at += step;
+        }
+    }
+}
+
 void GhostbandProcessor::sendLevels()
 {
     struct Part { int channel; float level; };

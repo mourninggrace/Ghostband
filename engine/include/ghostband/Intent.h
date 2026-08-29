@@ -72,6 +72,7 @@ struct ChordIntent
     int    thirdSemis    = 3;   // -1 for no third
     int    fifthSemis    = 7;
     double accent        = 0.7;
+    bool   strumUp       = false;   // alternates, so chords do not all sweep alike
 };
 
 // Switch the instrument to this phrase. Emitted at section and phrase changes,

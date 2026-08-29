@@ -16,8 +16,13 @@
   // Player mode, point the plan at the player profile instead - using the wrong
   // one sounds broken rather than merely wrong.
   //
-  // The range below is an ordinary guitar's: E2 up to E5. Chords are voiced
-  // inside it, so nothing lands below the lowest string.
+  // RANGE, measured, and not what a guitar's range would suggest.
+  //
+  // The obvious choice was E2-E5 (40-64), an ordinary guitar range. That is
+  // wrong: the probe measured IRON 2 as SILENT from 12 to 59 and sounding from
+  // 60 to 89, and sending it notes at 40-57 produced visible MIDI activity and
+  // no sound at all - reported as "I can see signals going to the guitar, but no
+  // sound". Whatever the keyboard looks like, 60-89 is where it speaks.
 
   "name": "UJAM VG IRON 2 (instrument mode)",
   "id": "vg_iron2_instrument",
@@ -28,7 +33,12 @@
   "needs_verification": true,
   "verification_note": "Requires IRON 2 set to Instrument mode, not Player mode.",
 
-  "chord_zone": { "lowest_note": 40, "highest_note": 64 },
+  "chord_zone": { "lowest_note": 60, "highest_note": 84 },
+
+  // Notes of a chord are struck a few milliseconds apart, alternating direction.
+  // A real guitarist never sounds them together, and simultaneous notes are most
+  // of why a generated guitar part sounds like a keyboard.
+  "strum_ticks": 9,
 
   "velocity_min": 70,
   "velocity_max": 120

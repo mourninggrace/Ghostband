@@ -131,6 +131,12 @@ public:
     int  phraseBlipTicks   = 40;
     int  phraseVelocity    = 100;
 
+    // Strum spread: how far apart the notes of one chord are struck. A real
+    // guitarist never sounds a chord's notes simultaneously, and simultaneous
+    // notes are most of why a generated guitar part sounds like a keyboard.
+    // Zero for a piano, where the notes genuinely do land together.
+    int  strumTicks = 0;
+
     bool        needsVerification = false;
     std::string verificationNote;
 
