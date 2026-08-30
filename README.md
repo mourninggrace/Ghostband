@@ -53,6 +53,29 @@ untouched so the audio pins can be left unwired.
 Note that a host holds the plugin DLL open while it is loaded, so **close the
 host before reinstalling** or the copy will silently leave the old build behind.
 
+### The songs it comes with
+
+Eight presets ship inside the plugin, and **Load plan** opens on them. They are
+deliberately not eight versions of the same song - each one is written to put a
+different part of the arranger under load.
+
+| Song | Style | Written to show |
+|------|-------|-----------------|
+| Terminal Velocity | thrash, 184 | Tightness. Humanize is deliberately low. |
+| Brass Hour | hard rock, 92 | The lead handover - piano leads the verses, guitar takes the choruses. |
+| Last Bus Home | punk, 178 | Restraint. No solo, no piano, under seventy seconds. |
+| The Long Way Round | progressive, 132 | Sections of 6, 10, 12 and 14 bars, and the lead passing four times. |
+| Glass and Wire | alt rock, 138 | Loud-quiet-loud. Verses at 0.30 against choruses at 0.90. |
+| Nothing Kept For Later | emo, 152 | Twelve bar choruses against eight bar verses. |
+| What the House Remembers | ballad, 68 | One five minute crescendo; instruments arrive one at a time. |
+| Slow Train Coming Back | blues, 86 | The shuffle. A real twelve bar, written out rather than cycled. |
+
+A song plays at its own tempo rather than the host's, because a VST3 cannot set
+the host tempo and matching it by hand for every song is a poor way to spend an
+evening. The host transport still starts and stops it. There is a **Tempo:
+song / Tempo: host** toggle in Settings; the cost of song tempo is that anything
+else in the rackspace synced to the host will not agree with the band.
+
 ### Driving the instrument's own controls
 
 Ghostband can move an instrument's knobs, switches and selectors as the song
