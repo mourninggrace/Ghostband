@@ -48,5 +48,14 @@
     "hammer":    { "keyswitch": 16 },
     "slap":      { "keyswitch": 12 },
     "pop":       { "keyswitch": 13 }
-  }
+  },
+
+  // Controls mapped in the plugin: an instrument's own knobs, buttons and
+  // switches, driven by the arrangement. Built in Settings, named by whoever
+  // made them, and written back here by Save mappings.
+  //
+  // Map the instrument's volume with follows "level" and the mix knob on the
+  // song screen will reach it. Without one, the mix knob falls back to CC 7,
+  // which most instrument plugins ignore outright.
+  "controls": {}
 }

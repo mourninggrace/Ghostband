@@ -859,9 +859,11 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     // ---- MIDI Learn helpers ----
     styleCombo (learnPart);
     addChildComponent (learnPart);
-    learnPart.addItem ("guitar", 1);
-    learnPart.addItem ("piano",  2);
-    learnPart.setSelectedId (1, juce::dontSendNotification);
+    learnPart.addItem ("drums",  1);
+    learnPart.addItem ("bass",   2);
+    learnPart.addItem ("guitar", 3);
+    learnPart.addItem ("piano",  4);
+    learnPart.setSelectedId (3, juce::dontSendNotification);
 
     // An open-ended list rather than fixed slots: how many knobs, buttons and
     // switches are worth automating is the owner's decision.
@@ -918,7 +920,8 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     ctlFollows.onChange = [this] { pushControlEdit(); };
     ctlType.onChange    = [this] { pushControlEdit(); };
 
-    const auto part = [this] { return learnPart.getSelectedId() == 2 ? 3 : 2; };
+    // The list is in part order, so the id is the part index plus one.
+    const auto part = [this] { return juce::jlimit (0, 3, learnPart.getSelectedId() - 1); };
 
     learnPart.onChange = [this] { ctlSelected = 0; refreshControls(); };
 
@@ -1269,7 +1272,7 @@ juce::String GhostbandEditor::controlUnitsHint (const juce::String& type, int po
 
 void GhostbandEditor::refreshControls()
 {
-    const int part = learnPart.getSelectedId() == 2 ? 3 : 2;
+    const int part = juce::jlimit (0, 3, learnPart.getSelectedId() - 1);
     const int count = processor.getControlCount (part);
     ctlSelected = juce::jlimit (0, juce::jmax (0, count - 1), ctlSelected);
 
@@ -1381,11 +1384,13 @@ void GhostbandEditor::pushControlEdit()
     if (suppressControlCallbacks || screen != Screen::Settings)
         return;
 
-    const int part = learnPart.getSelectedId() == 2 ? 3 : 2;
+    const int part = juce::jlimit (0, 3, learnPart.getSelectedId() - 1);
     if (processor.getControlCount (part) == 0)
         return;
 
-    GhostbandProcessor::ControlSlot s = processor.getControl (part, ctlSelected);
+    const GhostbandProcessor::ControlSlot before = processor.getControl (part, ctlSelected);
+
+    GhostbandProcessor::ControlSlot s = before;
     s.name    = ctlName.getText();
     s.follows = ctlFollows.getText();
     s.type    = ctlType.getText();
@@ -1406,6 +1411,16 @@ void GhostbandEditor::pushControlEdit()
             s.low = s.high = controlUnitsToNorm (s.type, s.positions,
                                                  ctlValue.getText().getIntValue());
         }
+    }
+    else if (before.follows == "fixed" && s.low == s.high)
+    {
+        // Coming off "fixed" leaves low and high sitting on the same number,
+        // which is a range with nowhere to travel: the control would keep the
+        // parked value and never move, however it was set to follow. Two
+        // controls were found silently pinned this way, both marked "random
+        // once" and both stuck on one choice for every song.
+        s.low  = 0.0;
+        s.high = 1.0;
     }
     else if (s.follows != "none")
     {

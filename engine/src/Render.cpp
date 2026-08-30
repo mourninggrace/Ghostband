@@ -154,11 +154,12 @@ static std::vector<int> chordRhythm (PhraseFeel feel, Rng& rng)
 // drive where the section is loud, brighter where it leads, the effect brought
 // in for the biggest moments and pulled out of the quiet ones. What each name
 // actually reaches is the profile's business, and an unmapped one is ignored.
-static void addControls (const PhraseProfile* prof, PhrasePart& out, int tick,
+static void addControls (const ControlSet* set, const std::string& profileId,
+                         std::vector<ControlIntent>& out, int tick,
                          double intensity, bool leading, const std::string& role,
                          double throughSong, uint32_t sectionSeed, uint32_t songSeed)
 {
-    if (prof == nullptr)
+    if (set == nullptr)
         return;
 
     const bool bigMoment = (role == "chorus" || role == "solo") && intensity > 0.7;
@@ -167,7 +168,7 @@ static void addControls (const PhraseProfile* prof, PhrasePart& out, int tick,
     // The generator does not need to know what knob it is reaching - only what
     // the section is like - which is what lets a profile map as many of an
     // instrument's controls as its owner cares to.
-    for (const PhraseProfile::ControlDef& def : prof->allControls())
+    for (const ControlDef& def : set->all())
     {
         // A mapping worth remembering is not always a mapping worth driving.
         // Without this the only way to leave a control alone was "fixed", which
@@ -208,7 +209,7 @@ static void addControls (const PhraseProfile* prof, PhrasePart& out, int tick,
             // the verse and the chorus. "random" is keyed off the section, so a
             // pedal can come in for the chorus and go away again.
             const uint32_t base = rollsOncePerSong ? songSeed : sectionSeed;
-            const uint32_t salt = hashString (prof->id + "/" + def.name);
+            const uint32_t salt = hashString (profileId + "/" + def.name);
 
             Rng ctlRng (deriveSeed (base, salt));
             t = ctlRng.unit();
@@ -233,7 +234,7 @@ static void addControls (const PhraseProfile* prof, PhrasePart& out, int tick,
         // section rather than hunting through its positions.
         c.amount = def.valueAt (t);
 
-        out.controls.push_back (c);
+        out.push_back (c);
     }
 }
 
@@ -276,7 +277,9 @@ static void generatePhrasePart (const SectionPlan& s,
     if (feel == PhraseFeel::Silent || chords.empty())
         return;
 
-    addControls (profile, out, sectionStartTick, s.intensity, ! supporting, s.role,
+    addControls (profile != nullptr ? &profile->controls : nullptr,
+                 profile != nullptr ? profile->id : std::string(),
+                 out.controls, sectionStartTick, s.intensity, ! supporting, s.role,
                  throughSong, sectionSeed, songSeed);
 
     const bool phraseDriven = (profile != nullptr && profile->isPhraseDriven());
@@ -435,6 +438,23 @@ RenderResult renderPerformance (const SongPlan& plan,
 
         const SectionGroove groove = buildSectionGroove (ctx, rng);
 
+        // How far through the song this section sits, for any control the user
+        // wants building across the whole thing. Section scope, because all
+        // four parts ask for it.
+        const double throughSong = plan.sections.size() > 1
+                                     ? static_cast<double> (si) / (plan.sections.size() - 1)
+                                     : 1.0;
+
+        // Drums and bass are not phrase parts, but their controls follow the
+        // arrangement exactly the same way. Both always count as leading: they
+        // are the rhythm section, never the part being kept out of the way.
+        addControls (&kit.controls, kit.id, result.performance.drumControls,
+                     tick, s.intensity, true, s.role, throughSong,
+                     sectionSeed, plan.seed);
+        addControls (&bass.controls, bass.id, result.performance.bassControls,
+                     tick, s.intensity, true, s.role, throughSong,
+                     sectionSeed, plan.seed);
+
         // Resolved once per section rather than per bar, so the bass keeps one
         // identity across the section while still varying between rerolls.
         const std::string bassPattern = (s.bassPattern.empty() || s.bassPattern == "auto")
@@ -526,12 +546,6 @@ RenderResult renderPerformance (const SongPlan& plan,
         {
             const bool playGuitar = (guitar != nullptr && s.playsGuitar);
             const bool playPiano  = (piano  != nullptr && s.playsPiano);
-
-            // How far through the song this section sits, for any control the
-            // user wants building across the whole thing.
-            const double throughSong = plan.sections.size() > 1
-                                         ? static_cast<double> (si) / (plan.sections.size() - 1)
-                                         : 1.0;
 
             bool guitarExplicit = false, pianoExplicit = false;
             PhraseFeel guitarFeel = phraseFeelFromName (s.guitarPhrase, guitarExplicit);
@@ -708,11 +722,13 @@ bool writeMidi (const SongPlan& plan,
     MidiTrack drums;
     drums.name = kit.name;
     kit.render (perf.drums, drums);
+    kit.controls.render (perf.drumControls, kit.channel, 0, drums);
     mf.tracks.push_back (drums);
 
     MidiTrack bassTrack;
     bassTrack.name = bass.name;
     bass.render (perf.bass, bassTrack, plan.bassTuning);
+    bass.controls.render (perf.bassControls, bass.channel, bass.keyswitchLeadTicks, bassTrack);
     mf.tracks.push_back (bassTrack);
 
     // Only emitted when the song actually has the part, so a plan without a

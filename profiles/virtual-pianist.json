@@ -20,10 +20,10 @@
     "character": { "cc": 22, "follows": "random once", "type": "select", "positions": 5, "low": 0, "high": 1 },
     "tone": { "cc": 23, "follows": "random", "type": "knob", "low": 0, "high": 1 },
     "finisher": { "cc": 24, "follows": "fixed", "type": "switch", "low": 0, "high": 0 },
-    "finisher selection": { "cc": 25, "follows": "random once", "type": "select", "positions": 45, "low": 0, "high": 0 },
+    "finisher selection": { "cc": 25, "follows": "random once", "type": "select", "positions": 45, "low": 0, "high": 1},
     "ambience": { "cc": 26, "follows": "fixed", "type": "switch", "low": 1, "high": 1 },
     "ambience selection": { "cc": 27, "follows": "random once", "type": "select", "positions": 45, "low": 0, "high": 1 },
-    "volume": { "cc": 28, "follows": "none", "type": "knob", "low": 0, "high": 1 },
+    "volume": { "cc": 28, "follows": "level", "type": "knob", "low": 0, "high": 1},
     "dynamics": { "cc": 29, "follows": "intensity", "type": "knob", "low": 0, "high": 1 },
     "tune": { "cc": 30, "follows": "none", "type": "knob", "low": 0, "high": 1 }
   }

@@ -305,6 +305,13 @@ private:
     gb::PhraseProfile*       phraseProfileFor (int part);
     const gb::PhraseProfile* phraseProfileFor (int part) const;
 
+    // Controls belong to all four parts; only two of them are phrase profiles.
+    // A drum kit and a bass have knobs worth reaching, and their volumes have
+    // to be findable by the mix knobs like everything else.
+    gb::ControlSet*       controlSetFor (int part);
+    const gb::ControlSet* controlSetFor (int part) const;
+    std::string           controlSourcePath (int part) const;
+
     void loadBuiltInPlan();
     void rebuildSequence (const gb::RenderResult& result,
                           const gb::DrumProfile& kitToUse,

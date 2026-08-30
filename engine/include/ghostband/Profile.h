@@ -22,6 +22,115 @@ struct ArticulationMapping
     int  ccValue      = 0;
 };
 
+// One of the instrument's own knobs, and what the arrangement should make it
+// follow. Any number of these can be declared - these instruments have far
+// more controls than a fixed set of names could cover, so the profile names
+// them and the generator drives whatever it finds.
+struct ControlDef
+{
+    std::string name;
+    int    cc      = -1;
+    // intensity - tracks how loud the section is
+    // lead      - up when this part leads, down when it supports
+    // peaks     - on for choruses and solos, off in quiet sections
+    // rising    - climbs across the song, for something that should build
+    // fixed     - parked at `low`, and sent once per section
+    // none      - never sent at all, leaving whatever the instrument is set
+    //             to alone. "fixed" is not this: it actively drives the
+    //             control to the bottom of its range.
+    // level     - driven by the part's mix knob rather than by the
+    //             arrangement. This is how a mix knob reaches an
+    //             instrument's own volume: CC 7 is channel volume and most
+    //             instrument plugins ignore it outright, which is why the
+    //             mix knobs appeared to do nothing at all.
+    //
+    // Some controls have no right answer to tie to the arrangement - which
+    // amp, which character, which pedal. They change the sound rather than
+    // the dynamics, so the useful thing is to choose one:
+    //
+    // random      - a fresh choice every section, for something that can
+    //               come and go, like a pedal kicking in for the chorus
+    // random once - one choice held for the whole song, for something a
+    //               band would not change mid-song, like the amp
+    //
+    // Both draw from a stream derived from the song seed, so the result is
+    // reproducible and a reroll rerolls it.
+    std::string follows = "intensity";
+
+    // "knob"   sweeps continuously through its range.
+    // "switch" lands on fully off or fully on, because a button has no
+    //          meaningful middle and half a switch is not a thing an
+    //          instrument can be.
+    // "select" is a chooser with a fixed number of named positions - an amp
+    //          model, a voicing, a mic. It picks one position and holds it
+    //          for the whole section, because a selector that drifts
+    //          between its choices mid-section is a fault, not a
+    //          performance. Needs `positions` to know how many there are.
+    std::string type = "knob";
+
+    double low  = 0.0;      // value at the bottom of its range
+    double high = 1.0;      // value at the top
+
+    // How many choices a "select" offers. Ignored by the other types.
+    // A selector's positions are evenly spread across the controller's
+    // range, which is how a host maps a stepped parameter: position p of n
+    // sits at p/(n-1), so the first is fully down and the last fully up.
+    int positions = 0;
+
+    bool isSwitch() const { return type == "switch"; }
+    bool isSelect() const { return type == "select" && positions >= 2; }
+
+    // The value this control sits at when `t` of its range is called for,
+    // as 0..1 across the controller. Kept here rather than in the generator
+    // so the plugin's list, the CLI and the renderer cannot disagree about
+    // what a mapping actually does.
+    double valueAt (double t) const;
+};
+
+
+// The controls one profile declares, and everything done with them. Held by
+// every profile type rather than only the phrase one: a drum kit and a bass
+// have knobs worth reaching too, and the mix knobs need somewhere to land.
+class ControlSet
+{
+public:
+    bool any() const                                 { return ! defs.empty(); }
+    const std::vector<ControlDef>& all() const       { return defs; }
+
+    // Editable, because which knobs are worth automating is the owner's
+    // decision and there is no sensible fixed list of them.
+    std::vector<ControlDef>& editable()              { return defs; }
+
+    int ccFor (const std::string& control) const;    // -1 when not mapped
+
+    // The next CC not already spoken for, so a newly added control never
+    // collides with one that has already been taught.
+    int nextFreeCC() const;
+
+    // Only the controls block, indented to sit inside a profile file. save()
+    // splices this into the existing file rather than rewriting it, so a
+    // profile's comments - which are the measured findings about the
+    // instrument - survive being saved over.
+    std::string toJson() const;
+
+    // Emits the CC moves an arrangement asked for. Controls the arrangement
+    // must not touch - "none" and "level" - are dropped here, which is the one
+    // place a controller message actually gets written.
+    void render (const std::vector<ControlIntent>& intents, int channel,
+                 int leadTicks, MidiTrack& track) const;
+
+    // True when some control is taught to follow the part's mix knob.
+    bool hasLevelControl() const;
+
+private:
+    std::vector<ControlDef> defs;
+};
+
+// Splices a controls block into an existing profile file, leaving every other
+// byte alone. Shared by all three profile types.
+bool saveControlsInto (const std::string& path, const ControlSet& controls,
+                       std::string& error);
+
 class DrumProfile
 {
 public:
@@ -45,6 +154,16 @@ public:
     int noteFor (DrumVoice v) const;
 
     bool hasVoice (DrumVoice v) const { return noteFor (v) >= 0; }
+
+    // A kit has knobs too - room, overheads, bleed - and its volume is reached
+    // the same way every other instrument's is.
+    ControlSet  controls;
+    std::string sourcePath;
+
+    bool save (const std::string& path, std::string& error) const
+    {
+        return saveControlsInto (path, controls, error);
+    }
 
     static bool load (const std::string& path, DrumProfile& out, std::string& error);
 
@@ -81,6 +200,14 @@ public:
     int lowestNoteFor (const std::string& tuning) const;
 
     ArticulationMapping articulation (BassArtic a) const;
+
+    ControlSet  controls;
+    std::string sourcePath;
+
+    bool save (const std::string& path, std::string& error) const
+    {
+        return saveControlsInto (path, controls, error);
+    }
 
     static bool load (const std::string& path, BassProfile& out, std::string& error);
 
@@ -137,91 +264,22 @@ public:
     // Zero for a piano, where the notes genuinely do land together.
     int  strumTicks = 0;
 
-    // One of the instrument's own knobs, and what the arrangement should make it
-    // follow. Any number of these can be declared - these instruments have far
-    // more controls than a fixed set of names could cover, so the profile names
-    // them and the generator drives whatever it finds.
-    struct ControlDef
-    {
-        std::string name;
-        int    cc      = -1;
-        // intensity - tracks how loud the section is
-        // lead      - up when this part leads, down when it supports
-        // peaks     - on for choruses and solos, off in quiet sections
-        // rising    - climbs across the song, for something that should build
-        // fixed     - parked at `low`, and sent once per section
-        // none      - never sent at all, leaving whatever the instrument is set
-        //             to alone. "fixed" is not this: it actively drives the
-        //             control to the bottom of its range.
-        // level     - driven by the part's mix knob rather than by the
-        //             arrangement. This is how a mix knob reaches an
-        //             instrument's own volume: CC 7 is channel volume and most
-        //             instrument plugins ignore it outright, which is why the
-        //             mix knobs appeared to do nothing at all.
-        //
-        // Some controls have no right answer to tie to the arrangement - which
-        // amp, which character, which pedal. They change the sound rather than
-        // the dynamics, so the useful thing is to choose one:
-        //
-        // random      - a fresh choice every section, for something that can
-        //               come and go, like a pedal kicking in for the chorus
-        // random once - one choice held for the whole song, for something a
-        //               band would not change mid-song, like the amp
-        //
-        // Both draw from a stream derived from the song seed, so the result is
-        // reproducible and a reroll rerolls it.
-        std::string follows = "intensity";
+    // Controls are declared per profile; see gb::ControlSet.
+    using ControlDef = gb::ControlDef;
 
-        // "knob"   sweeps continuously through its range.
-        // "switch" lands on fully off or fully on, because a button has no
-        //          meaningful middle and half a switch is not a thing an
-        //          instrument can be.
-        // "select" is a chooser with a fixed number of named positions - an amp
-        //          model, a voicing, a mic. It picks one position and holds it
-        //          for the whole section, because a selector that drifts
-        //          between its choices mid-section is a fault, not a
-        //          performance. Needs `positions` to know how many there are.
-        std::string type = "knob";
+    ControlSet controls;
 
-        double low  = 0.0;      // value at the bottom of its range
-        double high = 1.0;      // value at the top
-
-        // How many choices a "select" offers. Ignored by the other types.
-        // A selector's positions are evenly spread across the controller's
-        // range, which is how a host maps a stepped parameter: position p of n
-        // sits at p/(n-1), so the first is fully down and the last fully up.
-        int positions = 0;
-
-        bool isSwitch() const { return type == "switch"; }
-        bool isSelect() const { return type == "select" && positions >= 2; }
-
-        // The value this control sits at when `t` of its range is called for,
-        // as 0..1 across the controller. Kept here rather than in the generator
-        // so the plugin's list, the CLI and the renderer cannot disagree about
-        // what a mapping actually does.
-        double valueAt (double t) const;
-    };
-
-    int  ccFor (const std::string& control) const;   // -1 when not mapped
-    bool hasControls() const { return ! controlDefs.empty(); }
-    const std::vector<ControlDef>& allControls() const { return controlDefs; }
-
-    // Editable, because which knobs are worth automating is the owner's
-    // decision and there is no sensible fixed list of them.
-    std::vector<ControlDef>& editableControls() { return controlDefs; }
-
-    // The next CC not already spoken for, so a newly added control never
-    // collides with one that has already been taught.
-    int nextFreeCC() const;
+    // Kept as thin forwards so every existing call site still reads the same.
+    int  ccFor (const std::string& c) const        { return controls.ccFor (c); }
+    bool hasControls() const                       { return controls.any(); }
+    const std::vector<ControlDef>& allControls() const { return controls.all(); }
+    std::vector<ControlDef>& editableControls()    { return controls.editable(); }
+    int  nextFreeCC() const                        { return controls.nextFreeCC(); }
+    std::string controlsJson() const               { return controls.toJson(); }
 
     // Writes the profile back in the format load() reads, so a mapping made in
     // the plugin survives and travels with the profile.
     std::string toJson() const;
-
-    // Only the controls block. save() splices this into the existing file
-    // rather than rewriting it, so a profile's comments - which are the
-    // measured findings about the instrument - survive being saved over.
-    std::string controlsJson() const;
 
     bool save (const std::string& path, std::string& error) const;
 
@@ -244,7 +302,6 @@ public:
 
 private:
     std::vector<int> phraseKeys;   // indexed by PhraseFeel
-    std::vector<ControlDef> controlDefs;
 };
 
 } // namespace gb

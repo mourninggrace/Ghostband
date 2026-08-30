@@ -116,6 +116,12 @@ struct Performance
 {
     std::vector<DrumIntent> drums;
     std::vector<BassIntent> bass;
+
+    // Drums and bass have knobs too - a room mic, a drive, the volume the mix
+    // knob reaches. They are not phrase parts, so their control moves live here
+    // rather than inside one.
+    std::vector<ControlIntent> drumControls;
+    std::vector<ControlIntent> bassControls;
     PhrasePart              guitar;
     PhrasePart              piano;
     std::vector<Marker>     markers;

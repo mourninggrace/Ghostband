@@ -503,12 +503,12 @@ void GhostbandProcessor::sendControlNow (int part, int index)
 
     {
         const juce::ScopedLock sl (stateLock);
-        const auto* prof = phraseProfileFor (part);
+        const auto* prof = controlSetFor (part);
         if (prof == nullptr || index < 0
-            || index >= static_cast<int> (prof->allControls().size()))
+            || index >= static_cast<int> (prof->all().size()))
             return;
 
-        const auto& def = prof->allControls()[static_cast<size_t> (index)];
+        const auto& def = prof->all()[static_cast<size_t> (index)];
         cc = def.cc;
 
         // valueAt(0) is the bottom of the declared range, which for a parked
@@ -536,12 +536,12 @@ void GhostbandProcessor::walkControl (int part, int index)
 
     {
         const juce::ScopedLock sl (stateLock);
-        const auto* prof = phraseProfileFor (part);
+        const auto* prof = controlSetFor (part);
         if (prof == nullptr || index < 0
-            || index >= static_cast<int> (prof->allControls().size()))
+            || index >= static_cast<int> (prof->all().size()))
             return;
 
-        const auto& def = prof->allControls()[static_cast<size_t> (index)];
+        const auto& def = prof->all()[static_cast<size_t> (index)];
         cc        = def.cc;
         positions = def.isSelect() ? def.positions : 0;
     }
@@ -567,7 +567,40 @@ void GhostbandProcessor::walkControl (int part, int index)
 gb::PhraseProfile* GhostbandProcessor::phraseProfileFor (int part)
 {
     if (part == 3) return havePiano  ? &pianoProfile  : nullptr;
-    return              haveGuitar ? &guitarProfile : nullptr;
+    if (part == 2) return haveGuitar ? &guitarProfile : nullptr;
+    return nullptr;
+}
+
+// Controls belong to every part, not only the two phrase ones. Drums and bass
+// have knobs worth reaching and volumes the mix knobs have to find.
+gb::ControlSet* GhostbandProcessor::controlSetFor (int part)
+{
+    switch (part)
+    {
+        case 0:  return &kit.controls;
+        case 1:  return &bassProfile.controls;
+        case 2:  return haveGuitar ? &guitarProfile.controls : nullptr;
+        case 3:  return havePiano  ? &pianoProfile.controls  : nullptr;
+        default: return nullptr;
+    }
+}
+
+const gb::ControlSet* GhostbandProcessor::controlSetFor (int part) const
+{
+    return const_cast<GhostbandProcessor*> (this)->controlSetFor (part);
+}
+
+// Where a part's mappings are written back to.
+std::string GhostbandProcessor::controlSourcePath (int part) const
+{
+    switch (part)
+    {
+        case 0:  return kit.sourcePath;
+        case 1:  return bassProfile.sourcePath;
+        case 2:  return haveGuitar ? guitarProfile.sourcePath : std::string();
+        case 3:  return havePiano  ? pianoProfile.sourcePath  : std::string();
+        default: return {};
+    }
 }
 
 const gb::PhraseProfile* GhostbandProcessor::phraseProfileFor (int part) const
@@ -585,19 +618,19 @@ juce::String GhostbandProcessor::controlOwnerName (int part) const
 int GhostbandProcessor::getControlCount (int part) const
 {
     const juce::ScopedLock sl (stateLock);
-    const auto* p = phraseProfileFor (part);
-    return p != nullptr ? static_cast<int> (p->allControls().size()) : 0;
+    const auto* p = controlSetFor (part);
+    return p != nullptr ? static_cast<int> (p->all().size()) : 0;
 }
 
 GhostbandProcessor::ControlSlot GhostbandProcessor::getControl (int part, int index) const
 {
     const juce::ScopedLock sl (stateLock);
     ControlSlot s;
-    const auto* p = phraseProfileFor (part);
-    if (p == nullptr || index < 0 || index >= static_cast<int> (p->allControls().size()))
+    const auto* p = controlSetFor (part);
+    if (p == nullptr || index < 0 || index >= static_cast<int> (p->all().size()))
         return s;
 
-    const auto& c = p->allControls()[static_cast<size_t> (index)];
+    const auto& c = p->all()[static_cast<size_t> (index)];
     s.name    = c.name;
     s.cc      = c.cc;
     s.follows = c.follows;
@@ -612,16 +645,16 @@ void GhostbandProcessor::addControl (int part)
 {
     {
         const juce::ScopedLock sl (stateLock);
-        auto* p = phraseProfileFor (part);
+        auto* p = controlSetFor (part);
         if (p == nullptr) return;
 
-        gb::PhraseProfile::ControlDef c;
+        gb::ControlDef c;
         c.name    = "new control";
         c.cc      = p->nextFreeCC();
         c.follows = "intensity";
         if (c.cc < 0) return;   // every controller already spoken for
 
-        p->editableControls().push_back (c);
+        p->editable().push_back (c);
     }
     stateChanged.sendChangeMessage();
 }
@@ -630,9 +663,9 @@ void GhostbandProcessor::removeControl (int part, int index)
 {
     {
         const juce::ScopedLock sl (stateLock);
-        auto* p = phraseProfileFor (part);
+        auto* p = controlSetFor (part);
         if (p == nullptr) return;
-        auto& list = p->editableControls();
+        auto& list = p->editable();
         if (index < 0 || index >= static_cast<int> (list.size())) return;
         list.erase (list.begin() + static_cast<std::ptrdiff_t> (index));
     }
@@ -643,9 +676,9 @@ void GhostbandProcessor::updateControl (int part, int index, const ControlSlot& 
 {
     {
         const juce::ScopedLock sl (stateLock);
-        auto* p = phraseProfileFor (part);
+        auto* p = controlSetFor (part);
         if (p == nullptr) return;
-        auto& list = p->editableControls();
+        auto& list = p->editable();
         if (index < 0 || index >= static_cast<int> (list.size())) return;
 
         auto& c = list[static_cast<size_t> (index)];
@@ -679,21 +712,21 @@ bool GhostbandProcessor::saveControls (int part, juce::String& error)
 
     {
         const juce::ScopedLock sl (stateLock);
-        const auto* p = phraseProfileFor (part);
-        if (p == nullptr)
-        {
-            error = "That part has no instrument in this song.";
-            return false;
-        }
 
-        path = p->sourcePath;
+        path = controlSourcePath (part);
         if (path.empty())
         {
-            error = "This profile was not loaded from a file, so there is nowhere to save it.";
+            error = "That part has no instrument profile to save into.";
             return false;
         }
 
-        ok = p->save (path, e);
+        switch (part)
+        {
+            case 0:  ok = kit.save (path, e);           break;
+            case 1:  ok = bassProfile.save (path, e);   break;
+            case 2:  ok = guitarProfile.save (path, e); break;
+            default: ok = pianoProfile.save (path, e);  break;
+        }
     }
 
     if (! ok)
@@ -726,21 +759,21 @@ void GhostbandProcessor::sendLevels()
     {
         const juce::ScopedLock sl (stateLock);
 
-        struct Part { int channel; float level; const gb::PhraseProfile* prof; };
+        struct Part { int channel; float level; const gb::ControlSet* set; };
         const Part parts[4] = {
-            { kit.channel,           levelDrums.load(),  nullptr },
-            { bassProfile.channel,   levelBass.load(),   nullptr },
-            { guitarProfile.channel, levelGuitar.load(), haveGuitar ? &guitarProfile : nullptr },
-            { pianoProfile.channel,  levelPiano.load(),  havePiano  ? &pianoProfile  : nullptr },
+            { kit.channel,           levelDrums.load(),  &kit.controls },
+            { bassProfile.channel,   levelBass.load(),   &bassProfile.controls },
+            { guitarProfile.channel, levelGuitar.load(), haveGuitar ? &guitarProfile.controls : nullptr },
+            { pianoProfile.channel,  levelPiano.load(),  havePiano  ? &pianoProfile.controls  : nullptr },
         };
 
         for (const Part& p : parts)
         {
             bool taught = false;
 
-            if (p.prof != nullptr)
+            if (p.set != nullptr)
             {
-                for (const auto& def : p.prof->allControls())
+                for (const auto& def : p.set->all())
                 {
                     if (def.follows != "level" || def.cc < 0)
                         continue;
@@ -772,13 +805,8 @@ void GhostbandProcessor::sendLevels()
 bool GhostbandProcessor::levelIsTaught (int part) const
 {
     const juce::ScopedLock sl (stateLock);
-    const auto* p = phraseProfileFor (part);
-    if (p == nullptr) return false;
-
-    for (const auto& def : p->allControls())
-        if (def.follows == "level" && def.cc >= 0)
-            return true;
-    return false;
+    const auto* p = controlSetFor (part);
+    return p != nullptr && p->hasLevelControl();
 }
 
 void GhostbandProcessor::auditionStep (int index)
@@ -1230,7 +1258,11 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
     // which would be an unlocked read of state the message thread can change.
     gb::MidiTrack drums, bass;
     kitToUse.render (result.performance.drums, drums);
+    kitToUse.controls.render (result.performance.drumControls, kitToUse.channel, 0, drums);
+
     bassToUse.render (result.performance.bass, bass, planToUse.bassTuning);
+    bassToUse.controls.render (result.performance.bassControls, bassToUse.channel,
+                               bassToUse.keyswitchLeadTicks, bass);
 
     std::vector<TimedMessage> built;
     built.reserve (drums.events.size() + bass.events.size());

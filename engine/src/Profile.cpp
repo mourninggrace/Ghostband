@@ -101,6 +101,42 @@ BassArtic bassArticFromName (const std::string& s, bool& ok)
 
 static int clampInt (int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
+// Either the short form, "drive": 22, or the full one:
+//   "drive": { "cc": 22, "follows": "intensity", "low": 0.2, "high": 0.9 }
+//
+// Shared by every profile type, because a drum kit's knobs are declared exactly
+// the way a guitar's are.
+static void loadControls (const Json& j, ControlSet& out)
+{
+    const Json& controls = j["controls"];
+    if (! controls.isObject())
+        return;
+
+    for (const std::string& key : controls.keys())
+    {
+        const Json& def = controls[key];
+        ControlDef c;
+        c.name = key;
+
+        if (def.isObject())
+        {
+            c.cc        = clampInt (def.intOr ("cc", -1), -1, 127);
+            c.follows   = def.stringOr ("follows", "intensity");
+            c.type      = def.stringOr ("type", "knob");
+            c.low       = def.numberOr ("low", 0.0);
+            c.high      = def.numberOr ("high", 1.0);
+            c.positions = clampInt (def.intOr ("positions", 0), 0, 128);
+        }
+        else
+        {
+            c.cc = clampInt (def.asInt (-1), -1, 127);
+        }
+
+        if (c.cc >= 0)
+            out.editable().push_back (c);
+    }
+}
+
 static int velocityFor (double accent, int lo, int hi)
 {
     if (accent < 0.0) accent = 0.0;
@@ -195,6 +231,9 @@ bool DrumProfile::loadImpl (const std::string& path, DrumProfile& out,
 
     if (out.velocityMax < out.velocityMin)
         std::swap (out.velocityMin, out.velocityMax);
+
+    loadControls (j, out.controls);
+    out.sourcePath = path;
 
     const Json& notes = j["notes"];
     if (notes.isObject())
@@ -351,7 +390,7 @@ PhraseProfile::PhraseProfile()
     chordHighest = 72;
 }
 
-double PhraseProfile::ControlDef::valueAt (double t) const
+double ControlDef::valueAt (double t) const
 {
     const auto clamp01 = [] (double v) { return v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v); };
     t = clamp01 (t);
@@ -388,19 +427,53 @@ double PhraseProfile::ControlDef::valueAt (double t) const
     return v;
 }
 
-int PhraseProfile::ccFor (const std::string& control) const
+int ControlSet::ccFor (const std::string& control) const
 {
-    for (const ControlDef& c : controlDefs)
+    for (const ControlDef& c : defs)
         if (c.name == control) return c.cc;
     return -1;
 }
 
-int PhraseProfile::nextFreeCC() const
+bool ControlSet::hasLevelControl() const
+{
+    for (const ControlDef& c : defs)
+        if (c.follows == "level" && c.cc >= 0) return true;
+    return false;
+}
+
+// Emits the controller moves an arrangement asked for.
+//
+// Both exclusions live here rather than only in the generator, because this is
+// the one place a controller message is actually written and a guard anywhere
+// else can be walked around. "none" means leave the instrument alone; "level"
+// belongs to the part's mix knob, and letting the arrangement drive it too
+// would have the two fighting over one controller.
+void ControlSet::render (const std::vector<ControlIntent>& intents, int channel,
+                         int leadTicks, MidiTrack& track) const
+{
+    for (const ControlIntent& c : intents)
+    {
+        const ControlDef* def = nullptr;
+        for (const ControlDef& d : defs)
+            if (d.name == c.control) { def = &d; break; }
+
+        if (def == nullptr || def->cc < 0)
+            continue;
+
+        if (def->follows == "none" || def->follows == "level")
+            continue;
+
+        const int value = clampInt (static_cast<int> (c.amount * 127.0 + 0.5), 0, 127);
+        track.addCC (std::max (0, c.tick - leadTicks), channel, def->cc, value);
+    }
+}
+
+int ControlSet::nextFreeCC() const
 {
     for (int cc = 22; cc <= 119; ++cc)
     {
         bool taken = false;
-        for (const ControlDef& c : controlDefs)
+        for (const ControlDef& c : defs)
             if (c.cc == cc) { taken = true; break; }
 
         // Skip the controllers that already mean something universally, so a
@@ -460,7 +533,7 @@ std::string PhraseProfile::toJson() const
 }
 
 // Just the controls block, indented to sit inside a profile file.
-std::string PhraseProfile::controlsJson() const
+std::string ControlSet::toJson() const
 {
     auto q = [] (const std::string& s) { return "\"" + s + "\""; };
     auto num = [] (double v)
@@ -471,7 +544,7 @@ std::string PhraseProfile::controlsJson() const
     };
 
     std::string ctl;
-    for (const ControlDef& c : controlDefs)
+    for (const ControlDef& c : defs)
         ctl += (ctl.empty() ? "" : ",\n") + std::string ("    ") + q (c.name)
              + ": { \"cc\": " + std::to_string (c.cc)
              + ", \"follows\": " + q (c.follows)
@@ -556,11 +629,18 @@ static bool spliceControls (const std::string& path, const std::string& block,
     return true;
 }
 
-bool PhraseProfile::save (const std::string& path, std::string& error) const
+bool saveControlsInto (const std::string& path, const ControlSet& controls,
+                       std::string& error)
 {
     std::string text;
-    if (! spliceControls (path, controlsJson(), text))
-        text = toJson();          // no such file, or nothing to splice into
+    if (! spliceControls (path, controls.toJson(), text))
+    {
+        // Nothing to splice into means the file has no controls block at all.
+        // Adding one is safe; rewriting the file from a struct is not, so the
+        // block is appended rather than the file regenerated.
+        error = path + ": no \"controls\" block to write into";
+        return false;
+    }
 
     std::ofstream f (path, std::ios::binary | std::ios::trunc);
     if (! f)
@@ -575,6 +655,32 @@ bool PhraseProfile::save (const std::string& path, std::string& error) const
         error = "failed while writing " + path;
         return false;
     }
+    return true;
+}
+
+bool PhraseProfile::save (const std::string& path, std::string& error) const
+{
+    if (saveControlsInto (path, controls, error))
+        return true;
+
+    // A phrase profile can be written from scratch, because toJson knows how to
+    // spell one. The other profile types cannot, so only this one falls back.
+    std::ofstream f (path, std::ios::binary | std::ios::trunc);
+    if (! f)
+    {
+        error = "could not open " + path + " for writing";
+        return false;
+    }
+
+    const std::string text = toJson();
+    f.write (text.data(), static_cast<std::streamsize> (text.size()));
+    if (! f)
+    {
+        error = "failed while writing " + path;
+        return false;
+    }
+
+    error.clear();
     return true;
 }
 
@@ -633,35 +739,7 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
             std::swap (out.chordLowest, out.chordHighest);
     }
 
-    // Either the short form, "drive": 22, or the full one:
-    //   "drive": { "cc": 22, "follows": "intensity", "low": 0.2, "high": 0.9 }
-    const Json& controls = j["controls"];
-    if (controls.isObject())
-    {
-        for (const std::string& key : controls.keys())
-        {
-            const Json& def = controls[key];
-            PhraseProfile::ControlDef c;
-            c.name = key;
-
-            if (def.isObject())
-            {
-                c.cc      = clampInt (def.intOr ("cc", -1), -1, 127);
-                c.follows = def.stringOr ("follows", "intensity");
-                c.type      = def.stringOr ("type", "knob");
-                c.low       = def.numberOr ("low", 0.0);
-                c.high      = def.numberOr ("high", 1.0);
-                c.positions = clampInt (def.intOr ("positions", 0), 0, 128);
-            }
-            else
-            {
-                c.cc = clampInt (def.asInt (-1), -1, 127);
-            }
-
-            if (c.cc >= 0)
-                out.controlDefs.push_back (c);
-        }
-    }
+    loadControls (j, out.controls);
 
     const Json& phrases = j["phrases"];
     if (phrases.isObject())
@@ -731,25 +809,7 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
     // Control moves go out before anything they are meant to affect. A control
     // the profile does not map is skipped in silence: the generator is allowed
     // to ask for "more drive" from an instrument that has no such knob.
-    for (const ControlIntent& c : part.controls)
-    {
-        const ControlDef* def = nullptr;
-        for (const ControlDef& d : controlDefs)
-            if (d.name == c.control) { def = &d; break; }
-
-        if (def == nullptr || def->cc < 0)
-            continue;
-
-        // "none" means leave the instrument's own setting alone. Enforced here
-        // rather than only in the generator, because this is the one place a
-        // controller message can actually be written - a guard anywhere else
-        // can be walked around.
-        if (def->follows == "none" || def->follows == "level")
-            continue;
-
-        const int value = clampInt (static_cast<int> (c.amount * 127.0 + 0.5), 0, 127);
-        track.addCC (std::max (0, c.tick - phraseLeadTicks), channel, def->cc, value);
-    }
+    controls.render (part.controls, channel, phraseLeadTicks, track);
 
     const int zoneSpan = chordHighest - chordLowest;
 
