@@ -535,10 +535,16 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         k.s->setDoubleClickReturnValue (true, 1.0);   // back to unity
         auto* target = k.target;
         auto& proc = processor;
-        k.s->onValueChange = [target, &proc, s = k.s]
+        k.s->onValueChange = [this, target, &proc, s = k.s]
         {
             target->store (static_cast<float> (s->getValue()));
             proc.sendLevels();
+
+            // Says which controller each knob actually reached, so a knob that
+            // does nothing can be told apart from a knob whose message nothing
+            // is listening to. "CC7(untaught)" means that part has no volume
+            // control mapped, and CC 7 is a guess most instruments ignore.
+            statusLabel.setText (proc.getLastMidiReport(), juce::dontSendNotification);
         };
         addAndMakeVisible (*k.s);
     }
@@ -868,9 +874,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
             }
 
             processor.testPart (i);
-            statusLabel.setText ("Testing. If you see MIDI but hear nothing, the note range "
-                                 "in that instrument's profile is wrong.",
-                                 juce::dontSendNotification);
+            statusLabel.setText (processor.getLastMidiReport(), juce::dontSendNotification);
         };
         addChildComponent (*testButtons[i]);
     }

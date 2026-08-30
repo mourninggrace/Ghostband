@@ -285,6 +285,14 @@ public:
     // anything - saying so is the difference between "this song has no guitar"
     // and what looks like every saved mapping being lost.
     bool        partIsInSong (int part) const;
+
+    // The last thing Test or a mix knob actually put on the wire, in words.
+    //
+    // Two faults today were invisible MIDI: notes sent into a range where the
+    // instrument is silent, and a controller nobody was listening to. Both
+    // looked identical from outside - something is clearly happening, and
+    // nothing can be heard. Saying what was sent turns that into a fact.
+    juce::String getLastMidiReport() const;
     juce::String controlOwnerName (int part) const;
 
     std::atomic<float> levelDrums  { 1.0f };
@@ -374,6 +382,7 @@ private:
     std::vector<PendingMessage>   pendingAuditions;
 
     std::atomic<bool>             levelsPending { true };
+    juce::String                  lastMidiReport;
     std::atomic<bool>             calibrating { false };
     std::vector<CalibrationStep>  calibrationSteps;
     bool                          calibrationEdited = false;

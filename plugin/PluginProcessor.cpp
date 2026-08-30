@@ -455,8 +455,12 @@ void GhostbandProcessor::testPart (int part)
         {
             case 1:
             {
-                const int lo = juce::jlimit (0, 100, bassProfile.lowestNoteFor (plan.bassTuning));
-                f = { bassProfile.channel, { lo, lo + 3, lo + 5, lo + 7 }, false };
+                // Walks up from the lowest note the profile claims, through an
+                // octave above it. If only the higher notes sound, the claimed
+                // bottom of the range is wrong - which is a thing worth being
+                // able to hear rather than having to guess at.
+                const int lo = juce::jlimit (12, 100, bassProfile.lowestNoteFor (plan.bassTuning));
+                f = { bassProfile.channel, { lo, lo + 5, lo + 12, lo + 17 }, false };
                 break;
             }
             case 2:  f = { guitarProfile.channel, chordIn (guitarProfile), true }; break;
@@ -477,6 +481,17 @@ void GhostbandProcessor::testPart (int part)
 
     if (f.notes.empty())
         return;
+
+    {
+        static const char* names[] = { "drums", "bass", "guitar", "piano" };
+        juce::String notes;
+        for (int n : f.notes)
+            notes += (notes.isEmpty() ? "" : " ") + juce::String (n);
+
+        const juce::ScopedLock sl (stateLock);
+        lastMidiReport = juce::String ("Test ") + names[juce::jlimit (0, 3, part)]
+                       + ": notes " + notes + " on channel " + juce::String (f.channel);
+    }
 
     const double sr = juce::jmax (8000.0, getSampleRate());
     const int step = static_cast<int> (0.32 * sr);
@@ -863,10 +878,34 @@ void GhostbandProcessor::sendLevels()
         }
     }
 
+    {
+        static const char* names[] = { "drums", "bass", "guitar", "piano" };
+        juce::String report;
+        for (size_t i = 0; i < out.size() && i < 8; ++i)
+        {
+            const Message& m = out[i];
+            report += (report.isEmpty() ? "" : "   ")
+                    + juce::String (names[juce::jlimit (0, 3, static_cast<int> (i))])
+                    + " CC" + juce::String (m.cc)
+                    + (m.cc == 7 ? "(untaught)" : "")
+                    + " ch" + juce::String (m.channel)
+                    + "=" + juce::String (m.value);
+        }
+
+        const juce::ScopedLock sl (stateLock);
+        lastMidiReport = "Levels sent -  " + report;
+    }
+
     const juce::SpinLock::ScopedLockType lock (auditionLock);
     for (const Message& m : out)
         pendingAuditions.push_back ({ 0, juce::MidiMessage::controllerEvent (m.channel, m.cc,
                                                                             m.value) });
+}
+
+juce::String GhostbandProcessor::getLastMidiReport() const
+{
+    const juce::ScopedLock sl (stateLock);
+    return lastMidiReport;
 }
 
 // True when this part has a control taught to follow its mix knob, so the UI
