@@ -708,23 +708,77 @@ bool GhostbandProcessor::saveControls (int part, juce::String& error)
 
 void GhostbandProcessor::sendLevels()
 {
-    struct Part { int channel; float level; };
+    // Where each mix knob has to reach.
+    //
+    // This used to send CC 7 - channel volume - and nothing else, on an
+    // assumption never tested against a real instrument. Most instrument
+    // plugins do not implement CC 7 at all; they expose volume as their own
+    // parameter. So the knobs sent a message nobody was listening to and
+    // appeared, correctly, to do nothing.
+    //
+    // Now a part's knob drives whichever of its controls is mapped with
+    // follows "level", taught through MIDI Learn like any other. CC 7 is still
+    // sent when a part has no such control, because it costs nothing and is
+    // right for anything that does respond.
+    struct Message { int channel, cc, value; };
+    std::vector<Message> out;
 
-    Part parts[4];
     {
         const juce::ScopedLock sl (stateLock);
-        parts[0] = { kit.channel,           levelDrums.load() };
-        parts[1] = { bassProfile.channel,   levelBass.load() };
-        parts[2] = { guitarProfile.channel, levelGuitar.load() };
-        parts[3] = { pianoProfile.channel,  levelPiano.load() };
+
+        struct Part { int channel; float level; const gb::PhraseProfile* prof; };
+        const Part parts[4] = {
+            { kit.channel,           levelDrums.load(),  nullptr },
+            { bassProfile.channel,   levelBass.load(),   nullptr },
+            { guitarProfile.channel, levelGuitar.load(), haveGuitar ? &guitarProfile : nullptr },
+            { pianoProfile.channel,  levelPiano.load(),  havePiano  ? &pianoProfile  : nullptr },
+        };
+
+        for (const Part& p : parts)
+        {
+            bool taught = false;
+
+            if (p.prof != nullptr)
+            {
+                for (const auto& def : p.prof->allControls())
+                {
+                    if (def.follows != "level" || def.cc < 0)
+                        continue;
+
+                    // The knob's position runs through the control's own range,
+                    // so a level control can be limited or inverted like any
+                    // other - some instruments run their gain backwards.
+                    const int value = juce::jlimit (0, 127,
+                                          juce::roundToInt (def.valueAt (p.level) * 127.0));
+                    out.push_back ({ p.channel, def.cc, value });
+                    taught = true;
+                }
+            }
+
+            if (! taught)
+                out.push_back ({ p.channel, 7,
+                                 juce::jlimit (0, 127, juce::roundToInt (p.level * 127.0f)) });
+        }
     }
 
     const juce::SpinLock::ScopedLockType lock (auditionLock);
-    for (const Part& p : parts)
-    {
-        const int value = juce::jlimit (0, 127, juce::roundToInt (p.level * 127.0f));
-        pendingAuditions.push_back ({ 0, juce::MidiMessage::controllerEvent (p.channel, 7, value) });
-    }
+    for (const Message& m : out)
+        pendingAuditions.push_back ({ 0, juce::MidiMessage::controllerEvent (m.channel, m.cc,
+                                                                            m.value) });
+}
+
+// True when this part has a control taught to follow its mix knob, so the UI
+// can say whether the knob reaches anything real.
+bool GhostbandProcessor::levelIsTaught (int part) const
+{
+    const juce::ScopedLock sl (stateLock);
+    const auto* p = phraseProfileFor (part);
+    if (p == nullptr) return false;
+
+    for (const auto& def : p->allControls())
+        if (def.follows == "level" && def.cc >= 0)
+            return true;
+    return false;
 }
 
 void GhostbandProcessor::auditionStep (int index)

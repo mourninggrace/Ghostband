@@ -286,6 +286,7 @@ public:
     // Queues the current levels for delivery. Safe to call at any time; the
     // messages go out whether or not the transport is running.
     void sendLevels();
+    bool levelIsTaught (int part) const;
 
     std::atomic<double> complexity { 0.5 };
     std::atomic<double> humanize   { 0.5 };

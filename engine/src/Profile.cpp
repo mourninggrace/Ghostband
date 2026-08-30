@@ -744,7 +744,7 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
         // rather than only in the generator, because this is the one place a
         // controller message can actually be written - a guard anywhere else
         // can be walked around.
-        if (def->follows == "none")
+        if (def->follows == "none" || def->follows == "level")
             continue;
 
         const int value = clampInt (static_cast<int> (c.amount * 127.0 + 0.5), 0, 127);

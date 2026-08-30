@@ -153,6 +153,11 @@ public:
         // none      - never sent at all, leaving whatever the instrument is set
         //             to alone. "fixed" is not this: it actively drives the
         //             control to the bottom of its range.
+        // level     - driven by the part's mix knob rather than by the
+        //             arrangement. This is how a mix knob reaches an
+        //             instrument's own volume: CC 7 is channel volume and most
+        //             instrument plugins ignore it outright, which is why the
+        //             mix knobs appeared to do nothing at all.
         //
         // Some controls have no right answer to tie to the arrangement - which
         // amp, which character, which pedal. They change the sound rather than

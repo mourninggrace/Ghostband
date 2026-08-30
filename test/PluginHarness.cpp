@@ -853,6 +853,42 @@ int main (int argc, char** argv)
                juce::String (on41) + " messages");
     }
 
+    // ---- the mix knobs reach something --------------------------------------
+    // The knobs sent CC 7 and nothing else, on the assumption that instruments
+    // respond to channel volume. Most do not, so the knobs moved nothing at all.
+    // A control taught as "level" belongs to the knob, and the arrangement must
+    // keep its hands off it or the two fight over the same controller.
+    {
+        gb::PhraseProfile prof;
+        prof.channel = 2;
+
+        gb::PhraseProfile::ControlDef vol;
+        vol.name = "volume"; vol.cc = 42; vol.follows = "level";
+        prof.editableControls().push_back (vol);
+
+        gb::PhrasePart part;
+        part.controls.push_back ({ 0, "volume", 0.9 });
+
+        gb::MidiTrack track;
+        prof.render (part, track);
+
+        int sent = 0;
+        for (const gb::MidiEvent& ev : track.events)
+            if (ev.bytes.size() >= 3 && (ev.bytes[0] & 0xF0) == 0xB0 && ev.bytes[1] == 42)
+                ++sent;
+
+        check (sent == 0, "the arrangement never drives a level control",
+               juce::String (sent) + " messages");
+
+        // And the knob's own travel still runs through the control's range, so
+        // a gain that reads backwards can be inverted like anything else.
+        gb::PhraseProfile::ControlDef backwards;
+        backwards.follows = "level"; backwards.low = 1.0; backwards.high = 0.0;
+        check (juce::roundToInt (backwards.valueAt (0.0) * 127.0) == 127
+                   && juce::roundToInt (backwards.valueAt (1.0) * 127.0) == 0,
+               "a level control honours an inverted range");
+    }
+
     // ---- random controls ----------------------------------------------------
     // Some controls have no right answer to tie to the arrangement, so they get
     // chosen instead. Two things have to hold: the choice must be reproducible
@@ -1042,6 +1078,75 @@ int main (int argc, char** argv)
         }
 
         tmp.deleteFile();
+    }
+
+    // ---- nothing overlaps anything ------------------------------------------
+    // A label keeps its bounds when a screen stops laying it out. If that screen
+    // still leaves it visible, it lands on top of whatever the new screen put
+    // there - text over text, both unreadable. That has now shipped three times,
+    // twice caught only because the user sent a screenshot.
+    //
+    // Every one of these is a direct child of the editor, so the invariant is
+    // simple: on any given screen, no two visible ones may overlap.
+    {
+        if (auto* ed = proc.createEditorIfNeeded())
+        {
+            auto* gbEd = dynamic_cast<GhostbandEditor*> (ed);
+
+            // What a component is, for a message that says which one to go fix.
+            const auto describe = [] (juce::Component* c) -> juce::String
+            {
+                if (auto* l = dynamic_cast<juce::Label*> (c))
+                    return "label \"" + l->getText().substring (0, 30) + "\"";
+                if (auto* b = dynamic_cast<juce::TextButton*> (c))
+                    return "button \"" + b->getButtonText() + "\"";
+                if (dynamic_cast<juce::ComboBox*> (c))    return "a combo box";
+                if (dynamic_cast<juce::TextEditor*> (c))  return "a text box";
+                if (dynamic_cast<juce::Slider*> (c))      return "a slider";
+                if (dynamic_cast<juce::Viewport*> (c))    return "a viewport";
+                return "a component";
+            };
+
+            for (int screen = 0; screen < GhostbandEditor::numScreens; ++screen)
+            {
+                if (gbEd != nullptr) gbEd->showScreenForSnapshot (screen);
+                ed->setSize (600, 720);
+
+                std::vector<juce::Component*> shown;
+                for (int i = 0; i < ed->getNumChildComponents(); ++i)
+                {
+                    juce::Component* c = ed->getChildComponent (i);
+                    if (c != nullptr && c->isVisible() && ! c->getBounds().isEmpty())
+                        shown.push_back (c);
+                }
+
+                juce::StringArray collisions;
+                for (size_t a = 0; a < shown.size(); ++a)
+                    for (size_t b = a + 1; b < shown.size(); ++b)
+                    {
+                        const auto ra = shown[a]->getBounds();
+                        const auto rb = shown[b]->getBounds();
+                        if (! ra.intersects (rb))
+                            continue;
+
+                        // A one-pixel touch from adjacent rows is not a collision;
+                        // real bleed-through overlaps by a readable amount.
+                        const auto hit = ra.getIntersection (rb);
+                        if (hit.getWidth() < 6 || hit.getHeight() < 6)
+                            continue;
+
+                        collisions.add (describe (shown[a]) + "  over  " + describe (shown[b]));
+                    }
+
+                check (collisions.isEmpty(),
+                       juce::String ("nothing overlaps on the ")
+                           + GhostbandEditor::screenName (screen) + " screen",
+                       collisions.joinIntoString ("; "));
+            }
+
+            proc.editorBeingDeleted (ed);
+            delete ed;
+        }
     }
 
     // ---- editor snapshots --------------------------------------------------

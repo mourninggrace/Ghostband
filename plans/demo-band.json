@@ -1,11 +1,4 @@
 {
-  // The full band: drums, bass, guitar and piano.
-  //
-  // Note how the parts are arranged rather than just stacked. The intro is
-  // drums and bass only, guitar arrives with the first verse, and the piano
-  // stays out until the chorus so its entrance is what lifts the section. The
-  // bridge drops to half time with no guitar at all.
-
   "title": "Ghostband Demo - Full Band",
 
   "key":  "E",
@@ -29,43 +22,48 @@
 
   "sections": [
     {
-      "name": "intro",   "bars": 4, "intensity": 0.28,
-      "chords": ["Em"], "plays": "drums+bass"
+      "name": "intro", "bars": 4, "intensity": 0.28,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["Em"]
     },
     {
-      "name": "verse1",  "bars": 8, "intensity": 0.45,
-      "chords": ["Em","Em","C","D"], "plays": "drums+bass+guitar",
-      "guitar": "muted"
+      "name": "verse1", "bars": 8, "intensity": 0.45,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["Em", "Em", "C", "D"], "guitar": "muted"
     },
     {
       "name": "chorus1", "bars": 8, "intensity": 0.85,
-      "chords": ["C","G","D","Em"], "bass": "eighths",
-      "guitar": "open", "piano": "open"
+      "feel": "straight", "plays": "full", "fill": "auto",
+      "chords": ["C", "G", "D", "Em"],
+      "bass": "eighths", "guitar": "open", "piano": "open"
     },
     {
-      "name": "verse2",  "bars": 8, "intensity": 0.50,
-      "chords": ["Em","Em","C","D"], "plays": "drums+bass+guitar",
-      "guitar": "muted"
+      "name": "verse2", "bars": 8, "intensity": 0.5,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["Em", "Em", "C", "D"], "guitar": "muted"
     },
     {
       "name": "chorus2", "bars": 8, "intensity": 0.88,
-      "chords": ["C","G","D","Em"], "bass": "eighths",
-      "guitar": "open", "piano": "open"
+      "feel": "straight", "plays": "full", "fill": "auto",
+      "chords": ["C", "G", "D", "Em"],
+      "bass": "eighths", "guitar": "open", "piano": "open"
     },
     {
-      "name": "bridge",  "bars": 8, "intensity": 0.35, "feel": "half_time",
-      "chords": ["Am","Am","C","D"], "bass": "roots", "fill": "big",
-      "plays": "drums+bass+piano", "piano": "sparse"
+      "name": "bridge", "bars": 8, "intensity": 0.35,
+      "feel": "half_time", "plays": "drums+bass+piano", "fill": "big",
+      "chords": ["Am", "Am", "C", "D"],
+      "bass": "roots", "piano": "sparse"
     },
     {
-      "name": "solo",    "bars": 8, "intensity": 0.80,
-      "chords": ["Em","C","G","D"], "bass": "eighths",
-      "guitar": "driving", "piano": "driving"
+      "name": "solo", "bars": 8, "intensity": 0.8,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["Em", "C", "G", "D"],
+      "bass": "eighths", "guitar": "driving", "piano": "driving"
     },
     {
-      "name": "ending",  "bars": 4, "intensity": 0.70,
-      "chords": ["C","D","Em","Em"], "fill": "none",
-      "guitar": "open", "piano": "open"
+      "name": "ending", "bars": 4, "intensity": 0.7,
+      "feel": "straight", "plays": "full", "fill": "none",
+      "chords": ["C", "D", "Em", "Em"], "guitar": "open", "piano": "open"
     }
   ]
 }

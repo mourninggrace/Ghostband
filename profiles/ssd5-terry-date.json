@@ -1,20 +1,33 @@
 {
-  // Terry Date kit - the one currently in use.
-  //
-  // Inherits the whole SSD5 map and states only what differs. If calibration
-  // shows a piece is missing from this kit, set it to null here and the
-  // generator will substitute rather than trigger the wrong sample.
+  // Calibrated in Ghostband on this machine, by ear.
+  // Any note here was confirmed against the real plugin.
 
-  "inherits": "ssd5.json",
+  "name": "SSD5 - Terry Date (calibrated) (calibrated)",
+  "id": "ssd5_terry_date_calibrated_calibrated",
+  "channel": 10,
 
-  "name": "SSD5 - Terry Date",
-  "id": "ssd5_terry_date",
+  "needs_verification": false,
 
-  "needs_verification": true,
-  "verification_note": "Inherits the unverified SSD5 base map. Calibrate before trusting it.",
+  "velocity_min": 22,
+  "velocity_max": 127,
 
   "notes": {
-    // Example of how to declare a piece this kit does not have:
-    // "splash": null
+    "kick": 36,
+    "snare": 38,
+    "sidestick": 37,
+    "rimshot": 40,
+    "hat_closed": 42,
+    "hat_open": 46,
+    "hat_pedal": 44,
+    "ride": 51,
+    "ride_bell": 53,
+    "crash": 50,
+    "crash2": 57,
+    "china": 52,
+    "splash": 55,
+    "tom1": 48,
+    "tom2": 47,
+    "tom3": 43,
+    "tom4": 41
   }
 }

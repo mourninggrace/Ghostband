@@ -176,6 +176,12 @@ static void addControls (const PhraseProfile* prof, PhrasePart& out, int tick,
         if (def.follows == "none")
             continue;
 
+        // A level control belongs to the mix knob on the song screen, not to
+        // the arrangement. Driving it here would mean the section fought the
+        // knob for the same control, and the knob would appear not to work.
+        if (def.follows == "level")
+            continue;
+
         double t = 0.5;
 
         const bool rollsEachSection = def.follows == "random";

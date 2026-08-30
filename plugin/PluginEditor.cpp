@@ -910,7 +910,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         addChildComponent (*e);
     }
     for (const char* f : { "intensity", "lead", "peaks", "rising",
-                           "random", "random once", "fixed", "none" })
+                           "random", "random once", "level", "fixed", "none" })
         ctlFollows.addItem (f, ctlFollows.getNumItems() + 1);
     for (const char* t : { "knob", "switch", "select" })
         ctlType.addItem (t, ctlType.getNumItems() + 1);
@@ -975,7 +975,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 
     initLabel (learnHeading, "MIDI LEARN", 11.0f, ghost::text, juce::Justification::centredLeft);
     initLabel (learnHelp,
-               "Add a control, name it, choose what it should follow. Knob sweeps, switch is on or off, select holds one of a fixed set of choices. Use random for a control with no right answer - random once picks one for the song, random picks again each section. Then put the control into MIDI Learn in the instrument and press Teach.",
+               "Add a control, name it, choose what it should follow. Knob sweeps, switch is on or off, select holds one of a fixed set of choices. Use random for a control with no right answer, and level for the instrument's own volume so the mix knobs on the song screen reach it. Then put the control into MIDI Learn in the instrument and press Teach.",
                11.0f, ghost::dim, juce::Justification::topLeft);
     learnHelp.setJustificationType (juce::Justification::topLeft);
 
@@ -1169,9 +1169,13 @@ void GhostbandEditor::updateModeVisibility()
     // Labels keep their bounds when a screen stops laying them out, so any that
     // the current screen does not position have to be hidden or they bleed
     // through it. Settings and About both paint over the song view's area.
-    for (juce::Component* c : std::initializer_list<juce::Component*> {
-             &planLabel, &headlineLabel })
-        c->setVisible (song || cal || edit);
+    planLabel.setVisible (song || cal || edit);
+
+    // Only the song screen ever positions the headline, so only the song screen
+    // may show it. Left visible elsewhere it kept its old bounds and landed on
+    // top of whatever that screen put there - the calibrate hint, and the edit
+    // screen's name and bars fields.
+    headlineLabel.setVisible (song);
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &statusLabel, &profilesLabel })
