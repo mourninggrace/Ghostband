@@ -628,6 +628,25 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     initLabel (calHintLabel, "", 12.0f, ghost::text, juce::Justification::centredLeft);
     initLabel (calNoteLabel, "", 22.0f, ghost::accent, juce::Justification::centred);
 
+    styleButton (tempoModeButton, false);
+    addChildComponent (tempoModeButton);
+
+    const auto refreshTempoMode = [this]
+    {
+        const bool own = processor.usePlanTempo.load();
+        tempoModeButton.setButtonText (own ? "Tempo: song" : "Tempo: host");
+        statusLabel.setText (own
+            ? "Songs play at their own tempo. The host's transport still starts and stops them."
+            : "Songs follow the host tempo, so set it to match the song.",
+            juce::dontSendNotification);
+    };
+
+    tempoModeButton.onClick = [this, refreshTempoMode]
+    {
+        processor.usePlanTempo.store (! processor.usePlanTempo.load());
+        refreshTempoMode();
+    };
+
     calibrateButton.onClick = [this] { screen = Screen::Calibrate; calSelected = 0;
                                        processor.enterCalibration(); };
     calDoneButton.onClick   = [this] { screen = Screen::Song; processor.exitCalibration(); };
@@ -1171,6 +1190,7 @@ void GhostbandEditor::updateModeVisibility()
              &chDrums, &chBass, &chGuitar, &chPiano,
              &chDrumsLabel, &chBassLabel, &chGuitarLabel, &chPianoLabel,
              &settingsHeading, &channelsHelp, &resetSizeButton, &reloadProfilesBtn,
+             &tempoModeButton,
              &testDrums, &testBass, &testGuitar, &testPiano,
              &learnPart, &learnHeading, &learnHelp,
              &ctlAdd, &ctlRemove, &ctlTeach, &ctlSave, &ctlName,
@@ -1868,6 +1888,8 @@ void GhostbandEditor::resized()
         reloadProfilesBtn.setBounds (row.removeFromLeft (170));
         row.removeFromLeft (8);
         resetSizeButton.setBounds (row.removeFromLeft (150));
+        row.removeFromLeft (8);
+        tempoModeButton.setBounds (row.removeFromLeft (140));
         return;
     }
 

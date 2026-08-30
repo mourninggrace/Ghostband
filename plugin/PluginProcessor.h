@@ -85,6 +85,9 @@ public:
     // Where the preset songs live inside the installed bundle.
     juce::File                     bundledPlansFolder() const;
 
+    // The tempo the loaded song is written at.
+    double                         getPlanBpm() const;
+
     // Diagnostics for the harness: what the audio thread would actually play,
     // as opposed to what the engine says it generated.
     int getSequenceNoteOnCount (int channel) const;
@@ -109,6 +112,19 @@ public:
     // section list off before anything had been resized.
     std::atomic<int> editorWidth  { 620 };
     std::atomic<int> editorHeight { 780 };
+
+    // Play at the song's own tempo rather than the host's.
+    //
+    // A VST3 cannot set the host's tempo - there is no such call in the format -
+    // so the only way a song can be heard at the tempo it was written at,
+    // without setting the host by hand every time, is for Ghostband to keep its
+    // own clock. When this is on the host transport still starts and stops it;
+    // only the rate comes from the plan.
+    //
+    // The cost is real and worth knowing: anything else in the rackspace that
+    // syncs to the host - a tempo-locked delay, say - stays on the host's tempo
+    // and will not agree with the band.
+    std::atomic<bool> usePlanTempo { true };
 
     std::atomic<int>    playbackTick     { 0 };
     std::atomic<bool>   transportRunning { false };
@@ -393,6 +409,10 @@ private:
     // ends of the window from floating-point ppq lets rounding overlap the
     // windows - and an overlapped window emits the same note twice.
     double nextExpectedTick = -1.0;
+
+    // Ghostband's own clock, used when it is not following the host's. Runs
+    // from zero at each transport start.
+    double planTick = 0.0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GhostbandProcessor)
 };

@@ -876,8 +876,15 @@ void BassProfile::render (const std::vector<BassIntent>& intents,
         while (pitch > highestNote)   pitch -= 12;
         if (pitch < lowest) continue;             // range too narrow to place it
 
-        const int articIndex = static_cast<int> (b.artic);
-        if (articIndex != lastArtic)
+        // An unverified articulation map is a guess, and a guessed keyswitch or
+        // controller can do far worse than nothing: MODO went completely silent
+        // for whole songs because a CC nobody had checked was being sent as
+        // though it were known. Notes are the safe part of a profile and
+        // articulations are the risky part, so until the map is confirmed only
+        // the notes go out. A plain bass line is a much better failure than no
+        // bass at all.
+        const int articIndex = needsVerification ? 0 : static_cast<int> (b.artic);
+        if (articIndex != lastArtic && ! needsVerification)
         {
             const ArticulationMapping m = articulation (b.artic);
             if (m.defined)

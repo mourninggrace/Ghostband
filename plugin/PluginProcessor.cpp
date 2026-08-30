@@ -111,6 +111,12 @@ void GhostbandProcessor::releaseResources() {}
 // The preset songs ship inside the plugin, so Load plan opens on them rather
 // than on an empty Documents folder. Falls back to Documents if the bundle was
 // installed without them.
+double GhostbandProcessor::getPlanBpm() const
+{
+    const juce::ScopedLock sl (stateLock);
+    return plan.bpm > 0.0 ? plan.bpm : 120.0;
+}
+
 juce::File GhostbandProcessor::bundledPlansFolder() const
 {
     const juce::File plans =
@@ -1534,6 +1540,7 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
             sendAllNotesOff (midi, 0);
             wasPlaying = false;
             nextExpectedTick = -1.0;
+            planTick = 0.0;
             transportRunning.store (false);
             activeSection.store (-1);
         }
@@ -1567,7 +1574,20 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     if (sequence.empty())
         return;
 
-    const double bpm = pos->getBpm().orFallback (120.0);
+    // Which clock the song runs on. The plan's tempo is the one it was written
+    // at; the host's is whatever the rackspace happens to be set to, and having
+    // to match those by hand for every song is the thing this avoids.
+    const bool   ownClock = usePlanTempo.load();
+    const double hostBpmNow = pos->getBpm().orFallback (120.0);
+
+    double bpm = hostBpmNow;
+    if (ownClock)
+    {
+        const juce::ScopedLock sl (stateLock);
+        if (plan.bpm > 0.0)
+            bpm = plan.bpm;
+    }
+
     const double ppq = pos->getPpqPosition().orFallback (0.0);
     const double sr  = getSampleRate();
 
@@ -1582,8 +1602,13 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     if (samplesPerTick <= 0.0)
         return;
 
-    const double hostTick   = ppq * gb::kPPQ;
     const double blockTicks = numSamples / samplesPerTick;
+
+    // On its own clock there is no host position to read: the song simply
+    // advances a block's worth of ticks at the plan's tempo each time round.
+    const double hostTick = ownClock ? planTick : ppq * gb::kPPQ;
+    if (ownClock)
+        planTick += blockTicks;
 
     // Stitch consecutive blocks to where the last one ended. Computing both
     // edges from the host's ppq independently lets rounding make one block's
@@ -1606,7 +1631,10 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     nextExpectedTick = windowStart + blockTicks;
 
     transportRunning.store (true);
-    hostBpm.store (bpm);
+
+    // Always the host's, because this is what the UI reports and reporting the
+    // plan's tempo back to the user as "the host tempo" would say nothing.
+    hostBpm.store (hostBpmNow);
 
     // Song position is the host position shifted by whatever section jumps have
     // happened. Everything below works in song time.
@@ -1750,6 +1778,7 @@ void GhostbandProcessor::getStateInformation (juce::MemoryBlock& destData)
     xml.setAttribute ("seed",       seed.load());
     xml.setAttribute ("editorW",    editorWidth.load());
     xml.setAttribute ("editorH",    editorHeight.load());
+    xml.setAttribute ("planTempo",  usePlanTempo.load());
     copyXmlToBinary (xml, destData);
 }
 
@@ -1764,6 +1793,7 @@ void GhostbandProcessor::setStateInformation (const void* data, int sizeInBytes)
     seed.store       (xml->getIntAttribute ("seed", 1));
     editorWidth.store  (juce::jlimit (560, 2200, xml->getIntAttribute ("editorW", 620)));
     editorHeight.store (juce::jlimit (690, 2000, xml->getIntAttribute ("editorH", 780)));
+    usePlanTempo.store (xml->getBoolAttribute ("planTempo", true));
 
     const juce::File file (xml->getStringAttribute ("plan"));
     if (file.existsAsFile())

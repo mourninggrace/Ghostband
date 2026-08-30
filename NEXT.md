@@ -214,6 +214,18 @@ here and in the README.
 
 ## Things that will bite again if forgotten
 
+- **Never send an unverified articulation.** A guessed keyswitch or controller
+  can do far worse than nothing: MODO Bass went completely silent for whole
+  songs because a mute CC nobody had checked was being sent as though it were
+  known, while the notes beside it were perfectly correct. Notes are the safe
+  part of a profile and articulations are the risky part, so a profile marked
+  `needs_verification` now emits notes only. Diagnosing it took a MIDI dump
+  showing CC 21 going out 43 times a song.
+- **A test that hard-codes a number will eventually be wrong about it.** The
+  harness pinned the host tempo at 168, which happened to be demo-metal's, so
+  every check silently walked demo-rock at nearly twice its speed and then
+  counted the notes it had missed. It reads the song's own tempo now.
+
 - **A generated writer must never clobber a hand-written file.** Saving a
   mapping used to rewrite the whole profile from the struct, which threw away
   every comment in it — and in these files the comments are the measured

@@ -244,6 +244,11 @@ private:
     juce::TextButton resetSizeButton   { "Reset window size" };
     juce::TextButton reloadProfilesBtn { "Reload driver profiles" };
 
+    // Whether the song runs on its own tempo or the host's. A VST3 cannot set
+    // the host's, so this is the only way a song plays at the tempo it was
+    // written at without setting the host by hand each time.
+    juce::TextButton tempoModeButton   { "Tempo: song" };
+
     // About
     juce::TextButton manualButton { "User manual" };
     juce::TextButton repoButton   { "Source code" };

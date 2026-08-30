@@ -134,7 +134,13 @@ int main (int argc, char** argv)
     proc.prepareToPlay (sampleRate, blockSize);
 
     FakePlayHead head;
-    head.bpm = 168.0;
+
+    // The host tempo has to be the song's own, not a fixed number that happened
+    // to match one demo plan. A real host playing this song is set to its tempo,
+    // and Ghostband's own clock runs at it too, so hard-coding 168 here made
+    // every check silently wrong for any song not written at 168 - it walked
+    // demo-rock at nearly twice its speed and then counted the notes it missed.
+    head.bpm = proc.getPlanBpm();
     proc.setPlayHead (&head);
 
     juce::AudioBuffer<float> buffer (2, blockSize);
@@ -400,6 +406,11 @@ int main (int argc, char** argv)
         const juce::File band = juce::File (planPath).getSiblingFile ("demo-band.json");
         if (band.existsAsFile())
         {
+            // Only meaningful for a plan that genuinely has neither. Asserting it
+            // unconditionally made every full band plan report a false failure,
+            // which is worse than no check at all - a suite that cries wolf on
+            // correct songs stops being read.
+            if (! proc.partIsInSong (2) && ! proc.partIsInSong (3))
             check (proc.getSequenceNoteOnCount (2) == 0 && proc.getSequenceNoteOnCount (3) == 0,
                    "a plan without guitar/piano produces nothing on their channels",
                    juce::String (proc.getSequenceNoteOnCount (2)) + "/"
