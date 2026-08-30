@@ -387,7 +387,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
             "Open a Ghostband plan",
             processor.getPlanFile().existsAsFile()
                 ? processor.getPlanFile().getParentDirectory()
-                : juce::File::getSpecialLocation (juce::File::userDocumentsDirectory),
+                : processor.bundledPlansFolder(),
             "*.json");
 
         chooser->launchAsync (juce::FileBrowserComponent::openMode

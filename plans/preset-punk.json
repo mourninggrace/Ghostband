@@ -1,0 +1,84 @@
+{
+  // LAST BUS HOME - punk.
+  //
+  // Short, fast, major key, three chords and no solo. The discipline here is
+  // subtractive: complexity is low on purpose, because a punk drummer who fills
+  // cleverly stops sounding like a punk drummer. Nothing is longer than eight
+  // bars and the whole song is under two minutes.
+  //
+  // No piano anywhere. Adding one because the plugin has four parts would be
+  // the wrong instinct - an arrangement is as much about what stays out.
+
+  "title": "Last Bus Home",
+
+  "key":  "G",
+  "mode": "major",
+  "bpm":  178,
+  "time_signature": [4, 4],
+
+  "style":       "punk",
+  "bass_tuning": "standard",
+  "play_style":  "pick",
+
+  "complexity": 0.32,
+  "humanize":   0.55,
+  "seed":       1977,
+  "ending":     "hard_stop",
+
+  "drum_profile":   "profiles/ssd5-terry-date.json",
+  "bass_profile":   "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "piano_profile":  "profiles/virtual-pianist.json",
+
+  "sections": [
+    {
+      // Count-in, essentially.
+      "name": "intro", "bars": 2, "intensity": 0.55,
+      "feel": "straight", "plays": "drums+guitar", "fill": "small",
+      "chords": ["G"], "guitar": "driving", "lead": "guitar"
+    },
+    {
+      "name": "verse1", "bars": 8, "intensity": 0.70,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["G", "G", "C", "D"],
+      "bass": "eighths", "guitar": "driving", "lead": "guitar"
+    },
+    {
+      "name": "chorus1", "bars": 8, "intensity": 0.92,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "small",
+      "chords": ["C", "D", "G", "G"],
+      "bass": "eighths", "guitar": "busy", "lead": "guitar"
+    },
+    {
+      "name": "verse2", "bars": 8, "intensity": 0.74,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["G", "G", "C", "D"],
+      "bass": "eighths", "guitar": "driving", "lead": "guitar"
+    },
+    {
+      "name": "chorus2", "bars": 8, "intensity": 0.94,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "small",
+      "chords": ["C", "D", "G", "G"],
+      "bass": "eighths", "guitar": "busy", "lead": "guitar"
+    },
+    {
+      // Eight bars of everything stopping except the rhythm section. The one
+      // moment of restraint in the song, and it only works because of that.
+      "name": "bridge", "bars": 8, "intensity": 0.48,
+      "feel": "straight", "plays": "drums+bass", "fill": "big",
+      "chords": ["Em", "Em", "C", "D"],
+      "bass": "roots"
+    },
+    {
+      "name": "chorus3", "bars": 8, "intensity": 1.0,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "big",
+      "chords": ["C", "D", "G", "G"],
+      "bass": "eighths", "guitar": "busy", "lead": "guitar"
+    },
+    {
+      "name": "ending", "bars": 2, "intensity": 0.9,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "none",
+      "chords": ["C", "G"], "guitar": "driving", "lead": "guitar"
+    }
+  ]
+}

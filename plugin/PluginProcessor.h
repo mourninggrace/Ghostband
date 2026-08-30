@@ -82,6 +82,9 @@ public:
     std::vector<gb::SectionReport> getSections() const;
     juce::File                     getPlanFile() const;
 
+    // Where the preset songs live inside the installed bundle.
+    juce::File                     bundledPlansFolder() const;
+
     // Diagnostics for the harness: what the audio thread would actually play,
     // as opposed to what the engine says it generated.
     int getSequenceNoteOnCount (int channel) const;

@@ -39,5 +39,16 @@ if errorlevel 1 (
     exit /b 1
 )
 
+rem The preset songs ship inside the bundle too, so Load plan opens on them
+rem rather than on an empty Documents folder on a machine that has never seen
+rem this repository.
+echo Bundling preset songs
+xcopy "plans\*.json" "%DST%\Contents\Resources\plans\" /I /Y /Q
+if errorlevel 1 (
+    echo.
+    echo Could not copy the preset songs.
+    exit /b 1
+)
+
 echo.
 echo Installed. Rescan plugins in your host if it does not pick it up.
