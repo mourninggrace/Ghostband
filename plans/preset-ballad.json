@@ -1,0 +1,111 @@
+{
+  // WHAT THE HOUSE REMEMBERS - ballad.
+  //
+  // The whole song is one long crescendo, which is what a ballad is: it opens
+  // on piano alone at an intensity of 0.15 and finishes at 0.92 with the full
+  // band. Nothing else in the presets asks the arrangement to build over six
+  // minutes' worth of sections rather than eight bars.
+  //
+  // The instruments arrive one at a time and none of them leaves once it is
+  // in: piano, then bass, then drums, then guitar. The order is the structure.
+  //
+  // Triads throughout - a ballad in power chords is a ballad with the tune
+  // taken out - which comes free from the style not being a heavy one.
+
+  "title": "What the House Remembers",
+
+  "key":  "C",
+  "mode": "major",
+  "bpm":  68,
+  "time_signature": [4, 4],
+
+  "style":       "ballad",
+  "bass_tuning": "standard",
+  "play_style":  "finger",
+
+  "complexity": 0.38,
+  "humanize":   0.80,
+  "seed":       414,
+  "ending":     "ritard",
+
+  "drum_profile":   "profiles/ssd5-terry-date.json",
+  "bass_profile":   "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "piano_profile":  "profiles/virtual-pianist.json",
+
+  "sections": [
+    {
+      // Piano alone. Nothing else exists yet.
+      "name": "intro", "bars": 8, "intensity": 0.15,
+      "feel": "straight", "plays": "piano", "fill": "none",
+      "chords": ["C", "Am", "F", "G"],
+      "piano": "sparse", "lead": "piano"
+    },
+    {
+      // Bass joins, still no drums.
+      "name": "verse1", "bars": 8, "intensity": 0.24,
+      "feel": "straight", "plays": "bass+piano", "fill": "none",
+      "chords": ["C", "Am", "F", "G"],
+      "bass": "roots", "piano": "sparse", "lead": "piano"
+    },
+    {
+      // Drums arrive, half time, brushes-quiet.
+      "name": "verse2", "bars": 8, "intensity": 0.36,
+      "feel": "half_time", "plays": "drums+bass+piano", "fill": "small",
+      "chords": ["C", "Am", "F", "G"],
+      "bass": "roots", "piano": "driving", "lead": "piano"
+    },
+    {
+      "name": "prechorus", "bars": 4, "intensity": 0.52,
+      "feel": "half_time", "plays": "drums+bass+piano", "fill": "small",
+      "chords": ["F", "G", "Am", "Am"],
+      "bass": "roots", "piano": "driving", "lead": "piano"
+    },
+    {
+      // First time the whole band is in the room.
+      "name": "chorus1", "bars": 8, "intensity": 0.68,
+      "feel": "straight", "plays": "full", "fill": "big",
+      "chords": ["F", "C", "G", "Am"],
+      "bass": "eighths", "guitar": "open", "piano": "open", "lead": "both"
+    },
+    {
+      // And back down, which is what makes the last one land.
+      "name": "verse3", "bars": 8, "intensity": 0.34,
+      "feel": "half_time", "plays": "drums+bass+piano", "fill": "auto",
+      "chords": ["C", "Am", "F", "G"],
+      "bass": "roots", "piano": "driving", "lead": "piano"
+    },
+    {
+      "name": "chorus2", "bars": 8, "intensity": 0.74,
+      "feel": "straight", "plays": "full", "fill": "big",
+      "chords": ["F", "C", "G", "Am"],
+      "bass": "eighths", "guitar": "open", "piano": "open", "lead": "both"
+    },
+    {
+      "name": "bridge", "bars": 8, "intensity": 0.46,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["Am", "F", "C", "G"],
+      "bass": "roots", "guitar": "sparse", "lead": "guitar"
+    },
+    {
+      "name": "solo", "bars": 8, "intensity": 0.78,
+      "feel": "straight", "plays": "full", "fill": "auto",
+      "chords": ["F", "C", "G", "Am"],
+      "bass": "eighths", "guitar": "driving", "piano": "sparse", "lead": "guitar"
+    },
+    {
+      // The top of the whole song, and the only place it gets here.
+      "name": "chorus3", "bars": 8, "intensity": 0.92,
+      "feel": "straight", "plays": "full", "fill": "big",
+      "chords": ["F", "C", "G", "Am"],
+      "bass": "eighths", "guitar": "driving", "piano": "open", "lead": "both"
+    },
+    {
+      // Everything leaves in the order it arrived, and the tempo gives out.
+      "name": "ending", "bars": 8, "intensity": 0.22,
+      "feel": "half_time", "plays": "bass+piano", "fill": "none",
+      "chords": ["F", "G", "C", "C"],
+      "bass": "roots", "piano": "sparse", "lead": "piano"
+    }
+  ]
+}

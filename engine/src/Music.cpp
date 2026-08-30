@@ -156,6 +156,9 @@ Chord parseChord (const std::string& text)
     return c;
 }
 
+// Alt rock, emo, ballad and blues are deliberately absent: they voice full
+// triads. A power chord carries no third, and the third is most of what those
+// styles are made of - a ballad in fifths is a ballad with the tune taken out.
 bool styleUsesPowerChords (const std::string& style)
 {
     const std::string s = lower (style);

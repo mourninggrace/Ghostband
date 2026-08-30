@@ -374,6 +374,82 @@ static void generatePhrasePart (const SectionPlan& s,
     }
 }
 
+// Where a beat position lands once the beat is swung.
+//
+// Straight eighths sit at 0 and 1/2 of the beat; a full triplet shuffle puts
+// the offbeat at 2/3. So the midpoint moves to 1/2 + amount/6, and everything
+// either side of it is stretched or squeezed to match. Doing it as a warp of
+// the whole beat rather than as a rule about eighth notes means sixteenths
+// inside the long half stay long and the ones inside the short half stay
+// short, which is what a shuffle actually sounds like - and it costs nothing
+// when the amount is zero.
+static double swungPosition (double pos, double amount)
+{
+    if (amount <= 0.0)
+        return pos;
+
+    const double mid = 0.5 + amount / 6.0;
+
+    return pos < 0.5 ? pos * (mid / 0.5)
+                     : mid + (pos - 0.5) * ((1.0 - mid) / 0.5);
+}
+
+static int swungTick (int tick, double amount, int beatTicks)
+{
+    if (amount <= 0.0 || beatTicks <= 0 || tick < 0)
+        return tick;
+
+    const int    beat = tick / beatTicks;
+    const double pos  = static_cast<double> (tick % beatTicks) / beatTicks;
+
+    return beat * beatTicks
+         + static_cast<int> (swungPosition (pos, amount) * beatTicks + 0.5);
+}
+
+// Applies the swing to a finished performance. Onsets and note ends are warped
+// together, so a note that was a beat long stays a beat long rather than
+// growing over whatever follows it.
+static void applySwing (Performance& perf, double amount, int beatTicks)
+{
+    if (amount <= 0.0)
+        return;
+
+    const auto warp = [amount, beatTicks] (int t) { return swungTick (t, amount, beatTicks); };
+
+    const auto warpHeld = [&warp] (int& tick, int& duration)
+    {
+        const int end = warp (tick + duration);
+        tick     = warp (tick);
+        duration = std::max (1, end - tick);
+    };
+
+    for (DrumIntent& d : perf.drums)
+        d.tick = warp (d.tick);
+
+    for (BassIntent& b : perf.bass)
+        warpHeld (b.tick, b.durationTicks);
+
+    for (PhrasePart* part : { &perf.guitar, &perf.piano })
+    {
+        for (ChordIntent& c : part->chords)
+            warpHeld (c.tick, c.durationTicks);
+
+        for (PhraseIntent& ph : part->phrases)
+            ph.tick = warp (ph.tick);
+
+        // Control moves sit on section boundaries, which are on the beat and
+        // therefore unmoved - warped anyway so nothing depends on that holding.
+        for (ControlIntent& c : part->controls)
+            c.tick = warp (c.tick);
+    }
+
+    for (ControlIntent& c : perf.drumControls) c.tick = warp (c.tick);
+    for (ControlIntent& c : perf.bassControls) c.tick = warp (c.tick);
+
+    for (Marker& m : perf.markers)
+        m.tick = warp (m.tick);
+}
+
 RenderResult renderPerformance (const SongPlan& plan,
                                 const DrumProfile& kit,
                                 const BassProfile& bass,
@@ -689,6 +765,11 @@ RenderResult renderPerformance (const SongPlan& plan,
     result.performance.totalTicks = tick;
     result.totalBars = barCounter;
     result.durationSeconds = (static_cast<double> (tick) / kPPQ) * (60.0 / plan.bpm);
+
+    // Last, on the finished performance: a shuffle is the same groove played on
+    // a different grid, not a different groove. Doing it here means every
+    // generator stays straight-ahead and none of them has to know.
+    applySwing (result.performance, plan.swing, beatTicks);
 
     return result;
 }

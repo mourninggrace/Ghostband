@@ -1000,6 +1000,84 @@ int main (int argc, char** argv)
         }
     }
 
+    // ---- swing ---------------------------------------------------------------
+    // A shuffle is the same groove on a different grid. The two things that
+    // matter: it must move the offbeats late and leave the downbeats alone, and
+    // with no swing asked for it must move nothing at all - every song written
+    // before this existed has to render byte for byte as it did.
+    {
+        gb::SongPlan plan;
+        std::string err;
+        const bool ok = gb::SongPlan::load (juce::File (planPath).getFullPathName().toStdString(),
+                                            plan, err);
+        check (ok, "plan loads for the swing test", juce::String (err));
+
+        if (ok)
+        {
+            gb::DrumProfile kit;
+            gb::BassProfile bass;
+
+            const auto drumTicks = [&] (double swing)
+            {
+                gb::SongPlan p = plan;
+                p.swing = swing;
+                const gb::RenderResult r = gb::renderPerformance (p, kit, bass, nullptr, nullptr);
+
+                std::vector<int> ticks;
+                for (const gb::DrumIntent& d : r.performance.drums)
+                    ticks.push_back (d.tick);
+                return ticks;
+            };
+
+            const std::vector<int> straight = drumTicks (0.0);
+            const std::vector<int> swung    = drumTicks (0.62);
+
+            check (! straight.empty(), "the swing test has drums to look at");
+            check (straight.size() == swung.size(),
+                   "swinging changes no note into existence or out of it",
+                   juce::String ((int) straight.size()) + " vs " + juce::String ((int) swung.size()));
+
+            const int beat = 480;   // kPPQ
+            int movedLate = 0, downbeatsMoved = 0, movedEarly = 0;
+
+            for (size_t i = 0; i < straight.size() && i < swung.size(); ++i)
+            {
+                const int before = straight[i], after = swung[i];
+                const bool onBeat = (before % beat) == 0;
+
+                if (onBeat && before != after)         ++downbeatsMoved;
+                else if (after > before)               ++movedLate;
+                else if (after < before)               ++movedEarly;
+            }
+
+            check (downbeatsMoved == 0, "a downbeat never moves",
+                   juce::String (downbeatsMoved) + " moved");
+            check (movedEarly == 0, "nothing is pushed early",
+                   juce::String (movedEarly) + " moved early");
+            check (movedLate > 0, "the offbeats are pushed late",
+                   juce::String (movedLate) + " moved late");
+
+            // The one that protects every song written before swing existed.
+            check (drumTicks (0.0) == straight, "no swing moves nothing at all");
+
+            // A full triplet puts the offbeat two thirds of the way through the
+            // beat, which is the definition rather than a preference.
+            gb::SongPlan full = plan;
+            full.swing = 1.0;
+            const gb::RenderResult r = gb::renderPerformance (full, kit, bass, nullptr, nullptr);
+
+            bool sawTriplet = false, allInsideBeat = true;
+            for (const gb::DrumIntent& d : r.performance.drums)
+            {
+                const int within = d.tick % beat;
+                if (within == 320) sawTriplet = true;     // 2/3 of 480
+                if (within >= beat) allInsideBeat = false;
+            }
+            check (sawTriplet, "a full shuffle lands the offbeat on the triplet");
+            check (allInsideBeat, "no note is warped past the end of its beat");
+        }
+    }
+
     // ---- saving a profile keeps the profile --------------------------------
     // Pressing Save once rewrote a driver profile from scratch and took every
     // comment in it along with it - and in these files the comments are the

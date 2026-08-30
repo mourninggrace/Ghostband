@@ -68,6 +68,15 @@ struct SongPlan
     // it silently does nothing at all.
     int transpose = 0;
 
+    // How far the offbeats are pushed late, 0 straight to 1 full triplet.
+    //
+    // A shuffle is not a groove the generator writes - it is the same groove
+    // played on a different grid - so it is applied as a warp of the finished
+    // performance rather than threaded through every pattern. Zero leaves every
+    // tick exactly where it was, which is why adding this changed no existing
+    // song by a single note.
+    double   swing = 0.0;
+
     double   complexity = 0.5;              // fills, ghost notes, busyness
     double   humanize   = 0.5;              // timing and velocity looseness
     unsigned seed       = 1;

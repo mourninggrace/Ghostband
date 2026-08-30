@@ -124,6 +124,11 @@ static bool fromJson (const Json& j, const std::string& sourceName,
     out.seed       = static_cast<unsigned> (j.intOr ("seed", 1));
     out.ending     = toLower (j.stringOr ("ending", "hard_stop"));
 
+    // Blues and shuffle styles swing by default, because a straight twelve bar
+    // is not a twelve bar. A plan can still say otherwise.
+    const double defaultSwing = (out.style == "blues" || out.style == "shuffle") ? 0.62 : 0.0;
+    out.swing      = std::max (0.0, std::min (1.0, j.numberOr ("swing", defaultSwing)));
+
     out.drumProfile   = j.stringOr ("drum_profile", out.drumProfile);
     out.bassProfile   = j.stringOr ("bass_profile", out.bassProfile);
     out.guitarProfile = j.stringOr ("guitar_profile", "");

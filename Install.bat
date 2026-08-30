@@ -43,7 +43,10 @@ rem The preset songs ship inside the bundle too, so Load plan opens on them
 rem rather than on an empty Documents folder on a machine that has never seen
 rem this repository.
 echo Bundling preset songs
-xcopy "plans\*.json" "%DST%\Contents\Resources\plans\" /I /Y /Q
+rem EXCLUDE keeps the backups the plugin writes when saving over a plan out of
+rem the shipped presets - "demo-band-previous" is not a song anyone chose.
+echo previous.json> "%TEMP%\gb-skip.txt"
+xcopy "plans\*.json" "%DST%\Contents\Resources\plans\" /I /Y /Q /EXCLUDE:%TEMP%\gb-skip.txt
 if errorlevel 1 (
     echo.
     echo Could not copy the preset songs.

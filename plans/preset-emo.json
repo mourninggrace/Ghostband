@@ -1,0 +1,102 @@
+{
+  // NOTHING KEPT FOR LATER - emo.
+  //
+  // Close cousin to the alt rock preset and deliberately so - at the engine
+  // level they are the same style of thing, and what separates them is the
+  // writing rather than the groove. Being honest about that is better than
+  // inventing a difference in the generator that nobody asked for.
+  //
+  // What actually makes this one emo is in the chart: it lives on the relative
+  // major, so the chords are bright while the key is not; the choruses are
+  // longer than the verses, which is unusual and is why they feel like release
+  // rather than arrival; and there is no solo anywhere. The guitar plays
+  // driving eighths almost continuously rather than sitting out, which is the
+  // other half of the sound.
+
+  "title": "Nothing Kept For Later",
+
+  "key":  "D",
+  "mode": "natural_minor",
+  "bpm":  152,
+  "time_signature": [4, 4],
+
+  "style":       "emo",
+  "bass_tuning": "standard",
+  "play_style":  "pick",
+
+  "complexity": 0.48,
+  "humanize":   0.70,
+  "seed":       2003,
+  "ending":     "hard_stop",
+
+  "drum_profile":   "profiles/ssd5-terry-date.json",
+  "bass_profile":   "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "piano_profile":  "profiles/virtual-pianist.json",
+
+  "sections": [
+    {
+      // Guitar alone on the bright chord, which sets up the whole song.
+      "name": "intro", "bars": 4, "intensity": 0.30,
+      "feel": "straight", "plays": "guitar", "fill": "none",
+      "chords": ["F", "C", "Dm", "Bb"],
+      "guitar": "open", "lead": "guitar"
+    },
+    {
+      "name": "verse1", "bars": 8, "intensity": 0.46,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["Dm", "Bb", "F", "C"],
+      "bass": "eighths", "guitar": "driving", "lead": "guitar"
+    },
+    {
+      // Twelve bars against an eight bar verse. The chorus outlasting the verse
+      // is the shape this genre is built on.
+      "name": "chorus1", "bars": 12, "intensity": 0.86,
+      "feel": "straight", "plays": "full", "fill": "big",
+      "chords": ["Bb", "F", "C", "Dm", "Bb", "F", "C", "C",
+                 "Bb", "F", "C", "Dm"],
+      "bass": "eighths", "guitar": "driving", "piano": "open", "lead": "guitar"
+    },
+    {
+      "name": "verse2", "bars": 8, "intensity": 0.50,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["Dm", "Bb", "F", "C"],
+      "bass": "eighths", "guitar": "driving", "lead": "guitar"
+    },
+    {
+      "name": "chorus2", "bars": 12, "intensity": 0.90,
+      "feel": "straight", "plays": "full", "fill": "big",
+      "chords": ["Bb", "F", "C", "Dm", "Bb", "F", "C", "C",
+                 "Bb", "F", "C", "Dm"],
+      "bass": "eighths", "guitar": "driving", "piano": "open", "lead": "guitar"
+    },
+    {
+      // The half-time part everybody waits for. Piano leads it, alone with the
+      // rhythm section, and it is the only place the guitar stops.
+      "name": "bridge", "bars": 8, "intensity": 0.28,
+      "feel": "half_time", "plays": "drums+bass+piano", "fill": "none",
+      "chords": ["Bb", "Bb", "F", "C"],
+      "bass": "roots", "piano": "sparse", "lead": "piano"
+    },
+    {
+      "name": "build", "bars": 8, "intensity": 0.66,
+      "feel": "straight", "plays": "full", "fill": "big",
+      "chords": ["Bb", "F", "C", "Dm"],
+      "bass": "eighths", "guitar": "muted", "piano": "driving", "lead": "piano"
+    },
+    {
+      "name": "chorus3", "bars": 12, "intensity": 0.98,
+      "feel": "straight", "plays": "full", "fill": "big",
+      "chords": ["Bb", "F", "C", "Dm", "Bb", "F", "C", "C",
+                 "Bb", "F", "C", "Dm"],
+      "bass": "eighths", "guitar": "busy", "piano": "open", "lead": "both"
+    },
+    {
+      // Stops dead on the one, no ringing out.
+      "name": "ending", "bars": 4, "intensity": 0.82,
+      "feel": "straight", "plays": "full", "fill": "none",
+      "chords": ["Bb", "F", "C", "Dm"],
+      "guitar": "driving", "piano": "open", "lead": "both"
+    }
+  ]
+}

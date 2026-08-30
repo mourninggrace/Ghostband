@@ -9,7 +9,8 @@ namespace {
 // The engine's own vocabulary. Combo ids are 1-based indices into these, so the
 // UI never has to hold a second copy of the spelling the engine expects.
 const char* kStyleIds[] = { "hard_rock", "metal", "thrash", "groove_metal",
-                            "doom", "sludge", "punk", "prog_metal", "alt_rock" };
+                            "doom", "sludge", "punk", "prog_metal",
+                            "alt_rock", "emo", "ballad", "blues" };
 const char* kTuningIds[] = { "standard", "drop_d", "drop_c", "b_standard" };
 
 constexpr int kNumStyles  = static_cast<int> (sizeof (kStyleIds)  / sizeof (kStyleIds[0]));

@@ -1,0 +1,101 @@
+{
+  // GLASS AND WIRE - alternative rock.
+  //
+  // The trick this one is built on is loud-quiet-loud: verses that sit almost
+  // as low as a ballad against choruses at nearly metal intensity, with nothing
+  // in between. The dynamic range is the writing. Verse intensity is 0.30 and
+  // chorus is 0.90, which is the widest gap in any of the presets.
+  //
+  // Triads rather than power chords, and the guitar plays sparse in the verses
+  // - single held chords with air around them - then opens up for the chorus.
+  // The bass carries the verses almost alone, which is where that sound comes
+  // from in the first place.
+
+  "title": "Glass and Wire",
+
+  "key":  "F#",
+  "mode": "natural_minor",
+  "bpm":  138,
+  "time_signature": [4, 4],
+
+  "style":       "alt_rock",
+  "bass_tuning": "standard",
+  "play_style":  "pick",
+
+  "complexity": 0.52,
+  "humanize":   0.66,
+  "seed":       1991,
+  "ending":     "cymbal_ring",
+
+  "drum_profile":   "profiles/ssd5-terry-date.json",
+  "bass_profile":   "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "piano_profile":  "profiles/virtual-pianist.json",
+
+  "sections": [
+    {
+      // Bass and a single guitar chord ringing. The whole hook is the space.
+      "name": "intro", "bars": 4, "intensity": 0.26,
+      "feel": "straight", "plays": "bass+guitar", "fill": "none",
+      "chords": ["F#m", "F#m", "D", "A"],
+      "bass": "roots", "guitar": "sparse", "lead": "guitar"
+    },
+    {
+      "name": "verse1", "bars": 8, "intensity": 0.30,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "small",
+      "chords": ["F#m", "F#m", "D", "A"],
+      "bass": "roots", "guitar": "sparse", "lead": "guitar"
+    },
+    {
+      // Four bars of winding up, and the only place the piano appears early.
+      "name": "prechorus1", "bars": 4, "intensity": 0.58,
+      "feel": "straight", "plays": "full", "fill": "small",
+      "chords": ["D", "D", "E", "E"],
+      "bass": "eighths", "guitar": "muted", "piano": "sparse", "lead": "guitar"
+    },
+    {
+      "name": "chorus1", "bars": 8, "intensity": 0.90,
+      "feel": "straight", "plays": "full", "fill": "big",
+      "chords": ["D", "A", "E", "F#m"],
+      "bass": "eighths", "guitar": "driving", "piano": "open", "lead": "guitar"
+    },
+    {
+      // Straight back down to almost nothing. No easing out of it.
+      "name": "verse2", "bars": 8, "intensity": 0.32,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "small",
+      "chords": ["F#m", "F#m", "D", "A"],
+      "bass": "roots", "guitar": "sparse", "lead": "guitar"
+    },
+    {
+      "name": "prechorus2", "bars": 4, "intensity": 0.62,
+      "feel": "straight", "plays": "full", "fill": "small",
+      "chords": ["D", "D", "E", "E"],
+      "bass": "eighths", "guitar": "muted", "piano": "sparse", "lead": "guitar"
+    },
+    {
+      "name": "chorus2", "bars": 8, "intensity": 0.92,
+      "feel": "straight", "plays": "full", "fill": "big",
+      "chords": ["D", "A", "E", "F#m"],
+      "bass": "eighths", "guitar": "driving", "piano": "open", "lead": "guitar"
+    },
+    {
+      // The quietest thing in the song, right before the loudest.
+      "name": "bridge", "bars": 8, "intensity": 0.18,
+      "feel": "half_time", "plays": "bass+piano", "fill": "none",
+      "chords": ["Bm", "Bm", "D", "E"],
+      "bass": "roots", "piano": "sparse", "lead": "piano"
+    },
+    {
+      "name": "chorus3", "bars": 8, "intensity": 0.96,
+      "feel": "straight", "plays": "full", "fill": "big",
+      "chords": ["D", "A", "E", "F#m"],
+      "bass": "eighths", "guitar": "busy", "piano": "open", "lead": "both"
+    },
+    {
+      "name": "ending", "bars": 6, "intensity": 0.44,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "none",
+      "chords": ["F#m", "D", "A", "E", "F#m", "F#m"],
+      "guitar": "sparse", "lead": "guitar"
+    }
+  ]
+}

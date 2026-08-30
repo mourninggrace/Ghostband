@@ -1,0 +1,91 @@
+{
+  // SLOW TRAIN COMING BACK - blues shuffle.
+  //
+  // The one preset that needed the engine changing. Everything else Ghostband
+  // plays sits on a straight grid; a twelve bar on a straight grid is not a
+  // twelve bar, it is a rock song with the wrong chords. So the whole
+  // performance is warped: the offbeats are pushed two thirds of the way
+  // through each beat and the downbeats stay put.
+  //
+  // "swing" defaults to 0.62 for this style, which is a hard shuffle without
+  // being a full triplet. Set it to 1.0 for a lazy Texas feel or 0.4 for
+  // something closer to a jump blues.
+  //
+  // Mixolydian, because the flattened seventh over a major third is the whole
+  // sound and a natural minor would make this something else entirely.
+
+  "title": "Slow Train Coming Back",
+
+  "key":  "A",
+  "mode": "mixolydian",
+  "bpm":  86,
+  "time_signature": [4, 4],
+
+  "style":       "blues",
+  "bass_tuning": "standard",
+  "play_style":  "pick",
+
+  "swing":      0.62,
+  "complexity": 0.45,
+  "humanize":   0.78,
+  "seed":       1936,
+  "ending":     "ritard",
+
+  "drum_profile":   "profiles/ssd5-terry-date.json",
+  "bass_profile":   "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "piano_profile":  "profiles/virtual-pianist.json",
+
+  "sections": [
+    {
+      // Four bars on the five chord, which is how half of these start.
+      "name": "intro", "bars": 4, "intensity": 0.35,
+      "feel": "straight", "plays": "drums+bass+piano", "fill": "small",
+      "chords": ["E", "D", "A", "E"],
+      "bass": "roots", "piano": "sparse", "lead": "piano"
+    },
+    {
+      // A real twelve bar: four on the one, two on the four, two on the one,
+      // then the turnaround. Written out rather than cycled, because the shape
+      // is the point.
+      "name": "verse1", "bars": 12, "intensity": 0.50,
+      "feel": "straight", "plays": "full", "fill": "auto",
+      "chords": ["A", "A", "A", "A", "D", "D", "A", "A", "E", "D", "A", "E"],
+      "bass": "roots", "guitar": "sparse", "piano": "driving", "lead": "piano"
+    },
+    {
+      "name": "verse2", "bars": 12, "intensity": 0.58,
+      "feel": "straight", "plays": "full", "fill": "auto",
+      "chords": ["A", "A", "A", "A", "D", "D", "A", "A", "E", "D", "A", "E"],
+      "bass": "roots", "guitar": "sparse", "piano": "driving", "lead": "piano"
+    },
+    {
+      // The guitar takes a chorus, which in blues means twelve bars of its own.
+      "name": "solo", "bars": 12, "intensity": 0.80,
+      "feel": "straight", "plays": "full", "fill": "auto",
+      "chords": ["A", "A", "A", "A", "D", "D", "A", "A", "E", "D", "A", "E"],
+      "bass": "eighths", "guitar": "busy", "piano": "sparse", "lead": "guitar"
+    },
+    {
+      // Stop time: everything drops to accents on the one and the band leaves
+      // holes. Half time gets closest to that with what the engine has.
+      "name": "breakdown", "bars": 8, "intensity": 0.32,
+      "feel": "half_time", "plays": "drums+bass+piano", "fill": "big",
+      "chords": ["A", "A", "D", "D", "A", "A", "E", "E"],
+      "bass": "roots", "piano": "sparse", "lead": "piano"
+    },
+    {
+      "name": "verse3", "bars": 12, "intensity": 0.72,
+      "feel": "straight", "plays": "full", "fill": "auto",
+      "chords": ["A", "A", "A", "A", "D", "D", "A", "A", "E", "D", "A", "E"],
+      "bass": "eighths", "guitar": "driving", "piano": "driving", "lead": "both"
+    },
+    {
+      // Turnaround, and it slows to a stop.
+      "name": "ending", "bars": 4, "intensity": 0.60,
+      "feel": "straight", "plays": "full", "fill": "none",
+      "chords": ["E", "D", "A", "E"],
+      "guitar": "open", "piano": "open", "lead": "both"
+    }
+  ]
+}
