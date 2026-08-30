@@ -62,6 +62,36 @@ slow enough to count.
 2. **A switch could be parked off but never on.** `fixed` drove the value to
    zero before the declared range applied, so a latch button was unmappable.
 
+### Asked for, agreed, not yet built
+
+- **An all-UJAM profile set as a second rig.** The user owns Virtual Drummer and
+  Virtual Bassist as well as IRON 2 and Virtual Pianist. They considered
+  switching to it wholesale and were talked out of it - UJAM's drummer and
+  bassist are phrase players, so Ghostband would stop writing the parts and
+  start picking from UJAM's prerecorded grooves, losing the kick/bass lock and
+  intensity actually driving the playing. But they do want the profile set built
+  later so the same song can be A/B'd through both rigs. Profiles are data;
+  nothing in the engine has to change for it.
+- **Possibly replacing IRON 2 and Virtual Pianist with dedicated instrument
+  libraries** - something less player, more instrument. Adding one is a JSON
+  file. Making a sampled guitar sound like a guitarist rather than a keyboard
+  playing guitar samples would need guitar articulations - palm mute, slide,
+  hammer-on - the way BassProfile already has them. PhraseProfile has chord
+  zones, strum spread and phrase keys but no articulation system.
+
+### The mix knobs, and where each part's volume lives
+
+Guitar and piano work: a control taught with follows "level" is driven by the
+part's mix knob. Both were confirmed moving the real instrument.
+
+**SSD5 cannot be volume-controlled over MIDI at all.** Its Map page has a CC
+mode, but unlike Notes mode the rows carry no MIDI LEARN button - the CC map is
+fixed to hi-hat and articulation functions and is not user-assignable. A Gig
+Performer gain block after SSD5 is the answer for drums, not a workaround.
+
+MODO Bass 2 has a real Control page for assigning CCs to parameters, so its
+volume should be reachable. Not yet done.
+
 ### Still open from this session
 
 - The user is mid-way through mapping IRON 2 and Virtual Pianist. The finisher
