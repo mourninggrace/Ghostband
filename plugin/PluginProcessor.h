@@ -276,6 +276,12 @@ public:
     void        updateControl (int part, int index, const ControlSlot& slot);
     void        teachControlSlot (int part, int index);
     bool        saveControls (int part, juce::String& error);
+
+    // Guitar and piano are optional. A song that names no profile for one has
+    // no such instrument, and neither its controls nor its Test button mean
+    // anything - saying so is the difference between "this song has no guitar"
+    // and what looks like every saved mapping being lost.
+    bool        partIsInSong (int part) const;
     juce::String controlOwnerName (int part) const;
 
     std::atomic<float> levelDrums  { 1.0f };

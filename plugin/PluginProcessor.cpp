@@ -415,14 +415,51 @@ void GhostbandProcessor::testPart (int part)
     Figure f;
     {
         const juce::ScopedLock sl (stateLock);
+
+        // A pitched part is tested inside the range its own profile says the
+        // instrument sounds in, never at fixed notes.
+        //
+        // The guitar was hard-coded to 52, 55, 59 - every one of which is in
+        // IRON 2's silent keyswitch zone, which is why Test sent visible MIDI
+        // and made no sound whatsoever. A guessed range is exactly what the
+        // profiles exist to replace.
+        const auto chordIn = [] (const gb::PhraseProfile& prof)
+        {
+            const int lo   = juce::jlimit (0, 120, prof.chordLowest);
+            const int span = juce::jmax (7, prof.chordHighest - lo);
+            const int root = lo + juce::jmin (2, span / 8);
+
+            return std::vector<int> { root,
+                                      juce::jmin (127, root + 4),
+                                      juce::jmin (127, root + 7) };
+        };
+
         switch (part)
         {
-            case 1:  f = { bassProfile.channel,   { 40, 43, 45, 47 }, false }; break;
-            case 2:  f = { guitarProfile.channel, { 52, 55, 59 },     true  }; break;
-            case 3:  f = { pianoProfile.channel,  { 60, 64, 67 },     true  }; break;
-            default: f = { kit.channel,           { 36, 42, 38, 42 }, false }; break;
+            case 1:
+            {
+                const int lo = juce::jlimit (0, 100, bassProfile.lowestNoteFor (plan.bassTuning));
+                f = { bassProfile.channel, { lo, lo + 3, lo + 5, lo + 7 }, false };
+                break;
+            }
+            case 2:  f = { guitarProfile.channel, chordIn (guitarProfile), true }; break;
+            case 3:  f = { pianoProfile.channel,  chordIn (pianoProfile),  true }; break;
+            default: f = { kit.channel, { kit.noteFor (gb::DrumVoice::Kick),
+                                          kit.noteFor (gb::DrumVoice::HatClosed),
+                                          kit.noteFor (gb::DrumVoice::Snare),
+                                          kit.noteFor (gb::DrumVoice::HatClosed) }, false };
+                     break;
         }
+
+        // A kit that is missing a piece reports -1 for it; dropping those beats
+        // is better than firing note -1 at something.
+        f.notes.erase (std::remove_if (f.notes.begin(), f.notes.end(),
+                                       [] (int n) { return n < 0 || n > 127; }),
+                       f.notes.end());
     }
+
+    if (f.notes.empty())
+        return;
 
     const double sr = juce::jmax (8000.0, getSampleRate());
     const int step = static_cast<int> (0.32 * sr);
@@ -573,6 +610,21 @@ gb::PhraseProfile* GhostbandProcessor::phraseProfileFor (int part)
 
 // Controls belong to every part, not only the two phrase ones. Drums and bass
 // have knobs worth reaching and volumes the mix knobs have to find.
+// Guitar and piano are optional - a plan that names no profile for them has no
+// such instrument, and neither its controls nor its Test button mean anything.
+// Saying so is the difference between "this song has no guitar" and what looked
+// like every saved mapping being lost.
+bool GhostbandProcessor::partIsInSong (int part) const
+{
+    const juce::ScopedLock sl (stateLock);
+    switch (part)
+    {
+        case 2:  return haveGuitar;
+        case 3:  return havePiano;
+        default: return true;      // drums and bass are always present
+    }
+}
+
 gb::ControlSet* GhostbandProcessor::controlSetFor (int part)
 {
     switch (part)
@@ -873,7 +925,8 @@ bool GhostbandProcessor::saveCalibration (juce::String& error)
     json << "{\n"
          << "  // Calibrated in Ghostband on this machine, by ear.\n"
          << "  // Any note here was confirmed against the real plugin.\n\n"
-         << "  \"name\": \"" << juce::String (kit.name).replace ("\"", "'") << " (calibrated)\",\n"
+         << "  \"name\": \"" << juce::String (kit.name).replace ("\"", "'")
+                                 .replace (" (calibrated)", "") << " (calibrated)\",\n"
          << "  \"id\": \"" << juce::String (kit.id) << "_calibrated\",\n"
          << "  \"channel\": " << kit.channel << ",\n\n"
          << "  \"needs_verification\": false,\n\n"

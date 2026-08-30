@@ -315,8 +315,8 @@ void ControlList::paint (juce::Graphics& g)
     {
         g.setColour (ghost::dim);
         g.setFont (juce::Font (juce::FontOptions (12.0f)));
-        g.drawText ("No controls mapped yet. Press Add.",
-                    getLocalBounds().reduced (12), juce::Justification::centredTop);
+        g.drawText (emptyMessage, getLocalBounds().reduced (12),
+                    juce::Justification::centredTop);
         return;
     }
 
@@ -852,7 +852,26 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     for (int i = 0; i < 4; ++i)
     {
         styleButton (*testButtons[i], false);
-        testButtons[i]->onClick = [this, i] { processor.testPart (i); };
+        testButtons[i]->onClick = [this, i]
+        {
+            // Testing a part the song does not have used to send notes through
+            // a default profile, whose guessed range the real instrument is
+            // silent in. That produced visible MIDI and no sound - which reads
+            // as a broken instrument rather than a song without one.
+            if (! processor.partIsInSong (i))
+            {
+                static const char* names[] = { "drums", "bass", "guitar", "piano" };
+                statusLabel.setText (juce::String ("This song has no ") + names[i]
+                                         + ". Load a song that uses it, or add it in Edit song.",
+                                     juce::dontSendNotification);
+                return;
+            }
+
+            processor.testPart (i);
+            statusLabel.setText ("Testing. If you see MIDI but hear nothing, the note range "
+                                 "in that instrument's profile is wrong.",
+                                 juce::dontSendNotification);
+        };
         addChildComponent (*testButtons[i]);
     }
 
@@ -1286,7 +1305,18 @@ void GhostbandEditor::refreshControls()
     ctlList.setSelected (ctlSelected);
     ctlList.setSize (juce::jmax (100, ctlViewport.getWidth() - 10), ctlList.getHeight());
 
+    // Guitar and piano are optional. When the loaded song has neither, its
+    // mappings are still safely in the profile file - they just belong to a
+    // song that is not open. Say that, rather than showing a blank list.
+    const bool inSong = processor.partIsInSong (part);
+    ctlList.setEmptyMessage (inSong
+        ? "No controls mapped yet. Press Add."
+        : "This song has no " + learnPart.getText()
+              + ". Its mappings are safe in the instrument's profile - load a "
+                "song that uses it to see them.");
+
     const bool any = count > 0;
+    ctlAdd.setEnabled (inSong);
     ctlRemove.setEnabled (any);
     ctlTeach.setEnabled (any);
     ctlName.setEnabled (any);

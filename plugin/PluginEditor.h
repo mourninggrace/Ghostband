@@ -88,6 +88,12 @@ public:
 
     void setRows (std::vector<Row> r);
     void setSelected (int index);
+
+    // What to say when the list is empty. "No controls mapped yet" and "this
+    // song has no guitar" look identical otherwise, and the second one reads
+    // as every saved mapping having been lost.
+    void setEmptyMessage (const juce::String& m) { emptyMessage = m; repaint(); }
+
     void paint (juce::Graphics& g) override;
     void mouseDown (const juce::MouseEvent& e) override;
 
@@ -97,6 +103,7 @@ public:
 
 private:
     std::vector<Row> rows;
+    juce::String emptyMessage { "No controls mapped yet. Press Add." };
     int selected = 0;
 };
 
