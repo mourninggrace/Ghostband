@@ -1,92 +1,96 @@
 # Where Ghostband stands, and what to do next
 
-Last updated 2026-08-30, end of session 6. Everything described as done is
+Last updated 2026-09-03, end of session 7. Everything described as done is
 committed, pushed, installed, and covered by the harness.
 
-## START HERE — session 6 stopped mid-verification
+## START HERE
 
-The last build was installed at 07:50 and **has not been heard yet**. Everything
-below was fixed by reasoning and by MIDI dumps, not by listening, so the first
-job next session is to confirm it with ears.
+**The band plays.** Drums, bass, guitar and piano all sound, in every preset,
+with the articulations working and the mix knobs driving three of the four
+instruments' own volumes. That was not true at the start of this session.
 
-**Ask the user to load `preset-hard-rock` and press play.** Two things should be
-true, and neither has been observed:
+**The one known fault is `preset-blues`.** The user's words: it "doesn't sound
+anything like blues and almost sounds really bad", cause unknown. Every other
+preset was listened to and is fine. Nothing has been investigated yet - it is
+the next job and it needs nothing from the user, because it is a question about
+what the engine generates rather than about their rig.
 
-1. **Bass should sound.** It was silent all session. Ghostband was sending MODO
-   a mute controller - CC 21, forty-three times in one song - from a guessed
-   articulation map. Now suppressed. If bass is still silent, the mute CC was
-   not the cause and the next suspect is keyswitch note 14.
-2. **It should play at 92 bpm** whatever the host is set to. Ghostband now runs
-   its own clock at the song's tempo. There is a **Tempo: song / Tempo: host**
-   toggle in Settings if it misbehaves.
+Everything else outstanding is a want, not a fault.
 
-Then listen to the eight presets. They have never been heard. The harness can
-count notes but cannot tell anyone whether a voicing is ugly.
+## Still to do
 
-## Still to do, in the order it is worth doing
-
-1. **Verify the bass fix and the tempo clock** (above).
-2. **Listen to the eight presets.** `preset-blues` first - the shuffle is new
-   engine code and most likely to be wrong; `"swing": 0.62` in the file, 1.0 is
-   a full triplet and 0.4 is closer to jump blues. Then `preset-hard-rock`,
-   which is built to make the lead/support handover audible - if the piano and
-   guitar both sound flat out in the verses, that logic is not reaching far
-   enough.
-3. **Drum and bass volume.** Guitar and piano work, confirmed by the user.
-   SSD5 **cannot** be volume-controlled over MIDI - its Map page has a CC mode
-   but no MIDI LEARN buttons, so the CC map is fixed to hi-hat and articulation
-   functions. MODO also needs a gain block. The user is adding Gig Performer
-   gain blocks for both. They still want all four knobs working in Ghostband
-   eventually, which needs a GP widget able to learn a CC from Ghostband's
-   output rather than from hardware - **unconfirmed whether GP5 can do that**,
-   and it is the question that decides the approach.
-4. **MODO articulations are switched off entirely.** Palm mutes, slides and
-   dead notes are all suppressed because the map is unverified. The bass will
-   sound flat until someone matches Ghostband's articulation names to MODO's
-   real Control page. That is a calibration job to walk the user through.
-5. **The user manual PDF.** Long agreed, never written. About falls back to the
+1. **`preset-blues` sounds wrong.** Start here. The shuffle warp is the newest
+   engine code and the most likely culprit; `"swing": 0.62` in the file, 1.0 is
+   a full triplet and 0.4 is nearer a jump blues. Worth checking whether the
+   swing is fighting the twelve-bar chord changes, and whether a shuffle on a
+   half-time bridge does something silly.
+2. **The SSD5 mix knob is the only dead one.** SSD5's CONTROL page CC list is
+   fixed - hi-hat and articulation functions, no MIDI LEARN buttons - so it
+   cannot be told to take a volume CC. But MODO taught us something worth
+   trying: right-click MIDI Learn on the control itself worked there after the
+   typed-assignment page did not, and SSD5's Map page does have MIDI LEARN
+   buttons, so the mechanism exists somewhere. The user reports right-clicking
+   SSD5's *mixer fader* gives no menu; its master output may be elsewhere. A
+   Gig Performer gain block is the fallback and works today.
+3. **The user manual PDF.** Long agreed, never written. About falls back to the
    README.
-6. **The AI planner.** The last planned feature. User supplies their own key,
+4. **The AI planner.** The last planned feature. User supplies their own key,
    must stay optional.
+5. **An all-UJAM profile set** as a second rig to A/B. The user owns Virtual
+   Drummer and Virtual Bassist. See the session 6 notes for why switching to it
+   wholesale was argued against.
 
-## Session 6 - what changed
+## Session 7 - what changed
 
-Six real bugs, four of them found by instrumenting rather than guessing.
+Eleven bugs, and the bass went from silent to correct.
 
-**The bass was silent for every song.** Ghostband sent MODO a guessed mute CC
-while the notes beside it were perfectly correct, which is why it looked like
-every kind of fault except the one it was. A profile marked
-`needs_verification` now emits notes only - a guessed keyswitch or controller
-can silence an instrument, which is far worse than doing nothing.
+**The bass was inaudible because it was being played off the end of the neck.**
+MODO's lowest sounding note in this rig is 40, not the 28 a four-string bass
+would suggest, and no octave or transpose setting in MODO explains it. Nothing
+below 40 makes a sound; it just lights up the fretboard past the end.
 
-**The mix knobs reached nothing.** They sent CC 7, on an assumption never tested
-against a real instrument. A control mapped with follows `level` is now driven
-by its part's mix knob; guitar and piano confirmed working.
+**Calibration was writing to one profile and silently losing the rest.** Only
+the drum profile recorded where it was loaded from, so a bass range corrected
+by ear was dropped without a word. Saving also regenerated the drum file from
+the struct, throwing away its comments and its controls block, and stacked
+another "_calibrated" onto the id every time. And a nudge landed on whichever
+row was selected - which is the first one, so presses meant for the bass went
+to the kick and moved a verified note by twenty semitones in silence. Save now
+names every note that moved.
 
-**Test had never worked on the guitar.** It sent hard-coded notes 52, 55 and 59
-- all inside IRON 2's silent keyswitch zone. It now plays inside the range the
-profile says the instrument sounds in.
+**A tenth of bass notes played over the note before them.** A bass is
+monophonic and MODO is a physical model, so two notes competing for one string
+meant the earlier note's release cut off the later one.
 
-**A label sat on top of two screens.** The headline was visible on calibrate and
-edit but only ever positioned by the song screen. Third one of these to ship,
-so the harness now checks that no two visible children overlap on any screen -
-and it immediately found a worse case on the edit screen that nobody had hit.
+**The articulation map was invented.** MUTING is CC 9; Ghostband had been
+sending CC 21, which is assigned to nothing. The keyswitches were wrong too,
+and the Latch column mattered as much as the numbers: MODO's momentary switches
+only apply while held, and Ghostband released every keyswitch just before the
+note it was meant to modify.
 
-**The harness pinned host tempo at 168**, which happened to be demo-metal's, so
-every check had been walking demo-rock at nearly twice its speed and counting
-the notes it missed.
+**Loading a song over a playing one left the first ringing underneath it**, and
+**the mix knobs did not match the instruments until one was moved**, and **the
+mix reverted to full on every host restart** - the levels and channel
+assignments were never in the saved state at all.
 
-**Controls only existed on guitar and piano.** They are now a `ControlSet` that
-every profile type holds, so drums and bass can be mapped too.
+Added: a Pause of Ghostband's own, since the host transport tends to be left
+running all session.
 
-Added: swing as a warp of the finished performance, eight full-band preset
-songs shipped inside the bundle, an own-tempo clock, Send and Walk for reading
-an instrument back, and a RANGE pair that also inverts a backwards control.
+### The thing worth remembering about MODO
 
-SSD5 was calibrated by the user and is no longer `[UNVERIFIED]` - several notes
-were genuinely wrong, and splash exists after all.
+**Give MODO a controller by right-clicking the control and choosing MIDI Learn.
+Not through its CONTROL page.** Assigning MASTER VOLUME to a CC there looks
+identical and does nothing - it was set, read back correctly afterwards, and no
+controller Ghostband sent ever moved it, which was confirmed twice by pointing
+the same knob at MUTING as well. That page had already dropped an assignment
+silently once. MIDI Learn worked first time, and is the same flow that had
+already worked for IRON 2 and Virtual Pianist.
 
-## Session 5 — the control mapping system
+Ruling that out took proving Ghostband's side at the wire: the harness now
+checks that a level control's CC actually leaves processBlock, rather than
+trusting the status line, which only reports what was intended.
+
+## Session 5 — the control mapping system## Session 5 — the control mapping system
 
 The whole session went into one thing: letting the user drive an instrument's
 own knobs, buttons, switches and selectors from the arrangement. It started as
