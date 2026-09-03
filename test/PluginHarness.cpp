@@ -1238,6 +1238,62 @@ int main (int argc, char** argv)
         }
     }
 
+    // ---- a level control actually leaves the plugin --------------------------
+    // The status line reports what sendLevels decided to send, which is not the
+    // same claim as "it came out of processBlock". A mix knob that moves the
+    // right controller in the report and nothing in the room is exactly the
+    // gap between those two, so this checks the wire rather than the intent.
+    {
+        const int bass = 1;
+
+        // Give the bass a level control the way the profile does.
+        while (proc.getControlCount (bass) > 0)
+            proc.removeControl (bass, 0);
+
+        proc.addControl (bass);
+        auto slot = proc.getControl (bass, 0);
+        slot.name    = "volume";
+        slot.follows = "level";
+        slot.low     = 0.0;
+        slot.high    = 1.0;
+        proc.updateControl (bass, 0, slot);
+
+        const int cc = proc.getControl (bass, 0).cc;
+        check (cc >= 0, "the bass level control has a CC", juce::String (cc));
+        check (proc.levelIsTaught (bass), "the bass counts as having a taught level");
+
+        proc.levelBass.store (0.25f);
+        proc.sendLevels();
+
+        // Walk a few blocks and watch what actually comes out.
+        juce::AudioBuffer<float> buf (2, blockSize);
+        juce::MidiBuffer out;
+        int seen = -1;
+
+        for (int i = 0; i < 8 && seen < 0; ++i)
+        {
+            out.clear();
+            proc.processBlock (buf, out);
+            for (const auto meta : out)
+            {
+                const auto m = meta.getMessage();
+                if (m.isController() && m.getControllerNumber() == cc
+                    && m.getChannel() == 1)
+                    seen = m.getControllerValue();
+            }
+        }
+
+        check (seen >= 0, "the level controller reaches the plugin's MIDI output",
+               seen < 0 ? juce::String ("never seen on CC ") + juce::String (cc)
+                        : juce::String (seen));
+
+        check (seen > 25 && seen < 40, "and carries the knob's position",
+               juce::String (seen) + " for a knob at 0.25");
+
+        while (proc.getControlCount (bass) > 0)
+            proc.removeControl (bass, 0);
+    }
+
     // ---- editor snapshots --------------------------------------------------
     // A layout bug is invisible to every check above. Rendering the editor to a
     // PNG makes the one thing these tests cannot assert - what it actually looks
