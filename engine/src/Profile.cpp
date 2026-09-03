@@ -338,6 +338,7 @@ bool BassProfile::load (const std::string& path, BassProfile& out, std::string& 
     out.keyswitchLeadTicks = std::max (1, j.intOr ("keyswitch_lead_ticks", out.keyswitchLeadTicks));
     out.keyswitchVelocity  = clampInt (j.intOr ("keyswitch_velocity", out.keyswitchVelocity), 1, 127);
     out.needsVerification  = j.boolOr ("needs_verification", false);
+    out.sourcePath            = path;
     // Separate from the note map: a range can be confirmed by ear while the
     // articulation map is still a guess, and a guessed keyswitch can silence
     // an instrument outright.
@@ -774,6 +775,7 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
 
     if (out.velocityMax < out.velocityMin)
         std::swap (out.velocityMin, out.velocityMax);
+    out.sourcePath = path;
 
     const Json& zone = j["chord_zone"];
     if (zone.isObject())

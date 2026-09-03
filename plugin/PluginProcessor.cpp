@@ -983,26 +983,33 @@ bool GhostbandProcessor::saveCalibration (juce::String& error)
     // Written as a complete standalone profile rather than patched in place:
     // the file may inherit from a base, and silently rewriting an inherited file
     // would change every other kit that shares it.
-    juce::String json;
-    json << "{\n"
-         << "  // Calibrated in Ghostband on this machine, by ear.\n"
-         << "  // Any note here was confirmed against the real plugin.\n\n"
-         << "  \"name\": \"" << juce::String (kit.name).replace ("\"", "'")
-                                 .replace (" (calibrated)", "") << " (calibrated)\",\n"
-         << "  \"id\": \"" << juce::String (kit.id) << "_calibrated\",\n"
-         << "  \"channel\": " << kit.channel << ",\n\n"
-         << "  \"needs_verification\": false,\n\n"
-         << "  \"velocity_min\": " << kit.velocityMin << ",\n"
-         << "  \"velocity_max\": " << kit.velocityMax << ",\n\n"
-         << "  \"notes\": {\n";
+    // Only the notes block is replaced. Regenerating the whole file from the
+    // struct threw away everything the file said that the struct does not hold:
+    // the comments recording what was measured, and the controls block with any
+    // mapping saved into it. Calibrating a kit destroyed its knob mappings, and
+    // stacked another "_calibrated" onto the id every single time.
+    // What actually moved, so a save can never quietly change something nobody
+    // meant to touch. Entering calibration selects the first row, so a nudge
+    // aimed at a row further down lands on the kick until the row is clicked -
+    // which is exactly how a verified kick silently became note 56.
+    juce::StringArray changed;
 
     juce::StringArray entries;
     for (const CalibrationStep& s : steps)
     {
         if (! s.isDrum) continue;
+
+        bool ok = false;
+        const gb::DrumVoice v = gb::drumVoiceFromName (s.label.replace (" ", "_").toStdString(), ok);
+        if (ok && kit.noteFor (v) != s.note)
+            changed.add (s.label + " " + juce::String (kit.noteFor (v))
+                         + juce::String (juce::CharPointer_UTF8 ("â")) + juce::String (s.note));
+
         entries.add ("    \"" + s.label.replace (" ", "_") + "\": " + juce::String (s.note));
     }
-    json << entries.joinIntoString (",\n") << "\n  }\n}\n";
+
+    const std::string notesBlock = ("\"notes\": {\n" + entries.joinIntoString (",\n")
+                                    + "\n  }").toStdString();
 
     const juce::File target (drumPath);
     const juce::File backup = target.getSiblingFile (target.getFileNameWithoutExtension()
@@ -1010,10 +1017,14 @@ bool GhostbandProcessor::saveCalibration (juce::String& error)
     if (target.existsAsFile() && ! backup.existsAsFile())
         target.copyFileTo (backup);   // never destroy the shipped map
 
-    if (! target.replaceWithText (json))
     {
-        error = "Could not write " + target.getFullPathName();
-        return false;
+        std::string e;
+        if (! gb::spliceProfileBlock (target.getFullPathName().toStdString(),
+                                      "notes", notesBlock, e))
+        {
+            error = juce::String (e);
+            return false;
+        }
     }
 
     // The drum map was only ever half the job. Every other part could be
@@ -1087,9 +1098,15 @@ bool GhostbandProcessor::saveCalibration (juce::String& error)
     }
 
     if (! failed.isEmpty())
-        error = "Saved the kit, but " + failed.joinIntoString ("; ");
-    else if (! alsoSaved.isEmpty())
-        error = "Saved the kit and the " + alsoSaved.joinIntoString (", ") + ".";
+        error = "Saved, but " + failed.joinIntoString ("; ");
+    else
+    {
+        juce::String what = changed.isEmpty() ? juce::String ("no drum notes changed")
+                                              : changed.joinIntoString (", ");
+        if (! alsoSaved.isEmpty())
+            what += ".  Also saved the " + alsoSaved.joinIntoString (", ");
+        error = "Saved: " + what + ".";
+    }
 
     reloadPlan();
     return true;
