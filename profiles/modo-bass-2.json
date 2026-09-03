@@ -24,11 +24,19 @@
   "velocity_min": 32,
   "velocity_max": 127,
 
+  // Calibrated by ear against this rig: MODO's lowest sounding note is 40.
+  //
+  // That is an octave above where a four string bass's low E sits, and no
+  // octave or transpose setting was found in MODO to explain it - so it is
+  // simply where this setup's neck starts. It is the same 40 whatever the plan
+  // says the bass is tuned to, because the floor belongs to MODO's key range
+  // and not to Ghostband's idea of the tuning. Anything sent below it lights up
+  // the fretboard off the end of the neck and makes no sound at all.
   "lowest_note": {
-    "standard":   28,
-    "drop_d":     26,
-    "drop_c":     24,
-    "b_standard": 23
+    "standard": 40,
+    "drop_d": 40,
+    "drop_c": 40,
+    "b_standard": 40
   },
   "highest_note": 67,
 

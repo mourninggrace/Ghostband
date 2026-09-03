@@ -659,7 +659,11 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         juce::String err;
         if (processor.saveCalibration (err))
         {
-            calHintLabel.setText ("Saved. The old map was backed up alongside it.",
+            // Say what actually moved. The old message was a fixed string, so
+            // the report naming every changed note - the whole point of it -
+            // was built and then thrown away.
+            calHintLabel.setText (err.isNotEmpty() ? err
+                                                   : juce::String ("Saved."),
                                   juce::dontSendNotification);
             calHintLabel.setColour (juce::Label::textColourId, ghost::accent);
         }

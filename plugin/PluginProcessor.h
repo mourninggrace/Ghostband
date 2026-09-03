@@ -319,6 +319,7 @@ public:
     // Queues the current levels for delivery. Safe to call at any time; the
     // messages go out whether or not the transport is running.
     void sendLevels();
+    void refreshLevels();
     bool levelIsTaught (int part) const;
 
     std::atomic<double> complexity { 0.5 };
@@ -399,6 +400,11 @@ private:
 
     std::atomic<bool>             levelsPending { true };
     juce::String                  lastMidiReport;
+
+    // The level messages as sendLevels last worked them out, kept so the audio
+    // thread can restate them at the top of a run without needing the state
+    // lock to find out which controller each part's volume actually lives on.
+    std::vector<juce::MidiMessage> levelMessages;
     std::atomic<bool>             calibrating { false };
     std::vector<CalibrationStep>  calibrationSteps;
     bool                          calibrationEdited = false;

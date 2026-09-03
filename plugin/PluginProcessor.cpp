@@ -829,6 +829,15 @@ bool GhostbandProcessor::saveControls (int part, juce::String& error)
     return true;
 }
 
+// Called whenever the instruments behind the parts may have changed, so the
+// knobs and the plugins agree before a note is played rather than after the
+// first knob move.
+void GhostbandProcessor::refreshLevels()
+{
+    sendLevels();
+    levelsPending.store (true);
+}
+
 void GhostbandProcessor::sendLevels()
 {
     // Where each mix knob has to reach.
@@ -903,9 +912,14 @@ void GhostbandProcessor::sendLevels()
     }
 
     const juce::SpinLock::ScopedLockType lock (auditionLock);
+    levelMessages.clear();
     for (const Message& m : out)
-        pendingAuditions.push_back ({ 0, juce::MidiMessage::controllerEvent (m.channel, m.cc,
-                                                                            m.value) });
+    {
+        const juce::MidiMessage msg = juce::MidiMessage::controllerEvent (m.channel, m.cc,
+                                                                         m.value);
+        levelMessages.push_back (msg);
+        pendingAuditions.push_back ({ 0, msg });
+    }
 }
 
 juce::String GhostbandProcessor::getLastMidiReport() const
@@ -1444,6 +1458,11 @@ void GhostbandProcessor::regenerate()
                        : juce::String();
     }
 
+    // The instruments behind the parts may have just changed, and the knobs are
+    // wherever the user left them. Tell the instruments now rather than waiting
+    // for somebody to move a knob before the mix is what the screen says it is.
+    refreshLevels();
+
     stateChanged.sendChangeMessage();
 }
 
@@ -1649,12 +1668,14 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
         const juce::SpinLock::ScopedTryLockType levels (auditionLock);
         if (levels.isLocked())
         {
-            struct P { int ch; float v; };
-            const P parts[4] = { { 10, levelDrums.load() }, { 1, levelBass.load() },
-                                 { 2,  levelGuitar.load() }, { 3, levelPiano.load() } };
-            for (const P& p : parts)
-                midi.addEvent (juce::MidiMessage::controllerEvent (
-                                   p.ch, 7, juce::jlimit (0, 127, juce::roundToInt (p.v * 127.0f))), 0);
+            // Whatever sendLevels last decided, which is the taught volume
+            // control for a part that has one and CC 7 only as a fallback.
+            // This used to send CC 7 on four hard-coded channels, so an
+            // instrument reached through a taught control was never told the
+            // knob position until somebody moved the knob - the mix was wrong
+            // from the moment the song started until it was touched.
+            for (const juce::MidiMessage& m : levelMessages)
+                midi.addEvent (m, 0);
         }
     }
 
