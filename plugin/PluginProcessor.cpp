@@ -1016,10 +1016,80 @@ bool GhostbandProcessor::saveCalibration (juce::String& error)
         return false;
     }
 
+    // The drum map was only ever half the job. Every other part could be
+    // nudged and auditioned in the calibrate list and then quietly discarded,
+    // so a bass range corrected by ear never reached the file - which is how
+    // MODO ended up being sent notes below the lowest one it can sound.
+    juce::StringArray alsoSaved, failed;
     {
         const juce::ScopedLock sl (stateLock);
+
+        const auto spliceInto = [&] (const std::string& path, const juce::String& what,
+                                     const std::string& key, const std::string& block)
+        {
+            if (path.empty()) return;
+            std::string e;
+            if (gb::spliceProfileBlock (path, key, block, e)) alsoSaved.add (what);
+            else                                             failed.add (what + ": " + e);
+        };
+
+        // Bass: the lowest note for the tuning this song is in. The others are
+        // written back unchanged so the block stays complete.
+        for (const CalibrationStep& st : steps)
+        {
+            if (st.label != "bass lowest note") continue;
+
+            bassProfile.setLowestNoteFor (plan.bassTuning, st.note);
+
+            std::string block = "\"lowest_note\": {\n";
+            bool first = true;
+            for (const auto& kv : bassProfile.allLowestNotes())
+            {
+                block += (first ? "" : ",\n") + std::string ("    \"") + kv.first
+                       + "\": " + std::to_string (kv.second);
+                first = false;
+            }
+            block += "\n  }";
+
+            spliceInto (bassProfile.sourcePath, "bass range", "lowest_note", block);
+        }
+
+        // Guitar and piano: the range their chords are voiced into.
+        struct Zone { const char* low; const char* high; gb::PhraseProfile* p;
+                      const char* what; bool present; };
+        const Zone zones[2] = {
+            { "guitar lowest chord note", "guitar highest chord note", &guitarProfile,
+              "guitar range", haveGuitar },
+            { "piano lowest chord note",  "piano highest chord note",  &pianoProfile,
+              "piano range",  havePiano },
+        };
+
+        for (const Zone& z : zones)
+        {
+            if (! z.present) continue;
+
+            for (const CalibrationStep& st : steps)
+            {
+                if (st.label == z.low)  z.p->chordLowest  = st.note;
+                if (st.label == z.high) z.p->chordHighest = st.note;
+            }
+
+            if (z.p->chordHighest < z.p->chordLowest)
+                std::swap (z.p->chordLowest, z.p->chordHighest);
+
+            spliceInto (z.p->sourcePath, z.what, "chord_zone",
+                        "\"chord_zone\": { \"lowest_note\": "
+                          + std::to_string (z.p->chordLowest)
+                          + ", \"highest_note\": " + std::to_string (z.p->chordHighest) + " }");
+        }
+
         calibrationEdited = false;
     }
+
+    if (! failed.isEmpty())
+        error = "Saved the kit, but " + failed.joinIntoString ("; ");
+    else if (! alsoSaved.isEmpty())
+        error = "Saved the kit and the " + alsoSaved.joinIntoString (", ") + ".";
 
     reloadPlan();
     return true;

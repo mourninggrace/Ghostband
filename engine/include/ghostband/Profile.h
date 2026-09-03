@@ -131,6 +131,11 @@ private:
 bool saveControlsInto (const std::string& path, const ControlSet& controls,
                        std::string& error);
 
+// Replaces one named block in a profile file, leaving every other byte alone.
+// `block` is the whole replacement including the key.
+bool spliceProfileBlock (const std::string& path, const std::string& key,
+                         const std::string& block, std::string& error);
+
 class DrumProfile
 {
 public:
@@ -197,7 +202,21 @@ public:
     bool        needsVerification = false;
     std::string verificationNote;
 
+    // A range can be confirmed by ear long before anybody works out what this
+    // instrument's keyswitches mean, and a guessed keyswitch can silence it
+    // outright - so the two are tracked separately and articulations are only
+    // sent once somebody has actually checked them.
+    bool articulationsVerified = false;
+
     int lowestNoteFor (const std::string& tuning) const;
+
+    // For writing a calibrated range back to the profile file.
+    const std::vector<std::pair<std::string, int>>& allLowestNotes() const
+    {
+        return lowestByTuning;
+    }
+
+    void setLowestNoteFor (const std::string& tuning, int note);
 
     ArticulationMapping articulation (BassArtic a) const;
 

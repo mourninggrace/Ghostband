@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cstdio>
 #include <fstream>
+#include <vector>
 
 namespace gb {
 
@@ -287,6 +288,14 @@ BassProfile::BassProfile()
     lowestByTuning = { { "standard", 28 }, { "drop_d", 26 }, { "drop_c", 24 }, { "b_standard", 23 } };
 }
 
+void BassProfile::setLowestNoteFor (const std::string& tuning, int note)
+{
+    for (auto& kv : lowestByTuning)
+        if (kv.first == tuning) { kv.second = note; return; }
+
+    lowestByTuning.emplace_back (tuning, note);
+}
+
 int BassProfile::lowestNoteFor (const std::string& tuning) const
 {
     for (const auto& kv : lowestByTuning)
@@ -329,6 +338,10 @@ bool BassProfile::load (const std::string& path, BassProfile& out, std::string& 
     out.keyswitchLeadTicks = std::max (1, j.intOr ("keyswitch_lead_ticks", out.keyswitchLeadTicks));
     out.keyswitchVelocity  = clampInt (j.intOr ("keyswitch_velocity", out.keyswitchVelocity), 1, 127);
     out.needsVerification  = j.boolOr ("needs_verification", false);
+    // Separate from the note map: a range can be confirmed by ear while the
+    // articulation map is still a guess, and a guessed keyswitch can silence
+    // an instrument outright.
+    out.articulationsVerified = j.boolOr ("articulations_verified", false);
     out.verificationNote   = j.stringOr ("verification_note", "");
 
     if (out.velocityMax < out.velocityMin)
@@ -572,8 +585,8 @@ std::string ControlSet::toJson() const
 //
 // Returns false when there is no controls block to replace, so the caller can
 // fall back to writing a fresh file.
-static bool spliceControls (const std::string& path, const std::string& block,
-                            std::string& out)
+static bool spliceNamedBlock (const std::string& path, const std::string& key,
+                              const std::string& block, std::string& out)
 {
     std::ifstream in (path, std::ios::binary);
     if (! in) return false;
@@ -593,7 +606,7 @@ static bool spliceControls (const std::string& path, const std::string& block,
             continue;
         }
 
-        if (text.compare (i, 10, "\"controls\"") == 0) { at = i; break; }
+        if (text.compare (i, key.size(), key) == 0) { at = i; break; }
     }
 
     if (at == std::string::npos) return false;
@@ -629,11 +642,43 @@ static bool spliceControls (const std::string& path, const std::string& block,
     return true;
 }
 
+// Replaces one named block in a profile file and leaves the rest alone, so a
+// calibrated value can be written back without regenerating a file whose
+// comments record what was measured. `block` is the whole replacement including
+// the key, e.g.  "chord_zone": { "lowest_note": 60, "highest_note": 84 }
+bool spliceProfileBlock (const std::string& path, const std::string& key,
+                         const std::string& block, std::string& error)
+{
+    std::string text;
+    if (! spliceNamedBlock (path, "\"" + key + "\"", block, text))
+    {
+        error = path + ": no \"" + key + "\" block to write into";
+        return false;
+    }
+
+    std::ofstream f (path, std::ios::binary | std::ios::trunc);
+    if (! f)
+    {
+        error = "could not open " + path + " for writing";
+        return false;
+    }
+
+    f.write (text.data(), static_cast<std::streamsize> (text.size()));
+    if (! f)
+    {
+        error = "failed while writing " + path;
+        return false;
+    }
+
+    error.clear();
+    return true;
+}
+
 bool saveControlsInto (const std::string& path, const ControlSet& controls,
                        std::string& error)
 {
     std::string text;
-    if (! spliceControls (path, controls.toJson(), text))
+    if (! spliceNamedBlock (path, "\"controls\"", controls.toJson(), text))
     {
         // Nothing to splice into means the file has no controls block at all.
         // Adding one is safe; rewriting the file from a struct is not, so the
@@ -863,12 +908,29 @@ void BassProfile::render (const std::vector<BassIntent>& intents,
 {
     const int lowest = lowestNoteFor (tuning);
 
+    // A bass line is monophonic. One player, four strings, and never two notes
+    // ringing at once - so a note has to stop before the next one starts.
+    //
+    // Around a tenth of the notes used to overlap the one before them, which on
+    // a physically modelled instrument means two notes competing for the same
+    // string and the earlier note's release cutting off the later one. Ending
+    // each note where the next begins is what a bass player's hand does anyway.
+    std::vector<int> ends (intents.size(), 0);
+    for (size_t i = 0; i < intents.size(); ++i)
+    {
+        int end = intents[i].tick + std::max (1, intents[i].durationTicks);
+        if (i + 1 < intents.size())
+            end = std::min (end, intents[i + 1].tick);
+        ends[i] = std::max (intents[i].tick + 1, end);
+    }
+
     // Only re-send an articulation when it actually changes. Re-stating it on
     // every note floods the plugin and, on some instruments, retriggers.
     int lastArtic = -1;
 
-    for (const BassIntent& b : intents)
+    for (size_t idx = 0; idx < intents.size(); ++idx)
     {
+        const BassIntent& b = intents[idx];
         // Fold anything below the instrument into range instead of clamping every
         // low note onto the same pitch, which would flatten a riff into a drone.
         int pitch = b.pitch;
@@ -883,8 +945,8 @@ void BassProfile::render (const std::vector<BassIntent>& intents,
         // articulations are the risky part, so until the map is confirmed only
         // the notes go out. A plain bass line is a much better failure than no
         // bass at all.
-        const int articIndex = needsVerification ? 0 : static_cast<int> (b.artic);
-        if (articIndex != lastArtic && ! needsVerification)
+        const int articIndex = articulationsVerified ? static_cast<int> (b.artic) : 0;
+        if (articIndex != lastArtic && articulationsVerified)
         {
             const ArticulationMapping m = articulation (b.artic);
             if (m.defined)
@@ -903,10 +965,9 @@ void BassProfile::render (const std::vector<BassIntent>& intents,
         }
 
         const int vel = velocityFor (b.accent, velocityMin, velocityMax);
-        const int dur = std::max (1, b.durationTicks);
 
         track.addNoteOn  (b.tick, channel, pitch, vel);
-        track.addNoteOff (b.tick + dur, channel, pitch);
+        track.addNoteOff (ends[idx], channel, pitch);
     }
 }
 

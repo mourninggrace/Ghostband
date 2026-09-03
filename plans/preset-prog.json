@@ -1,15 +1,4 @@
 {
-  // THE LONG WAY ROUND - progressive.
-  //
-  // The other presets repeat an eight-bar shape. This one deliberately does
-  // not: sections run 6, 10, 12 and 14 bars, the feel changes underneath the
-  // same chords, and the lead passes between guitar and piano four times. It
-  // is the preset for hearing whether the arrangement logic actually holds up
-  // when the structure stops being predictable.
-  //
-  // Dorian, because the raised sixth against a minor tonic is the sound that
-  // keeps this from being metal with extra sections.
-
   "title": "The Long Way Round",
 
   "key":  "E",
@@ -21,9 +10,9 @@
   "bass_tuning": "drop_d",
   "play_style":  "pick",
 
-  "complexity": 0.88,
-  "humanize":   0.58,
-  "seed":       2112,
+  "complexity": 0.62,
+  "humanize":   1,
+  "seed":       26875,
   "ending":     "ritard",
 
   "drum_profile":   "profiles/ssd5-terry-date.json",
@@ -33,18 +22,15 @@
 
   "sections": [
     {
-      // Piano alone, six bars, so the ear never settles into a count of eight.
-      "name": "intro", "bars": 6, "intensity": 0.22,
-      "feel": "straight", "plays": "piano", "fill": "none",
-      "chords": ["Em", "Em", "A", "Em", "C", "B"],
-      "piano": "sparse", "lead": "piano"
+      "name": "intro", "bars": 6, "intensity": 0.36,
+      "feel": "straight", "plays": "drums+bass+piano", "fill": "none",
+      "chords": ["Em", "Em", "A", "Em", "C", "B"], "piano": "sparse", "lead": "piano"
     },
     {
-      "name": "theme", "bars": 10, "intensity": 0.60,
+      "name": "theme", "bars": 10, "intensity": 0.6,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["Em", "A", "Em", "A", "C", "B", "Em", "A", "C", "B"],
-      "bass": "lock_kick", "guitar": "driving", "piano": "sparse",
-      "lead": "guitar"
+      "bass": "lock_kick", "guitar": "driving", "piano": "sparse", "lead": "guitar"
     },
     {
       "name": "verse1", "bars": 8, "intensity": 0.42,
@@ -53,7 +39,6 @@
       "bass": "roots", "piano": "driving", "lead": "piano"
     },
     {
-      // Same chords as the verse, half the speed, all the weight.
       "name": "heavy", "bars": 8, "intensity": 0.86,
       "feel": "half_time", "plays": "drums+bass+guitar", "fill": "big",
       "chords": ["Em", "Em", "C", "A"],
@@ -72,26 +57,21 @@
       "bass": "roots", "piano": "driving", "lead": "piano"
     },
     {
-      // Fourteen bars, and the longest stretch in the song where nothing
-      // repeats on an even boundary.
-      "name": "development", "bars": 14, "intensity": 0.70,
+      "name": "development", "bars": 14, "intensity": 0.7,
       "feel": "straight", "plays": "full", "fill": "auto",
-      "chords": ["Em", "A", "C", "B", "Em", "A", "F#m", "B",
-                 "C", "G", "A", "Em", "C", "B"],
-      "bass": "lock_kick", "guitar": "busy", "piano": "sparse",
-      "lead": "guitar"
+      "chords": ["Em", "A", "C", "B", "Em", "A", "F#m", "B", "C", "G", "A", "Em", "C", "B"],
+      "bass": "lock_kick", "guitar": "busy", "piano": "sparse", "lead": "guitar"
     },
     {
-      "name": "quiet", "bars": 6, "intensity": 0.20,
+      "name": "quiet", "bars": 6, "intensity": 0.2,
       "feel": "half_time", "plays": "bass+piano", "fill": "none",
       "chords": ["Am", "Am", "C", "B", "Em", "Em"],
       "bass": "roots", "piano": "sparse", "lead": "piano"
     },
     {
-      "name": "solo", "bars": 12, "intensity": 0.90,
+      "name": "solo", "bars": 12, "intensity": 0.9,
       "feel": "straight", "plays": "full", "fill": "big",
-      "chords": ["Em", "A", "C", "B", "Em", "A", "C", "B",
-                 "Am", "B", "Em", "Em"],
+      "chords": ["Em", "A", "C", "B", "Em", "A", "C", "B", "Am", "B", "Em", "Em"],
       "bass": "eighths", "guitar": "busy", "piano": "driving", "lead": "guitar"
     },
     {
@@ -101,11 +81,9 @@
       "bass": "eighths", "guitar": "open", "piano": "open", "lead": "both"
     },
     {
-      // Slows to a stop, which is what "ritard" does to the tempo map.
       "name": "ending", "bars": 6, "intensity": 0.62,
       "feel": "half_time", "plays": "full", "fill": "none",
-      "chords": ["Em", "A", "C", "B", "Em", "Em"],
-      "guitar": "open", "piano": "open", "lead": "both"
+      "chords": ["Em", "A", "C", "B", "Em", "Em"], "guitar": "open", "piano": "open", "lead": "both"
     }
   ]
 }
