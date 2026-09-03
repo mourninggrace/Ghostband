@@ -89,6 +89,23 @@
   // Map the instrument's volume with follows "level" and the mix knob on the
   // song screen will reach it. Without one, the mix knob falls back to CC 7,
   // which most instrument plugins ignore outright.
+  // HOW TO GIVE MODO A CONTROLLER: right-click the control itself and choose
+  // MIDI Learn, then press Teach in Ghostband's Settings. Do not use the
+  // CONTROL page for this.
+  //
+  // Assigning MASTER VOLUME to a CC on the CONTROL page looks identical and
+  // does nothing. It was set, read back as CC 22 afterwards, and no controller
+  // Ghostband sent ever moved it - not the volume, and not MUTING on CC 9
+  // either, which was checked separately because a mute is unmistakable when it
+  // lands. That same page had already dropped an assignment silently once.
+  // MIDI Learn worked first time.
+  //
+  // Note that comments cannot live inside the block below: Save mappings
+  // rewrites it wholesale, so anything in there is lost the first time somebody
+  // saves. This one is out here for that reason.
+  //
+  // CC 22 is free on both sides - MODO uses 1 through 5, 9, 64 and 65 on its
+  // CONTROL page, and Ghostband never auto-assigns below 22.
   "controls": {
     "volume": { "cc": 22, "follows": "level", "type": "knob", "low": 0, "high": 1 }
   }
