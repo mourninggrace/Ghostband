@@ -385,6 +385,8 @@ bool BassProfile::load (const std::string& path, BassProfile& out, std::string& 
                 m.ccValue = clampInt (def.intOr ("value", 0), 0, 127);
             }
 
+            m.hold = def.boolOr ("hold", false);
+
             out.artics[static_cast<size_t> (a)] = m;
         }
     }
@@ -948,10 +950,19 @@ void BassProfile::render (const std::vector<BassIntent>& intents,
         // the notes go out. A plain bass line is a much better failure than no
         // bass at all.
         const int articIndex = articulationsVerified ? static_cast<int> (b.artic) : 0;
-        if (articIndex != lastArtic && articulationsVerified)
+
+        // A latching switch only needs sending when it changes - restating it
+        // on every note floods the instrument and can retrigger. A momentary
+        // one is the opposite: it applies only while held, so every note that
+        // wants it needs its own. Sending that one on change alone would give
+        // the first ghost note its switch and leave the rest without.
+        const ArticulationMapping mNow = articulation (b.artic);
+        const bool sendArtic = articulationsVerified && mNow.defined
+                             && (mNow.hold || articIndex != lastArtic);
+
+        if (sendArtic)
         {
-            const ArticulationMapping m = articulation (b.artic);
-            if (m.defined)
+            const ArticulationMapping m = mNow;
             {
                 if (m.hasCC)
                     track.addCC (std::max (0, b.tick - keyswitchLeadTicks), channel, m.cc, m.ccValue);
@@ -959,8 +970,14 @@ void BassProfile::render (const std::vector<BassIntent>& intents,
                 if (m.hasKeyswitch)
                 {
                     const int ksOn = std::max (0, b.tick - keyswitchLeadTicks);
-                    track.addNoteOn  (ksOn, channel, m.keyswitch, keyswitchVelocity);
-                    track.addNoteOff (std::max (ksOn + 1, b.tick - 1), channel, m.keyswitch);
+                    track.addNoteOn (ksOn, channel, m.keyswitch, keyswitchVelocity);
+
+                    // A latching switch only needs the press; a momentary one
+                    // has to still be down while the note sounds, or it may as
+                    // well not have been sent.
+                    track.addNoteOff (m.hold ? ends[idx]
+                                             : std::max (ksOn + 1, b.tick - 1),
+                                      channel, m.keyswitch);
                 }
             }
             lastArtic = articIndex;

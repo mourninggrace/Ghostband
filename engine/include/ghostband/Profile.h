@@ -20,6 +20,14 @@ struct ArticulationMapping
     bool hasCC        = false;
     int  cc           = 0;
     int  ccValue      = 0;
+
+    // Some keyswitches latch - a brief press changes a mode that stays changed -
+    // and some are momentary, applying only while the key is held. MODO shows
+    // which is which in a Latch column: its playing styles latch, its ghost,
+    // hammer and force-slap switches do not. A momentary switch blipped before
+    // the note has already been released by the time the note sounds, so it
+    // does nothing whatsoever.
+    bool hold         = false;
 };
 
 // One of the instrument's own knobs, and what the arrangement should make it

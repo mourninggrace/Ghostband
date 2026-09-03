@@ -18,8 +18,11 @@
   "id": "modo_bass_2",
   "channel": 1,
 
-  "needs_verification": true,
-  "verification_note": "Keyswitches and the mute CC must be matched to MODO Bass 2's Control page.",
+  "needs_verification": false,
+
+  // The note range was found by ear and the articulations were read off
+  // MODO's CONTROL page, so both are now facts rather than guesses.
+  "articulations_verified": true,
 
   "velocity_min": 32,
   "velocity_max": 127,
@@ -45,17 +48,38 @@
   "keyswitch_lead_ticks": 30,
   "keyswitch_velocity": 100,
 
+  // Read off MODO Bass 2's own CONTROL page, not guessed.
+  //
+  // MODO labels middle C as C3, so C1 is note 36 and every keyswitch on that
+  // page lands below 40 - which is exactly where this rig's playable neck
+  // starts. That is the check that confirms the octave reading: keyswitches sit
+  // below the neck, notes sit on it.
+  //
+  //   MUTING           CC 9        (the mute is a controller, not a keyswitch)
+  //   LEGATO SLIDE     CC 65
+  //   HAM. ON/PULL OFF KS C0   24
+  //   GHOST MODE       KS A#-1  22
+  //   FORCE SLAP       KS C#-1  13
+  //   FORCE PULL       KS D#-1  15
+  //
+  // The Latch column is the other half of it. MODO's playing styles latch, so a
+  // brief press is enough; ghost, hammer, slide and the force switches show
+  // Latch Off, meaning momentary - they only apply while the key is held, so
+  // those are marked "hold" and stay down for the length of the note.
+  //
+  // Deliberately absent: the SLAP and PICK playing-style switches. Those latch,
+  // so sending one would change the style for the rest of the song with nothing
+  // to change it back. FORCE SLAP and FORCE PULL do the same job per note.
   "articulations": {
-    // Assign CC 21 to Mute in MODO's Control page, or change the cc number here.
-    "normal":    { "cc": 21, "value": 0 },
-    "palm_mute": { "cc": 21, "value": 100 },
+    "normal":    { "cc": 9,  "value": 0 },
+    "palm_mute": { "cc": 9,  "value": 110 },
 
-    // Kept at 12-16 so they stay below even a B standard low string (23).
-    "dead":      { "keyswitch": 14 },
-    "slide":     { "keyswitch": 15 },
-    "hammer":    { "keyswitch": 16 },
-    "slap":      { "keyswitch": 12 },
-    "pop":       { "keyswitch": 13 }
+    "dead":      { "keyswitch": 22, "hold": true },
+    "hammer":    { "keyswitch": 24, "hold": true },
+    "slap":      { "keyswitch": 13, "hold": true },
+    "pop":       { "keyswitch": 15, "hold": true },
+
+    "slide":     { "cc": 65, "value": 127 }
   },
 
   // Controls mapped in the plugin: an instrument's own knobs, buttons and
