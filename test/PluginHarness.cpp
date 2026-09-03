@@ -1294,6 +1294,51 @@ int main (int argc, char** argv)
             proc.removeControl (bass, 0);
     }
 
+    // ---- the rig survives a restart -----------------------------------------
+    // The mix and the channel assignments are part of how a rig is set up. They
+    // were not in the saved state at all, so every knob sprang back to full and
+    // every channel to its default whenever the host was restarted.
+    {
+        proc.levelDrums.store  (0.30f);
+        proc.levelBass.store   (0.55f);
+        proc.levelGuitar.store (0.80f);
+        proc.levelPiano.store  (0.20f);
+        proc.channelGuitar.store (7);
+
+        juce::MemoryBlock saved;
+        proc.getStateInformation (saved);
+
+        // Move everything somewhere else, then restore.
+        proc.levelDrums.store  (1.0f);
+        proc.levelBass.store   (1.0f);
+        proc.levelGuitar.store (1.0f);
+        proc.levelPiano.store  (1.0f);
+        proc.channelGuitar.store (2);
+
+        proc.setStateInformation (saved.getData(), static_cast<int> (saved.getSize()));
+
+        const auto near = [] (float a, float b) { return std::abs (a - b) < 0.02f; };
+
+        check (near (proc.levelDrums.load(),  0.30f)
+                   && near (proc.levelBass.load(),   0.55f)
+                   && near (proc.levelGuitar.load(), 0.80f)
+                   && near (proc.levelPiano.load(),  0.20f),
+               "the mix survives a restart",
+               juce::String (proc.levelDrums.load(), 2) + " "
+                   + juce::String (proc.levelBass.load(), 2) + " "
+                   + juce::String (proc.levelGuitar.load(), 2) + " "
+                   + juce::String (proc.levelPiano.load(), 2));
+
+        check (proc.channelGuitar.load() == 7, "and so do the channel assignments",
+               juce::String (proc.channelGuitar.load()));
+
+        proc.levelDrums.store  (1.0f);
+        proc.levelBass.store   (1.0f);
+        proc.levelGuitar.store (1.0f);
+        proc.levelPiano.store  (1.0f);
+        proc.channelGuitar.store (2);
+    }
+
     // ---- editor snapshots --------------------------------------------------
     // A layout bug is invisible to every check above. Rendering the editor to a
     // PNG makes the one thing these tests cannot assert - what it actually looks

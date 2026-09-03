@@ -1921,6 +1921,19 @@ void GhostbandProcessor::getStateInformation (juce::MemoryBlock& destData)
     xml.setAttribute ("editorW",    editorWidth.load());
     xml.setAttribute ("editorH",    editorHeight.load());
     xml.setAttribute ("planTempo",  usePlanTempo.load());
+
+    // The mix and the channel assignments are part of how a rig is set up, not
+    // scratch values. Leaving them out meant every knob sprang back to full and
+    // every channel back to its default the moment the host was restarted.
+    xml.setAttribute ("levelDrums",  levelDrums.load());
+    xml.setAttribute ("levelBass",   levelBass.load());
+    xml.setAttribute ("levelGuitar", levelGuitar.load());
+    xml.setAttribute ("levelPiano",  levelPiano.load());
+
+    xml.setAttribute ("chDrums",  channelDrums.load());
+    xml.setAttribute ("chBass",   channelBass.load());
+    xml.setAttribute ("chGuitar", channelGuitar.load());
+    xml.setAttribute ("chPiano",  channelPiano.load());
     copyXmlToBinary (xml, destData);
 }
 
@@ -1936,6 +1949,21 @@ void GhostbandProcessor::setStateInformation (const void* data, int sizeInBytes)
     editorWidth.store  (juce::jlimit (560, 2200, xml->getIntAttribute ("editorW", 620)));
     editorHeight.store (juce::jlimit (690, 2000, xml->getIntAttribute ("editorH", 780)));
     usePlanTempo.store (xml->getBoolAttribute ("planTempo", true));
+
+    const auto level = [&xml] (const char* key)
+    {
+        return static_cast<float> (juce::jlimit (0.0, 1.0,
+                                       xml->getDoubleAttribute (key, 1.0)));
+    };
+    levelDrums.store  (level ("levelDrums"));
+    levelBass.store   (level ("levelBass"));
+    levelGuitar.store (level ("levelGuitar"));
+    levelPiano.store  (level ("levelPiano"));
+
+    channelDrums.store  (juce::jlimit (1, 16, xml->getIntAttribute ("chDrums", 10)));
+    channelBass.store   (juce::jlimit (1, 16, xml->getIntAttribute ("chBass", 1)));
+    channelGuitar.store (juce::jlimit (1, 16, xml->getIntAttribute ("chGuitar", 2)));
+    channelPiano.store  (juce::jlimit (1, 16, xml->getIntAttribute ("chPiano", 3)));
 
     const juce::File file (xml->getStringAttribute ("plan"));
     if (file.existsAsFile())
