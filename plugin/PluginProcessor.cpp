@@ -275,6 +275,12 @@ void GhostbandProcessor::loadPlan (const juce::File& file)
         return;
     }
 
+    // The song under the playhead is about to be replaced. Whatever the old one
+    // was holding has to be released by the audio thread, and the new one
+    // starts at its own beginning rather than wherever the last one had got to.
+    flushPending.store (true);
+    rewindPending.store (true);
+
     {
         const juce::ScopedLock sl (stateLock);
         plan     = loaded;
@@ -1638,6 +1644,34 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     const auto pos = ph->getPosition();
     if (! pos.hasValue())
         return;
+
+    // A song swapped in under a running playhead leaves the old one's notes
+    // with nothing to stop them. Release them before the new song starts.
+    if (flushPending.exchange (false))
+        sendAllNotesOff (midi, 0);
+
+    if (rewindPending.exchange (false))
+    {
+        planTick = 0.0;
+        nextExpectedTick = -1.0;
+        jumpOffset = 0.0;
+        activeSection.store (-1);
+    }
+
+    // Paused is Ghostband's own stop, not the host's. The host transport is
+    // often left running all session, so stopping the band and stopping the
+    // host are not the same action.
+    if (paused.load())
+    {
+        if (wasPlaying)
+        {
+            sendAllNotesOff (midi, 0);
+            wasPlaying = false;
+            transportRunning.store (false);
+            activeSection.store (-1);
+        }
+        return;
+    }
 
     if (! pos->getIsPlaying())
     {

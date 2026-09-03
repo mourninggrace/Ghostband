@@ -375,6 +375,13 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     styleButton (loadButton, false);
     styleButton (reloadButton, false);
     styleButton (rollButton, true);
+    styleButton (playPauseButton, false);
+    addAndMakeVisible (playPauseButton);
+    playPauseButton.onClick = [this]
+    {
+        processor.togglePaused();
+        playPauseButton.setButtonText (processor.paused.load() ? "Play" : "Pause");
+    };
     styleButton (calibrateButton, false);
 
     addAndMakeVisible (calibrateButton);
@@ -1238,7 +1245,7 @@ void GhostbandEditor::updateModeVisibility()
              &humanizeLabel, &seedEditor, &seedLabel, &keyBox, &styleBox,
              &tuningBox, &keyLabel, &styleLabel, &tuningLabel,
              &modeBox, &modeLabel,
-             &tempoLabel, &transportLabel, &summaryLabel,
+             &tempoLabel, &transportLabel, &summaryLabel, &playPauseButton,
              &mixLabel, &levelDrums, &levelBass, &levelGuitar, &levelPiano,
              &levelDrumsLabel, &levelBassLabel, &levelGuitarLabel, &levelPianoLabel })
         c->setVisible (song);
@@ -2056,7 +2063,9 @@ void GhostbandEditor::resized()
     seedRow.removeFromLeft (8);
     // Fixed width: letting it take the remaining space made it span half the
     // window, which read as the most important control on the panel.
-    rollButton.setBounds (seedRow.removeFromLeft (juce::jmin (130, seedRow.getWidth())));
+    rollButton.setBounds (seedRow.removeFromLeft (juce::jmin (100, seedRow.getWidth())));
+    seedRow.removeFromLeft (6);
+    playPauseButton.setBounds (seedRow.removeFromLeft (juce::jmin (74, seedRow.getWidth())));
 
     // Mix row: four small level knobs, one per part.
     r.removeFromTop (8);

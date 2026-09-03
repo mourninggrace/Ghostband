@@ -139,6 +139,10 @@ private:
     juce::TextButton reloadButton { "Reload" };
     juce::TextButton rollButton   { "Roll" };
 
+    // Ghostband's own transport. The host's is usually left running for a whole
+    // session, so stopping the band and stopping the host are different things.
+    juce::TextButton playPauseButton { "Pause" };
+
     juce::ComboBox keyBox;
     juce::ComboBox modeBox;
     juce::ComboBox styleBox;

@@ -126,6 +126,23 @@ public:
     // and will not agree with the band.
     std::atomic<bool> usePlanTempo { true };
 
+    // Ghostband's own play state, separate from the host's transport.
+    //
+    // The host's transport is often left running for a whole session, so
+    // "start and stop the band" and "start and stop the host" are not the same
+    // action. Paused releases every sounding note and freezes the song where it
+    // stands; playing again carries on from there.
+    std::atomic<bool> paused { false };
+    void togglePaused()  { paused.store (! paused.load()); }
+
+    // Set when the song underneath the playhead has been replaced. The audio
+    // thread releases everything still sounding before the new one starts,
+    // because a note from the song that has just been swapped away has nothing
+    // left to turn it off - which is why loading a second song on top of a
+    // playing one left the first one ringing over it.
+    std::atomic<bool> flushPending { false };
+    std::atomic<bool> rewindPending { false };
+
     std::atomic<int>    playbackTick     { 0 };
     std::atomic<bool>   transportRunning { false };
     std::atomic<double> hostBpm          { 0.0 };
