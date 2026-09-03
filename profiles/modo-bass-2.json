@@ -89,5 +89,13 @@
   // Map the instrument's volume with follows "level" and the mix knob on the
   // song screen will reach it. Without one, the mix knob falls back to CC 7,
   // which most instrument plugins ignore outright.
-  "controls": {}
+  "controls": {
+    // MODO's MASTER VOLUME, which ships unassigned on its CONTROL page.
+    // Assign it to CC 22 there and the bass mix knob on the song screen
+    // reaches it directly - no gain block in the rackspace needed.
+    //
+    // CC 22 is free on both sides: MODO already uses 1, 2, 3, 4, 5, 9, 64 and
+    // 65, and Ghostband never auto-assigns below 22.
+    "volume": { "cc": 22, "follows": "level", "type": "knob", "low": 0, "high": 1 }
+  }
 }
