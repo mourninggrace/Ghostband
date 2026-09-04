@@ -409,10 +409,51 @@ static int swungTick (int tick, double amount, int beatTicks)
 // Applies the swing to a finished performance. Onsets and note ends are warped
 // together, so a note that was a beat long stays a beat long rather than
 // growing over whatever follows it.
+// Whether an onset belongs on a swung grid at all.
+//
+// A shuffle is a triplet feel, and a straight sixteenth is not a rhythm that
+// exists inside one. The generators subdivide in sixteenths because that is
+// what every other style wants, so warping their output gave onsets at 0, 0.30,
+// 0.60 and 0.80 of the beat: four notes lurching against a three-feel, which is
+// what the blues preset sounded like. A shuffle ride plays eighths.
+//
+// So for a swung song the sixteenths between the eighths are dropped before the
+// warp, which turns a sixteenth ride into an eighth one and thins fills to
+// match. Humanize has already nudged these off the grid by a few ticks, so the
+// test is which sixteenth an onset is nearest rather than which one it is on.
+static bool sitsOnASwungEighth (int tick, int beatTicks)
+{
+    if (beatTicks <= 0)
+        return true;
+
+    const double pos = static_cast<double> (tick % beatTicks) / beatTicks;
+
+    // Nearest sixteenth, as a quarter of a beat.
+    const int nearest = static_cast<int> (pos * 4.0 + 0.5) % 4;
+
+    return nearest == 0 || nearest == 2;   // the beat and the eighth, not the e or the a
+}
+
 static void applySwing (Performance& perf, double amount, int beatTicks)
 {
     if (amount <= 0.0)
         return;
+
+    const auto onGrid = [beatTicks] (int tick) { return sitsOnASwungEighth (tick, beatTicks); };
+
+    {
+        const auto thin = [&onGrid] (auto& v)
+        {
+            v.erase (std::remove_if (v.begin(), v.end(),
+                                     [&onGrid] (const auto& e) { return ! onGrid (e.tick); }),
+                     v.end());
+        };
+
+        thin (perf.drums);
+        thin (perf.bass);
+        thin (perf.guitar.chords);
+        thin (perf.piano.chords);
+    }
 
     const auto warp = [amount, beatTicks] (int t) { return swungTick (t, amount, beatTicks); };
 
@@ -770,6 +811,36 @@ RenderResult renderPerformance (const SongPlan& plan,
     // a different grid, not a different groove. Doing it here means every
     // generator stays straight-ahead and none of them has to know.
     applySwing (result.performance, plan.swing, beatTicks);
+
+    // The per-section counts were taken as each section was generated, which is
+    // before the swing thinned the sixteenths out of it - so the report claimed
+    // three hundred drum hits in a bar where a hundred and seventy play. Count
+    // again from what actually survived. Section boundaries sit on the beat and
+    // the warp leaves those alone, so the ranges still hold.
+    if (plan.swing > 0.0)
+    {
+        for (SectionReport& sec : result.sections)
+        {
+            const auto within = [&sec] (int tick)
+            {
+                return tick >= sec.startTick && tick < sec.endTick;
+            };
+
+            sec.drumHits = sec.bassNotes = sec.guitarChords = sec.pianoChords = 0;
+
+            for (const DrumIntent& d : result.performance.drums)
+                if (within (d.tick)) ++sec.drumHits;
+
+            for (const BassIntent& b : result.performance.bass)
+                if (within (b.tick)) ++sec.bassNotes;
+
+            for (const ChordIntent& c : result.performance.guitar.chords)
+                if (within (c.tick)) ++sec.guitarChords;
+
+            for (const ChordIntent& c : result.performance.piano.chords)
+                if (within (c.tick)) ++sec.pianoChords;
+        }
+    }
 
     return result;
 }

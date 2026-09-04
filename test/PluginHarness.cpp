@@ -1044,29 +1044,50 @@ int main (int argc, char** argv)
             const std::vector<int> swung    = drumTicks (0.62);
 
             check (! straight.empty(), "the swing test has drums to look at");
-            check (straight.size() == swung.size(),
-                   "swinging changes no note into existence or out of it",
-                   juce::String ((int) straight.size()) + " vs " + juce::String ((int) swung.size()));
+            // Swinging thins before it warps. A shuffle is a triplet feel and a
+            // straight sixteenth is not a rhythm inside one, so the sixteenths
+            // between the eighths are dropped - which is what turns a sixteenth
+            // ride into the eighth ride a shuffle actually plays. It must only
+            // ever remove, never invent.
+            check (swung.size() > 0 && swung.size() < straight.size(),
+                   "swinging thins the sixteenths out and adds nothing",
+                   juce::String ((int) straight.size()) + " straight, "
+                       + juce::String ((int) swung.size()) + " swung");
 
-            const int beat = 480;   // kPPQ
-            int movedLate = 0, downbeatsMoved = 0, movedEarly = 0;
-
-            for (size_t i = 0; i < straight.size() && i < swung.size(); ++i)
+            bool everySwungOnsetIsOnAnEighth = true;
+            for (int t : swung)
             {
-                const int before = straight[i], after = swung[i];
-                const bool onBeat = (before % beat) == 0;
+                const double pos = (t % 480) / 480.0;
+                const int nearest = static_cast<int> (pos * 4.0 + 0.5) % 4;
+                if (nearest == 1 || nearest == 3)
+                    everySwungOnsetIsOnAnEighth = false;
+            }
+            check (everySwungOnsetIsOnAnEighth,
+                   "and nothing is left on a straight sixteenth");
 
-                if (onBeat && before != after)         ++downbeatsMoved;
-                else if (after > before)               ++movedLate;
-                else if (after < before)               ++movedEarly;
+            // What matters is not that a tick is unchanged - humanize has
+            // already nudged these a few ticks off the grid, and the warp
+            // scales that nudge with everything else. It is that a downbeat is
+            // still a downbeat afterwards and an eighth has moved late.
+            const int beat = 480;   // kPPQ
+            int stayedOnTheBeat = 0, driftedOffTheBeat = 0, pushedLate = 0;
+
+            for (int t : swung)
+            {
+                const double pos = (t % beat) / static_cast<double> (beat);
+
+                if (pos < 0.05 || pos > 0.95)   ++stayedOnTheBeat;
+                else if (pos > 0.55)            ++pushedLate;
+                else                            ++driftedOffTheBeat;
             }
 
-            check (downbeatsMoved == 0, "a downbeat never moves",
-                   juce::String (downbeatsMoved) + " moved");
-            check (movedEarly == 0, "nothing is pushed early",
-                   juce::String (movedEarly) + " moved early");
-            check (movedLate > 0, "the offbeats are pushed late",
-                   juce::String (movedLate) + " moved late");
+            check (driftedOffTheBeat == 0,
+                   "every onset is either on the beat or late on the swung eighth",
+                   juce::String (driftedOffTheBeat) + " landed somewhere else");
+            check (stayedOnTheBeat > 0, "downbeats are still downbeats",
+                   juce::String (stayedOnTheBeat));
+            check (pushedLate > 0, "the offbeats are pushed late",
+                   juce::String (pushedLate) + " moved late");
 
             // The one that protects every song written before swing existed.
             check (drumTicks (0.0) == straight, "no swing moves nothing at all");

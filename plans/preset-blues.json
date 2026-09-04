@@ -11,6 +11,11 @@
   // being a full triplet. Set it to 1.0 for a lazy Texas feel or 0.4 for
   // something closer to a jump blues.
   //
+  // The bass is on eighths everywhere rather than roots. Roots gives one note a
+  // bar, which in any other style reads as restraint and here just reads as a
+  // drone - a blues bass walks. Over a shuffle those eighths come out as the
+  // boogie, which is the engine of the whole thing.
+  //
   // Mixolydian, because the flattened seventh over a major third is the whole
   // sound and a natural minor would make this something else entirely.
 
@@ -42,7 +47,7 @@
       "name": "intro", "bars": 4, "intensity": 0.35,
       "feel": "straight", "plays": "drums+bass+piano", "fill": "small",
       "chords": ["E", "D", "A", "E"],
-      "bass": "roots", "piano": "sparse", "lead": "piano"
+      "bass": "eighths", "piano": "sparse", "lead": "piano"
     },
     {
       // A real twelve bar: four on the one, two on the four, two on the one,
@@ -51,13 +56,13 @@
       "name": "verse1", "bars": 12, "intensity": 0.50,
       "feel": "straight", "plays": "full", "fill": "auto",
       "chords": ["A", "A", "A", "A", "D", "D", "A", "A", "E", "D", "A", "E"],
-      "bass": "roots", "guitar": "sparse", "piano": "driving", "lead": "piano"
+      "bass": "eighths", "guitar": "sparse", "piano": "driving", "lead": "piano"
     },
     {
       "name": "verse2", "bars": 12, "intensity": 0.58,
       "feel": "straight", "plays": "full", "fill": "auto",
       "chords": ["A", "A", "A", "A", "D", "D", "A", "A", "E", "D", "A", "E"],
-      "bass": "roots", "guitar": "sparse", "piano": "driving", "lead": "piano"
+      "bass": "eighths", "guitar": "sparse", "piano": "driving", "lead": "piano"
     },
     {
       // The guitar takes a chorus, which in blues means twelve bars of its own.
