@@ -41,6 +41,24 @@ int Chord::fifthSemitones() const
     }
 }
 
+const std::vector<int>& soloScale (Mode m, const std::string& style)
+{
+    // Minor pentatonic plus the flat fifth. Played over a dominant seventh this
+    // is the whole vocabulary: the flat third rubbing against the chord's major
+    // third is the blue note, and the flat fifth is the one that is passed
+    // through rather than landed on.
+    static const std::vector<int> blues { 0, 3, 5, 6, 7, 10 };
+
+    std::string lowered;
+    for (char c : style)
+        lowered += static_cast<char> (std::tolower (static_cast<unsigned char> (c)));
+
+    if (lowered == "blues" || lowered == "shuffle")
+        return blues;
+
+    return scaleIntervals (m);
+}
+
 //==============================================================================
 
 static std::string lower (std::string s)

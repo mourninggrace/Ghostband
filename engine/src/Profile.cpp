@@ -46,7 +46,7 @@ DrumVoice drumVoiceFromName (const std::string& s, bool& ok)
 
 static const char* kPhraseFeelNames[] =
 {
-    "silent", "sparse", "muted", "driving", "open", "busy"
+    "silent", "sparse", "muted", "driving", "open", "busy", "solo"
 };
 
 static const size_t kNumPhraseFeels = sizeof (kPhraseFeelNames) / sizeof (kPhraseFeelNames[0]);
@@ -859,6 +859,28 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
     // the profile does not map is skipped in silence: the generator is allowed
     // to ask for "more drive" from an instrument that has no such knob.
     controls.render (part.controls, channel, phraseLeadTicks, track);
+
+    // A solo line. One note at a time, so each is stopped before the next
+    // begins - a lead that overlaps itself stops reading as one player.
+    for (size_t i = 0; i < part.lead.size(); ++i)
+    {
+        const LeadIntent& n = part.lead[i];
+
+        int pitch = n.pitch;
+        while (pitch > chordHighest && chordHighest - chordLowest >= 12) pitch -= 12;
+        while (pitch < chordLowest)                                      pitch += 12;
+        if (pitch < chordLowest || pitch > chordHighest)
+            continue;
+
+        int end = n.tick + std::max (1, n.durationTicks);
+        if (i + 1 < part.lead.size())
+            end = std::min (end, part.lead[i + 1].tick);
+        end = std::max (n.tick + 1, end);
+
+        track.addNoteOn  (n.tick, channel, pitch,
+                          velocityFor (n.accent, velocityMin, velocityMax));
+        track.addNoteOff (end, channel, pitch);
+    }
 
     const int zoneSpan = chordHighest - chordLowest;
 

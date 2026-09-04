@@ -70,11 +70,13 @@
       "bass": "eighths", "guitar": "sparse", "piano": "driving", "lead": "piano"
     },
     {
-      // The guitar takes a chorus, which in blues means twelve bars of its own.
+      // The guitar takes a chorus, which in blues means twelve bars of its own -
+      // and "solo" means it stops comping and plays a line. A player does one or
+      // the other, never both, so the piano holds the harmony underneath.
       "name": "solo", "bars": 12, "intensity": 0.80,
       "feel": "straight", "plays": "full", "fill": "auto",
       "chords": ["A7", "A7", "A7", "A7", "D7", "D7", "A7", "A7", "E7", "D7", "A7", "E7"],
-      "bass": "eighths", "guitar": "busy", "piano": "sparse", "lead": "guitar"
+      "bass": "eighths", "guitar": "solo", "piano": "sparse", "lead": "guitar"
     },
     {
       // Stop time: everything drops to accents on the one and the band leaves

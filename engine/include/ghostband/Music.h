@@ -46,6 +46,12 @@ std::string pitchClassName     (int pc);
 
 const std::vector<int>& scaleIntervals (Mode m);
 
+// What a solo draws on, which is not the same as what the chords are built
+// from. Over dominant sevenths the mode's major third fights the blue third, so
+// blues gets the minor pentatonic with the flat fifth added - the notes a
+// player actually reaches for - while everything else solos from its own mode.
+const std::vector<int>& soloScale (Mode m, const std::string& style);
+
 // Accepts forms like E, Em, E5, F#m, Bb, Am7, Gsus4, Bdim.
 Chord parseChord (const std::string& text);
 

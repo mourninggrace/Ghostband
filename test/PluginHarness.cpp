@@ -1110,6 +1110,81 @@ int main (int argc, char** argv)
         }
     }
 
+    // ---- a solo is a line, not a scale ---------------------------------------
+    // The difference between the two is phrasing, so that is what gets checked:
+    // one note at a time, mostly stepwise, and with silence in it. A part that
+    // plays on every subdivision is a texture however good the notes are.
+    {
+        gb::SongPlan plan;
+        std::string err;
+        if (gb::SongPlan::load (juce::File (planPath).getParentDirectory()
+                                    .getChildFile ("preset-blues.json")
+                                    .getFullPathName().toStdString(), plan, err))
+        {
+            gb::DrumProfile kit;
+            gb::BassProfile bass;
+
+            gb::PhraseProfile guitar;
+            guitar.id = "solo_test";
+            guitar.phraseDriven = false;
+            guitar.chordLowest  = 60;
+            guitar.chordHighest = 84;
+
+            const gb::RenderResult r = gb::renderPerformance (plan, kit, bass, &guitar, nullptr);
+            const auto& lead = r.performance.guitar.lead;
+
+            check (! lead.empty(), "a solo section produces a melodic line",
+                   juce::String ((int) lead.size()) + " notes");
+
+            if (! lead.empty())
+            {
+                bool monophonic = true, inRange = true;
+                int  leaps = 0, steps = 0;
+
+                for (size_t i = 0; i < lead.size(); ++i)
+                {
+                    if (lead[i].pitch < 60 || lead[i].pitch > 84) inRange = false;
+
+                    if (i + 1 < lead.size())
+                    {
+                        if (lead[i].tick + lead[i].durationTicks > lead[i + 1].tick + 1)
+                            monophonic = false;
+
+                        const int interval = std::abs (lead[i + 1].pitch - lead[i].pitch);
+                        if (interval > 4) ++leaps; else ++steps;
+                    }
+                }
+
+                check (monophonic, "one note at a time - a player has one voice");
+                check (inRange, "and every note is inside the instrument's range");
+                check (steps > leaps, "it moves mostly by step rather than leaping",
+                       juce::String (steps) + " steps, " + juce::String (leaps) + " leaps");
+
+                // Silence is the thing that makes it phrase. Without a real rest
+                // somewhere it is a texture, whatever the notes are.
+                int longestRest = 0;
+                for (size_t i = 0; i + 1 < lead.size(); ++i)
+                    longestRest = std::max (longestRest,
+                                            lead[i + 1].tick
+                                                - (lead[i].tick + lead[i].durationTicks));
+
+                check (longestRest > 240, "and it stops to breathe",
+                       "longest rest " + juce::String (longestRest) + " ticks");
+
+                // A soloing part stops comping. Both at once is not something
+                // one player can do.
+                bool compedDuringSolo = false;
+                for (const gb::SectionReport& sec : r.sections)
+                    if (sec.name == "solo")
+                        for (const gb::ChordIntent& c : r.performance.guitar.chords)
+                            if (c.tick >= sec.startTick && c.tick < sec.endTick)
+                                compedDuringSolo = true;
+
+                check (! compedDuringSolo, "and stops playing chords while it does");
+            }
+        }
+    }
+
     // ---- saving a profile keeps the profile --------------------------------
     // Pressing Save once rewrote a driver profile from scratch and took every
     // comment in it along with it - and in these files the comments are the

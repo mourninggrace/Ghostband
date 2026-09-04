@@ -5,6 +5,7 @@
 #include "ghostband/Rng.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace gb {
 
@@ -150,6 +151,192 @@ static std::vector<int> chordRhythm (PhraseFeel feel, Rng& rng)
     return pool[static_cast<size_t> (rng.below (static_cast<int> (pool.size())))];
 }
 
+// A solo, as opposed to a run up and down a scale.
+//
+// What separates the two is almost entirely phrasing. A player states a short
+// idea, stops, and answers it - and the silence between those ideas is doing as
+// much work as the notes. So this is built out of phrases rather than notes: a
+// phrase gets a rhythm, a shape and a note to aim at, plays for part of its
+// span and rests for the remainder, and the next one answers it.
+//
+// Three things keep it from wandering:
+//
+//   - it moves mostly by step through the scale, because a line that leaps
+//     everywhere reads as arpeggios rather than melody;
+//   - every phrase lands on a chord tone of whatever chord is under it, so the
+//     line agrees with the harmony without tracking it note for note;
+//   - the rhythm of a phrase is sometimes reused with different notes, which is
+//     the call and response that makes two phrases sound related.
+struct SoloPhrase
+{
+    int  bars      = 2;
+    bool answers   = false;   // reuses the previous phrase's rhythm
+};
+
+// Rhythms for one bar, as sixteenth offsets. Deliberately full of holes - a
+// solo that plays on every subdivision is a scale exercise.
+static std::vector<int> soloRhythm (Rng& rng, bool busy)
+{
+    static const std::vector<std::vector<int>> sparse = {
+        { 0, 6 }, { 0, 4, 10 }, { 4, 10 }, { 0, 8 }, { 6, 10 }, { 0, 3, 8 },
+    };
+    static const std::vector<std::vector<int>> dense = {
+        { 0, 2, 4, 8, 10 }, { 0, 4, 6, 8, 12 }, { 2, 4, 6, 10, 12 },
+        { 0, 2, 6, 8, 10, 14 }, { 0, 4, 8, 10, 12 },
+    };
+
+    const auto& pool = busy ? dense : sparse;
+    return pool[static_cast<size_t> (rng.below (static_cast<int> (pool.size())))];
+}
+
+static void generateSolo (const SectionPlan& s,
+                          const std::vector<Chord>& chords,
+                          int sectionStartTick,
+                          int barTicks,
+                          int keyPc,
+                          Mode mode,
+                          const std::string& style,
+                          const PhraseProfile* profile,
+                          double humanize,
+                          Rng& rng,
+                          PhrasePart& out)
+{
+    if (chords.empty() || profile == nullptr)
+        return;
+
+    const std::vector<int>& scale = soloScale (mode, style);
+    if (scale.empty())
+        return;
+
+    // Sit the line in the upper half of the instrument's range, so it is above
+    // whatever is holding the chords rather than buried inside them.
+    const int zoneLow  = profile->chordLowest;
+    const int zoneHigh = profile->chordHighest;
+    const int centre   = zoneLow + (zoneHigh - zoneLow) * 2 / 3;
+
+    // Degrees are counted from the key, so the line is in the key rather than
+    // chasing every chord. Chord tones are how it agrees with the harmony.
+    const auto pitchForDegree = [&] (int degree)
+    {
+        const int size   = static_cast<int> (scale.size());
+        const int octave = static_cast<int> (std::floor (degree / static_cast<double> (size)));
+        int       step   = degree - octave * size;
+        if (step < 0) step += size;
+
+        return centre + octave * 12 + scale[static_cast<size_t> (step)]
+             + (((keyPc - (centre % 12)) % 12) + 12) % 12;
+    };
+
+    const int sixteenth = barTicks / 16;
+    int degree = 0;
+    std::vector<int> lastRhythm;
+
+    for (int bar = 0; bar < s.bars; )
+    {
+        // Two bars is the natural unit: one to say something, one to answer.
+        const int phraseBars = (bar + 2 <= s.bars && rng.chance (0.75)) ? 2 : 1;
+        const bool answering = ! lastRhythm.empty() && rng.chance (0.45);
+        const bool busy      = s.intensity > 0.72 && rng.chance (0.5);
+
+        // A phrase plays for its first bar or two and then leaves room. Without
+        // this the part never stops, and a solo that never stops is a texture.
+        const int playBars = phraseBars;
+
+        // The shape this phrase traces. Rising phrases build, falling ones
+        // resolve, and an arch does both - which is most of what a melody is.
+        const int shape = rng.below (4);   // 0 rise, 1 fall, 2 arch, 3 hold
+
+        for (int b = 0; b < playBars && bar + b < s.bars; ++b)
+        {
+            const int barIndex = bar + b;
+            const Chord& chord = chords[static_cast<size_t> (barIndex) % chords.size()];
+
+            std::vector<int> rhythm = (answering && b < static_cast<int> (lastRhythm.size()))
+                                        ? lastRhythm
+                                        : soloRhythm (rng, busy);
+            if (! answering)
+                lastRhythm = rhythm;
+
+            const int barStart = sectionStartTick + barIndex * barTicks;
+
+            for (size_t i = 0; i < rhythm.size(); ++i)
+            {
+                const bool last = (i + 1 == rhythm.size());
+
+                // Step through the scale, leaping only occasionally. A line that
+                // leaps constantly stops sounding like one line.
+                if (shape == 0)      degree += rng.chance (0.75) ? 1 : 2;
+                else if (shape == 1) degree -= rng.chance (0.75) ? 1 : 2;
+                else if (shape == 2) degree += (i * 2 < rhythm.size()) ? 1 : -1;
+                else                 degree += rng.chance (0.5) ? 1 : -1;
+
+                // Keep it in the register it started in rather than climbing out
+                // of the instrument over eight bars.
+                if (degree >  9) degree -= static_cast<int> (scale.size());
+                if (degree < -6) degree += static_cast<int> (scale.size());
+
+                int pitch = pitchForDegree (degree);
+
+                // The note a phrase lands on belongs to the chord underneath it.
+                // This is the whole trick: the line is free in between and
+                // agrees with the harmony where it matters.
+                if (last)
+                {
+                    const int wanted[3] = { chord.rootPc,
+                                            (chord.rootPc + std::max (0, chord.thirdSemitones())) % 12,
+                                            (chord.rootPc + chord.fifthSemitones()) % 12 };
+
+                    int best = pitch, bestDistance = 99;
+                    for (int candidate = pitch - 3; candidate <= pitch + 3; ++candidate)
+                        for (int w : wanted)
+                            if (((candidate % 12) + 12) % 12 == w
+                                && std::abs (candidate - pitch) < bestDistance)
+                            {
+                                best = candidate;
+                                bestDistance = std::abs (candidate - pitch);
+                            }
+                    pitch = best;
+                }
+
+                while (pitch > zoneHigh) pitch -= 12;
+                while (pitch < zoneLow)  pitch += 12;
+
+                LeadIntent n;
+                n.pitch  = pitch;
+                n.tick   = barStart + rhythm[i] * sixteenth
+                         + static_cast<int> (rng.bipolar (humanize * 6.0));
+                n.target = last;
+
+                // A landing note is held; the ones on the way are short, which
+                // is what leaves the air between phrases audible.
+                const int nextOffset = last ? 16 : rhythm[i + 1];
+                n.durationTicks = std::max (sixteenth,
+                                            (nextOffset - rhythm[i]) * sixteenth
+                                                * (last ? 3 : 1) / (last ? 2 : 1));
+
+                n.accent = (last ? 0.9 : 0.68) + s.intensity * 0.1 + rng.bipolar (0.05);
+
+                out.lead.push_back (n);
+            }
+        }
+
+        // The rest. A phrase that is answered gets less room, because the answer
+        // is the thing filling it.
+        bar += phraseBars + (answering ? 0 : (rng.chance (0.5) ? 1 : 0));
+    }
+
+    // One voice. A landing note is deliberately long - that is what makes it
+    // land - and long enough to run into whatever comes next, so each note
+    // stops where the following one starts. A note before a rest keeps its full
+    // length, because ringing into silence is the point of the rest.
+    for (size_t i = 0; i + 1 < out.lead.size(); ++i)
+    {
+        const int room = out.lead[i + 1].tick - out.lead[i].tick;
+        if (room > 0)
+            out.lead[i].durationTicks = std::min (out.lead[i].durationTicks, room);
+    }
+}
+
 // Arrangement decisions expressed as control moves rather than notes: more
 // drive where the section is loud, brighter where it leads, the effect brought
 // in for the biggest moments and pulled out of the quiet ones. What each name
@@ -258,6 +445,7 @@ static void generatePhrasePart (const SectionPlan& s,
                                 int barTicks,
                                 int keyPc,
                                 Mode mode,
+                                const std::string& style,
                                 const PhraseProfile* profile,
                                 PhraseFeel feel,
                                 double humanize,
@@ -281,6 +469,16 @@ static void generatePhrasePart (const SectionPlan& s,
                  profile != nullptr ? profile->id : std::string(),
                  out.controls, sectionStartTick, s.intensity, ! supporting, s.role,
                  throughSong, sectionSeed, songSeed);
+
+    // A player either comps or solos. Doing both at once is not a thing a
+    // guitarist can physically do, and layering a line over your own chords is
+    // most of what makes generated music sound generated.
+    if (feel == PhraseFeel::Solo)
+    {
+        generateSolo (s, chords, sectionStartTick, barTicks, keyPc, mode, style,
+                      profile, humanize, rng, out);
+        return;
+    }
 
     const bool phraseDriven = (profile != nullptr && profile->isPhraseDriven());
     const int hits = phraseDriven ? 1 : chordHitsPerBar (feel);
@@ -456,6 +654,8 @@ static void applySwing (Performance& perf, double amount, int beatTicks)
         thin (perf.bass);
         thin (perf.guitar.chords);
         thin (perf.piano.chords);
+        thin (perf.guitar.lead);
+        thin (perf.piano.lead);
     }
 
     const auto warp = [amount, beatTicks] (int t) { return swungTick (t, amount, beatTicks); };
@@ -477,6 +677,9 @@ static void applySwing (Performance& perf, double amount, int beatTicks)
     {
         for (ChordIntent& c : part->chords)
             warpHeld (c.tick, c.durationTicks);
+
+        for (LeadIntent& n : part->lead)
+            warpHeld (n.tick, n.durationTicks);
 
         for (PhraseIntent& ph : part->phrases)
             ph.tick = warp (ph.tick);
@@ -706,7 +909,7 @@ RenderResult renderPerformance (const SongPlan& plan,
             if (playGuitar)
             {
                 const size_t before = result.performance.guitar.chords.size();
-                generatePhrasePart (s, chords, tick, barTicks, keyPc, mode,
+                generatePhrasePart (s, chords, tick, barTicks, keyPc, mode, plan.style,
                                     guitar,
                                     guitarSupports ? supportFeel (guitarFeel) : guitarFeel,
                                     plan.humanize, guitarSupports, throughSong,
@@ -722,7 +925,7 @@ RenderResult renderPerformance (const SongPlan& plan,
             if (playPiano)
             {
                 const size_t before = result.performance.piano.chords.size();
-                generatePhrasePart (s, chords, tick, barTicks, keyPc, mode,
+                generatePhrasePart (s, chords, tick, barTicks, keyPc, mode, plan.style,
                                     piano,
                                     pianoSupports ? supportFeel (pianoFeel) : pianoFeel,
                                     plan.humanize, pianoSupports, throughSong,

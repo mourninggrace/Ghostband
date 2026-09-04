@@ -56,7 +56,8 @@ enum class PhraseFeel
     Muted,       // tight and palm-muted, tracking the kick
     Driving,     // steady rhythmic push
     Open,        // full sustained chords, the chorus lift
-    Busy         // the most active option the instrument has
+    Busy,        // the most active option the instrument has
+    Solo         // a single-note line rather than chords
 };
 
 const char* phraseFeelName     (PhraseFeel f);
@@ -74,6 +75,25 @@ struct ChordIntent
     int    seventhSemis  = -1;  // -1 for a plain triad
     double accent        = 0.7;
     bool   strumUp       = false;   // alternates, so chords do not all sweep alike
+};
+
+// One note of a melodic line.
+//
+// Everything else Ghostband writes is chords, a bass line, or drums. A solo is
+// none of those: it is one note at a time, phrased, with silence between the
+// phrases doing as much work as the notes. So it gets its own intent rather
+// than being faked with single-note chords, which would have lost the octave
+// the moment a profile folded it into a chord zone.
+struct LeadIntent
+{
+    int    tick          = 0;
+    int    durationTicks = 120;
+    int    pitch         = 60;   // absolute; the profile folds it into range
+    double accent        = 0.8;
+
+    // A note the player leans on: held longer, hit harder, and the one a phrase
+    // is aiming at. Profiles that can bend or slide have something to hang it on.
+    bool   target        = false;
 };
 
 // Switch the instrument to this phrase. Emitted at section and phrase changes,
@@ -104,6 +124,10 @@ struct PhrasePart
     std::vector<ChordIntent>   chords;
     std::vector<PhraseIntent>  phrases;
     std::vector<ControlIntent> controls;
+
+    // Empty unless this part is soloing. A part either comps or solos in a
+    // given section, never both - which is what a real player does.
+    std::vector<LeadIntent>    lead;
 };
 
 struct Marker
