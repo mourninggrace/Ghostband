@@ -819,7 +819,8 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     // ---- header navigation, settings and about ----
     for (juce::TextButton* b : std::initializer_list<juce::TextButton*> {
              &settingsButton, &aboutButton, &backButton,
-             &resetSizeButton, &reloadProfilesBtn, &manualButton, &repoButton })
+             &resetSizeButton, &reloadProfilesBtn, &manualButton, &repoButton,
+             &emailButton })
     {
         styleButton (*b, false);
         addAndMakeVisible (*b);
@@ -836,6 +837,12 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     repoButton.onClick = []
     {
         juce::URL ("https://github.com/mourninggrace/Ghostband").launchInDefaultBrowser();
+    };
+
+    emailButton.onClick = []
+    {
+        juce::URL ("mailto:mourning.grace.2014@gmail.com?subject=Ghostband")
+            .launchInDefaultBrowser();
     };
 
     manualButton.onClick = [this]
@@ -1216,7 +1223,7 @@ void GhostbandEditor::updateModeVisibility()
         refreshControls();
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
-             &manualButton, &repoButton })
+             &manualButton, &repoButton, &emailButton })
         c->setVisible (abt);
 
     // Settings and About are reachable from anywhere and lead back to the song.
@@ -1707,49 +1714,100 @@ void GhostbandEditor::paint (juce::Graphics& g)
 
 void GhostbandEditor::paintAbout (juce::Graphics& g, juce::Rectangle<int> area)
 {
-    auto a = area;
-
-    g.setColour (ghost::colours::text);
-    g.setFont (juce::Font (juce::FontOptions (26.0f).withStyle ("Bold")));
-    g.drawText ("Ghostband", a.removeFromTop (34), juce::Justification::topLeft);
-
-    g.setColour (ghost::colours::silver);
-    g.setFont (juce::Font (juce::FontOptions (12.5f)));
-    // From CMake, so the plugin and the test harness cannot disagree about it.
+    // Every block is measured before it is drawn.
+    //
+    // This screen used to hand drawFittedText a fixed height per paragraph and
+    // hope. When the text needed more lines than the box had room for, JUCE drew
+    // them on top of each other - two paragraphs overlapping into an unreadable
+    // smear, with a screen of empty space underneath. Laying each block out and
+    // asking how tall it came out is the only version of this that cannot go
+    // wrong when a font, a window size or a sentence changes.
    #ifndef GHOSTBAND_VERSION
     #define GHOSTBAND_VERSION "dev"
    #endif
-    g.drawText ("Version " GHOSTBAND_VERSION "   -   by Kyle Yeroshefsky",
-                a.removeFromTop (22), juce::Justification::topLeft);
 
-    a.removeFromTop (14);
+    auto a = area.reduced (4, 0);
+    const float width = static_cast<float> (a.getWidth());
+    int y = a.getY();
 
-    const auto rule = a.removeFromTop (2).toFloat();
-    g.setGradientFill (ghost::accentGradient (rule));
-    g.fillRect (rule);
+    const auto block = [&] (const juce::String& text, juce::Font font,
+                            juce::Colour colour, int spaceAfter)
+    {
+        juce::AttributedString as;
+        as.setLineSpacing (3.0f);
+        as.append (text, font, colour);
 
-    a.removeFromTop (16);
+        juce::TextLayout layout;
+        layout.createLayout (as, width);
+        layout.draw (g, juce::Rectangle<float> (static_cast<float> (a.getX()),
+                                                static_cast<float> (y),
+                                                width, layout.getHeight()));
+        y += static_cast<int> (layout.getHeight()) + spaceAfter;
+    };
 
-    g.setColour (ghost::colours::text);
-    g.setFont (juce::Font (juce::FontOptions (13.0f)));
-    g.drawFittedText (
-        "Ghostband makes no sound of its own. It writes an arrangement - drums, bass, "
-        "guitar and piano - and performs it through the instruments you already own, "
-        "by sending them MIDI.\n\n"
-        "You own the song: its key, tempo, style and the order of its sections. Ghostband "
-        "fills in the playing, and every part is generated from a seed, so the same song "
-        "always comes back exactly as you left it.",
-        a.removeFromTop (120), juce::Justification::topLeft, 12, 1.0f);
+    // The header band already says GHOSTBAND, so the hero line here says what it
+    // is instead of saying the name twice.
+    block ("A MIDI brain for the instruments you already own.",
+           juce::Font (juce::FontOptions (19.0f).withStyle ("Bold")),
+           ghost::colours::text, 6);
 
-    a.removeFromTop (10);
+    block ("Version " GHOSTBAND_VERSION "   ::   by Kyle Yeroshefsky",
+           juce::Font (juce::FontOptions (12.0f)),
+           ghost::colours::silver, 16);
 
-    g.setColour (ghost::colours::dim);
-    g.setFont (juce::Font (juce::FontOptions (11.5f)));
-    g.drawFittedText (
-        "Free software under the GNU AGPLv3. Built with JUCE.\n"
-        "Ghostband is free and always will be - the donate button is a button, not a nag, "
-        "and nothing is gated behind it.",
-        a.removeFromTop (54), juce::Justification::topLeft, 4, 1.0f);
+    {
+        const auto rule = juce::Rectangle<float> (static_cast<float> (a.getX()),
+                                                  static_cast<float> (y), width, 2.0f);
+        g.setGradientFill (ghost::accentGradient (rule));
+        g.fillRect (rule);
+        y += 20;
+    }
+
+    block ("Ghostband makes no sound of its own. It writes an arrangement - drums, "
+           "bass, guitar and piano - and performs it through the instruments you "
+           "already own, by sending them MIDI.",
+           juce::Font (juce::FontOptions (13.5f)), ghost::colours::text, 12);
+
+    block ("You own the song: its key, tempo, style, and the order of its sections. "
+           "Ghostband fills in the playing. Every part is generated from a seed, so "
+           "the same song always comes back exactly as you left it - and rerolling "
+           "one section never disturbs another.",
+           juce::Font (juce::FontOptions (13.5f)), ghost::colours::text, 22);
+
+    // A small labelled block, which reads as specification rather than prose.
+    {
+        const juce::Font label (juce::FontOptions (10.0f).withStyle ("Bold"));
+        const juce::Font value (juce::FontOptions (12.0f));
+
+        struct Row { const char* label; juce::String value; };
+        const Row rows[] = {
+            { "LICENCE",  "GNU AGPLv3 - free software, and free of charge" },
+            { "BUILT ON", "JUCE" },
+            { "CONTACT",  "mourning.grace.2014@gmail.com" },
+        };
+
+        for (const Row& row : rows)
+        {
+            const int rowY = y;
+
+            g.setColour (ghost::colours::dim);
+            g.setFont (label);
+            g.drawText (row.label, a.getX(), rowY, 78, 18, juce::Justification::centredLeft);
+
+            g.setColour (ghost::colours::silver);
+            g.setFont (value);
+            g.drawText (row.value, a.getX() + 84, rowY,
+                        a.getWidth() - 84, 18, juce::Justification::centredLeft);
+
+            y = rowY + 22;
+        }
+
+        y += 6;
+    }
+
+    block ("The donate button is a button, not a nag. Nothing is gated behind it and "
+           "nothing ever will be.",
+           juce::Font (juce::FontOptions (11.5f)), ghost::colours::dim, 0);
 }
 
 void GhostbandEditor::resized()
@@ -1791,9 +1849,11 @@ void GhostbandEditor::resized()
     {
         auto a = r;
         auto buttons = a.removeFromBottom (30);
-        manualButton.setBounds (buttons.removeFromLeft (120));
+        manualButton.setBounds (buttons.removeFromLeft (118));
         buttons.removeFromLeft (8);
-        repoButton.setBounds (buttons.removeFromLeft (120));
+        repoButton.setBounds (buttons.removeFromLeft (118));
+        buttons.removeFromLeft (8);
+        emailButton.setBounds (buttons.removeFromLeft (118));
         return;
     }
 

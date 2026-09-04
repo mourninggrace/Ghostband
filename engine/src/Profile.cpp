@@ -874,8 +874,9 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
         // from these notes, so the third has to be there - it is the only way it
         // can know major from minor.
         std::vector<int> notes { root };
-        if (c.thirdSemis >= 0) notes.push_back (root + c.thirdSemis);
+        if (c.thirdSemis >= 0)   notes.push_back (root + c.thirdSemis);
         notes.push_back (root + c.fifthSemis);
+        if (c.seventhSemis >= 0) notes.push_back (root + c.seventhSemis);
 
         const int vel = velocityFor (c.accent, velocityMin, velocityMax);
 

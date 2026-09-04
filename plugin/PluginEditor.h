@@ -256,6 +256,7 @@ private:
     // About
     juce::TextButton manualButton { "User manual" };
     juce::TextButton repoButton   { "Source code" };
+    juce::TextButton emailButton  { "Email Kyle" };
 
     // ---- calibration ----
     void updateModeVisibility();

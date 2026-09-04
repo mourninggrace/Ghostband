@@ -71,6 +71,7 @@ struct ChordIntent
     int    rootPc        = 0;   // 0..11
     int    thirdSemis    = 3;   // -1 for no third
     int    fifthSemis    = 7;
+    int    seventhSemis  = -1;  // -1 for a plain triad
     double accent        = 0.7;
     bool   strumUp       = false;   // alternates, so chords do not all sweep alike
 };

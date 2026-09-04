@@ -16,8 +16,13 @@
   // drone - a blues bass walks. Over a shuffle those eighths come out as the
   // boogie, which is the engine of the whole thing.
   //
-  // Mixolydian, because the flattened seventh over a major third is the whole
-  // sound and a natural minor would make this something else entirely.
+  // Every chord is a dominant seventh, and that is not a flourish - it is the
+  // difference between a blues and a folk song with a shuffle on it. A twelve
+  // bar in A is A7, D7, E7: the flat seventh sitting on a major third is the
+  // sound itself. Written as plain triads this preset had the right shape, the
+  // right feel and the wrong harmony, which is exactly what it sounded like.
+  //
+  // Mixolydian for the same reason, so the melody agrees with the chords.
 
   "title": "Slow Train Coming Back",
 
@@ -46,7 +51,7 @@
       // Four bars on the five chord, which is how half of these start.
       "name": "intro", "bars": 4, "intensity": 0.35,
       "feel": "straight", "plays": "drums+bass+piano", "fill": "small",
-      "chords": ["E", "D", "A", "E"],
+      "chords": ["E7", "D7", "A7", "E7"],
       "bass": "eighths", "piano": "sparse", "lead": "piano"
     },
     {
@@ -55,20 +60,20 @@
       // is the point.
       "name": "verse1", "bars": 12, "intensity": 0.50,
       "feel": "straight", "plays": "full", "fill": "auto",
-      "chords": ["A", "A", "A", "A", "D", "D", "A", "A", "E", "D", "A", "E"],
+      "chords": ["A7", "A7", "A7", "A7", "D7", "D7", "A7", "A7", "E7", "D7", "A7", "E7"],
       "bass": "eighths", "guitar": "sparse", "piano": "driving", "lead": "piano"
     },
     {
       "name": "verse2", "bars": 12, "intensity": 0.58,
       "feel": "straight", "plays": "full", "fill": "auto",
-      "chords": ["A", "A", "A", "A", "D", "D", "A", "A", "E", "D", "A", "E"],
+      "chords": ["A7", "A7", "A7", "A7", "D7", "D7", "A7", "A7", "E7", "D7", "A7", "E7"],
       "bass": "eighths", "guitar": "sparse", "piano": "driving", "lead": "piano"
     },
     {
       // The guitar takes a chorus, which in blues means twelve bars of its own.
       "name": "solo", "bars": 12, "intensity": 0.80,
       "feel": "straight", "plays": "full", "fill": "auto",
-      "chords": ["A", "A", "A", "A", "D", "D", "A", "A", "E", "D", "A", "E"],
+      "chords": ["A7", "A7", "A7", "A7", "D7", "D7", "A7", "A7", "E7", "D7", "A7", "E7"],
       "bass": "eighths", "guitar": "busy", "piano": "sparse", "lead": "guitar"
     },
     {
@@ -76,20 +81,20 @@
       // holes. Half time gets closest to that with what the engine has.
       "name": "breakdown", "bars": 8, "intensity": 0.32,
       "feel": "half_time", "plays": "drums+bass+piano", "fill": "big",
-      "chords": ["A", "A", "D", "D", "A", "A", "E", "E"],
+      "chords": ["A7", "A7", "D7", "D7", "A7", "A7", "E7", "E7"],
       "bass": "roots", "piano": "sparse", "lead": "piano"
     },
     {
       "name": "verse3", "bars": 12, "intensity": 0.72,
       "feel": "straight", "plays": "full", "fill": "auto",
-      "chords": ["A", "A", "A", "A", "D", "D", "A", "A", "E", "D", "A", "E"],
+      "chords": ["A7", "A7", "A7", "A7", "D7", "D7", "A7", "A7", "E7", "D7", "A7", "E7"],
       "bass": "eighths", "guitar": "driving", "piano": "driving", "lead": "both"
     },
     {
       // Turnaround, and it slows to a stop.
       "name": "ending", "bars": 4, "intensity": 0.60,
       "feel": "straight", "plays": "full", "fill": "none",
-      "chords": ["E", "D", "A", "E"],
+      "chords": ["E7", "D7", "A7", "E7"],
       "guitar": "open", "piano": "open", "lead": "both"
     }
   ]

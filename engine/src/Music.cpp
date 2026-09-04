@@ -20,6 +20,17 @@ int Chord::thirdSemitones() const
     }
 }
 
+int Chord::seventhSemitones() const
+{
+    switch (quality)
+    {
+        case ChordQuality::Dominant7: return 10;   // flat seventh over a major third
+        case ChordQuality::Minor7:    return 10;
+        case ChordQuality::Major7:    return 11;
+        default:                      return -1;
+    }
+}
+
 int Chord::fifthSemitones() const
 {
     switch (quality)

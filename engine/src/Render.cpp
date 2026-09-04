@@ -293,8 +293,9 @@ static void generatePhrasePart (const SectionPlan& s,
 
         // A power chord carries no third, which is useless to anything that has
         // to voice the harmony. Recover the third the power chord stands in for.
-        int third = c.thirdSemitones();
-        int fifth = c.fifthSemitones();
+        int third   = c.thirdSemitones();
+        int fifth   = c.fifthSemitones();
+        int seventh = c.seventhSemitones();
         if (third < 0)
         {
             const ChordQuality q = diatonicTriadQuality (c.rootPc, keyPc, mode);
@@ -356,6 +357,7 @@ static void generatePhrasePart (const SectionPlan& s,
             ci.rootPc        = c.rootPc;
             ci.thirdSemis    = third;
             ci.fifthSemis    = fifth;
+            ci.seventhSemis  = seventh;
             ci.accent        = (h == 0 ? 0.78 : 0.62) + s.intensity * 0.22
                              + rng.bipolar (0.04);
 
@@ -364,9 +366,10 @@ static void generatePhrasePart (const SectionPlan& s,
             // note, so it reads as a pad rather than a second rhythm part.
             if (supporting)
             {
-                ci.accent     *= 0.72;
-                ci.thirdSemis  = -1;
-                ci.fifthSemis  = 7;
+                ci.accent       *= 0.72;
+                ci.thirdSemis    = -1;
+                ci.fifthSemis    = 7;
+                ci.seventhSemis  = -1;
             }
 
             out.chords.push_back (ci);

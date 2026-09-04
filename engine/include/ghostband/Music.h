@@ -23,6 +23,12 @@ struct Chord
     // Semitones above the root. Power chords report no third.
     int thirdSemitones() const;                  // -1 when the chord has no third
     int fifthSemitones() const;
+
+    // -1 for a plain triad. The seventh was parsed and then thrown away, so an
+    // A7 voiced exactly like an A - which is why a twelve bar came out sounding
+    // like a folk song with a shuffle on it. In blues the flat seventh over a
+    // major third is not decoration, it is the sound.
+    int seventhSemitones() const;
 };
 
 enum class Mode
