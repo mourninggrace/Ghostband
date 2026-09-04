@@ -1,96 +1,105 @@
 # Where Ghostband stands, and what to do next
 
-Last updated 2026-09-03, end of session 7. Everything described as done is
+Last updated 2026-09-04, end of session 8. Everything described as done is
 committed, pushed, installed, and covered by the harness.
 
 ## START HERE
 
-**The band plays.** Drums, bass, guitar and piano all sound, in every preset,
-with the articulations working and the mix knobs driving three of the four
-instruments' own volumes. That was not true at the start of this session.
+**The blues sounds like blues now**, confirmed by ear. That was the open fault
+from last session and it is closed.
 
-**The one known fault is `preset-blues`.** The user's words: it "doesn't sound
-anything like blues and almost sounds really bad", cause unknown. Every other
-preset was listened to and is fine. Nothing has been investigated yet - it is
-the next job and it needs nothing from the user, because it is a question about
-what the engine generates rather than about their rig.
+**The open item is the guitar solo.** It exists, it plays, and the user's verdict
+after hearing it was "it'll need some work for sure" - no detail beyond that,
+because they were falling asleep. Do not guess at what is wrong with it. Ask
+them which way it is wrong: too busy, too sparse, too jumpy, aimless, or landing
+on notes that sound wrong. Each of those is a different knob in the generator
+and they move independently.
 
-Everything else outstanding is a want, not a fault.
+## The solo generator, since it is new and the thing most likely to be worked on
+
+Lives in `generateSolo` in `engine/src/Render.cpp`. Built out of phrases rather
+than notes, because that is what separates a solo from a scale:
+
+- a phrase gets a **rhythm** from a pool that is deliberately full of holes
+  (`soloRhythm`), a **shape** - rising, falling, an arch, or holding - and a
+  **note to land on**;
+- it then rests, and the next phrase sometimes **answers** it by reusing its
+  rhythm with different notes;
+- it moves mostly **by step**, leaping only occasionally, because a line that
+  leaps constantly reads as arpeggios;
+- every phrase **lands on a chord tone** of whatever chord is underneath, which
+  is how it agrees with the harmony without tracking it note for note;
+- over blues it draws from `soloScale` - minor pentatonic plus the flat fifth -
+  rather than the mode, because the mode's major third fights the blue third.
+
+The knobs, if it needs adjusting:
+
+| complaint | where to look |
+|-----------|---------------|
+| too busy / too sparse | the `sparse` and `dense` pools in `soloRhythm`, and the `busy` threshold on section intensity |
+| too jumpy | the `rng.chance (0.75)` step-versus-leap odds in the shape switch |
+| aimless | the shape distribution, and how often a phrase answers (`rng.chance (0.45)`) |
+| no room to breathe | the rest added after an unanswered phrase at the bottom of the bar loop |
+| wrong landing notes | the chord-tone search on `last`, which looks within three semitones |
+
+A soloing part stops comping - one player, one pair of hands - so the harmony
+has to be held by something else in that section. `solo` is a phrase feel, set
+per part in a plan (`"guitar": "solo"`). **It is not exposed in the Edit
+screen**, which has never shown per-part feels for any value.
 
 ## Still to do
 
-1. **`preset-blues` sounds wrong.** Start here. The shuffle warp is the newest
-   engine code and the most likely culprit; `"swing": 0.62` in the file, 1.0 is
-   a full triplet and 0.4 is nearer a jump blues. Worth checking whether the
-   swing is fighting the twelve-bar chord changes, and whether a shuffle on a
-   half-time bridge does something silly.
-2. **The SSD5 mix knob is the only dead one.** SSD5's CONTROL page CC list is
-   fixed - hi-hat and articulation functions, no MIDI LEARN buttons - so it
-   cannot be told to take a volume CC. But MODO taught us something worth
-   trying: right-click MIDI Learn on the control itself worked there after the
-   typed-assignment page did not, and SSD5's Map page does have MIDI LEARN
-   buttons, so the mechanism exists somewhere. The user reports right-clicking
-   SSD5's *mixer fader* gives no menu; its master output may be elsewhere. A
-   Gig Performer gain block is the fallback and works today.
-3. **The user manual PDF.** Long agreed, never written. About falls back to the
-   README.
-4. **The AI planner.** The last planned feature. User supplies their own key,
-   must stay optional.
-5. **An all-UJAM profile set** as a second rig to A/B. The user owns Virtual
-   Drummer and Virtual Bassist. See the session 6 notes for why switching to it
-   wholesale was argued against.
+1. **The guitar solo needs work.** Ask what is wrong with it first.
+2. **The SSD5 mix knob is the only dead one.** Its CC map is fixed - hi-hat and
+   articulation functions, no MIDI LEARN buttons - so it cannot take a volume
+   CC. But MODO taught us that right-click MIDI Learn on the control itself
+   works where a typed-assignment page does not, and SSD5 does have MIDI LEARN
+   buttons on its Map page, so the mechanism exists somewhere. A Gig Performer
+   gain block is the fallback and works today.
+3. **The user manual PDF.** Long agreed, never written.
+4. **The AI planner.** The last planned feature. User supplies their own key.
+5. **An all-UJAM profile set** as a second rig to A/B against.
 
-## Session 7 - what changed
+## Session 8 - what changed
 
-Eleven bugs, and the bass went from silent to correct.
+**The blues.** Three separate faults, in the order they were found:
 
-**The bass was inaudible because it was being played off the end of the neck.**
-MODO's lowest sounding note in this rig is 40, not the 28 a four-string bass
-would suggest, and no octave or transpose setting in MODO explains it. Nothing
-below 40 makes a sound; it just lights up the fretboard past the end.
+The swing warp was correct and was being applied to the wrong thing. A shuffle
+is a triplet feel and a straight sixteenth is not a rhythm inside one, but the
+generators subdivide in sixteenths because that is what every other style wants
+- so warping their output put onsets at 0, 0.30, 0.60 and 0.80 of the beat, four
+notes lurching against a three-feel. Sixteenths are dropped before the warp now.
 
-**Calibration was writing to one profile and silently losing the rest.** Only
-the drum profile recorded where it was loaded from, so a bass range corrected
-by ear was dropped without a word. Saving also regenerated the drum file from
-the struct, throwing away its comments and its controls block, and stacked
-another "_calibrated" onto the id every time. And a nudge landed on whichever
-row was selected - which is the first one, so presses meant for the bass went
-to the kick and moved a verified note by twenty semitones in silence. Save now
-names every note that moved.
+The bass was a drone: the verses asked for `roots`, one note a bar, which reads
+as restraint anywhere else and as nothing at all here.
 
-**A tenth of bass notes played over the note before them.** A bass is
-monophonic and MODO is a physical model, so two notes competing for one string
-meant the earlier note's release cut off the later one.
+And the harmony was simply wrong. **A twelve bar in A is A7, D7, E7** - the flat
+seventh over a major third is the sound, not a flourish. The engine parsed `A7`
+and had `Dominant7` in its enum, then threw the seventh away: `Chord` reported a
+third and a fifth and nothing else, so an A7 voiced identically to an A. That
+was the one that mattered.
 
-**The articulation map was invented.** MUTING is CC 9; Ghostband had been
-sending CC 21, which is assigned to nothing. The keyswitches were wrong too,
-and the Latch column mattered as much as the numbers: MODO's momentary switches
-only apply while held, and Ghostband released every keyswitch just before the
-note it was meant to modify.
+**A solo generator**, described above. Ghostband had no melodic generation at
+all before this.
 
-**Loading a song over a playing one left the first ringing underneath it**, and
-**the mix knobs did not match the instruments until one was moved**, and **the
-mix reverted to full on every host restart** - the levels and channel
-assignments were never in the saved state at all.
+**The About screen** was unreadable - it handed `drawFittedText` a fixed height
+per paragraph and JUCE drew the overflow on top of itself. Every block is
+measured now. Contact details and an Email Kyle button added.
 
-Added: a Pause of Ghostband's own, since the host transport tends to be left
-running all session.
+### Two things about the machine
 
-### The thing worth remembering about MODO
+**The standalone CMake at `C:\Program Files\CMake` is gone** and `vswhere`
+reports only VS 2022 - no VS 18, which the old build cache demanded. `Build.bat`
+failed with "cmake is not recognized". It now falls back to the CMake that ships
+with Visual Studio, and everything was rebuilt from scratch against VS 2022.
+**Both reference songs render note for note identically**, so the arrangement
+does not depend on the toolchain.
 
-**Give MODO a controller by right-clicking the control and choosing MIDI Learn.
-Not through its CONTROL page.** Assigning MASTER VOLUME to a CC there looks
-identical and does nothing - it was set, read back correctly afterwards, and no
-controller Ghostband sent ever moved it, which was confirmed twice by pointing
-the same knob at MUTING as well. That page had already dropped an assignment
-silently once. MIDI Learn worked first time, and is the same flow that had
-already worked for IRON 2 and Virtual Pianist.
+**The overlap checker has a blind spot.** It walks the editor's child components,
+so anything painted directly onto the canvas - which is what the About screen is
+- is invisible to it. That is how a screen of overlapping text shipped.
 
-Ruling that out took proving Ghostband's side at the wire: the harness now
-checks that a level control's CC actually leaves processBlock, rather than
-trusting the status line, which only reports what was intended.
-
-## Session 5 — the control mapping system## Session 5 — the control mapping system
+## Session 5 — the control mapping system## Session 5 — the control mapping system## Session 5 — the control mapping system
 
 The whole session went into one thing: letting the user drive an instrument's
 own knobs, buttons, switches and selectors from the arrangement. It started as
