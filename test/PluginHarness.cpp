@@ -1313,6 +1313,45 @@ int main (int argc, char** argv)
         }
     }
 
+    // ---- a kit only plays the pieces it has --------------------------------
+    // A drum profile inherits General MIDI for any voice its file does not
+    // mention, which is what makes an unknown plugin usable straight away - and
+    // is a trap when the kit genuinely lacks a piece. MINDst has three toms.
+    // Omitting the fourth left it on GM's note 43, which measured silent on that
+    // kit, so eleven hits a song went into a hole that nothing reported. Writing
+    // null is what says "there is no such piece", and the generator then falls
+    // back to a tom that exists.
+    {
+        const juce::File prof = juce::File (planPath).getParentDirectory()
+                                    .getParentDirectory()
+                                    .getChildFile ("profiles")
+                                    .getChildFile ("mndst-drums.json");
+
+        if (prof.existsAsFile())
+        {
+            gb::DrumProfile kit;
+            std::string err;
+            const bool ok = gb::DrumProfile::load (prof.getFullPathName().toStdString(), kit, err);
+
+            check (ok, "the MINDst profile loads", juce::String (err));
+
+            if (ok)
+            {
+                check (! kit.hasVoice (gb::DrumVoice::Tom4),
+                       "a null voice really is absent, not inherited from General MIDI",
+                       "tom4 note " + juce::String (kit.noteFor (gb::DrumVoice::Tom4)));
+
+                check (kit.hasVoice (gb::DrumVoice::Tom1)
+                           && kit.hasVoice (gb::DrumVoice::Tom2)
+                           && kit.hasVoice (gb::DrumVoice::Tom3),
+                       "and the three toms it does have survived the load",
+                       juce::String (kit.noteFor (gb::DrumVoice::Tom1)) + "/"
+                           + juce::String (kit.noteFor (gb::DrumVoice::Tom2)) + "/"
+                           + juce::String (kit.noteFor (gb::DrumVoice::Tom3)));
+            }
+        }
+    }
+
     // ---- saving a profile keeps the profile --------------------------------
     // Pressing Save once rewrote a driver profile from scratch and took every
     // comment in it along with it - and in these files the comments are the

@@ -1,0 +1,90 @@
+{
+  // MINDst Drums.
+  //
+  // Built from a probe sweep of notes 24-96 on channel 10, measuring peak, RMS,
+  // brightness and decay for every one, plus the plugin's own parameter names.
+  // Nothing here was guessed from the plugin's documentation, and nothing has
+  // been confirmed by ear yet - needs_verification is true and stays true until
+  // somebody walks the Calibrate screen.
+  //
+  // WHAT THE KIT ACTUALLY IS. Its 3588 parameters name the pieces, so this is
+  // the plugin's own list rather than an assumption:
+  //
+  //   Kick, Snare, Small Tom, Large Tom, Floor, Hi Hat, Main Crash, Alt Crash,
+  //   Ride, Flat Ride, Splash, Stack, FX Crash
+  //
+  // THREE TOMS, NOT FOUR, and that is the one place this deliberately departs
+  // from General MIDI. GM puts toms at 43, 45, 47, 48 and 50. Measured: 43 is
+  // silent, and 48 and 50 are bright (0.32 and 0.41) which no tom is - they are
+  // cymbals. The only dark, tom-shaped notes in that region are 41, 45 and 47,
+  // which is exactly three, which is exactly how many toms the parameter list
+  // says the kit has. So tom4 is null: the generator then falls back to the
+  // nearest tom it does have, which is what a drummer with three toms does
+  // anyway. Mapping it to the floor tom would have hidden the fact.
+  //
+  // The measurements behind the rest, for whoever checks this later:
+  //
+  //   36  peak 1.10  dark   decay 0.39   kick        (35 also sounds - alt kick)
+  //   38  peak 1.52  dark   decay 0.78   snare
+  //   37  peak 0.48  dark   decay 0.65   sidestick - quieter, as a sidestick is
+  //   40  peak 2.14  dark   decay 0.86   rimshot - the loudest thing on the kit
+  //   42  bright 0.563  decay 0.48       hat closed
+  //   44  bright 0.563  decay 0.36       hat pedal - shortest of the three
+  //   46  bright 0.419  decay 0.55       hat open  - longest, as it should be
+  //   51  bright 0.417                   ride
+  //   53  bright 0.351                   ride bell
+  //   49  bright 0.262  decay 0.62       crash     (Main Crash)
+  //   57  bright 0.294  decay 0.69       crash2    (Alt Crash)
+  //   52  bright 0.294  decay 0.76       china     (Stack or FX Crash)
+  //   55  bright 0.446  decay 0.63       splash
+  //
+  // 57 of 73 notes sounded, and everything from 60 to 96 is a second layer this
+  // profile does not touch - roughly four notes per kit piece, so almost
+  // certainly articulations (snare centre and edge, hat positions, ride bow and
+  // bell). Worth mapping later; it is where an idiomatic part would come from.
+  //
+  // WHY THIS KIT MATTERS. Its controls take MIDI CC, unlike SSD5, whose mix knob
+  // has a fixed CC map with no MIDI LEARN and is the one dead control in the
+  // rig. Map a control here with follows "level" and the song screen's drum mix
+  // knob will actually reach it. Nothing is listed below because control
+  // mappings are made in the plugin's Settings screen by whoever owns the
+  // instrument, never guessed here.
+
+  "name": "MINDst Drums",
+  "id": "mndst_drums",
+  "channel": 10,
+
+  "needs_verification": true,
+  "verification_note": "Note map derived from a probe sweep, not confirmed by ear. Walk the Calibrate screen before trusting it.",
+
+  "velocity_min": 22,
+  "velocity_max": 127,
+
+  "notes": {
+    "kick":       36,
+    "snare":      38,
+    "sidestick":  37,
+    "rimshot":    40,
+    "hat_closed": 42,
+    "hat_pedal":  44,
+    "hat_open":   46,
+    "ride":       51,
+    "ride_bell":  53,
+    "crash":      49,
+    "crash2":     57,
+    "china":      52,
+    "splash":     55,
+    "tom1":       47,
+    "tom2":       45,
+    "tom3":       41,
+
+    // null, not omitted. Leaving the key out inherits the General MIDI default
+    // of 43, and 43 measured silent on this kit - the first version of this file
+    // did exactly that and quietly threw eleven hits a song into a hole. null is
+    // what says "this kit does not have that piece", and the generator then
+    // falls back to the nearest tom it does have.
+    "tom4":       null
+  },
+
+  "controls": {}
+}
