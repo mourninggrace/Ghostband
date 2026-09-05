@@ -1356,6 +1356,34 @@ int main (int argc, char** argv)
 
                 check (overlaps > 0, "a legato profile overlaps its lead notes",
                        juce::String (overlaps) + " notes taken while the last still sounds");
+
+                // Nothing may overlap into a note the phrase lands on. The
+                // outgoing note-off would arrive inside it, and a monophonic
+                // instrument reads that as release - the held note sounds for
+                // the length of the overlap and then stops dead. Invisible on a
+                // run of sixteenths, a dead second on a phrase ending.
+                int heldCutShort = 0;
+                for (size_t k = 0; k + 1 < r.performance.guitar.lead.size(); ++k)
+                {
+                    const gb::LeadIntent& next = r.performance.guitar.lead[k + 1];
+                    if (! next.target) continue;
+
+                    for (const gb::MidiEvent& e : seq)
+                    {
+                        if (e.bytes.size() < 3) continue;
+                        const int status = e.bytes[0] & 0xF0;
+                        const bool isOff = (status == 0x80) || (status == 0x90 && e.bytes[2] == 0);
+                        if (! isOff) continue;
+
+                        const int heldEnd = next.tick + std::max (1, next.durationTicks);
+                        if (e.tick > next.tick && e.tick < heldEnd)
+                            ++heldCutShort;
+                    }
+                }
+
+                check (heldCutShort == 0,
+                       "and never into a note the phrase lands on",
+                       juce::String (heldCutShort) + " held notes would be cut short");
                 check (sounding == 0, "and every lead note is still released");
 
                 // The default profile must be unaffected: an instrument that did

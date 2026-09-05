@@ -1006,7 +1006,19 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
             // returned to centre, and overlapping would put that reset after the
             // following note had already started, which would sound it sharp.
             int off = end;
-            if (legatoOverlapTicks > 0 && haveNext)
+
+            // Never overlap into a note the phrase lands on.
+            //
+            // The outgoing note's note-off then arrives *inside* the note that
+            // just started, and a monophonic instrument reads that as release -
+            // the new note sounds for the twelve ticks of overlap and stops. On
+            // a run of sixteenths nobody hears it, because another note arrives
+            // a hundred and twenty ticks later. On a held note at the end of a
+            // phrase it is a dead second in the middle of the solo, which is
+            // exactly how it was reported.
+            const bool nextIsHeld = haveNext && part.lead[i + 1].target;
+
+            if (legatoOverlapTicks > 0 && haveNext && ! nextIsHeld)
             {
                 const int nextStart = part.lead[i + 1].tick;
                 const int nextEnd   = nextStart + std::max (1, part.lead[i + 1].durationTicks);

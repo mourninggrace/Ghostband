@@ -57,7 +57,7 @@
   //
   // range_semitones must match the instrument's own wheel range - two is the
   // usual default, and a wrong value lands the bend short or sharp.
-  "bend": { "range_semitones": 2, "reach_semitones": 2, "ticks": 90 },
+  "bend": { "range_semitones": 2, "reach_semitones": 2, "ticks": 240 },
 
   // Arrangement moves these as the song goes: more drive in a loud section,
   // brighter when the guitar is leading, effect in for a chorus or solo. They do

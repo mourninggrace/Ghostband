@@ -104,7 +104,7 @@
   // range_semitones must match Shreddage's own wheel range. Two is the usual
   // default and what is assumed here; if the bends land short or sharp, that is
   // the number to correct, and Shreddage exposes it in its own interface.
-  "bend": { "range_semitones": 2, "reach_semitones": 2, "ticks": 90 },
+  "bend": { "range_semitones": 2, "reach_semitones": 2, "ticks": 240 },
 
   // Built in the plugin's Settings screen by MIDI Learn, never guessed here.
   "controls": {}
