@@ -10,19 +10,20 @@ plans play the full band now** - they had named no guitar or piano profile, and
 those parts are opt-in on the name, so a preset called "metal" rendered as drums
 and bass. The harness now fails any plan that names a part it never plays.
 
-**The guitar solo was rewritten and heard.** Verdict: "sounds better, but not
-quite there yet" - no further detail, and the user was mid-purchase at the time.
-It lives in `preset-thrash`'s solo section (12 bars, straight feel, bass and
-drums under it). Ask which way it is still wrong before changing anything; the
-table further down says which knob answers which complaint.
+**Shreddage 3 Hydra is playing, and Ghostband bends.** Confirmed by ear: the
+solo flows, the held notes ring, and the bends are audible. That closes the run
+of work that started with "the solo is too simple, a single note held and
+changed after a few seconds".
 
-**Ghostband bends, and IRON 2 receives them** - confirmed by the wheel indicator
-moving on the two bent notes. The whole path is proven end to end.
+**Its profile is `profiles/shreddage-3-hydra.json`**, reached through
+`plans/calibrate-shreddage.json`. Shreddage needs three settings the manual
+names and the profile records: Performance Style **Mono Lead (Mid/High)**, Poly
+Input Latency **0**, Pitch Bend Range **2**. Bypass IRON 2 - both listen on
+channel 2, and Ghostband has only one guitar part.
 
-**The next job is new instruments.** The user has bought Shreddage 3 Hydra (free
-Kontakt Player, so no extra licence) and installed MINDst Drums, Waves Bass
-Fingers and Waves Bass Slapper. Nothing is profiled yet. See "The new rig" below
-before touching any of it - the profiling route is not the same for all of them.
+**What is still unverified** is the range. 30 to 88 is an eight-string's, and
+the solo plays across 34 to 87 without a hole, which is evidence and not proof.
+The Calibrate screen would settle it.
 
 ## The new rig, and how each piece has to be profiled
 

@@ -59,7 +59,7 @@
   "mode": "notes",
 
   "needs_verification": true,
-  "verification_note": "Range is an eight-string guitar's, reasoned rather than measured. Walk the Calibrate screen to confirm it.",
+  "verification_note": "Bends and legato confirmed by ear. The range is an eight-string guitar's, reasoned rather than measured - walk the Calibrate screen to confirm it.",
 
   "chord_zone": { "lowest_note": 30, "highest_note": 88 },
 
@@ -103,6 +103,11 @@
   // non-legato note is struck ("Realistic Volume", manual p22), so a run in
   // which every note is hammered fades away to nothing. Picking the leaps is
   // what resets it - which is also what a real player does when the hand moves.
+  //
+  // CONFIRMED BY EAR: the bends are audible and the legato flows, with the
+  // settings below applied. What is still only reasoned is the range - the solo
+  // plays across 34 to 87 without a hole, which is evidence but not proof that
+  // 30 and 88 are the real ends.
   //
   // SETTINGS THIS EXPECTS IN SHREDDAGE, from the manual:
   //   Performance Style = Mono Lead (Mid/High)   "perfect for lead parts";
