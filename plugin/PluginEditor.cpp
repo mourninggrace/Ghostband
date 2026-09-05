@@ -930,6 +930,12 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         initLabel (*c.label, c.name, 10.0f, ghost::dim, juce::Justification::centredLeft);
     }
 
+    for (juce::Label* l : { &chDrumsName, &chBassName, &chGuitarName,
+                            &chGuitar2Name, &chPianoName })
+        initLabel (*l, "", 11.0f, ghost::text, juce::Justification::centredLeft);
+
+    initLabel (learnPartName, "", 11.0f, ghost::accent, juce::Justification::centredLeft);
+
     juce::TextButton* testButtons[5] = { &testDrums, &testBass, &testGuitar,
                                          &testPiano, &testGuitar2 };
     for (int i = 0; i < 5; ++i)
@@ -1283,6 +1289,8 @@ void GhostbandEditor::updateModeVisibility()
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &chDrums, &chBass, &chGuitar, &chGuitar2, &chPiano,
              &chDrumsLabel, &chBassLabel, &chGuitarLabel, &chGuitar2Label, &chPianoLabel,
+             &chDrumsName, &chBassName, &chGuitarName, &chGuitar2Name, &chPianoName,
+             &learnPartName,
              &settingsHeading, &channelsHelp, &resetSizeButton, &reloadProfilesBtn,
              &tempoModeButton,
              &testDrums, &testBass, &testGuitar, &testPiano, &testGuitar2,
@@ -1705,6 +1713,31 @@ void GhostbandEditor::refreshFromProcessor()
                            s.unverifiedProfiles || ! s.ok ? ghost::warn : ghost::dim);
 
     juce::String profiles = "drums: " + s.drumProfile + "    bass: " + s.bassProfile;
+    // Which instrument is in each slot, beside the slot. The rows name a part
+    // and the part is a different plugin from one song to the next.
+    {
+        const auto slot = [] (const juce::String& name)
+        {
+            return name.isNotEmpty() ? name : juce::String ("- not in this song -");
+        };
+
+        chDrumsName.setText   (slot (s.drumProfile),    juce::dontSendNotification);
+        chBassName.setText    (slot (s.bassProfile),    juce::dontSendNotification);
+        chGuitarName.setText  (slot (s.guitarProfile),  juce::dontSendNotification);
+        chGuitar2Name.setText (slot (s.guitar2Profile), juce::dontSendNotification);
+        chPianoName.setText   (slot (s.pianoProfile),   juce::dontSendNotification);
+
+        const juce::String forPart[5] = { s.drumProfile, s.bassProfile, s.guitarProfile,
+                                          s.pianoProfile, s.guitar2Profile };
+        const int chosen = juce::jlimit (0, 4, learnPart.getSelectedId() - 1);
+        learnPartName.setText (slot (forPart[chosen]), juce::dontSendNotification);
+
+        for (juce::Label* l : { &chDrumsName, &chBassName, &chGuitarName,
+                                &chGuitar2Name, &chPianoName })
+            l->setColour (juce::Label::textColourId,
+                          l->getText().startsWith ("-") ? ghost::dim : ghost::text);
+    }
+
     if (s.guitarProfile.isNotEmpty())  profiles += "    gtr: "  + s.guitarProfile;
     if (s.guitar2Profile.isNotEmpty()) profiles += "    gtr2: " + s.guitar2Profile;
     if (s.pianoProfile.isNotEmpty())   profiles += "    piano: " + s.pianoProfile;
@@ -1983,11 +2016,16 @@ void GhostbandEditor::resized()
                                        &testPiano, &testGuitar2 };
         for (int i = 0; i < 5; ++i)
         {
+            juce::Label* names[5] = { &chDrumsName, &chBassName, &chGuitarName,
+                                      &chPianoName, &chGuitar2Name };
+
             auto row = s.removeFromTop (28);
             labels[i]->setBounds (row.removeFromLeft (70));
             boxes[i]->setBounds (row.removeFromLeft (78));
             row.removeFromLeft (10);
             tests[i]->setBounds (row.removeFromLeft (66));
+            row.removeFromLeft (14);
+            names[i]->setBounds (row);
             s.removeFromTop (6);
         }
 
@@ -2008,6 +2046,8 @@ void GhostbandEditor::resized()
         ctlRemove.setBounds (learnRow.removeFromLeft (78));
         learnRow.removeFromLeft (6);
         ctlSave.setBounds (learnRow.removeFromLeft (124));
+        learnRow.removeFromLeft (14);
+        learnPartName.setBounds (learnRow);
 
         s.removeFromTop (8);
         auto editRow = s.removeFromTop (26);

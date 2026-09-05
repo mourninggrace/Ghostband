@@ -205,6 +205,13 @@ private:
     // Settings
     juce::ComboBox chDrums, chBass, chGuitar, chGuitar2, chPiano;
     juce::Label    chDrumsLabel, chBassLabel, chGuitarLabel, chGuitar2Label, chPianoLabel;
+
+    // What is actually in each slot. The rows name a part, not an instrument,
+    // and "guitar 2" is a different plugin depending on the song loaded - which
+    // is a thing you should not have to work out from memory while editing its
+    // controls.
+    juce::Label    chDrumsName, chBassName, chGuitarName, chGuitar2Name, chPianoName;
+    juce::Label    learnPartName;
     juce::TextButton testDrums { "Test" }, testBass { "Test" },
                      testGuitar { "Test" }, testPiano { "Test" },
                      testGuitar2 { "Test" };
