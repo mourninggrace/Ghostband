@@ -1,0 +1,57 @@
+{
+  // Impact Soundworks Shreddage 3 Hydra, hosted in Kontakt Player.
+  //
+  // NOTHING IN THIS FILE IS MEASURED YET. The probe cannot reach it: Shreddage
+  // is a Kontakt library rather than a plugin, so loading Kontakt headlessly
+  // gives an empty instance - the same wall as IRON 2 coming up in Player mode.
+  // It has to be calibrated from inside the host, where Kontakt already has the
+  // library loaded.
+  //
+  // THE RANGE BELOW IS PROVISIONAL AND DELIBERATELY WIDE. A wide range that
+  // includes a few silent notes is recoverable by ear; a narrow one that misses
+  // the instrument entirely looks exactly like the plugin being broken, which is
+  // what happened with IRON 2 - it measured silent from 12 to 59 and sounding
+  // from 60 to 89, nothing like the range a guitar suggests.
+  //
+  // A seven string guitar's low B sits around 35 and the top of the neck around
+  // 88, so that is the span assumed here until somebody reads the real one off
+  // Kontakt's keyboard, where Shreddage colours the playable keys and its
+  // keyswitches differently.
+  //
+  // NO KEYSWITCHES ARE DECLARED, on purpose. Shreddage has a deep articulation
+  // set - legato, palm mute, harmonics, slides, dive bombs - reached by
+  // keyswitch, and a guessed keyswitch is the one mistake that can silence an
+  // instrument outright. They go in once they have been read or heard, never
+  // before.
+
+  "name": "Shreddage 3 Hydra (Kontakt)",
+  "id": "shreddage3_hydra",
+  "channel": 2,
+
+  "mode": "notes",
+
+  "needs_verification": true,
+  "verification_note": "Range is provisional and unmeasured. Read Kontakt's keyboard or walk the Calibrate screen before trusting it.",
+
+  "chord_zone": { "lowest_note": 40, "highest_note": 84 },
+
+  "velocity_min": 45,
+  "velocity_max": 120,
+
+  // A lead line is one note at a time, so there is nothing to spread. Left at
+  // zero rather than borrowed from the rhythm guitar profile, where nine ticks
+  // of strum is what stops a chord sounding like a keyboard.
+  "strum_ticks": 0,
+
+  // Bends. Declared because this is a lead instrument and pitch bend is the
+  // articulation Ghostband can send safely - it is a channel message rather
+  // than a keyswitch, so the worst case is that nothing happens.
+  //
+  // range_semitones must match Shreddage's own wheel range. Two is the usual
+  // default and what is assumed here; if the bends land short or sharp, that is
+  // the number to correct, and Shreddage exposes it in its own interface.
+  "bend": { "range_semitones": 2, "reach_semitones": 2, "ticks": 90 },
+
+  // Built in the plugin's Settings screen by MIDI Learn, never guessed here.
+  "controls": {}
+}
