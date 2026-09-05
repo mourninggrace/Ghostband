@@ -29,7 +29,30 @@ The Calibrate screen would settle it.
 
 Ordered by how much of the instrument they unlock, not by size.
 
-### 1. Two guitars - rhythm and lead
+### CHANNELS, as the rig has them
+
+    1   bass            MODO Bass 2
+    2   guitar          UJAM VG IRON 2      (rhythm)
+    3   piano           UJAM Virtual Pianist
+   10   drums           SSD5 Terry Date
+   11   guitar 2        Shreddage 3 Hydra   (lead)
+   12   drums 2         MINDst Drums        - constrainer exists, nothing sends to it yet
+
+All five are the plugin's defaults and all are changeable in Settings. Channel
+12 is waiting on the kit-per-song work below.
+
+### 1. Two guitars - rhythm and lead  [DONE 2026-09-05]
+
+Shipped. `guitar` and `guitar2`, each with a profile, a channel, a per-section
+feel and a place in the lead-and-support handover. `preset-twin-guitar`
+demonstrates it. Settings has a GUITAR 2 channel row and a Test button, the song
+screen has a fifth mix knob, and MIDI Learn can map its controls.
+
+Which one is "the lead" is not baked in - roles are per-section here. The only
+default is that a second guitarist fronts the section, because nobody adds one
+to play underneath the first.
+
+### 1b. Two guitars - what is left
 
 The decided one. Ghostband has **one** guitar part, so IRON 2 and Shreddage
 cannot both play; a plan names one guitar profile and both instruments listen on
@@ -52,7 +75,12 @@ it. Its whole map is already recorded in `profiles/shreddage-3-hydra.json`.
 
 This is what turns Hydra from a better guitar sound into a guitarist.
 
-### 3. Two drum kits, and the engine choosing between them
+### 3. A kit per song, and per section  [CONFIRMED SCOPE]
+
+Confirmed: one kit per song or per section, **not** two kits playing at once.
+So this is a `drum_profile` that a section can override, not a second drum part
+- much smaller than it first looked. MINDst is profiled and its constrainer is
+on channel 12 already.
 
 SSD5 and MINDst both profiled, and the arrangement picking which kit plays what.
 Worth checking the premise first: two kits at once is usually a mess, and what

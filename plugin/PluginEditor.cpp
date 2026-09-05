@@ -525,11 +525,12 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     // ---- per-part levels ----
     struct LevelKnob { juce::Slider* s; juce::Label* l; const char* name;
                        std::atomic<float>* target; };
-    const LevelKnob levelKnobs[4] = {
-        { &levelDrums,  &levelDrumsLabel,  "DRUMS",  &processor.levelDrums  },
-        { &levelBass,   &levelBassLabel,   "BASS",   &processor.levelBass   },
-        { &levelGuitar, &levelGuitarLabel, "GUITAR", &processor.levelGuitar },
-        { &levelPiano,  &levelPianoLabel,  "PIANO",  &processor.levelPiano  },
+    const LevelKnob levelKnobs[5] = {
+        { &levelDrums,   &levelDrumsLabel,   "DRUMS",  &processor.levelDrums   },
+        { &levelBass,    &levelBassLabel,    "BASS",   &processor.levelBass    },
+        { &levelGuitar,  &levelGuitarLabel,  "GTR",    &processor.levelGuitar  },
+        { &levelGuitar2, &levelGuitar2Label, "GTR 2",  &processor.levelGuitar2 },
+        { &levelPiano,   &levelPianoLabel,   "PIANO",  &processor.levelPiano   },
     };
 
     for (const LevelKnob& k : levelKnobs)
@@ -570,7 +571,8 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     initLabel (mixLabel,          "MIX",    10.0f, ghost::dim, juce::Justification::centredLeft);
     initLabel (levelDrumsLabel,   "DRUMS",  9.0f,  ghost::dim, juce::Justification::centred);
     initLabel (levelBassLabel,    "BASS",   9.0f,  ghost::dim, juce::Justification::centred);
-    initLabel (levelGuitarLabel,  "GUITAR", 9.0f,  ghost::dim, juce::Justification::centred);
+    initLabel (levelGuitarLabel,  "GTR",    9.0f,  ghost::dim, juce::Justification::centred);
+    initLabel (levelGuitar2Label, "GTR 2",  9.0f,  ghost::dim, juce::Justification::centred);
     initLabel (levelPianoLabel,   "PIANO",  9.0f,  ghost::dim, juce::Justification::centred);
     initLabel (keyLabel,        "KEY",        10.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (modeLabel,       "MODE",       10.0f, ghost::dim,   juce::Justification::centredLeft);
@@ -898,11 +900,12 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 
     struct ChannelBox { juce::ComboBox* box; juce::Label* label; const char* name;
                         std::atomic<int>* target; };
-    const ChannelBox channelBoxes[4] = {
-        { &chDrums,  &chDrumsLabel,  "DRUMS",  &processor.channelDrums  },
-        { &chBass,   &chBassLabel,   "BASS",   &processor.channelBass   },
-        { &chGuitar, &chGuitarLabel, "GUITAR", &processor.channelGuitar },
-        { &chPiano,  &chPianoLabel,  "PIANO",  &processor.channelPiano  },
+    const ChannelBox channelBoxes[5] = {
+        { &chDrums,   &chDrumsLabel,   "DRUMS",    &processor.channelDrums   },
+        { &chBass,    &chBassLabel,    "BASS",     &processor.channelBass    },
+        { &chGuitar,  &chGuitarLabel,  "GUITAR",   &processor.channelGuitar  },
+        { &chGuitar2, &chGuitar2Label, "GUITAR 2", &processor.channelGuitar2 },
+        { &chPiano,   &chPianoLabel,   "PIANO",    &processor.channelPiano   },
     };
 
     for (const ChannelBox& c : channelBoxes)
@@ -927,8 +930,9 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         initLabel (*c.label, c.name, 10.0f, ghost::dim, juce::Justification::centredLeft);
     }
 
-    juce::TextButton* testButtons[4] = { &testDrums, &testBass, &testGuitar, &testPiano };
-    for (int i = 0; i < 4; ++i)
+    juce::TextButton* testButtons[5] = { &testDrums, &testBass, &testGuitar,
+                                         &testPiano, &testGuitar2 };
+    for (int i = 0; i < 5; ++i)
     {
         styleButton (*testButtons[i], false);
         testButtons[i]->onClick = [this, i]
@@ -939,7 +943,8 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
             // as a broken instrument rather than a song without one.
             if (! processor.partIsInSong (i))
             {
-                static const char* names[] = { "drums", "bass", "guitar", "piano" };
+                static const char* names[] = { "drums", "bass", "guitar", "piano",
+                                               "second guitar" };
                 statusLabel.setText (juce::String ("This song has no ") + names[i]
                                          + ". Load a song that uses it, or add it in Edit song.",
                                      juce::dontSendNotification);
@@ -955,10 +960,11 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     // ---- MIDI Learn helpers ----
     styleCombo (learnPart);
     addChildComponent (learnPart);
-    learnPart.addItem ("drums",  1);
-    learnPart.addItem ("bass",   2);
-    learnPart.addItem ("guitar", 3);
-    learnPart.addItem ("piano",  4);
+    learnPart.addItem ("drums",    1);
+    learnPart.addItem ("bass",     2);
+    learnPart.addItem ("guitar",   3);
+    learnPart.addItem ("piano",    4);
+    learnPart.addItem ("guitar 2", 5);
     learnPart.setSelectedId (3, juce::dontSendNotification);
 
     // An open-ended list rather than fixed slots: how many knobs, buttons and
@@ -1017,7 +1023,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     ctlType.onChange    = [this] { pushControlEdit(); };
 
     // The list is in part order, so the id is the part index plus one.
-    const auto part = [this] { return juce::jlimit (0, 3, learnPart.getSelectedId() - 1); };
+    const auto part = [this] { return juce::jlimit (0, 4, learnPart.getSelectedId() - 1); };
 
     learnPart.onChange = [this] { ctlSelected = 0; refreshControls(); };
 
@@ -1275,11 +1281,11 @@ void GhostbandEditor::updateModeVisibility()
     const bool abt  = (screen == Screen::About);
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
-             &chDrums, &chBass, &chGuitar, &chPiano,
-             &chDrumsLabel, &chBassLabel, &chGuitarLabel, &chPianoLabel,
+             &chDrums, &chBass, &chGuitar, &chGuitar2, &chPiano,
+             &chDrumsLabel, &chBassLabel, &chGuitarLabel, &chGuitar2Label, &chPianoLabel,
              &settingsHeading, &channelsHelp, &resetSizeButton, &reloadProfilesBtn,
              &tempoModeButton,
-             &testDrums, &testBass, &testGuitar, &testPiano,
+             &testDrums, &testBass, &testGuitar, &testPiano, &testGuitar2,
              &learnPart, &learnHeading, &learnHelp,
              &ctlAdd, &ctlRemove, &ctlTeach, &ctlSave, &ctlName,
              &ctlFollows, &ctlType, &ctlPositions, &ctlViewport,
@@ -1324,8 +1330,9 @@ void GhostbandEditor::updateModeVisibility()
              &modeBox, &modeLabel,
              &tempoLabel, &transportLabel, &summaryLabel, &playPauseButton,
              &bpmLabel, &bpmEditor, &rollHintLabel,
-             &mixLabel, &levelDrums, &levelBass, &levelGuitar, &levelPiano,
-             &levelDrumsLabel, &levelBassLabel, &levelGuitarLabel, &levelPianoLabel })
+             &mixLabel, &levelDrums, &levelBass, &levelGuitar, &levelGuitar2, &levelPiano,
+             &levelDrumsLabel, &levelBassLabel, &levelGuitarLabel,
+             &levelGuitar2Label, &levelPianoLabel })
         c->setVisible (song);
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
@@ -1698,8 +1705,9 @@ void GhostbandEditor::refreshFromProcessor()
                            s.unverifiedProfiles || ! s.ok ? ghost::warn : ghost::dim);
 
     juce::String profiles = "drums: " + s.drumProfile + "    bass: " + s.bassProfile;
-    if (s.guitarProfile.isNotEmpty()) profiles += "    gtr: " + s.guitarProfile;
-    if (s.pianoProfile.isNotEmpty())  profiles += "    piano: " + s.pianoProfile;
+    if (s.guitarProfile.isNotEmpty())  profiles += "    gtr: "  + s.guitarProfile;
+    if (s.guitar2Profile.isNotEmpty()) profiles += "    gtr2: " + s.guitar2Profile;
+    if (s.pianoProfile.isNotEmpty())   profiles += "    piano: " + s.pianoProfile;
     profilesLabel.setText (profiles, juce::dontSendNotification);
 
     complexitySlider.setValue (processor.complexity.load(), juce::dontSendNotification);
@@ -1757,7 +1765,7 @@ void GhostbandEditor::paint (juce::Graphics& g)
 
     g.setColour (ghost::colours::dim);
     g.setFont (juce::Font (juce::FontOptions (9.5f)));
-    g.drawText ("MIDI BRAIN   -   DRUMS   BASS   GUITAR   PIANO",
+    g.drawText ("MIDI BRAIN   -   DRUMS   BASS   GUITAR x2   PIANO",
                 title.withTrimmedTop (36.0f).toNearestInt(),
                 juce::Justification::centredLeft);
 
@@ -1968,10 +1976,12 @@ void GhostbandEditor::resized()
         settingsHeading.setBounds (s.removeFromTop (24));
         s.removeFromTop (10);
 
-        juce::ComboBox* boxes[4]  = { &chDrums, &chBass, &chGuitar, &chPiano };
-        juce::Label*    labels[4] = { &chDrumsLabel, &chBassLabel, &chGuitarLabel, &chPianoLabel };
-        juce::TextButton* tests[4] = { &testDrums, &testBass, &testGuitar, &testPiano };
-        for (int i = 0; i < 4; ++i)
+        juce::ComboBox* boxes[5]  = { &chDrums, &chBass, &chGuitar, &chPiano, &chGuitar2 };
+        juce::Label*    labels[5] = { &chDrumsLabel, &chBassLabel, &chGuitarLabel,
+                                      &chPianoLabel, &chGuitar2Label };
+        juce::TextButton* tests[5] = { &testDrums, &testBass, &testGuitar,
+                                       &testPiano, &testGuitar2 };
+        for (int i = 0; i < 5; ++i)
         {
             auto row = s.removeFromTop (28);
             labels[i]->setBounds (row.removeFromLeft (70));
@@ -2234,15 +2244,17 @@ void GhostbandEditor::resized()
     auto mixRow = r.removeFromTop (56);
     mixLabel.setBounds (mixRow.removeFromLeft (34).withTrimmedTop (16));
 
-    juce::Slider* levelSliders[4] = { &levelDrums, &levelBass, &levelGuitar, &levelPiano };
-    juce::Label*  levelLabels[4]  = { &levelDrumsLabel, &levelBassLabel,
-                                      &levelGuitarLabel, &levelPianoLabel };
-    for (int i = 0; i < 4; ++i)
+    juce::Slider* levelSliders[5] = { &levelDrums, &levelBass, &levelGuitar,
+                                      &levelGuitar2, &levelPiano };
+    juce::Label*  levelLabels[5]  = { &levelDrumsLabel, &levelBassLabel,
+                                      &levelGuitarLabel, &levelGuitar2Label,
+                                      &levelPianoLabel };
+    for (int i = 0; i < 5; ++i)
     {
-        auto cell = mixRow.removeFromLeft (58);
+        auto cell = mixRow.removeFromLeft (52);
         levelLabels[i]->setBounds (cell.removeFromTop (11));
-        levelSliders[i]->setBounds (cell.reduced (4, 0));
-        mixRow.removeFromLeft (4);
+        levelSliders[i]->setBounds (cell.reduced (3, 0));
+        mixRow.removeFromLeft (3);
     }
 
     r.removeFromTop (8);

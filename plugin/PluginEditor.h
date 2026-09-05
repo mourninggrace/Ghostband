@@ -161,8 +161,9 @@ private:
     // Per-part level, sent as MIDI CC 7. Mixing normally belongs in the host,
     // but four knobs here saves wiring four gain blocks in the rackspace and is
     // the fastest way to hear a part that is buried.
-    juce::Slider levelDrums, levelBass, levelGuitar, levelPiano;
-    juce::Label  levelDrumsLabel, levelBassLabel, levelGuitarLabel, levelPianoLabel;
+    juce::Slider levelDrums, levelBass, levelGuitar, levelGuitar2, levelPiano;
+    juce::Label  levelDrumsLabel, levelBassLabel, levelGuitarLabel,
+                 levelGuitar2Label, levelPianoLabel;
     juce::Label  mixLabel;
 
     juce::TextEditor seedEditor;
@@ -202,10 +203,11 @@ private:
     juce::TextButton backButton     { "Back" };
 
     // Settings
-    juce::ComboBox chDrums, chBass, chGuitar, chPiano;
-    juce::Label    chDrumsLabel, chBassLabel, chGuitarLabel, chPianoLabel;
+    juce::ComboBox chDrums, chBass, chGuitar, chGuitar2, chPiano;
+    juce::Label    chDrumsLabel, chBassLabel, chGuitarLabel, chGuitar2Label, chPianoLabel;
     juce::TextButton testDrums { "Test" }, testBass { "Test" },
-                     testGuitar { "Test" }, testPiano { "Test" };
+                     testGuitar { "Test" }, testPiano { "Test" },
+                     testGuitar2 { "Test" };
     // MIDI Learn helpers: sweep a CC at an instrument so it can latch onto it.
     void refreshControls();
     void pushControlEdit();

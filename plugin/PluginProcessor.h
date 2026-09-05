@@ -342,8 +342,9 @@ public:
 
     std::atomic<float> levelDrums  { 1.0f };
     std::atomic<float> levelBass   { 1.0f };
-    std::atomic<float> levelGuitar { 1.0f };
-    std::atomic<float> levelPiano  { 1.0f };
+    std::atomic<float> levelGuitar  { 1.0f };
+    std::atomic<float> levelGuitar2 { 1.0f };
+    std::atomic<float> levelPiano   { 1.0f };
 
     // Queues the current levels for delivery. Safe to call at any time; the
     // messages go out whether or not the transport is running.

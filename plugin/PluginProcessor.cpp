@@ -477,7 +477,8 @@ void GhostbandProcessor::testPart (int part)
                 f = { bassProfile.channel, { lo, lo + 5, lo + 12, lo + 17 }, false };
                 break;
             }
-            case 2:  f = { guitarProfile.channel, chordIn (guitarProfile), true }; break;
+            case 2:  f = { guitarProfile.channel,  chordIn (guitarProfile),  true }; break;
+            case 4:  f = { guitar2Profile.channel, chordIn (guitar2Profile), true }; break;
             case 3:  f = { pianoProfile.channel,  chordIn (pianoProfile),  true }; break;
             default: f = { kit.channel, { kit.noteFor (gb::DrumVoice::Kick),
                                           kit.noteFor (gb::DrumVoice::HatClosed),
@@ -649,8 +650,11 @@ void GhostbandProcessor::walkControl (int part, int index)
 
 gb::PhraseProfile* GhostbandProcessor::phraseProfileFor (int part)
 {
-    if (part == 3) return havePiano  ? &pianoProfile  : nullptr;
-    if (part == 2) return haveGuitar ? &guitarProfile : nullptr;
+    // 4 rather than 3, so every part index already saved in a session or used
+    // as a key for a control mapping still means what it did.
+    if (part == 4) return haveGuitar2 ? &guitar2Profile : nullptr;
+    if (part == 3) return havePiano   ? &pianoProfile   : nullptr;
+    if (part == 2) return haveGuitar  ? &guitarProfile  : nullptr;
     return nullptr;
 }
 
@@ -667,6 +671,7 @@ bool GhostbandProcessor::partIsInSong (int part) const
     {
         case 2:  return haveGuitar;
         case 3:  return havePiano;
+        case 4:  return haveGuitar2;
         default: return true;      // drums and bass are always present
     }
 }
@@ -677,7 +682,8 @@ gb::ControlSet* GhostbandProcessor::controlSetFor (int part)
     {
         case 0:  return &kit.controls;
         case 1:  return &bassProfile.controls;
-        case 2:  return haveGuitar ? &guitarProfile.controls : nullptr;
+        case 2:  return haveGuitar  ? &guitarProfile.controls  : nullptr;
+        case 4:  return haveGuitar2 ? &guitar2Profile.controls : nullptr;
         case 3:  return havePiano  ? &pianoProfile.controls  : nullptr;
         default: return nullptr;
     }
@@ -695,7 +701,8 @@ std::string GhostbandProcessor::controlSourcePath (int part) const
     {
         case 0:  return kit.sourcePath;
         case 1:  return bassProfile.sourcePath;
-        case 2:  return haveGuitar ? guitarProfile.sourcePath : std::string();
+        case 2:  return haveGuitar  ? guitarProfile.sourcePath  : std::string();
+        case 4:  return haveGuitar2 ? guitar2Profile.sourcePath : std::string();
         case 3:  return havePiano  ? pianoProfile.sourcePath  : std::string();
         default: return {};
     }
@@ -822,7 +829,8 @@ bool GhostbandProcessor::saveControls (int part, juce::String& error)
         {
             case 0:  ok = kit.save (path, e);           break;
             case 1:  ok = bassProfile.save (path, e);   break;
-            case 2:  ok = guitarProfile.save (path, e); break;
+            case 2:  ok = guitarProfile.save (path, e);  break;
+        case 4:  ok = guitar2Profile.save (path, e); break;
             default: ok = pianoProfile.save (path, e);  break;
         }
     }
@@ -867,11 +875,12 @@ void GhostbandProcessor::sendLevels()
         const juce::ScopedLock sl (stateLock);
 
         struct Part { int channel; float level; const gb::ControlSet* set; };
-        const Part parts[4] = {
-            { kit.channel,           levelDrums.load(),  &kit.controls },
-            { bassProfile.channel,   levelBass.load(),   &bassProfile.controls },
-            { guitarProfile.channel, levelGuitar.load(), haveGuitar ? &guitarProfile.controls : nullptr },
-            { pianoProfile.channel,  levelPiano.load(),  havePiano  ? &pianoProfile.controls  : nullptr },
+        const Part parts[5] = {
+            { kit.channel,            levelDrums.load(),   &kit.controls },
+            { bassProfile.channel,    levelBass.load(),    &bassProfile.controls },
+            { guitarProfile.channel,  levelGuitar.load(),  haveGuitar  ? &guitarProfile.controls  : nullptr },
+            { guitar2Profile.channel, levelGuitar2.load(), haveGuitar2 ? &guitar2Profile.controls : nullptr },
+            { pianoProfile.channel,   levelPiano.load(),   havePiano   ? &pianoProfile.controls   : nullptr },
         };
 
         for (const Part& p : parts)
@@ -1967,13 +1976,15 @@ void GhostbandProcessor::getStateInformation (juce::MemoryBlock& destData)
     // every channel back to its default the moment the host was restarted.
     xml.setAttribute ("levelDrums",  levelDrums.load());
     xml.setAttribute ("levelBass",   levelBass.load());
-    xml.setAttribute ("levelGuitar", levelGuitar.load());
-    xml.setAttribute ("levelPiano",  levelPiano.load());
+    xml.setAttribute ("levelGuitar",  levelGuitar.load());
+    xml.setAttribute ("levelGuitar2", levelGuitar2.load());
+    xml.setAttribute ("levelPiano",   levelPiano.load());
 
     xml.setAttribute ("chDrums",  channelDrums.load());
     xml.setAttribute ("chBass",   channelBass.load());
-    xml.setAttribute ("chGuitar", channelGuitar.load());
-    xml.setAttribute ("chPiano",  channelPiano.load());
+    xml.setAttribute ("chGuitar",  channelGuitar.load());
+    xml.setAttribute ("chGuitar2", channelGuitar2.load());
+    xml.setAttribute ("chPiano",   channelPiano.load());
     copyXmlToBinary (xml, destData);
 }
 
@@ -1997,12 +2008,14 @@ void GhostbandProcessor::setStateInformation (const void* data, int sizeInBytes)
     };
     levelDrums.store  (level ("levelDrums"));
     levelBass.store   (level ("levelBass"));
-    levelGuitar.store (level ("levelGuitar"));
+    levelGuitar.store  (level ("levelGuitar"));
+    levelGuitar2.store (level ("levelGuitar2"));
     levelPiano.store  (level ("levelPiano"));
 
     channelDrums.store  (juce::jlimit (1, 16, xml->getIntAttribute ("chDrums", 10)));
     channelBass.store   (juce::jlimit (1, 16, xml->getIntAttribute ("chBass", 1)));
-    channelGuitar.store (juce::jlimit (1, 16, xml->getIntAttribute ("chGuitar", 2)));
+    channelGuitar.store  (juce::jlimit (1, 16, xml->getIntAttribute ("chGuitar", 2)));
+    channelGuitar2.store (juce::jlimit (1, 16, xml->getIntAttribute ("chGuitar2", 11)));
     channelPiano.store  (juce::jlimit (1, 16, xml->getIntAttribute ("chPiano", 3)));
 
     const juce::File file (xml->getStringAttribute ("plan"));
