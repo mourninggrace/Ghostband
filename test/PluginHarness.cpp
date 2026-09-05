@@ -1642,18 +1642,33 @@ int main (int argc, char** argv)
 
                 auto* gbEd = dynamic_cast<GhostbandEditor*> (ed);
 
-                struct Shot { int screen; int w, h; };
+                struct Shot { int screen; int w, h; const char* suffix; };
                 std::vector<Shot> shots;
                 for (int s = 0; s < GhostbandEditor::numScreens; ++s)
-                    shots.push_back ({ s, 600, 720 });
-                shots.push_back ({ 0, 900, 640 });   // song, resized wide
+                    shots.push_back ({ s, 600, 720, "" });
+                shots.push_back ({ 0, 900, 640, "-wide" });   // song, resized wide
+
+                // The set that ships in docs/screenshots and is linked from the
+                // README. Rendered rather than captured by hand, so they can be
+                // regenerated the moment the UI changes instead of slowly going
+                // stale - a screenshot of a version nobody runs any more is
+                // worse than none. Sized to match the window the plugin is
+                // actually used at.
+                // Sized per screen rather than uniformly: a settings page with a
+                // scrolling control list needs the height, and the song screen
+                // at that height is mostly empty floor.
+                shots.push_back ({ 0, 1000,  900, "-docs" });   // song
+                shots.push_back ({ 1, 1000, 1280, "-docs" });   // calibrate
+                shots.push_back ({ 2, 1000,  980, "-docs" });   // edit
+                shots.push_back ({ 3, 1000, 1320, "-docs" });   // settings
+                shots.push_back ({ 4, 1000,  760, "-docs" });   // about
 
                 // About at the size it is actually used at. It is the one
                 // screen painted straight onto the canvas rather than built
                 // from child components, so the overlap checker is blind to it
                 // - and it has now shipped broken twice. A big window is where
                 // it broke both times.
-                shots.push_back ({ 4, 1020, 1400 });
+                shots.push_back ({ 4, 1020, 1400, "-wide" });
 
                 for (const Shot& shot : shots)
                 {
@@ -1663,7 +1678,7 @@ int main (int argc, char** argv)
                     const juce::Image img = ed->createComponentSnapshot (ed->getLocalBounds(), true);
 
                     const juce::String label = juce::String (GhostbandEditor::screenName (shot.screen))
-                                             + (shot.w > 700 ? "-wide" : "");
+                                             + juce::String (shot.suffix);
                     const juce::File out = dir.getChildFile ("editor-" + label + ".png");
                     out.deleteFile();
                     juce::FileOutputStream stream (out);

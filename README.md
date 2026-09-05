@@ -10,6 +10,10 @@ instrument.
 
 **Status:** drums, bass, guitar and piano. Rock and metal. No live following yet.
 
+![The Ghostband song screen](docs/screenshots/song.png)
+
+*The song screen. Every section shows its chords, its feel, and how many drum hits and bass notes it actually plays.*
+
 Ships with driver profiles for SSD5, MODO Bass 2, UJAM Virtual Guitarist IRON 2
 and UJAM Virtual Pianist, plus a General MIDI fallback that works with most drum
 plugins out of the box. Anything else is a small JSON file away, and the plugin
@@ -77,6 +81,11 @@ song / Tempo: host** toggle in Settings; the cost of song tempo is that anything
 else in the rackspace synced to the host will not agree with the band.
 
 ### Driving the instrument's own controls
+
+![The Settings screen with mapped controls](docs/screenshots/settings.png)
+
+*Settings. Each control is named by whoever mapped it, given a CC by MIDI Learn, and told what to follow.*
+
 
 Ghostband can move an instrument's knobs, switches and selectors as the song
 goes: more drive where the section is loud, a pedal in for the chorus, a
@@ -153,6 +162,11 @@ you can see which section you are hearing.
 
 ### Building the song
 
+![The structure editor](docs/screenshots/edit.png)
+
+*The structure editor. Sections are named, reordered and reshaped here, and the name is what decides how a section behaves.*
+
+
 **Edit song** opens the structure editor. Click a section in the list to edit it:
 
 - **Name** — the role is inferred from it, so renaming a section to `chorus2`
@@ -228,6 +242,11 @@ Options:
 | `--tuning <name>` | `standard`, `drop_d`, `drop_c`, `b_standard` |
 
 ## Calibration
+
+![The calibration screen](docs/screenshots/calibrate.png)
+
+*Calibration. It plays one voice at a time and you move the note until it sounds like what the label says.*
+
 
 A driver profile is a claim about which MIDI note makes which sound, and those
 claims are often wrong. The shipped SSD5 and MODO Bass 2 maps are **derived, not
@@ -356,6 +375,11 @@ emits silence until the rate is known.
   assumptions specifically so that wrapping it later is mechanical.
 
 ## Licence
+
+![The About screen](docs/screenshots/about.png)
+
+*The About screen, which says the same thing this section does.*
+
 
 Ghostband is free software under the **GNU AGPLv3** — see [LICENSE](LICENSE).
 
