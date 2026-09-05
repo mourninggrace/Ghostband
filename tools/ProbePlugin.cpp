@@ -15,9 +15,12 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <memory>
+#include <utility>
+#include <vector>
 
 namespace {
 
@@ -47,6 +50,52 @@ float brightnessOf (const juce::AudioBuffer<float>& buf, int numSamples)
     }
     if (level < 1.0e-9) return 0.0f;
     return static_cast<float> (juce::jlimit (0.0, 1.0, diff / level / 2.0));
+}
+
+// Fundamental frequency by normalised autocorrelation.
+//
+// A distorted guitar is full of harmonics and a spectrum peak can easily land
+// on the wrong one; autocorrelation locks to the period instead, which is the
+// fundamental whatever is stacked on top of it. This only has to answer one
+// question - did the pitch move when a bend was sent - so absolute accuracy
+// matters far less than not being fooled by an octave.
+// `expectedHz` bounds the search to within an octave either side of the note
+// that was played. Without it the search ran from 60 Hz upward and locked onto a
+// lag eight periods long - it reported C5 as 65 Hz, three octaves down, because
+// a periodic signal correlates with itself just as well at any multiple of its
+// period. Bounding it makes an octave error arithmetically impossible, and an
+// octave error is the one failure that would have made this test lie.
+double estimatePitch (const std::vector<float>& x, size_t from, size_t len, double sr,
+                      double expectedHz = 0.0)
+{
+    const double lowHz  = expectedHz > 20.0 ? expectedHz / 2.0 : 60.0;
+    const double highHz = expectedHz > 20.0 ? expectedHz * 2.0 : 1600.0;
+
+    const int minLag = std::max (2, static_cast<int> (sr / highHz));
+    const int maxLag = static_cast<int> (sr / lowHz);
+
+    if (len < 64 || from + len + maxLag > x.size()) return 0.0;
+
+    double best = 0.0;
+    int    bestLag = 0;
+
+    for (int lag = minLag; lag <= maxLag; ++lag)
+    {
+        double num = 0.0, e1 = 0.0, e2 = 0.0;
+        for (size_t i = 0; i < len; ++i)
+        {
+            const double a = x[from + i], b = x[from + i + lag];
+            num += a * b;  e1 += a * a;  e2 += b * b;
+        }
+
+        const double denom = std::sqrt (e1 * e2);
+        if (denom < 1.0e-12) continue;
+
+        const double r = num / denom;
+        if (r > best) { best = r; bestLag = lag; }
+    }
+
+    return (bestLag > 0 && best > 0.3) ? sr / bestLag : 0.0;
 }
 
 class Probe
@@ -520,6 +569,57 @@ public:
         return m;
     }
 
+    // Renders a scripted sequence of MIDI events and keeps every sample.
+    //
+    // The other measurements only need an envelope, so they keep one number per
+    // block. Pitch cannot be recovered from an envelope, and the question here -
+    // does this instrument bend, and how far - is entirely a question about
+    // pitch, so this one keeps the audio.
+    std::vector<float> captureSamples (const std::vector<std::pair<double, juce::MidiMessage>>& events,
+                                       double seconds)
+    {
+        std::vector<float> mono;
+        if (instance == nullptr) return mono;
+
+        const int channels = juce::jmax (2, outputChannels());
+        juce::AudioBuffer<float> buf (channels, blockSize);
+        juce::MidiBuffer midi;
+
+        const int blocks = juce::jmax (1, static_cast<int> (seconds * sampleRate / blockSize));
+        mono.reserve (static_cast<size_t> (blocks) * blockSize);
+
+        size_t next = 0;
+
+        for (int b = 0; b < blocks; ++b)
+        {
+            buf.clear();
+            midi.clear();
+
+            const double blockStart = b * blockSize / sampleRate;
+            const double blockEnd   = (b + 1) * blockSize / sampleRate;
+
+            while (next < events.size() && events[next].first < blockEnd)
+            {
+                const int offset = juce::jlimit (0, blockSize - 1,
+                                        static_cast<int> ((events[next].first - blockStart) * sampleRate));
+                midi.addEvent (events[next].second, offset);
+                ++next;
+            }
+
+            instance->processBlock (buf, midi);
+
+            for (int i = 0; i < blockSize; ++i)
+            {
+                double sum = 0.0;
+                for (int ch = 0; ch < buf.getNumChannels(); ++ch)
+                    sum += buf.getReadPointer (ch)[i];
+                mono.push_back (static_cast<float> (sum / buf.getNumChannels()));
+            }
+        }
+
+        return mono;
+    }
+
     double sampleRate = 48000.0;
     int    blockSize  = 512;
 
@@ -553,7 +653,8 @@ int main (int argc, char** argv)
             "  --hold <secs>   how long to hold each note (default 0.35)\n"
             "  --tail <secs>   how long to listen after release (default 1.2)\n"
             "  --warmup <secs> settle time before probing (default 3)\n"
-            "  --chords        also test three-note chords, to find a chord zone\n";
+            "  --chords        also test three-note chords, to find a chord zone\n"
+            "  --mode lead     can it solo? pitch bend, sustain and legato\n";
         return 1;
     }
 
@@ -620,6 +721,176 @@ int main (int argc, char** argv)
     }
 
     std::cout << "\n" << sounded << " of " << (high - low + 1) << " notes produced sound\n";
+
+    if (mode == "lead")
+    {
+        // Can this instrument play a lead line, as opposed to a riff?
+        //
+        // Three questions, none of which the note sweep answers, and all three
+        // decide whether a rhythm library can be made to solo or whether the
+        // job needs a different instrument:
+        //
+        //   * does it respond to pitch bend, and over what range - bends and
+        //     whammy dives are pitch bend, not a keyswitch;
+        //   * how long does one note actually sustain before it dies, because
+        //     a held note that lasts a beat cannot end a phrase;
+        //   * does a second note taken while the first is held glide, or does
+        //     it re-attack - legato against picked.
+        const int testNote = (low + high) / 2;
+
+        std::cout << "\nlead articulation test on note " << testNote
+                  << " (" << noteName (testNote) << "), channel " << channel << "\n";
+        std::cout << "=======================================================\n";
+
+        // ---- 1. pitch bend -------------------------------------------------
+        {
+            const double windowSecs = 0.25;
+            std::vector<std::pair<double, juce::MidiMessage>> events;
+            events.emplace_back (0.0, juce::MidiMessage::pitchWheel (channel, 8192));
+            events.emplace_back (0.0, juce::MidiMessage::noteOn (channel, testNote, (juce::uint8) 100));
+            events.emplace_back (0.9, juce::MidiMessage::pitchWheel (channel, 16383));
+            events.emplace_back (1.9, juce::MidiMessage::pitchWheel (channel, 0));
+            events.emplace_back (2.9, juce::MidiMessage::pitchWheel (channel, 8192));
+            events.emplace_back (3.6, juce::MidiMessage::noteOff (channel, testNote));
+
+            const std::vector<float> audio = probe.captureSamples (events, 4.0);
+            const double sr = probe.sampleRate;
+
+            const double nominal = 440.0 * std::pow (2.0, (testNote - 69) / 12.0);
+
+            const auto at = [&] (double t)
+            {
+                return estimatePitch (audio, static_cast<size_t> (t * sr),
+                                      static_cast<size_t> (windowSecs * sr), sr, nominal);
+            };
+
+            const double centre = at (0.55);
+            const double up     = at (1.45);
+            const double down   = at (2.45);
+            const double back   = at (3.25);
+
+            const auto semis = [] (double f, double ref)
+            {
+                return (f > 20.0 && ref > 20.0) ? 12.0 * std::log2 (f / ref) : 0.0;
+            };
+
+            std::printf ("  bend centre : %8.2f Hz   (expected ~%.2f)\n",
+                         centre, nominal);
+            std::printf ("  bend up     : %8.2f Hz   %+6.2f semitones\n", up,   semis (up,   centre));
+            std::printf ("  bend down   : %8.2f Hz   %+6.2f semitones\n", down, semis (down, centre));
+            std::printf ("  released    : %8.2f Hz   %+6.2f semitones\n", back, semis (back, centre));
+
+            const double range = std::max (std::abs (semis (up, centre)), std::abs (semis (down, centre)));
+            if (centre < 20.0)
+                std::cout << "  VERDICT: could not find a pitch - is the instrument sounding?\n";
+            else if (range < 0.4)
+                std::cout << "  VERDICT: IGNORES pitch bend. No bends, no dive bombs, no vibrato.\n";
+            else
+                std::printf ("  VERDICT: BENDS, range about +/-%.1f semitones.%s\n", range,
+                             range > 6.0 ? "  Wide enough for a dive bomb." : "");
+        }
+
+        // ---- 2. sustain ----------------------------------------------------
+        {
+            std::vector<std::pair<double, juce::MidiMessage>> events;
+            events.emplace_back (0.0, juce::MidiMessage::noteOn (channel, testNote, (juce::uint8) 110));
+
+            const double window = 12.0;
+            const std::vector<float> audio = probe.captureSamples (events, window);
+            const double sr = probe.sampleRate;
+
+            // Envelope in 50 ms steps, so a tremolo or a looped sample does not
+            // read as a decay.
+            const size_t step = static_cast<size_t> (0.05 * sr);
+            std::vector<float> env;
+            for (size_t i = 0; i + step <= audio.size(); i += step)
+            {
+                float peak = 0.0f;
+                for (size_t j = i; j < i + step; ++j) peak = std::max (peak, std::abs (audio[j]));
+                env.push_back (peak);
+            }
+
+            float top = 0.0f;
+            for (float e : env) top = std::max (top, e);
+
+            const auto fell = [&] (double frac)
+            {
+                for (size_t i = 0; i < env.size(); ++i)
+                    if (env[i] < top * frac)
+                    {
+                        // Has to stay down, or one dip between picks counts.
+                        bool stays = true;
+                        for (size_t j = i; j < std::min (env.size(), i + 10); ++j)
+                            if (env[j] >= top * frac) stays = false;
+                        if (stays) return i * 0.05;
+                    }
+                return window;
+            };
+
+            std::cout << "\n  note held for " << window << "s with no note-off\n";
+            std::printf ("  peak level  : %.4f\n", top);
+            std::printf ("  -12 dB after: %5.2f s\n", fell (0.25));
+            std::printf ("  -20 dB after: %5.2f s\n", fell (0.10));
+            std::printf ("  -40 dB after: %5.2f s\n", fell (0.01));
+
+            const double usable = fell (0.10);
+            if (usable >= 6.0)
+                std::cout << "  VERDICT: sustains. A held note can end a phrase.\n";
+            else if (usable >= 2.5)
+                std::printf ("  VERDICT: sustains about %.1fs - enough for a bar, not for a long hold.\n", usable);
+            else
+                std::printf ("  VERDICT: DIES after %.1fs. Held notes will not work.\n", usable);
+        }
+
+        // ---- 3. legato -----------------------------------------------------
+        {
+            std::vector<std::pair<double, juce::MidiMessage>> events;
+            events.emplace_back (0.0, juce::MidiMessage::noteOn  (channel, testNote,     (juce::uint8) 100));
+            events.emplace_back (1.0, juce::MidiMessage::noteOn  (channel, testNote + 2, (juce::uint8) 100));
+            events.emplace_back (2.0, juce::MidiMessage::noteOff (channel, testNote + 2));
+            events.emplace_back (2.1, juce::MidiMessage::noteOff (channel, testNote));
+
+            const std::vector<float> audio = probe.captureSamples (events, 2.6);
+            const double sr = probe.sampleRate;
+
+            const auto peakBetween = [&] (double a, double b)
+            {
+                float p = 0.0f;
+                const size_t from = static_cast<size_t> (a * sr), to = static_cast<size_t> (b * sr);
+                for (size_t i = from; i < std::min (to, audio.size()); ++i)
+                    p = std::max (p, std::abs (audio[i]));
+                return p;
+            };
+
+            const float before = peakBetween (0.80, 0.98);   // first note, settled
+            const float onset  = peakBetween (1.00, 1.10);   // the moment the second arrives
+
+            // Level alone cannot tell "it glided" from "it ignored the second
+            // note" - both leave the level exactly where it was. Pitch can.
+            const double nominal1 = 440.0 * std::pow (2.0, (testNote - 69) / 12.0);
+            const double heard1 = estimatePitch (audio, (size_t) (0.75 * sr), (size_t) (0.20 * sr), sr, nominal1);
+            const double heard2 = estimatePitch (audio, (size_t) (1.55 * sr), (size_t) (0.20 * sr), sr, nominal1);
+            const double moved  = (heard1 > 20.0 && heard2 > 20.0) ? 12.0 * std::log2 (heard2 / heard1) : 0.0;
+
+            std::cout << "\n  second note (two semitones up) taken while the first is still held\n";
+            std::printf ("  level before: %.4f\n", before);
+            std::printf ("  level at 2nd: %.4f   (%.2fx)\n", onset,
+                         before > 1.0e-6f ? onset / before : 0.0f);
+            std::printf ("  pitch before: %8.2f Hz\n", heard1);
+            std::printf ("  pitch after : %8.2f Hz   %+6.2f semitones\n", heard2, moved);
+
+            if (before <= 1.0e-6f)
+                std::cout << "  VERDICT: inconclusive, the first note was silent.\n";
+            else if (std::abs (moved) < 0.5)
+                std::cout << "  VERDICT: the second note did NOTHING - the pitch never moved.\n";
+            else if (onset > before * 1.6f)
+                std::cout << "  VERDICT: RE-ATTACKS. Every note is picked; no legato.\n";
+            else
+                std::cout << "  VERDICT: pitch moved with no new attack - that is legato.\n";
+        }
+
+        std::cout << "\n";
+    }
 
     if (mode == "blip")
     {
