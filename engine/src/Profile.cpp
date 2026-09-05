@@ -588,19 +588,18 @@ std::string ControlSet::toJson() const
 //
 // Returns false when there is no controls block to replace, so the caller can
 // fall back to writing a fresh file.
-static bool spliceNamedBlock (const std::string& path, const std::string& key,
-                              const std::string& block, std::string& out)
+// Locates a  "key": { ... }  block in already-loaded profile text, reporting
+// where the key starts and where its closing brace sits.
+//
+// Split out of spliceNamedBlock so that reading a block and replacing one walk
+// the file the same way. Two scanners that agree by inspection are two scanners
+// that stop agreeing.
+static bool findNamedBlock (const std::string& text, const std::string& key,
+                            size_t& at, size_t& close)
 {
-    std::ifstream in (path, std::ios::binary);
-    if (! in) return false;
-
-    std::string text ((std::istreambuf_iterator<char> (in)),
-                       std::istreambuf_iterator<char>());
-    if (text.empty()) return false;
-
     // Find the key outside of a comment, so the explanation written above a
     // controls block is never mistaken for the block itself.
-    size_t at = std::string::npos;
+    at = std::string::npos;
     for (size_t i = 0; i + 1 < text.size(); ++i)
     {
         if (text[i] == '/' && text[i + 1] == '/')
@@ -621,7 +620,7 @@ static bool spliceNamedBlock (const std::string& path, const std::string& key,
     // brace inside a string still has to be ignored.
     int depth = 0;
     bool inString = false;
-    size_t close = std::string::npos;
+    close = std::string::npos;
 
     for (size_t i = open; i < text.size(); ++i)
     {
@@ -639,7 +638,27 @@ static bool spliceNamedBlock (const std::string& path, const std::string& key,
         else if (ch == '}' && --depth == 0) { close = i; break; }
     }
 
-    if (close == std::string::npos) return false;
+    return close != std::string::npos;
+}
+
+static bool readWholeFile (const std::string& path, std::string& text)
+{
+    std::ifstream in (path, std::ios::binary);
+    if (! in) return false;
+
+    text.assign ((std::istreambuf_iterator<char> (in)),
+                  std::istreambuf_iterator<char>());
+    return ! text.empty();
+}
+
+static bool spliceNamedBlock (const std::string& path, const std::string& key,
+                              const std::string& block, std::string& out)
+{
+    std::string text;
+    if (! readWholeFile (path, text)) return false;
+
+    size_t at = 0, close = 0;
+    if (! findNamedBlock (text, key, at, close)) return false;
 
     out = text.substr (0, at) + block + text.substr (close + 1);
     return true;
@@ -649,6 +668,19 @@ static bool spliceNamedBlock (const std::string& path, const std::string& key,
 // calibrated value can be written back without regenerating a file whose
 // comments record what was measured. `block` is the whole replacement including
 // the key, e.g.  "chord_zone": { "lowest_note": 60, "highest_note": 84 }
+bool extractProfileBlock (const std::string& path, const std::string& key,
+                          std::string& block)
+{
+    std::string text;
+    if (! readWholeFile (path, text)) return false;
+
+    size_t at = 0, close = 0;
+    if (! findNamedBlock (text, "\"" + key + "\"", at, close)) return false;
+
+    block = text.substr (at, close + 1 - at);
+    return true;
+}
+
 bool spliceProfileBlock (const std::string& path, const std::string& key,
                          const std::string& block, std::string& error)
 {

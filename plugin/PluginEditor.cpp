@@ -1848,6 +1848,23 @@ void GhostbandEditor::paintAbout (juce::Graphics& g, juce::Rectangle<int> area)
 
 void GhostbandEditor::resized()
 {
+    // Repaint the whole canvas, not just whatever the resize newly exposed.
+    //
+    // Every other screen is built from child components, and a component that
+    // is moved or resized redraws itself - so those screens heal on their own
+    // and this was never needed. The About screen is painted straight onto the
+    // canvas, and its text is wrapped to the width it was painted at. Growing
+    // the window redrew only the newly uncovered strip, which left the old
+    // narrow wrap sitting underneath the new wide one: two layouts of the same
+    // paragraphs on top of each other, each with pieces of the other missing.
+    // That is what "the about section is still botched" was, and it is why
+    // fixing the measurement last time did not fix it.
+    //
+    // Neither the overlap checker nor the snapshots can see this: both render
+    // into a fresh image, which is a full repaint by definition. It only exists
+    // on a screen that has already been painted at another size.
+    repaint();
+
     // Only remember a size the user can actually have chosen.
     if (sizeInitialised && getWidth() > 0 && getHeight() > 0)
     {

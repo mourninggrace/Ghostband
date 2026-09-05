@@ -10,10 +10,14 @@
 #include "ghostband/Render.h"
 #include "ghostband/SongPlan.h"
 
+#include <algorithm>
 #include <cstdio>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <system_error>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -64,6 +68,7 @@ void printUsage()
         "\n"
         "  ghostband render <plan.json> [options]\n"
         "  ghostband calibrate [options]\n"
+        "  ghostband install-profiles <from-dir> <to-dir>\n"
         "\n"
         "Options:\n"
         "  -o, --out <file.mid>     output file (default: <plan name>.mid)\n"
@@ -76,7 +81,12 @@ void printUsage()
         "render     builds the song described by the plan.\n"
         "calibrate  plays every mapped drum voice and bass articulation in turn,\n"
         "           with a marker naming each one, so you can check a profile\n"
-        "           against the real plugin by ear.\n";
+        "           against the real plugin by ear.\n"
+        "\n"
+        "install-profiles\n"
+        "           copies driver profiles into an installed plugin bundle without\n"
+        "           destroying anything taught or calibrated on the way. Used by\n"
+        "           Install.bat; there is no reason to run it by hand.\n";
 }
 
 std::string twoDecimals (double v)
@@ -104,6 +114,118 @@ void reportProfile (const std::string& label, const std::string& name,
         std::cout << "      " << note << "\n";
 }
 
+// Copying driver profiles into an installed bundle, without throwing away the
+// work that only exists there.
+//
+// Install used to be a plain xcopy /Y over the bundle's profiles folder. Four
+// blocks in those files are written back by the plugin rather than by hand - a
+// taught control map, a calibrated drum map, a bass range and a chord zone -
+// and for anyone whose profiles resolve to the bundle rather than to a checkout
+// of this repository, every install silently destroyed all four. A taught MIDI
+// Learn mapping costs real time at the instrument to recreate; a shipped
+// default costs nothing, because it is sitting right here.
+//
+// So the incoming file wins by default, and the installed one wins wherever a
+// human changed something. Telling those apart needs to know what was shipped
+// last time, which is why a pristine copy is kept beside the profiles folder.
+// With no such copy - the first run after this existed - anything differing
+// from the incoming file is treated as changed, which is the safe way round.
+int installProfiles (const std::string& fromDir, const std::string& toDir)
+{
+    namespace fs = std::filesystem;
+
+    // Every block the plugin ever writes back into a profile. Nothing else in
+    // these files can be edited from inside Ghostband, so nothing else can be
+    // lost by overwriting it.
+    static const char* kWrittenBack[] = { "controls", "notes", "lowest_note", "chord_zone" };
+
+    std::error_code ec;
+    if (! fs::is_directory (fromDir, ec))
+    {
+        std::cerr << "ghostband install-profiles: " << fromDir << " is not a directory\n";
+        return 1;
+    }
+
+    const fs::path shipped = fs::path (toDir).parent_path() / ".profiles-shipped";
+
+    fs::create_directories (toDir, ec);   ec.clear();
+    fs::create_directories (shipped, ec); ec.clear();
+
+    std::vector<fs::path> sources;
+    for (const fs::directory_entry& e : fs::directory_iterator (fromDir, ec))
+        if (e.is_regular_file() && e.path().extension() == ".json")
+            sources.push_back (e.path());
+    ec.clear();
+
+    std::sort (sources.begin(), sources.end());
+
+    int copied = 0, kept = 0, failed = 0;
+
+    for (const fs::path& src : sources)
+    {
+        const std::string name = src.filename().string();
+        const fs::path dst  = fs::path (toDir) / name;
+        const fs::path base = shipped / name;
+
+        // Worked out before the copy, because afterwards the evidence is gone.
+        std::vector<std::pair<std::string, std::string>> carry;
+
+        if (fs::exists (dst))
+        {
+            for (const char* key : kWrittenBack)
+            {
+                std::string here;
+                if (! gb::extractProfileBlock (dst.string(), key, here))
+                    continue;   // the installed file has no such block
+
+                std::string reference;
+                if (! gb::extractProfileBlock (base.string(), key, reference))
+                    gb::extractProfileBlock (src.string(), key, reference);
+
+                if (here != reference)
+                    carry.emplace_back (key, here);
+            }
+        }
+
+        fs::copy_file (src, dst, fs::copy_options::overwrite_existing, ec);
+        if (ec)
+        {
+            std::cerr << "  could not install " << name << ": " << ec.message() << "\n";
+            ec.clear();
+            ++failed;
+            continue;
+        }
+        ++copied;
+
+        for (const auto& block : carry)
+        {
+            std::string e;
+            if (gb::spliceProfileBlock (dst.string(), block.first, block.second, e))
+            {
+                std::cout << "  kept your " << block.first << " in " << name << "\n";
+                ++kept;
+            }
+            else
+            {
+                // The new file has nowhere to put it back. Say so loudly rather
+                // than dropping it, because this is the case that loses work.
+                std::cerr << "  WARNING: could not carry your " << block.first
+                          << " into the new " << name << " (" << e << ")\n";
+                ++failed;
+            }
+        }
+
+        fs::copy_file (src, base, fs::copy_options::overwrite_existing, ec);
+        ec.clear();
+    }
+
+    std::cout << "  " << copied << " profile(s) installed";
+    if (kept > 0) std::cout << ", " << kept << " local change(s) preserved";
+    std::cout << "\n";
+
+    return failed > 0 ? 1 : 0;
+}
+
 } // namespace
 
 int main (int argc, char** argv)
@@ -123,6 +245,16 @@ int main (int argc, char** argv)
     {
         printUsage();
         return 0;
+    }
+
+    if (command == "install-profiles")
+    {
+        if (argc < 4)
+        {
+            std::cerr << "ghostband install-profiles: a source and a destination are required\n";
+            return 1;
+        }
+        return installProfiles (argv[2], argv[3]);
     }
 
     if (command != "render" && command != "calibrate")

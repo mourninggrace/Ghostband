@@ -31,11 +31,16 @@ if errorlevel 1 (
 
 rem Driver profiles live inside the bundle so the built-in song can name real
 rem instruments and still work on a machine that has no copy of this repository.
+rem
+rem Not xcopy /Y. Anyone whose profiles resolve to the bundle rather than to a
+rem checkout of this repository does their teaching and calibrating in these
+rem files, and a straight overwrite destroyed all of it on every install. This
+rem carries those blocks across; it prints every one it keeps.
 echo Bundling driver profiles
-xcopy "profiles\*.json" "%DST%\Contents\Resources\profiles\" /I /Y /Q
+"build\bin\ghostband.exe" install-profiles "profiles" "%DST%\Contents\Resources\profiles"
 if errorlevel 1 (
     echo.
-    echo Could not copy the driver profiles.
+    echo Could not install the driver profiles.
     exit /b 1
 )
 

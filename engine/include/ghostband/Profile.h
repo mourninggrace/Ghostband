@@ -144,6 +144,16 @@ bool saveControlsInto (const std::string& path, const ControlSet& controls,
 bool spliceProfileBlock (const std::string& path, const std::string& key,
                          const std::string& block, std::string& error);
 
+// Reads one named block back out, including the key, in the exact form
+// spliceProfileBlock would write. False if the file has no such block.
+//
+// This is what lets an install merge rather than clobber: the four blocks the
+// plugin ever writes back - a taught control map, a calibrated drum map, a bass
+// range and a chord zone - can be lifted out of the copy already installed and
+// carried into the incoming one.
+bool extractProfileBlock (const std::string& path, const std::string& key,
+                          std::string& block);
+
 class DrumProfile
 {
 public:

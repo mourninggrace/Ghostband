@@ -55,6 +55,45 @@ their own sample offset inside the block the host asked for, so Ghostband adds
 none. It is read from the processor rather than hard-coded, so if it ever does
 take a lookahead the number moves on its own instead of becoming a lie.
 
+### The About screen, botched twice, and why
+
+The first fix was real but incomplete. Session 8 fixed the *measurement* - it
+had been handing `drawFittedText` a fixed height per paragraph and letting JUCE
+stack the overflow. What was left was a **repaint** fault, and it looked
+identical from the outside.
+
+`resized()` never called `repaint()`. Every other screen is built from child
+components, and a component that is moved or resized redraws itself, so those
+screens heal on their own and nobody ever missed it. The About screen is painted
+straight onto the canvas and its text is wrapped to the width it was painted at.
+Growing the window redrew only the newly uncovered strip, so the old narrow wrap
+stayed underneath the new wide one - two layouts of the same paragraphs on top
+of each other, each with pieces of the other missing. `resized()` repaints the
+whole canvas now.
+
+**Neither the overlap checker nor the snapshots could ever have caught this.**
+Both render into a fresh image, which is a full repaint by definition; the fault
+only exists on a screen already painted at a different size. The snapshot set
+now includes About at 1020x1400 because that is the size it broke at, and that
+does catch layout faults at large widths - but a resize fault needs a live
+window. Worth remembering before trusting a green snapshot run on this screen.
+
+### Install merges now instead of clobbering
+
+`Install.bat` no longer xcopies over the bundle's profiles. `ghostband.exe
+install-profiles <from> <to>` copies each file but carries across the four
+blocks the plugin writes back - `controls`, `notes`, `lowest_note`,
+`chord_zone` - wherever the installed copy differs from what was shipped last
+time. A pristine copy of each shipped profile is kept in
+`Contents/Resources/.profiles-shipped` so a user's edit can be told apart from
+a default that simply changed between versions; with no such copy, anything
+differing from the incoming file is treated as a user edit, which is the safe
+way round. It prints every block it keeps.
+
+Verified both directions: a mapping that existed only in the bundle survived an
+install and was reported, and a changed shipped default still reached a file
+nobody had touched.
+
 ### The MODO master volume knob, which is not a Ghostband bug
 
 Reported as the bass volume control being dead after a reboot, fixed by

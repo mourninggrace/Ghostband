@@ -1539,6 +1539,13 @@ int main (int argc, char** argv)
                     shots.push_back ({ s, 600, 720 });
                 shots.push_back ({ 0, 900, 640 });   // song, resized wide
 
+                // About at the size it is actually used at. It is the one
+                // screen painted straight onto the canvas rather than built
+                // from child components, so the overlap checker is blind to it
+                // - and it has now shipped broken twice. A big window is where
+                // it broke both times.
+                shots.push_back ({ 4, 1020, 1400 });
+
                 for (const Shot& shot : shots)
                 {
                     if (gbEd != nullptr) gbEd->showScreenForSnapshot (shot.screen);
