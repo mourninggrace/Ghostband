@@ -605,6 +605,37 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     };
     addAndMakeVisible (seedEditor);
 
+    // Tempo, editable at last. Commits on Return and on losing focus, because a
+    // field that only commits on Return silently discards what you typed the
+    // moment you click somewhere else.
+    bpmEditor.setJustification (juce::Justification::centredLeft);
+    bpmEditor.setInputRestrictions (3, "0123456789");
+    bpmEditor.setColour (juce::TextEditor::backgroundColourId, ghost::background);
+    bpmEditor.setColour (juce::TextEditor::outlineColourId, ghost::line);
+    bpmEditor.setColour (juce::TextEditor::focusedOutlineColourId, ghost::accent.withAlpha (0.6f));
+    bpmEditor.setColour (juce::TextEditor::textColourId, ghost::text);
+    bpmEditor.setFont (juce::Font (juce::FontOptions (13.0f)));
+
+    const auto commitBpm = [this]
+    {
+        const int typed = bpmEditor.getText().getIntValue();
+        if (typed <= 0)
+        {
+            bpmEditor.setText (juce::String (juce::roundToInt (processor.getPlanBpm())),
+                               juce::dontSendNotification);
+            return;
+        }
+        processor.setPlanBpm (typed);
+    };
+
+    bpmEditor.onReturnKey  = commitBpm;
+    bpmEditor.onFocusLost  = commitBpm;
+    addAndMakeVisible (bpmEditor);
+
+    initLabel (bpmLabel, "BPM", 10.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (rollHintLabel, "ctrl-click a section to reroll just that one",
+               10.0f, ghost::dim, juce::Justification::centredRight);
+
     // Clicking a section queues it; the processor lands the jump on the next bar
     // line so the transition stays in time.
     sectionList.onSectionClicked = [this] (int index)
@@ -1190,6 +1221,9 @@ void GhostbandEditor::styleButton (juce::TextButton& b, bool primary)
 void GhostbandEditor::updateRollButtonText()
 {
     const int n = static_cast<int> (rerollSelection.size());
+    // The hint lives on the button itself when nothing is picked. Ctrl-click to
+    // select a section was only ever in a tooltip, so it was reported as "still
+    // unable to roll one section" - the feature worked, nothing said how.
     rollButton.setButtonText (n == 0 ? "Roll"
                                      : "Roll " + juce::String (n)
                                            + (n == 1 ? " section" : " sections"));
@@ -1289,6 +1323,7 @@ void GhostbandEditor::updateModeVisibility()
              &tuningBox, &keyLabel, &styleLabel, &tuningLabel,
              &modeBox, &modeLabel,
              &tempoLabel, &transportLabel, &summaryLabel, &playPauseButton,
+             &bpmLabel, &bpmEditor, &rollHintLabel,
              &mixLabel, &levelDrums, &levelBass, &levelGuitar, &levelPiano,
              &levelDrumsLabel, &levelBassLabel, &levelGuitarLabel, &levelPianoLabel })
         c->setVisible (song);
@@ -1670,6 +1705,11 @@ void GhostbandEditor::refreshFromProcessor()
     complexitySlider.setValue (processor.complexity.load(), juce::dontSendNotification);
     humanizeSlider.setValue (processor.humanize.load(), juce::dontSendNotification);
     seedEditor.setText (juce::String (processor.seed.load()), juce::dontSendNotification);
+
+    // Not while it has focus, or the refresh overwrites what is being typed.
+    if (! bpmEditor.hasKeyboardFocus (true))
+        bpmEditor.setText (juce::String (juce::roundToInt (processor.getPlanBpm())),
+                           juce::dontSendNotification);
 
     keyBox.setSelectedId (processor.getKeyPitchClass() + 1, juce::dontSendNotification);
     styleBox.setSelectedId (styleNameToId (processor.getStyle()), juce::dontSendNotification);
@@ -2185,6 +2225,10 @@ void GhostbandEditor::resized()
     seedRow.removeFromLeft (6);
     playPauseButton.setBounds (seedRow.removeFromLeft (juce::jmin (74, seedRow.getWidth())));
 
+    seedRow.removeFromLeft (16);
+    bpmLabel.setBounds (seedRow.removeFromLeft (juce::jmin (30, seedRow.getWidth())));
+    bpmEditor.setBounds (seedRow.removeFromLeft (juce::jmin (52, seedRow.getWidth())));
+
     // Mix row: four small level knobs, one per part.
     r.removeFromTop (8);
     auto mixRow = r.removeFromTop (56);
@@ -2202,7 +2246,11 @@ void GhostbandEditor::resized()
     }
 
     r.removeFromTop (8);
-    transportLabel.setBounds (r.removeFromTop (16));
+    {
+        auto transportRow = r.removeFromTop (16);
+        rollHintLabel.setBounds (transportRow.removeFromRight (juce::jmin (260, transportRow.getWidth() / 2)));
+        transportLabel.setBounds (transportRow);
+    }
     r.removeFromTop (6);
 
     auto footer = r.removeFromBottom (32);

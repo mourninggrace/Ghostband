@@ -168,6 +168,17 @@ private:
     juce::TextEditor seedEditor;
     juce::Label      seedLabel;
 
+    // Tempo, editable. The plan carries a bpm and nothing in the interface
+    // could change it, so a preset was stuck at whatever tempo it was written
+    // at unless you opened the file in a text editor.
+    juce::Label      bpmLabel;
+    juce::TextEditor bpmEditor;
+
+    // Says how to select a section for a reroll, on the row directly above the
+    // list you have to click. It was in the Roll button's tooltip and nowhere
+    // else, so the feature read as broken rather than as undiscovered.
+    juce::Label      rollHintLabel;
+
     juce::Label planLabel;
     juce::Label headlineLabel;
     juce::Label statusLabel;

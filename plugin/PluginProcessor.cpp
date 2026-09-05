@@ -1271,12 +1271,17 @@ bool GhostbandProcessor::savePlan (const juce::File& target, juce::String& error
 
     const juce::String text = planAsText();
 
-    // Never overwrite a file without leaving the previous version behind.
+    // Never overwrite a file without leaving the previous version behind - but
+    // not beside it. Written as a sibling, the backup turned up in Load plan as
+    // a song in its own right, so the list offered "demo band" and "demo band
+    // previous" and nothing explained which was which. It goes in a backups
+    // folder now, where it is still one click away and is not a preset.
     if (target.existsAsFile())
     {
-        const juce::File backup = target.getSiblingFile (target.getFileNameWithoutExtension()
-                                                         + "-previous.json");
-        target.copyFileTo (backup);
+        const juce::File backups = target.getParentDirectory().getChildFile ("backups");
+        backups.createDirectory();
+        target.copyFileTo (backups.getChildFile (target.getFileNameWithoutExtension()
+                                                 + "-previous.json"));
     }
 
     if (! target.getParentDirectory().exists())
@@ -1345,6 +1350,22 @@ void GhostbandProcessor::setStyle (const juce::String& style)
         const juce::ScopedLock sl (stateLock);
         plan.style = style.toStdString();
     }
+    regenerate();
+}
+
+void GhostbandProcessor::setPlanBpm (double bpm)
+{
+    // Clamped rather than trusted. A zero would divide by itself in the tick
+    // maths and a wild value would render a song hours long.
+    const double wanted = juce::jlimit (20.0, 300.0, bpm);
+
+    {
+        const juce::ScopedLock sl (stateLock);
+        if (std::abs (plan.bpm - wanted) < 0.001)
+            return;
+        plan.bpm = wanted;
+    }
+
     regenerate();
 }
 

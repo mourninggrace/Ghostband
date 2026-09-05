@@ -223,6 +223,11 @@ public:
 
     void setKeyPitchClass (int pitchClass);
     void setStyle         (const juce::String& style);
+
+    // The tempo the song is written at. Changing it re-renders, because tempo
+    // is not a playback speed here - the generators subdivide against it, so a
+    // faster song is arranged differently rather than merely played faster.
+    void setPlanBpm       (double bpm);
     void setBassTuning    (const juce::String& tuning);
 
     int          getKeyPitchClass() const;
