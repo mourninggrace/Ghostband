@@ -154,6 +154,11 @@ bool spliceProfileBlock (const std::string& path, const std::string& key,
 bool extractProfileBlock (const std::string& path, const std::string& key,
                           std::string& block);
 
+// Reads a set of taught controls out of JSON text of the form ControlSet::toJson
+// writes - `"controls": { ... }` - so the same mappings can live somewhere other
+// than inside a profile file. False if there is no controls block in it.
+bool parseControlsJson (const std::string& text, ControlSet& out);
+
 class DrumProfile
 {
 public:
@@ -161,6 +166,17 @@ public:
 
     std::string name = "Generic GM drums";
     std::string id   = "gm";
+
+    // Which real plugin this profile drives, as opposed to which profile it is.
+    //
+    // Seven files describe the same SSD5 - Terry Date, Classic, Deluxe 1 and 2,
+    // Designer and the rest - and they are all one plugin in one rack with one
+    // set of MIDI Learn assignments. Taught control mappings belong to that
+    // plugin, not to whichever file happens to be loaded, so they are stored
+    // against this rather than against `id`. Falls back to `id` when a profile
+    // does not say, which is what every profile written before this did.
+    std::string instrument;
+
     int  channel     = 10;
     int  velocityMin = 25;
     int  velocityMax = 127;
@@ -207,6 +223,17 @@ public:
 
     std::string name = "Generic bass";
     std::string id   = "generic_bass";
+
+    // Which real plugin this profile drives, as opposed to which profile it is.
+    //
+    // Seven files describe the same SSD5 - Terry Date, Classic, Deluxe 1 and 2,
+    // Designer and the rest - and they are all one plugin in one rack with one
+    // set of MIDI Learn assignments. Taught control mappings belong to that
+    // plugin, not to whichever file happens to be loaded, so they are stored
+    // against this rather than against `id`. Falls back to `id` when a profile
+    // does not say, which is what every profile written before this did.
+    std::string instrument;
+
     int  channel     = 1;
     int  velocityMin = 30;
     int  velocityMax = 127;
@@ -268,6 +295,17 @@ public:
 
     std::string name = "Generic phrase instrument";
     std::string id   = "generic_phrase";
+
+    // Which real plugin this profile drives, as opposed to which profile it is.
+    //
+    // Seven files describe the same SSD5 - Terry Date, Classic, Deluxe 1 and 2,
+    // Designer and the rest - and they are all one plugin in one rack with one
+    // set of MIDI Learn assignments. Taught control mappings belong to that
+    // plugin, not to whichever file happens to be loaded, so they are stored
+    // against this rather than against `id`. Falls back to `id` when a profile
+    // does not say, which is what every profile written before this did.
+    std::string instrument;
+
     int  channel     = 2;
     int  velocityMin = 60;
     int  velocityMax = 127;

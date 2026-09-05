@@ -29,6 +29,21 @@ The Calibrate screen would settle it.
 
 Ordered by how much of the instrument they unlock, not by size.
 
+### THE BASS VOLUME KNOB, finally explained
+
+`BassProfile::load` never read its own `controls` block. The drum and phrase
+loaders both do; the bass one did not, so every mapping taught on a bass sat in
+the file and was never loaded back - including the one following "level", which
+is what the bass mix knob reaches. Without it the knob falls back to CC 7, and
+MODO, like most instrument plugins, does not implement CC 7.
+
+**The mapping was correct on disk the whole time and nothing ever picked it up.**
+An earlier diagnosis in this project blamed MODO for forgetting its MIDI Learn
+across a restart, on the evidence that re-teaching and saving produced a
+byte-identical file. That evidence was real and the conclusion was wrong: the
+file was identical because it was always right, and re-teaching appeared to fix
+it because re-teaching also happens to reload nothing. One line fixes it.
+
 ### CHANNELS, as the rig has them
 
     1   bass            MODO Bass 2
@@ -96,6 +111,20 @@ and slide are mapped and never asked for** - the gap is in `Groove.cpp`, not in
 the profile. A slide into a chord change and a hammer between close notes is the
 bass equivalent of the legato work just done on the guitar, and it is the
 cheapest realism left in the project.
+
+### 4b. Taught mappings are per instrument now  [DONE 2026-09-05]
+
+They used to be saved into the profile file. Seven files describe one SSD5, so
+teaching a knob on one taught it for one of seven. They now live in one store,
+`%APPDATA%/Ghostband/learned-controls.json`, keyed by a profile's `instrument`
+field, which falls back to its `id`. All seven SSD5 profiles declare
+`"instrument": "ssd5"`, so a knob taught on any of them is taught for all.
+
+The profile's own block is still written on save, so a shared profile carries a
+sensible default, and it seeds the store the first time an instrument is seen -
+which is how the mappings already taught were carried over without anyone
+redoing them. Confirmed: MODO's 1, IRON 2's 14 and Virtual Pianist's 10 all
+migrated on first run.
 
 ### 5. Colour themes, about eight of them
 

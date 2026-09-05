@@ -10,6 +10,10 @@
   "name": "SSD5 - Terry Date",
   "id": "ssd5_terry_date",
 
+  // All seven SSD5 profiles are the same plugin in the same rack, so a knob
+  // taught on any one of them is taught for all of them.
+  "instrument": "ssd5",
+
   "needs_verification": true,
   "verification_note": "Inherits the unverified SSD5 base map. Calibrate before trusting it.",
 

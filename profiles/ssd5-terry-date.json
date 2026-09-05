@@ -3,7 +3,11 @@
   // Any note here was confirmed against the real plugin.
 
   "name": "SSD5 - Terry Date (calibrated)",
-  "id": "ssd5_terry_date_calibrated_calibrated",
+  "id": "ssd5_terry_date_calibrated",
+
+  // All seven SSD5 profiles are the same plugin in the same rack, so a knob
+  // taught on any one of them is taught for all of them.
+  "instrument": "ssd5",
   "channel": 10,
 
   "needs_verification": false,

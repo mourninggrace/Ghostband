@@ -11,6 +11,10 @@
 
   "name": "Steven Slate Drums 5",
   "id": "ssd5",
+
+  // All seven SSD5 profiles are the same plugin in the same rack, so a knob
+  // taught on any one of them is taught for all of them.
+  "instrument": "ssd5",
   "channel": 10,
 
   "needs_verification": true,

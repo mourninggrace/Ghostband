@@ -18,6 +18,10 @@ GhostbandProcessor::GhostbandProcessor()
     status.drumProfile = kit.name;
     status.bassProfile = bassProfile.name;
 
+    // Before any profile is loaded, so the first plan already gets whatever has
+    // been taught on this machine.
+    loadLearnedControls();
+
     loadBuiltInPlan();
 }
 
@@ -256,6 +260,13 @@ bool GhostbandProcessor::resolveProfiles (juce::String& error)
     // The user's channel assignment wins over whatever a profile happens to say.
     kit.channel           = juce::jlimit (1, 16, channelDrums.load());
     bassProfile.channel   = juce::jlimit (1, 16, channelBass.load());
+    // Taught mappings override whatever the profile files carry.
+    mergeLearnedControls (kit.controls,            kit.instrument,            kit.id);
+    mergeLearnedControls (bassProfile.controls,    bassProfile.instrument,    bassProfile.id);
+    if (haveGuitar)  mergeLearnedControls (guitarProfile.controls,  guitarProfile.instrument,  guitarProfile.id);
+    if (haveGuitar2) mergeLearnedControls (guitar2Profile.controls, guitar2Profile.instrument, guitar2Profile.id);
+    if (havePiano)   mergeLearnedControls (pianoProfile.controls,   pianoProfile.instrument,   pianoProfile.id);
+
     guitarProfile.channel  = juce::jlimit (1, 16, channelGuitar.load());
     guitar2Profile.channel = juce::jlimit (1, 16, channelGuitar2.load());
     pianoProfile.channel   = juce::jlimit (1, 16, channelPiano.load());
@@ -648,6 +659,82 @@ void GhostbandProcessor::walkControl (int part, int index)
     }
 }
 
+//==============================================================================
+// Taught control mappings, kept per instrument.
+//
+// One file, outside the project, shared by every song and every gig. A mapping
+// says which of an instrument's knobs sits on which CC, which is a fact about
+// the plugin in the rack rather than about the profile file naming it - and
+// seven files describe one SSD5.
+
+juce::File GhostbandProcessor::learnedControlsFile()
+{
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+               .getChildFile ("Ghostband")
+               .getChildFile ("learned-controls.json");
+}
+
+void GhostbandProcessor::loadLearnedControls()
+{
+    learnedControls.clear();
+
+    const juce::File f = learnedControlsFile();
+    if (! f.existsAsFile())
+        return;
+
+    juce::var parsed = juce::JSON::parse (f.loadFileAsString());
+    if (auto* obj = parsed.getDynamicObject())
+    {
+        for (const auto& entry : obj->getProperties())
+        {
+            gb::ControlSet set;
+            if (gb::parseControlsJson (entry.value.toString().toStdString(), set))
+                learnedControls[entry.name.toString().toStdString()] = set;
+        }
+    }
+}
+
+void GhostbandProcessor::saveLearnedControls() const
+{
+    const juce::File f = learnedControlsFile();
+    f.getParentDirectory().createDirectory();
+
+    auto* obj = new juce::DynamicObject();
+    for (const auto& entry : learnedControls)
+        obj->setProperty (juce::Identifier (juce::String (entry.first)),
+                          juce::String (entry.second.toJson()));
+
+    juce::var wrapper (obj);
+    f.replaceWithText (juce::JSON::toString (wrapper, false));
+}
+
+void GhostbandProcessor::mergeLearnedControls (gb::ControlSet& controls,
+                                               const std::string& instrument,
+                                               const std::string& id)
+{
+    // A profile that does not name its instrument is its own instrument, which
+    // is how every profile written before this behaves unchanged.
+    const std::string key = instrument.empty() ? id : instrument;
+    if (key.empty())
+        return;
+
+    const auto found = learnedControls.find (key);
+    if (found != learnedControls.end())
+    {
+        controls = found->second;   // what was taught wins over what shipped
+        return;
+    }
+
+    // Nothing taught for this instrument yet, so the profile's own block seeds
+    // the store. This is what carries mappings taught before the store existed
+    // across without anyone redoing them.
+    if (controls.any())
+    {
+        learnedControls[key] = controls;
+        saveLearnedControls();
+    }
+}
+
 gb::PhraseProfile* GhostbandProcessor::phraseProfileFor (int part)
 {
     // 4 rather than 3, so every part index already saved in a session or used
@@ -825,13 +912,40 @@ bool GhostbandProcessor::saveControls (int part, juce::String& error)
             return false;
         }
 
+        // Written to the store first, because that is the copy that matters -
+        // it is what every song and every other profile for this instrument
+        // will read. The profile file is written too, so a profile shared with
+        // somebody else still carries a sensible starting point.
+        const gb::ControlSet* set  = nullptr;
+        const std::string*    inst = nullptr;
+        const std::string*    id   = nullptr;
+
         switch (part)
         {
-            case 0:  ok = kit.save (path, e);           break;
-            case 1:  ok = bassProfile.save (path, e);   break;
+            case 0:  set = &kit.controls;            inst = &kit.instrument;            id = &kit.id;            break;
+            case 1:  set = &bassProfile.controls;    inst = &bassProfile.instrument;    id = &bassProfile.id;    break;
+            case 2:  set = &guitarProfile.controls;  inst = &guitarProfile.instrument;  id = &guitarProfile.id;  break;
+            case 4:  set = &guitar2Profile.controls; inst = &guitar2Profile.instrument; id = &guitar2Profile.id; break;
+            default: set = &pianoProfile.controls;   inst = &pianoProfile.instrument;   id = &pianoProfile.id;   break;
+        }
+
+        if (set != nullptr)
+        {
+            const std::string key = inst->empty() ? *id : *inst;
+            if (! key.empty())
+            {
+                learnedControls[key] = *set;
+                saveLearnedControls();
+            }
+        }
+
+        switch (part)
+        {
+            case 0:  ok = kit.save (path, e);            break;
+            case 1:  ok = bassProfile.save (path, e);    break;
             case 2:  ok = guitarProfile.save (path, e);  break;
-        case 4:  ok = guitar2Profile.save (path, e); break;
-            default: ok = pianoProfile.save (path, e);  break;
+            case 4:  ok = guitar2Profile.save (path, e); break;
+            default: ok = pianoProfile.save (path, e);   break;
         }
     }
 

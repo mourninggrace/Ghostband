@@ -7,6 +7,7 @@
 #include "ghostband/SongPlan.h"
 
 #include <atomic>
+#include <map>
 #include <vector>
 
 // Ghostband as a VST3.
@@ -406,6 +407,30 @@ private:
     gb::SongPlan                  plan;
     gb::DrumProfile               kit;
     gb::BassProfile               bassProfile;
+    // ---- taught control mappings, kept per instrument rather than per file ----
+    //
+    // A mapping is something you taught on your machine: which of this
+    // instrument's knobs is on which CC. That describes the plugin sitting in
+    // the rack, not the profile file that happens to name it - and seven
+    // different files describe one SSD5. Storing them in the profile meant
+    // teaching the same knob seven times.
+    //
+    // So they live here, keyed by a profile's `instrument` (falling back to its
+    // `id`), and are written to one file outside the project so they survive
+    // every song, every profile and every gig.
+    std::map<std::string, gb::ControlSet> learnedControls;
+
+    static juce::File   learnedControlsFile();
+    void                loadLearnedControls();
+    void                saveLearnedControls() const;
+
+    // Store wins where it has an entry; otherwise the profile's own block seeds
+    // the store, which is how the mappings already taught are carried over
+    // without anyone having to redo them.
+    void                mergeLearnedControls (gb::ControlSet& controls,
+                                              const std::string& instrument,
+                                              const std::string& id);
+
     gb::PhraseProfile             guitarProfile;
     gb::PhraseProfile             guitar2Profile;
     gb::PhraseProfile             pianoProfile;

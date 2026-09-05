@@ -223,6 +223,7 @@ bool DrumProfile::loadImpl (const std::string& path, DrumProfile& out,
 
     out.name              = j.stringOr ("name", out.name);
     out.id                = j.stringOr ("id", out.id);
+    out.instrument        = j.stringOr ("instrument", "");
     out.channel           = clampInt (j.intOr ("channel", out.channel), 1, 16);
     out.velocityMin       = clampInt (j.intOr ("velocity_min", out.velocityMin), 1, 127);
     out.velocityMax       = clampInt (j.intOr ("velocity_max", out.velocityMax), 1, 127);
@@ -331,6 +332,7 @@ bool BassProfile::load (const std::string& path, BassProfile& out, std::string& 
 
     out.name               = j.stringOr ("name", out.name);
     out.id                 = j.stringOr ("id", out.id);
+    out.instrument        = j.stringOr ("instrument", "");
     out.channel            = clampInt (j.intOr ("channel", out.channel), 1, 16);
     out.velocityMin        = clampInt (j.intOr ("velocity_min", out.velocityMin), 1, 127);
     out.velocityMax        = clampInt (j.intOr ("velocity_max", out.velocityMax), 1, 127);
@@ -355,6 +357,16 @@ bool BassProfile::load (const std::string& path, BassProfile& out, std::string& 
         for (const std::string& key : low.keys())
             out.lowestByTuning.emplace_back (key, clampInt (low[key].asInt (28), 0, 127));
     }
+
+    // The bass never read its own controls block.
+    //
+    // The drum and phrase loaders both do; this one did not, so every mapping
+    // taught on a bass sat in the file and was never loaded back. That includes
+    // the one mapped to follow "level", which is what the bass mix knob reaches
+    // - without it the knob falls back to CC 7, and MODO, like most instrument
+    // plugins, does not implement CC 7. The mapping was correct on disk the
+    // whole time and nothing ever picked it up.
+    loadControls (j, out.controls);
 
     const Json& arts = j["articulations"];
     if (arts.isObject())
@@ -679,6 +691,19 @@ static bool spliceNamedBlock (const std::string& path, const std::string& key,
 // calibrated value can be written back without regenerating a file whose
 // comments record what was measured. `block` is the whole replacement including
 // the key, e.g.  "chord_zone": { "lowest_note": 60, "highest_note": 84 }
+bool parseControlsJson (const std::string& text, ControlSet& out)
+{
+    // Wrapped in braces because toJson emits the block on its own, without the
+    // object around it - it is written to be spliced into a profile.
+    std::string err;
+    const Json j = Json::parse ("{\n" + text + "\n}", err);
+    if (! j.isObject())
+        return false;
+
+    loadControls (j, out);
+    return true;
+}
+
 bool extractProfileBlock (const std::string& path, const std::string& key,
                           std::string& block)
 {
@@ -806,6 +831,7 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
 
     out.name              = j.stringOr ("name", out.name);
     out.id                = j.stringOr ("id", out.id);
+    out.instrument        = j.stringOr ("instrument", "");
     out.channel           = clampInt (j.intOr ("channel", out.channel), 1, 16);
     out.velocityMin       = clampInt (j.intOr ("velocity_min", out.velocityMin), 1, 127);
     out.velocityMax       = clampInt (j.intOr ("velocity_max", out.velocityMax), 1, 127);
