@@ -7,22 +7,50 @@
   // It has to be calibrated from inside the host, where Kontakt already has the
   // library loaded.
   //
-  // THE RANGE BELOW IS PROVISIONAL AND DELIBERATELY WIDE. A wide range that
-  // includes a few silent notes is recoverable by ear; a narrow one that misses
-  // the instrument entirely looks exactly like the plugin being broken, which is
-  // what happened with IRON 2 - it measured silent from 12 to 59 and sounding
-  // from 60 to 89, nothing like the range a guitar suggests.
+  // THE RANGE. Hydra is an EIGHT string, tuned F#1 B1 E2 A2 D3 G3 B3 E4 at
+  // concert pitch. Its lowest note is therefore around 30 and, with 24 frets on
+  // the top string, its highest around 88. That is what is set below.
   //
-  // A seven string guitar's low B sits around 35 and the top of the neck around
-  // 88, so that is the span assumed here until somebody reads the real one off
-  // Kontakt's keyboard, where Shreddage colours the playable keys and its
-  // keyswitches differently.
+  // It has not been confirmed by ear, but it is bracketed by something that has:
+  // Shreddage's own keyswitch block. Kontakt's keyboard is labelled -2 to 8, so
+  // C-2 is 0, and the articulation switches sit at 12 to 23 while Picking Mode
+  // and Fretting Mode sit at 108 and 114. Anything Ghostband writes between 30
+  // and 88 therefore cannot land on a keyswitch, which is the only mistake here
+  // that does real damage - a note outside the sampled range is merely silent,
+  // a note on a keyswitch changes how everything after it plays.
   //
-  // NO KEYSWITCHES ARE DECLARED, on purpose. Shreddage has a deep articulation
-  // set - legato, palm mute, harmonics, slides, dive bombs - reached by
-  // keyswitch, and a guessed keyswitch is the one mistake that can silence an
-  // instrument outright. They go in once they have been read or heard, never
-  // before.
+  // KEYSWITCHES, read off the ARTICULATIONS page. Recorded here because they are
+  // certain and worth not having to look up again, NOT because anything uses
+  // them yet - see below.
+  //
+  //    12  C-1   Sustain              (velocity 1-119)
+  //    13  C#-1  Mute
+  //    14  D-1   Staccato
+  //    15  D#-1  Power Chord Sustain
+  //    16  E-1   Power Chord Mute
+  //    17  F-1   Power Chord Staccato
+  //    18  F#-1  Tremolo
+  //    19  G-1   Choke
+  //    20  G#-1  Tapping
+  //    21  A-1   Harmonics
+  //    23  B-1   FX
+  //
+  //    12  C-1   Pinch Harmonics      (same key, velocity 127 only)
+  //    12  C-1   Rake                 (same key, velocity 120-126)
+  //
+  //     0  C-2   Force String
+  //    10  Bb-2  Set Hand
+  //   108  C7    Picking Mode
+  //   114  F#7   Fretting Mode
+  //
+  // There is a second articulations page not yet read.
+  //
+  // NOTHING SENDS THESE YET. Ghostband only emits keyswitches for phrase-driven
+  // instruments, where the keyswitch is the performance and is held down for the
+  // length of it. Shreddage is a notes instrument whose keyswitches choose an
+  // articulation alongside the notes - a different mechanism, and one the engine
+  // does not have. Until it does, this plays sustains, which is whatever
+  // articulation the instrument is left on.
 
   "name": "Shreddage 3 Hydra (Kontakt)",
   "id": "shreddage3_hydra",
@@ -31,12 +59,22 @@
   "mode": "notes",
 
   "needs_verification": true,
-  "verification_note": "Range is provisional and unmeasured. Read Kontakt's keyboard or walk the Calibrate screen before trusting it.",
+  "verification_note": "Range is an eight-string guitar's, reasoned rather than measured. Walk the Calibrate screen to confirm it.",
 
-  "chord_zone": { "lowest_note": 40, "highest_note": 84 },
+  "chord_zone": { "lowest_note": 30, "highest_note": 88 },
 
+  // 119, not 127, and this one matters.
+  //
+  // Shreddage splits the Sustain keyswitch by velocity: 1-119 is a sustain,
+  // 120-126 is a Rake, and 127 is a Pinch Harmonic. They are the same key, so
+  // the only thing separating a played note from a rake is how hard it is hit.
+  // The first version of this file capped at 120, which means Ghostband's
+  // loudest accents - the landing note of every solo phrase, which is
+  // deliberately the hardest hit in the line - would have come out as rakes.
+  // That would have sounded like the library misbehaving rather than like a
+  // number being one too high.
   "velocity_min": 45,
-  "velocity_max": 120,
+  "velocity_max": 119,
 
   // A lead line is one note at a time, so there is nothing to spread. Left at
   // zero rather than borrowed from the rhythm guitar profile, where nine ticks
