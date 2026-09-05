@@ -587,6 +587,10 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     initLabel (statusLabel,     "",           11.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (profilesLabel,   "",           10.0f, ghost::dim,   juce::Justification::centredLeft);
 
+    // Deliberately not in any of updateModeVisibility's screen lists: this one
+    // is on the footer rail, which every screen keeps, so it is always shown.
+    initLabel (latencyLabel,    "",           10.0f, ghost::dim,   juce::Justification::centredRight);
+
     seedEditor.setJustification (juce::Justification::centredLeft);
     seedEditor.setInputRestrictions (7, "0123456789");
     seedEditor.setColour (juce::TextEditor::backgroundColourId, ghost::background);
@@ -1069,6 +1073,10 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
              juce::jmax (690, processor.editorHeight.load()));
     sizeInitialised = true;
 
+    // Fill it before the first tick, so the footer is never briefly blank -
+    // and so an offline render of the editor shows it too.
+    updateLatencyReadout();
+
     startTimerHz (30);
 }
 
@@ -1085,8 +1093,36 @@ void GhostbandEditor::markDialsDirty()
     lastDialMove = juce::Time::getMillisecondCounter();
 }
 
+// Read from the processor rather than hard-coded, so if Ghostband ever does
+// take a lookahead the number moves on its own instead of quietly becoming a
+// lie. The buffer size is the other half of the answer: it is where a rig's
+// actual delay comes from, and it is the host's, not ours.
+void GhostbandEditor::updateLatencyReadout()
+{
+    const double sr             = processor.getSampleRate();
+    const int    latencySamples = processor.getLatencySamples();
+    const int    blockSize      = processor.getBlockSize();
+
+    juce::String text;
+    if (sr > 0.0)
+        text = "latency " + juce::String (latencySamples * 1000.0 / sr, 1) + " ms";
+    else
+        text = "latency " + juce::String (latencySamples) + " smp";
+
+    if (blockSize > 0)
+        text += "   buffer " + juce::String (blockSize);
+
+    if (text == lastLatencyText)
+        return;
+
+    lastLatencyText = text;
+    latencyLabel.setText (text, juce::dontSendNotification);
+}
+
 void GhostbandEditor::timerCallback()
 {
+    updateLatencyReadout();
+
     // Playhead.
     const int tick = processor.transportRunning.load() ? processor.playbackTick.load() : -1;
     if (tick != lastPlayheadTick)
@@ -1825,6 +1861,11 @@ void GhostbandEditor::resized()
     // Footer rail: present on every screen, so the donate button never moves.
     auto footerRail = r.removeFromBottom (38).reduced (20, 8);
     donateButton.setBounds (footerRail.removeFromRight (150));
+
+    // Immediately left of the donate button, right-aligned against it, so the
+    // reading sits in the bottom right corner on every screen and never moves.
+    footerRail.removeFromRight (12);
+    latencyLabel.setBounds (footerRail.removeFromRight (190));
 
     r = r.reduced (20, 14);
 

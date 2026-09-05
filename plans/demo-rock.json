@@ -1,4 +1,9 @@
 {
+  // The rock counterpart to demo-metal, and it had the same fault: it named a
+  // drum and a bass profile and nothing else, so it played as drums and bass on
+  // a machine with a full rig installed. Guitar and piano are opt-in - a part
+  // with no profile named is never generated - so both are named here now.
+
   "title": "Ghostband Demo - Rock",
 
   "key":  "E",
@@ -15,11 +20,19 @@
   "seed":       1971,
   "ending":     "cymbal_ring",
 
-  "drum_profile": "profiles/ssd5-terry-date.json",
-  "bass_profile": "profiles/modo-bass-2.json",
+  "drum_profile":   "profiles/ssd5-terry-date.json",
+  "bass_profile":   "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "piano_profile":  "profiles/virtual-pianist.json",
+
+  // Unlike the metal plan, the piano earns a place through the whole song here.
+  // "lead" hands the front of the arrangement back and forth: the guitar takes
+  // the choruses, the piano takes verse 2 and the bridge, and whichever one is
+  // not leading is thinned to long held chords underneath.
 
   "sections": [
     {
+      // Drums alone, as written. The band arrives at the verse.
       "name": "intro",
       "bars": 4,
       "intensity": 0.25,
@@ -35,7 +48,8 @@
       "feel": "straight",
       "chords": ["Em", "Em", "C", "D"],
       "bass": "auto",
-      "fill": "auto"
+      "fill": "auto",
+      "guitar": "muted", "piano": "sparse", "lead": "guitar"
     },
     {
       "name": "chorus1",
@@ -44,16 +58,20 @@
       "feel": "straight",
       "chords": ["C", "G", "D", "Em"],
       "bass": "eighths",
-      "fill": "auto"
+      "fill": "auto",
+      "guitar": "driving", "piano": "open", "lead": "guitar"
     },
     {
+      // Same chords as verse 1, different instrument out front. This is the
+      // cheapest way to make a repeated section sound like a development.
       "name": "verse2",
       "bars": 8,
       "intensity": 0.50,
       "feel": "straight",
       "chords": ["Em", "Em", "C", "D"],
       "bass": "auto",
-      "fill": "auto"
+      "fill": "auto",
+      "guitar": "muted", "piano": "driving", "lead": "piano"
     },
     {
       "name": "chorus2",
@@ -62,7 +80,8 @@
       "feel": "straight",
       "chords": ["C", "G", "D", "Em"],
       "bass": "eighths",
-      "fill": "auto"
+      "fill": "auto",
+      "guitar": "driving", "piano": "open", "lead": "guitar"
     },
     {
       "name": "bridge",
@@ -71,7 +90,8 @@
       "feel": "half_time",
       "chords": ["Am", "Am", "C", "D"],
       "bass": "roots",
-      "fill": "big"
+      "fill": "big",
+      "guitar": "open", "piano": "driving", "lead": "piano"
     },
     {
       "name": "solo",
@@ -80,7 +100,8 @@
       "feel": "straight",
       "chords": ["Em", "C", "G", "D"],
       "bass": "eighths",
-      "fill": "auto"
+      "fill": "auto",
+      "guitar": "driving", "piano": "open", "lead": "guitar"
     },
     {
       "name": "ending",
@@ -89,7 +110,8 @@
       "feel": "straight",
       "chords": ["C", "D", "Em", "Em"],
       "bass": "auto",
-      "fill": "none"
+      "fill": "none",
+      "guitar": "driving", "piano": "open", "lead": "both"
     }
   ]
 }

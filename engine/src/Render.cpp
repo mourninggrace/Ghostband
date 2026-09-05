@@ -475,8 +475,18 @@ static void generatePhrasePart (const SectionPlan& s,
     // most of what makes generated music sound generated.
     if (feel == PhraseFeel::Solo)
     {
+        // Its own stream, derived from the section seed.
+        //
+        // The solo draws a variable number of values - how many depends on how
+        // many phrases it decides to play and whether each one is answered - so
+        // running it off the shared song rng left every section after it drawing
+        // from a different place in that stream. Rerolling one section then moved
+        // the drums in a later one, which is the exact promise per-section
+        // rerolls make. Nothing else in this function touches the shared stream,
+        // which is why nothing else broke it.
+        Rng soloRng (deriveSeed (sectionSeed, 0x50100u));
         generateSolo (s, chords, sectionStartTick, barTicks, keyPc, mode, style,
-                      profile, humanize, rng, out);
+                      profile, humanize, soloRng, out);
         return;
     }
 
@@ -918,7 +928,12 @@ RenderResult renderPerformance (const SongPlan& plan,
                 report.guitarChords = static_cast<int> (result.performance.guitar.chords.size() - before);
                 report.guitarFeel   = std::string (phraseFeelName (guitarSupports ? supportFeel (guitarFeel)
                                                                                   : guitarFeel))
-                                    + (playPiano && pianoFeel != PhraseFeel::Silent
+                                    // Only ever say who is leading when there are
+                                    // two parts to lead. A silent piano was being
+                                    // reported as "silent (lead)", which is both
+                                    // meaningless and alarming to read.
+                                    + (playPiano && pianoFeel  != PhraseFeel::Silent
+                                                 && guitarFeel != PhraseFeel::Silent
                                          ? (guitarSupports ? " (support)" : " (lead)") : "");
             }
 
@@ -935,6 +950,7 @@ RenderResult renderPerformance (const SongPlan& plan,
                 report.pianoFeel   = std::string (phraseFeelName (pianoSupports ? supportFeel (pianoFeel)
                                                                                 : pianoFeel))
                                    + (playGuitar && guitarFeel != PhraseFeel::Silent
+                                                 && pianoFeel  != PhraseFeel::Silent
                                         ? (pianoSupports ? " (support)" : " (lead)") : "");
             }
         }
@@ -1025,11 +1041,24 @@ RenderResult renderPerformance (const SongPlan& plan,
     // the warp leaves those alone, so the ranges still hold.
     if (plan.swing > 0.0)
     {
+        // Humanize nudges a note either side of the position it was written
+        // for, and the note it nudges backwards hardest is a section's own
+        // downbeat - which lands a tick or two before the boundary and gets
+        // counted in the section before it. That made rerolling one section
+        // change the numbers reported for its neighbour, which reads as the
+        // per-section reroll leaking when nothing about the playing had moved.
+        //
+        // So the window is shifted back by half a subdivision. Drift is always
+        // smaller than that by construction, and the last real position in a
+        // section is a whole sixteenth clear of its end, so nothing legitimate
+        // falls in the gap.
+        const int drift = std::max (1, barTicks / 32);
+
         for (SectionReport& sec : result.sections)
         {
-            const auto within = [&sec] (int tick)
+            const auto within = [&sec, drift] (int tick)
             {
-                return tick >= sec.startTick && tick < sec.endTick;
+                return tick >= sec.startTick - drift && tick < sec.endTick - drift;
             };
 
             sec.drumHits = sec.bassNotes = sec.guitarChords = sec.pianoChords = 0;

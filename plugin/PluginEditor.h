@@ -308,6 +308,16 @@ private:
     juce::TextButton donateButton { "Support Ghostband" };
     juce::Label      donateLabel;
 
+    // Latency, shown on every screen in the footer beside the donate button.
+    //
+    // Ghostband adds none: it places each event at its own sample offset inside
+    // the block the host asked for, so the number is a flat zero and stays that
+    // way. That is worth stating rather than leaving blank - when a rig feels
+    // late, being able to see at a glance that the MIDI brain is not the thing
+    // adding the delay is most of the diagnosis.
+    juce::Label      latencyLabel;
+    void updateLatencyReadout();
+
     // Dial moves are debounced rather than regenerating on every pixel: the
     // audio thread try-locks the sequence, and swapping it sixty times a second
     // would cost dropped blocks for no musical benefit.
@@ -316,6 +326,8 @@ private:
 
     bool     dialsDirty       = false;
     juce::uint32 lastDialMove = 0;
+    juce::String lastLatencyText;
+
     int      lastPlayheadTick = -2;
     int      lastQueued       = -2;
 

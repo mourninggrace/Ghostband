@@ -7,7 +7,10 @@
   // bars and the whole song is under two minutes.
   //
   // No piano anywhere. Adding one because the plugin has four parts would be
-  // the wrong instinct - an arrangement is as much about what stays out.
+  // the wrong instinct - an arrangement is as much about what stays out. It
+  // named a piano profile anyway, which said the opposite of this paragraph;
+  // the part is opt-in on that name, so declaring one you never play is the
+  // same shape of confusion that made the metal preset look broken.
 
   "title": "Last Bus Home",
 
@@ -28,7 +31,6 @@
   "drum_profile":   "profiles/ssd5-terry-date.json",
   "bass_profile":   "profiles/modo-bass-2.json",
   "guitar_profile": "profiles/vg-iron2.json",
-  "piano_profile":  "profiles/virtual-pianist.json",
 
   "sections": [
     {

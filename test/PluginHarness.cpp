@@ -123,6 +123,25 @@ int main (int argc, char** argv)
     check (status.bassProfile.contains ("MODO"),
            "bass profile resolved", status.bassProfile);
 
+    // Every part the plan names must actually reach the sequence.
+    //
+    // demo-metal named a drum profile and a bass profile and nothing else, so
+    // it rendered as drums and bass on a preset called "metal" - the parts were
+    // not silent, they were never generated, because guitar and piano are
+    // opt-in on the profile being named. Nothing caught it: the parity numbers
+    // are drums and bass only, so a plan could lose half the band and still
+    // pass. This ties the check to what the plan asked for rather than to a
+    // fixed count, so it holds for any plan passed on the command line.
+    if (status.guitarProfile.isNotEmpty())
+        check (proc.getSequenceNoteOnCount (2) > 0,
+               "plan names a guitar profile and the guitar plays",
+               juce::String (proc.getSequenceNoteOnCount (2)) + " note-ons on ch2");
+
+    if (status.pianoProfile.isNotEmpty())
+        check (proc.getSequenceNoteOnCount (3) > 0,
+               "plan names a piano profile and the piano plays",
+               juce::String (proc.getSequenceNoteOnCount (3)) + " note-ons on ch3");
+
     // ---- walk the song ---------------------------------------------------
     const double sampleRate = 48000.0;
     const int    blockSize  = 512;

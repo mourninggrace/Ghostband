@@ -2,6 +2,12 @@
   // A full song skeleton in the shape you described: intro, verse, chorus,
   // verse 2, chorus 2, bridge, solo, ending. You own every field here. Anything
   // set to "auto" is what the engine (and later the AI planner) gets to decide.
+  //
+  // This plan predates guitar and piano support and for a long time named only
+  // a drum and a bass profile - so it rendered as drums and bass and nothing
+  // else, on a preset called "metal". Guitar and piano are opt-in: a plan that
+  // names no profile for a part does not get that part at all. Both are named
+  // now, and every section says what they play.
 
   "title": "Ghostband Demo - Metal",
 
@@ -19,8 +25,16 @@
   "seed":       4172,
   "ending":     "hard_stop",
 
-  "drum_profile": "profiles/ssd5-terry-date.json",
-  "bass_profile": "profiles/modo-bass-2.json",
+  "drum_profile":   "profiles/ssd5-terry-date.json",
+  "bass_profile":   "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "piano_profile":  "profiles/virtual-pianist.json",
+
+  // The piano is declared but stays out of the way. Metal is a guitar
+  // arrangement: a piano comping through a chorus at 168 fights the rhythm
+  // guitar for the same space and wins nothing. It plays the half-time bridge,
+  // where there is actually room for it, and is silent everywhere else. Change
+  // any "silent" below to "sparse" or "open" if you want it in the whole song.
 
   "sections": [
     {
@@ -30,7 +44,8 @@
       "feel": "straight",
       "chords": ["Dm"],
       "plays": "full",
-      "fill": "auto"
+      "fill": "auto",
+      "guitar": "muted", "piano": "silent", "lead": "guitar"
     },
     {
       "name": "verse1",
@@ -39,7 +54,8 @@
       "feel": "straight",
       "chords": ["Dm", "Dm", "Bb", "C"],
       "bass": "lock_kick",
-      "fill": "auto"
+      "fill": "auto",
+      "guitar": "muted", "piano": "silent", "lead": "guitar"
     },
     {
       "name": "chorus1",
@@ -48,7 +64,8 @@
       "feel": "straight",
       "chords": ["Bb", "F", "C", "Dm"],
       "bass": "lock_kick",
-      "fill": "auto"
+      "fill": "auto",
+      "guitar": "driving", "piano": "silent", "lead": "guitar"
     },
     {
       // vary:false makes this bit-identical to verse1. Set it true and the
@@ -60,7 +77,8 @@
       "chords": ["Dm", "Dm", "Bb", "C"],
       "bass": "lock_kick",
       "vary": true,
-      "fill": "auto"
+      "fill": "auto",
+      "guitar": "muted", "piano": "silent", "lead": "guitar"
     },
     {
       "name": "chorus2",
@@ -69,25 +87,33 @@
       "feel": "straight",
       "chords": ["Bb", "F", "C", "Dm"],
       "bass": "lock_kick",
-      "fill": "auto"
+      "fill": "auto",
+      "guitar": "driving", "piano": "silent", "lead": "guitar"
     },
     {
+      // The one place the piano belongs. Half time, the guitar drops to open
+      // chords behind it, and the section stops sounding like a quieter chorus.
       "name": "bridge",
       "bars": 8,
       "intensity": 0.42,
       "feel": "half_time",
       "chords": ["Gm", "Gm", "Bb", "C"],
       "bass": "lock_kick",
-      "fill": "big"
+      "fill": "big",
+      "guitar": "open", "piano": "driving", "lead": "piano"
     },
     {
+      // The guitar keeps comping here rather than soloing. Ghostband can write
+      // a solo - set "guitar": "solo" - but a soloing part stops holding the
+      // harmony, and with the piano silent there would be nothing under it.
       "name": "solo",
       "bars": 8,
       "intensity": 0.85,
       "feel": "straight",
       "chords": ["Dm", "Bb", "F", "C"],
       "bass": "lock_kick_octave",
-      "fill": "auto"
+      "fill": "auto",
+      "guitar": "driving", "piano": "silent", "lead": "guitar"
     },
     {
       "name": "ending",
@@ -96,7 +122,8 @@
       "feel": "straight",
       "chords": ["Dm"],
       "bass": "lock_kick",
-      "fill": "none"
+      "fill": "none",
+      "guitar": "driving", "piano": "silent", "lead": "guitar"
     }
   ]
 }

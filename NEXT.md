@@ -1,19 +1,81 @@
 # Where Ghostband stands, and what to do next
 
-Last updated 2026-09-04, end of session 8. Everything described as done is
-committed, pushed, installed, and covered by the harness.
+Last updated 2026-09-05, session 9. Everything described as done is committed,
+pushed, installed, and covered by the harness.
 
 ## START HERE
 
-**The blues sounds like blues now**, confirmed by ear. That was the open fault
-from last session and it is closed.
+**The blues sounds like blues now**, confirmed by ear. **The metal and rock demo
+plans play the full band now** - they had named no guitar or piano profile, and
+those parts are opt-in on the name, so a preset called "metal" rendered as drums
+and bass. The harness now fails any plan that names a part it never plays.
 
-**The open item is the guitar solo.** It exists, it plays, and the user's verdict
+**The open item is still the guitar solo.** It exists, it plays, and the user's verdict
 after hearing it was "it'll need some work for sure" - no detail beyond that,
 because they were falling asleep. Do not guess at what is wrong with it. Ask
 them which way it is wrong: too busy, too sparse, too jumpy, aimless, or landing
 on notes that sound wrong. Each of those is a different knob in the generator
 and they move independently.
+
+## Session 9 - what changed
+
+**The metal preset was drums and bass.** `demo-metal.json` and `demo-rock.json`
+predate guitar and piano support and never gained the two profile lines, and a
+part with no profile named is never generated at all - so the parts were not
+quiet, they did not exist. Both name all four now and every section says what
+the guitar and piano play. The metal plan keeps the piano out of everything but
+the half-time bridge on purpose; a piano comping a chorus at 168 fights the
+rhythm guitar for the same space and wins nothing.
+
+**Nothing caught it**, which is the more interesting half. The parity numbers
+pinned in this file are drums and bass only, so a plan could lose half the band
+and still pass every check. The harness now asserts that any part a plan names a
+profile for actually reaches the sequence. That immediately found `preset-punk`
+declaring a piano profile directly under a comment saying it deliberately has no
+piano; the stray line is gone.
+
+**The solo broke per-section reroll isolation.** `generateSolo` drew from the
+shared song rng, and it draws a variable number of values - how many depends on
+how many phrases it plays and whether each is answered - so every section after
+a solo drew from a different place in the stream. It has its own derived stream
+now. Nothing else in `generatePhrasePart` touches the shared rng, which is why
+nothing else had ever broken this.
+
+**The swung section recount was off by a boundary note.** Humanize nudges a
+section's own downbeat a tick or two *before* its start, and the recount added
+in session 8 attributes by tick, so that note was counted in the previous
+section - and rerolling one section changed the number reported for its
+neighbour. The window is shifted back half a subdivision now. Confirmed against
+the rendered MIDI: blues had drum hits at 7678 and a bass note at 53758 sitting
+just the wrong side of a boundary. Per-section counts sum exactly to the totals.
+
+**Latency is shown in the footer**, bottom right, on every screen. It reads a
+flat `latency 0.0 ms   buffer 512`, which is the truth: events are placed at
+their own sample offset inside the block the host asked for, so Ghostband adds
+none. It is read from the processor rather than hard-coded, so if it ever does
+take a lookahead the number moves on its own instead of becoming a lie.
+
+### The MODO master volume knob, which is not a Ghostband bug
+
+Reported as the bass volume control being dead after a reboot, fixed by
+re-teaching and saving the map. Worth writing down because the evidence says
+otherwise: `profiles/modo-bass-2.json` was rewritten by that save at 05:49 and
+is **byte-identical to HEAD** - the mapping (CC 22, follows `level`, channel 1)
+was already correct on disk and was never lost. Ghostband also restates every
+level at the top of each run, so it is sent without touching the knob.
+
+What was lost is MODO Bass 2's own MIDI Learn - its memory that CC 22 drives
+master volume. That lives in MODO's plugin state, which Gig Performer stores
+inside the saved gig. Teach it, then **save the gig**, or MODO comes back with
+no learn and Ghostband's CC 22 goes nowhere. Re-teaching in Ghostband will
+appear to fix it while changing nothing in the file, which is exactly what
+happened.
+
+One real hazard found while checking this: `Install.bat` copies `profiles\*.json`
+over the bundle with `xcopy /Y`. Anyone whose profiles resolve to the installed
+bundle rather than to this repo loses their taught mappings on every install.
+It has not bitten this machine - saves here land in the repo copy - but it is a
+live trap for a user without the repository.
 
 ## The solo generator, since it is new and the thing most likely to be worked on
 
