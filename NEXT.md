@@ -10,12 +10,73 @@ plans play the full band now** - they had named no guitar or piano profile, and
 those parts are opt-in on the name, so a preset called "metal" rendered as drums
 and bass. The harness now fails any plan that names a part it never plays.
 
-**The guitar solo was rewritten** and is waiting to be heard. It lives in
-`preset-thrash`'s solo section (12 bars, straight feel, bass and drums under
-it). Ask what is wrong with it before changing anything - the table further
-down says which knob answers which complaint.
+**The guitar solo was rewritten and heard.** Verdict: "sounds better, but not
+quite there yet" - no further detail, and the user was mid-purchase at the time.
+It lives in `preset-thrash`'s solo section (12 bars, straight feel, bass and
+drums under it). Ask which way it is still wrong before changing anything; the
+table further down says which knob answers which complaint.
+
+**Ghostband bends, and IRON 2 receives them** - confirmed by the wheel indicator
+moving on the two bent notes. The whole path is proven end to end.
+
+**The next job is new instruments.** The user has bought Shreddage 3 Hydra (free
+Kontakt Player, so no extra licence) and installed MINDst Drums, Waves Bass
+Fingers and Waves Bass Slapper. Nothing is profiled yet. See "The new rig" below
+before touching any of it - the profiling route is not the same for all of them.
+
+## The new rig, and how each piece has to be profiled
+
+Scanned on 2026-09-05. **None of this is profiled yet** and none of it is in any
+plan.
+
+| plugin | state | how it gets profiled |
+|--------|-------|----------------------|
+| **MINDst Drums** | installed, standalone VST3 | the probe can reach it directly |
+| **Waves Bass Fingers** | installed, inside WaveShell | Calibrate screen only |
+| **Waves Bass Slapper** | sample library present, bundle not confirmed | Calibrate screen only |
+| **Shreddage 3 Hydra** | **not found on disk** - confirm it installed | Calibrate screen only |
+| Kontakt 8 | installed | host for Shreddage |
+
+**The dividing line is whether the instrument is its own plugin.** MINDst Drums
+is a real VST3, so `ghostband_probe` can load it and measure the drum map, the
+range and the lead behaviour without a human. Waves instruments live inside
+WaveShell and Shreddage lives inside Kontakt - loading either of those headlessly
+gives an empty shell, exactly like IRON 2 coming up in Player mode. Those must be
+profiled through **Ghostband's own Calibrate screen inside Gig Performer**, where
+the host already has the right thing loaded. That is what the Calibrate screen is
+for and it has not been used in anger yet.
+
+Assessment, to be confirmed by ear rather than taken on trust:
+
+- **Drums: MINDst is a genuine replacement candidate**, and the reason is narrow.
+  SSD5's mix knob is the one dead control in the rig - its CC map is fixed, no
+  MIDI LEARN on that control - and MINDst maps CC for nearly everything, which
+  closes the only known unfixable gap. It is also the one new plugin the probe
+  can profile automatically. Against that: SSD5 Terry Date is calibrated,
+  measured and working, and a new kit means a full drum map from scratch.
+- **Bass: keep MODO as primary, add the Waves pair as alternates.** MODO is
+  physical modelling with its articulations already mapped and verified. Bass
+  Fingers and Bass Slapper are sampled and would be a different tone rather than
+  a better one - Slapper is worth having as a profile for the one thing MODO is
+  weakest at. Additions, not replacements.
+- **Guitar: Shreddage for leads, IRON 2 stays for rhythm.** They are different
+  jobs and IRON 2 is good at the one it has. Worth thinking about whether a plan
+  should be able to name two guitar profiles rather than one, because "rhythm
+  guitar and lead guitar" is a real arrangement and Ghostband currently has one
+  guitar part.
 
 ## Session 9 - what changed
+
+**CMake is back**, version 4.4.3 at `C:\Program Files\CMake`, on PATH. The
+installer offered only repair or uninstall because it was already there. `build/`
+was deleted and reconfigured from scratch, because a new CMake pointed at a cache
+written by Visual Studio's bundled one is what produced the "Visual Studio 18
+2026" mess. **Both reference songs render identically under it** - demo-metal
+1231/629, demo-rock 996/423 - so the arrangement does not depend on the
+toolchain. The project needs 3.20 and JUCE needs 3.22, both clear of CMake 4's
+cutoff.
+
+
 
 **Ghostband bends now.** It emitted no pitch bend anywhere before this;
 `LeadIntent::target` marked the notes a bend belonged on and nothing consumed
