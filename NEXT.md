@@ -25,6 +25,76 @@ channel 2, and Ghostband has only one guitar part.
 the solo plays across 34 to 87 without a hole, which is evidence and not proof.
 The Calibrate screen would settle it.
 
+## The roadmap, as asked for on 2026-09-05
+
+Ordered by how much of the instrument they unlock, not by size.
+
+### 1. Two guitars - rhythm and lead
+
+The decided one. Ghostband has **one** guitar part, so IRON 2 and Shreddage
+cannot both play; a plan names one guitar profile and both instruments listen on
+channel 2. A real arrangement wants a rhythm guitar holding the riff and a lead
+over the top, which is also the only way a solo stops costing the harmony.
+
+Touches: `SongPlan` (a second guitar profile and channel), `Performance` (a
+second guitar part), `Render.cpp` (deciding which one leads and which comps -
+the guitar/piano handover logic is the model), the Settings channel list, and
+every plan that wants it. Big, and everything else on this list is easier once
+it exists.
+
+### 2. Articulation keyswitches for notes-mode instruments
+
+Ghostband only emits keyswitches for phrase-driven instruments, where the
+keyswitch *is* the performance and is held for its length. Shreddage is a notes
+instrument whose keyswitches choose an articulation alongside the notes - palm
+mute for a low riff, power chords for a chorus, tremolo where the section wants
+it. Its whole map is already recorded in `profiles/shreddage-3-hydra.json`.
+
+This is what turns Hydra from a better guitar sound into a guitarist.
+
+### 3. Two drum kits, and the engine choosing between them
+
+SSD5 and MINDst both profiled, and the arrangement picking which kit plays what.
+Worth checking the premise first: two kits at once is usually a mess, and what
+is probably wanted is one kit per song or per section rather than per hit. A
+section-level `drums:` naming a profile is a much smaller change than a second
+drum part, and may be the whole feature.
+
+### 4. The bass only ever plays three articulations
+
+`profiles/modo-bass-2.json` maps palm mute, dead, hammer, slide and the force
+switches. The generator emits exactly three: Normal, PalmMute, Dead. **Hammer
+and slide are mapped and never asked for** - the gap is in `Groove.cpp`, not in
+the profile. A slide into a chord change and a hammer between close notes is the
+bass equivalent of the legato work just done on the guitar, and it is the
+cheapest realism left in the project.
+
+### 5. Colour themes, about eight of them
+
+`GhostbandLookAndFeel` already routes every colour through `ghost::` constants,
+so this is a palette table, a picker in Settings, and saving the choice with the
+rest of the plugin state. Self-contained.
+
+### 6. More presets, including variations within a genre
+
+The existing set is one per style. Two or three per style, differing in tempo,
+key and arrangement rather than only in name.
+
+### 7. Bring the older presets up to date
+
+They predate the solo generator, sevenths, bends and legato. Every plan with a
+solo section should have something actually soloing in it unless another
+instrument is taking it. Cheap, and it makes the shipped set representative of
+what the engine can now do.
+
+### 8. Known bug: a guitar that only solos disappears in the plugin
+
+`rebuildSequence` adds the guitar only when `performance.guitar.chords` is
+non-empty, and a soloing part deliberately has no chords. A plan whose guitar
+solos the whole way through renders correctly from the CLI and silently plays no
+guitar in the plugin. Small fix; nothing shipped hits it yet because every plan
+comps somewhere.
+
 ## The new rig, and how each piece has to be profiled
 
 Scanned on 2026-09-05. **None of this is profiled yet** and none of it is in any
