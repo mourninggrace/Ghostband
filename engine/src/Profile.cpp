@@ -528,6 +528,10 @@ std::string PhraseProfile::toJson() const
     j += "  \"velocity_max\": " + std::to_string (velocityMax) + ",\n";
     j += "  \"strum_ticks\": "  + std::to_string (strumTicks) + ",\n";
 
+    if (legatoOverlapTicks > 0)
+        j += "  \"legato\": { \"overlap_ticks\": "
+           + std::to_string (legatoOverlapTicks) + " },\n";
+
     if (canBend)
         j += "  \"bend\": { \"range_semitones\": " + num (bendRangeSemitones)
            + ", \"reach_semitones\": " + num (bendSemitones)
@@ -825,6 +829,10 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
             std::swap (out.chordLowest, out.chordHighest);
     }
 
+    const Json& legato = j["legato"];
+    if (legato.isObject())
+        out.legatoOverlapTicks = clampInt (legato.intOr ("overlap_ticks", 0), 0, 120);
+
     const Json& bend = j["bend"];
     if (bend.isObject())
     {
@@ -938,8 +946,10 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
         if (pitch < chordLowest || pitch > chordHighest)
             continue;
 
+        const bool haveNext = (i + 1 < part.lead.size());
+
         int end = n.tick + std::max (1, n.durationTicks);
-        if (i + 1 < part.lead.size())
+        if (haveNext)
             end = std::min (end, part.lead[i + 1].tick);
         end = std::max (n.tick + 1, end);
 
@@ -987,9 +997,26 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
                 bendIsOffCentre = false;
             }
 
+            // Run into the next note, where the instrument asks for it. That
+            // overlap is the whole trigger for a hammer-on or a pull-off on a
+            // library that detects legato rather than keyswitching it.
+            //
+            // Never past the note after next, or a line would stack up three
+            // deep, and never on a bent note - a bend ends with the wheel being
+            // returned to centre, and overlapping would put that reset after the
+            // following note had already started, which would sound it sharp.
+            int off = end;
+            if (legatoOverlapTicks > 0 && haveNext)
+            {
+                const int nextStart = part.lead[i + 1].tick;
+                const int nextEnd   = nextStart + std::max (1, part.lead[i + 1].durationTicks);
+                off = std::min (nextStart + legatoOverlapTicks, nextEnd - 1);
+                off = std::max (off, end);
+            }
+
             track.addNoteOn  (n.tick, channel, pitch,
                               velocityFor (n.accent, velocityMin, velocityMax));
-            track.addNoteOff (end, channel, pitch);
+            track.addNoteOff (off, channel, pitch);
         }
     }
 

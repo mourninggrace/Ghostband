@@ -1255,8 +1255,17 @@ int main (int argc, char** argv)
                 bendy.bendSemitones      = 2.0;
                 bendy.bendTicks          = 90;
 
+                // The lead alone. Rendering the whole part would fold the
+                // comped chords in, and a chord is three notes at once by
+                // definition - which makes any count of "notes sounding
+                // together" meaningless. That is exactly how the first version
+                // of this check reported 318 unwanted overlaps in a part that
+                // had none.
+                gb::PhrasePart leadOnly;
+                leadOnly.lead = r.performance.guitar.lead;
+
                 gb::MidiTrack track;
-                bendy.render (r.performance.guitar, track);
+                bendy.render (leadOnly, track);
 
                 std::vector<gb::MidiEvent> ordered = track.events;
                 std::stable_sort (ordered.begin(), ordered.end(),
@@ -1298,6 +1307,85 @@ int main (int argc, char** argv)
                 check (notesWhileBent == 0,
                        "and no note is ever started while the wheel is off centre",
                        juce::String (notesWhileBent) + " would sound at the wrong pitch");
+
+                // ---- legato is an overlap, and only the overlap it asked for --
+                // A library that detects legato rather than keyswitching it fires
+                // on a note taken while the previous one still sounds, so the
+                // lead renderer has to leave that overlap in. It used to cut
+                // every note to end exactly where the next began, which made a
+                // legato note impossible to produce. The risk in the other
+                // direction is a line that stacks up and starts stealing its own
+                // voices, so the overlap is asserted to be the declared one and
+                // no more.
+                gb::PhraseProfile smooth = guitar;
+                smooth.legatoOverlapTicks = 12;
+
+                gb::MidiTrack legatoTrack;
+                smooth.render (leadOnly, legatoTrack);
+
+                std::map<int, int> openAt;          // pitch -> tick it started
+                int overlaps = 0, worstOverlap = 0;
+
+                std::vector<gb::MidiEvent> seq = legatoTrack.events;
+                std::stable_sort (seq.begin(), seq.end(),
+                                  [] (const gb::MidiEvent& a, const gb::MidiEvent& b)
+                                  {
+                                      if (a.tick != b.tick) return a.tick < b.tick;
+                                      return a.order < b.order;
+                                  });
+
+                int sounding = 0;
+                for (const gb::MidiEvent& e : seq)
+                {
+                    if (e.bytes.size() < 3) continue;
+                    const int status = e.bytes[0] & 0xF0;
+
+                    if (status == 0x90 && e.bytes[2] > 0)
+                    {
+                        if (sounding > 0) ++overlaps;
+                        ++sounding;
+                        openAt[e.bytes[1]] = e.tick;
+                    }
+                    else if (status == 0x80 || (status == 0x90 && e.bytes[2] == 0))
+                    {
+                        if (sounding > 0) --sounding;
+                        const auto it = openAt.find (e.bytes[1]);
+                        if (it != openAt.end()) openAt.erase (it);
+                    }
+                }
+
+                check (overlaps > 0, "a legato profile overlaps its lead notes",
+                       juce::String (overlaps) + " notes taken while the last still sounds");
+                check (sounding == 0, "and every lead note is still released");
+
+                // The default profile must be unaffected: an instrument that did
+                // not ask for legato must keep getting notes that do not touch.
+                int plainOverlaps = 0, plainSounding = 0;
+                std::vector<gb::MidiEvent> plain = track.events;
+                std::stable_sort (plain.begin(), plain.end(),
+                                  [] (const gb::MidiEvent& a, const gb::MidiEvent& b)
+                                  {
+                                      if (a.tick != b.tick) return a.tick < b.tick;
+                                      return a.order < b.order;
+                                  });
+                for (const gb::MidiEvent& e : plain)
+                {
+                    if (e.bytes.size() < 3) continue;
+                    const int status = e.bytes[0] & 0xF0;
+                    if (status == 0x90 && e.bytes[2] > 0)
+                    {
+                        if (plainSounding > 0) ++plainOverlaps;
+                        ++plainSounding;
+                    }
+                    else if (status == 0x80 || (status == 0x90 && e.bytes[2] == 0))
+                    {
+                        if (plainSounding > 0) --plainSounding;
+                    }
+                }
+
+                check (plainOverlaps == 0,
+                       "and an instrument that did not ask for legato still gets none",
+                       juce::String (plainOverlaps) + " unwanted overlaps");
 
                 // A soloing part stops comping. Both at once is not something
                 // one player can do.

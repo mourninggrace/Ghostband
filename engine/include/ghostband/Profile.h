@@ -321,6 +321,20 @@ public:
     double bendSemitones      = 2.0;
     int    bendTicks          = 90;
 
+    // How far one lead note runs into the next, in ticks. Zero means they do not
+    // touch, which is what every instrument here needed until now.
+    //
+    // Some libraries key their legato off exactly that overlap: a new note taken
+    // while the previous one is still sounding is hammered on or pulled off
+    // rather than picked, with no keyswitch involved. Shreddage does, and it is
+    // the difference between a fast line and a fluid one. Ghostband could not
+    // produce a legato note at all before this, because the lead renderer cut
+    // every note to end precisely where the next began.
+    //
+    // Only ever a few ticks. This is a trigger, not a musical overlap - too much
+    // and a monophonic instrument starts stealing its own voices.
+    int legatoOverlapTicks = 0;
+
     // Controls are declared per profile; see gb::ControlSet.
     using ControlDef = gb::ControlDef;
 

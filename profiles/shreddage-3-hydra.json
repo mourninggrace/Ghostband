@@ -81,6 +81,22 @@
   // of strum is what stops a chord sounding like a keyboard.
   "strum_ticks": 0,
 
+  // Legato, and it needs no keyswitch at all.
+  //
+  // Shreddage's ARTICULATIONS page 2 lists Legato (Hammer/Pull) with velocity
+  // 1-127 and no key against it: it is always armed and fires whenever a new
+  // note is taken while the previous one is still sounding. Ghostband could not
+  // produce that, because the lead renderer cut every note to end exactly where
+  // the next began - so all 1616 notes of a song came out individually picked.
+  //
+  // Twelve ticks is about ten milliseconds at this tempo. Enough for the script
+  // to see the overlap, far too little to hear as two notes at once. Bent notes
+  // are excluded automatically; the wheel has to come home before the next note
+  // starts.
+  //
+  // Turn MONO on in Shreddage for this to do what it should.
+  "legato": { "overlap_ticks": 12 },
+
   // Bends. Declared because this is a lead instrument and pitch bend is the
   // articulation Ghostband can send safely - it is a channel message rather
   // than a keyswitch, so the worst case is that nothing happens.
