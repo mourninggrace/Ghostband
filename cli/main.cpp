@@ -345,8 +345,8 @@ int main (int argc, char** argv)
 
     // Guitar and piano are opt-in: a plan that names no profile simply has no
     // such part, which is what keeps older plans rendering unchanged.
-    PhraseProfile guitarProfile, pianoProfile;
-    bool haveGuitar = false, havePiano = false;
+    PhraseProfile guitarProfile, guitar2Profile, pianoProfile;
+    bool haveGuitar = false, haveGuitar2 = false, havePiano = false;
 
     if (! plan.guitarProfile.empty())
     {
@@ -357,6 +357,17 @@ int main (int argc, char** argv)
             return 1;
         }
         haveGuitar = true;
+    }
+
+    if (! plan.guitar2Profile.empty())
+    {
+        const std::string path = resolvePath (argv0, plan.guitar2Profile);
+        if (! PhraseProfile::load (path, guitar2Profile, error))
+        {
+            std::cerr << "ghostband: " << error << "\n";
+            return 1;
+        }
+        haveGuitar2 = true;
     }
 
     if (! plan.pianoProfile.empty())
@@ -370,8 +381,27 @@ int main (int argc, char** argv)
         havePiano = true;
     }
 
-    const PhraseProfile* guitarPtr = haveGuitar ? &guitarProfile : nullptr;
-    const PhraseProfile* pianoPtr  = havePiano  ? &pianoProfile  : nullptr;
+    // Two guitarists cannot share a channel, and a profile does not know which
+    // of the two roles it has been given - the same Shreddage file is the only
+    // guitar in one song and the second guitar in another. The plugin settles
+    // this from its Settings channel assignment; here the second guitar simply
+    // moves off the first if they collide.
+    if (haveGuitar && haveGuitar2 && guitar2Profile.channel == guitarProfile.channel)
+    {
+        int wanted = 4;
+        while (wanted == guitarProfile.channel || wanted == 10
+               || wanted == bass.channel || wanted == kit.channel
+               || (havePiano && wanted == pianoProfile.channel))
+            ++wanted;
+
+        guitar2Profile.channel = wanted;
+        std::cout << "  note : second guitar moved to channel "
+                  << guitar2Profile.channel << " (it shared one with the first)\n";
+    }
+
+    const PhraseProfile* guitarPtr  = haveGuitar  ? &guitarProfile  : nullptr;
+    const PhraseProfile* guitar2Ptr = haveGuitar2 ? &guitar2Profile : nullptr;
+    const PhraseProfile* pianoPtr   = havePiano   ? &pianoProfile   : nullptr;
 
     // ---- calibrate -------------------------------------------------------
     if (command == "calibrate")
@@ -396,12 +426,13 @@ int main (int argc, char** argv)
     // ---- render ----------------------------------------------------------
     const std::vector<std::string> warnings = plan.validate();
 
-    const RenderResult result = renderPerformance (plan, kit, bass, guitarPtr, pianoPtr);
+    const RenderResult result = renderPerformance (plan, kit, bass, guitarPtr, pianoPtr, guitar2Ptr);
 
     if (outPath.empty())
         outPath = baseName (planPath) + ".mid";
 
-    if (! writeMidi (plan, result.performance, kit, bass, outPath, error, guitarPtr, pianoPtr))
+    if (! writeMidi (plan, result.performance, kit, bass, outPath, error,
+                     guitarPtr, pianoPtr, guitar2Ptr))
     {
         std::cerr << "ghostband: " << error << "\n";
         return 1;
@@ -426,18 +457,22 @@ int main (int argc, char** argv)
     if (haveGuitar)
         reportProfile ("gtr  ", guitarProfile.name, guitarProfile.needsVerification,
                        guitarProfile.verificationNote);
+    if (haveGuitar2)
+        reportProfile ("gtr2 ", guitar2Profile.name, guitar2Profile.needsVerification,
+                       guitar2Profile.verificationNote);
     if (havePiano)
         reportProfile ("piano", pianoProfile.name, pianoProfile.needsVerification,
                        pianoProfile.verificationNote);
     std::cout << "\n";
 
-    std::printf ("  %-12s %-10s %5s %5s %-11s %7s %6s %-9s %-9s\n",
-                 "section", "role", "bar", "bars", "feel", "drums", "bass", "guitar", "piano");
-    std::printf ("  %s\n", std::string (86, '-').c_str());
+    std::printf ("  %-12s %-10s %5s %5s %-11s %7s %6s %-9s %-9s %-9s\n",
+                 "section", "role", "bar", "bars", "feel", "drums", "bass",
+                 "guitar", "guitar2", "piano");
+    std::printf ("  %s\n", std::string (96, '-').c_str());
 
     for (const SectionReport& s : result.sections)
     {
-        std::printf ("  %-12s %-10s %5d %5d %-11s %7d %6d %-9s %-9s\n",
+        std::printf ("  %-12s %-10s %5d %5d %-11s %7d %6d %-9s %-9s %-9s\n",
                      s.name.substr (0, 12).c_str(),
                      s.role.substr (0, 10).c_str(),
                      s.startBar + 1,
@@ -445,8 +480,9 @@ int main (int argc, char** argv)
                      s.feel.substr (0, 11).c_str(),
                      s.drumHits,
                      s.bassNotes,
-                     s.guitarFeel.empty() ? "-" : s.guitarFeel.c_str(),
-                     s.pianoFeel.empty()  ? "-" : s.pianoFeel.c_str());
+                     s.guitarFeel.empty()  ? "-" : s.guitarFeel.c_str(),
+                     s.guitar2Feel.empty() ? "-" : s.guitar2Feel.c_str(),
+                     s.pianoFeel.empty()   ? "-" : s.pianoFeel.c_str());
         std::printf ("  %-12s %s\n", "", s.chords.c_str());
     }
 

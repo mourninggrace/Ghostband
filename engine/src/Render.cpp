@@ -925,7 +925,8 @@ RenderResult renderPerformance (const SongPlan& plan,
                                 const DrumProfile& kit,
                                 const BassProfile& bass,
                                 const PhraseProfile* guitar,
-                                const PhraseProfile* piano)
+                                const PhraseProfile* piano,
+                                const PhraseProfile* guitar2)
 {
     RenderResult result;
 
@@ -1080,19 +1081,19 @@ RenderResult renderPerformance (const SongPlan& plan,
             }
         }
 
-        // ---- guitar and piano ----
+        // ---- the chordal parts: guitar, second guitar, piano ----
         // Generated per section rather than per bar: a phrase instrument is
         // told what to play once and then left alone, and even a note-driven
         // one wants a single coherent treatment across the section.
         //
-        // Two chordal instruments both playing a full part fight each other, so
-        // one leads the section and the other supports. The support part is
-        // thinned to long held chords and dropped an octave clear of the lead,
-        // which is what a real arrangement does rather than simply turning it
-        // down.
+        // Chordal instruments all playing a full part fight each other, so one
+        // leads the section and the rest support. A supporting part is thinned
+        // to long held chords and dropped an octave clear of the lead, which is
+        // what a real arrangement does rather than simply turning it down.
         {
-            const bool playGuitar = (guitar != nullptr && s.playsGuitar);
-            const bool playPiano  = (piano  != nullptr && s.playsPiano);
+            const bool playGuitar  = (guitar  != nullptr && s.playsGuitar);
+            const bool playPiano   = (piano   != nullptr && s.playsPiano);
+            const bool playGuitar2 = (guitar2 != nullptr && s.playsGuitar2);
 
             bool guitarExplicit = false, pianoExplicit = false;
             PhraseFeel guitarFeel = phraseFeelFromName (s.guitarPhrase, guitarExplicit);
@@ -1130,43 +1131,89 @@ RenderResult renderPerformance (const SongPlan& plan,
                     guitarSupports = pianoSupports = false;
             }
 
-            if (playGuitar)
+            // ---- the second guitar, layered on top of that decision ----
+            //
+            // Everything above is left exactly as it was, RNG included, so a
+            // song that names no second guitar renders byte for byte as it
+            // always did. The stream only moves when there is a second
+            // guitarist to move it.
+            bool       guitar2Explicit = false;
+            PhraseFeel guitar2Feel     = PhraseFeel::Silent;
+            bool       guitar2Supports = false;
+
+            if (playGuitar2)
             {
-                const size_t before = result.performance.guitar.chords.size();
-                generatePhrasePart (s, chords, tick, barTicks, keyPc, mode, plan.style,
-                                    plan.swing, guitar,
-                                    guitarSupports ? supportFeel (guitarFeel) : guitarFeel,
-                                    plan.humanize, guitarSupports, throughSong,
-                                    sectionSeed, plan.seed, rng,
-                                    result.performance.guitar);
-                report.guitarChords = static_cast<int> (result.performance.guitar.chords.size() - before);
-                report.guitarFeel   = std::string (phraseFeelName (guitarSupports ? supportFeel (guitarFeel)
-                                                                                  : guitarFeel))
-                                    // Only ever say who is leading when there are
-                                    // two parts to lead. A silent piano was being
-                                    // reported as "silent (lead)", which is both
-                                    // meaningless and alarming to read.
-                                    + (playPiano && pianoFeel  != PhraseFeel::Silent
-                                                 && guitarFeel != PhraseFeel::Silent
-                                         ? (guitarSupports ? " (support)" : " (lead)") : "");
+                guitar2Feel = phraseFeelFromName (s.guitar2Phrase, guitar2Explicit);
+                if (! guitar2Explicit)
+                    guitar2Feel = chooseGuitarFeel (ctx, rng);
             }
 
-            if (playPiano)
+            if (playGuitar2 && guitar2Feel != PhraseFeel::Silent)
             {
-                const size_t before = result.performance.piano.chords.size();
-                generatePhrasePart (s, chords, tick, barTicks, keyPc, mode, plan.style,
-                                    plan.swing, piano,
-                                    pianoSupports ? supportFeel (pianoFeel) : pianoFeel,
-                                    plan.humanize, pianoSupports, throughSong,
-                                    sectionSeed, plan.seed, rng,
-                                    result.performance.piano);
-                report.pianoChords = static_cast<int> (result.performance.piano.chords.size() - before);
-                report.pianoFeel   = std::string (phraseFeelName (pianoSupports ? supportFeel (pianoFeel)
-                                                                                : pianoFeel))
-                                   + (playGuitar && guitarFeel != PhraseFeel::Silent
-                                                 && pianoFeel  != PhraseFeel::Silent
-                                        ? (pianoSupports ? " (support)" : " (lead)") : "");
+                const bool guitarSounds = playGuitar && guitarFeel != PhraseFeel::Silent;
+                const bool pianoSounds  = playPiano  && pianoFeel  != PhraseFeel::Silent;
+
+                // Nobody adds a second guitarist to have them play underneath
+                // the first, so the newcomer fronts the section unless it is
+                // told otherwise. Which one is the "lead guitar" is therefore
+                // not baked into the engine at all - it is whichever the
+                // section puts out front, and the same pair can swap.
+                std::string leader = s.lead;
+                if (leader != "guitar" && leader != "guitar2"
+                    && leader != "piano" && leader != "both")
+                    leader = "guitar2";
+
+                if (leader == "both")
+                {
+                    guitarSupports = pianoSupports = guitar2Supports = false;
+                }
+                else
+                {
+                    guitarSupports  = guitarSounds && leader != "guitar";
+                    pianoSupports   = pianoSounds  && leader != "piano";
+                    guitar2Supports =                 leader != "guitar2";
+                }
             }
+
+            // How many are actually sounding, which is what decides whether
+            // saying who leads means anything. A lone part reported as
+            // "driving (lead)" is leading nobody.
+            const int sounding = (playGuitar  && guitarFeel  != PhraseFeel::Silent ? 1 : 0)
+                               + (playGuitar2 && guitar2Feel != PhraseFeel::Silent ? 1 : 0)
+                               + (playPiano   && pianoFeel   != PhraseFeel::Silent ? 1 : 0);
+
+            const auto role = [sounding] (bool supports)
+            {
+                return sounding < 2 ? std::string()
+                                    : std::string (supports ? " (support)" : " (lead)");
+            };
+
+            const auto play = [&] (const PhraseProfile* profile, PhraseFeel feel,
+                                   bool supports, PhrasePart& out,
+                                   int& count, std::string& feelName)
+            {
+                const size_t before = out.chords.size();
+                generatePhrasePart (s, chords, tick, barTicks, keyPc, mode, plan.style,
+                                    plan.swing, profile,
+                                    supports ? supportFeel (feel) : feel,
+                                    plan.humanize, supports, throughSong,
+                                    sectionSeed, plan.seed, rng, out);
+                count = static_cast<int> (out.chords.size() - before);
+                feelName = std::string (phraseFeelName (supports ? supportFeel (feel) : feel))
+                         + (feel == PhraseFeel::Silent ? std::string() : role (supports));
+            };
+
+            if (playGuitar)
+                play (guitar, guitarFeel, guitarSupports, result.performance.guitar,
+                      report.guitarChords, report.guitarFeel);
+
+            if (playGuitar2)
+                play (guitar2, guitar2Feel, guitar2Supports, result.performance.guitar2,
+                      report.guitar2Chords, report.guitar2Feel);
+
+            if (playPiano)
+                play (piano, pianoFeel, pianoSupports, result.performance.piano,
+                      report.pianoChords, report.pianoFeel);
         }
 
         report.drumHits  = static_cast<int> (result.performance.drums.size() - drumsBefore);
@@ -1303,7 +1350,8 @@ bool writeMidi (const SongPlan& plan,
                 const std::string& path,
                 std::string& error,
                 const PhraseProfile* guitar,
-                const PhraseProfile* piano)
+                const PhraseProfile* piano,
+                const PhraseProfile* guitar2)
 {
     MidiFile mf (kPPQ);
 
@@ -1334,21 +1382,25 @@ bool writeMidi (const SongPlan& plan,
 
     // Only emitted when the song actually has the part, so a plan without a
     // guitar does not gain an empty track.
-    if (guitar != nullptr && ! perf.guitar.chords.empty())
+    //
+    // A part counts as present if it has chords OR a lead line. Testing chords
+    // alone dropped any part that only ever soloed - and a soloing part has no
+    // chords by design, because one player cannot comp and solo at once. A plan
+    // whose guitar solos the whole way through wrote no guitar track at all.
+    const auto emit = [&mf, &perf] (const PhraseProfile* profile, const PhrasePart& part)
     {
-        MidiTrack t;
-        t.name = guitar->name;
-        guitar->render (perf.guitar, t);
-        mf.tracks.push_back (t);
-    }
+        if (profile == nullptr || (part.chords.empty() && part.lead.empty()))
+            return;
 
-    if (piano != nullptr && ! perf.piano.chords.empty())
-    {
         MidiTrack t;
-        t.name = piano->name;
-        piano->render (perf.piano, t);
+        t.name = profile->name;
+        profile->render (part, t);
         mf.tracks.push_back (t);
-    }
+    };
+
+    emit (guitar,  perf.guitar);
+    emit (guitar2, perf.guitar2);
+    emit (piano,   perf.piano);
 
     return mf.write (path, error);
 }

@@ -58,6 +58,7 @@ public:
         juce::String  drumProfile;
         juce::String  bassProfile;
         juce::String  guitarProfile;   // empty when the song has no such part
+        juce::String  guitar2Profile;
         juce::String  pianoProfile;
         juce::String  headline;
         int           bars    = 0;
@@ -262,8 +263,14 @@ public:
     // rig rather than of the plugin they happen to be driving.
     std::atomic<int> channelDrums  { 10 };
     std::atomic<int> channelBass   { 1 };
-    std::atomic<int> channelGuitar { 2 };
-    std::atomic<int> channelPiano  { 3 };
+    std::atomic<int> channelGuitar  { 2 };
+    std::atomic<int> channelPiano   { 3 };
+
+    // The second guitarist. Eleven, because that is where the rig puts it and
+    // because ten is the drums - a second guitar on a channel a drum machine
+    // might also be listening to is a bad default however free it looks.
+    // Changeable in Settings like every other channel.
+    std::atomic<int> channelGuitar2 { 11 };
 
     void applyChannels();   // re-reads the atomics into the loaded profiles
 
@@ -374,7 +381,8 @@ private:
                           const gb::BassProfile& bassToUse,
                           const gb::SongPlan& planToUse,
                           const gb::PhraseProfile* guitarToUse,
-                          const gb::PhraseProfile* pianoToUse);
+                          const gb::PhraseProfile* pianoToUse,
+                          const gb::PhraseProfile* guitar2ToUse = nullptr);
     void sendAllNotesOff (juce::MidiBuffer& midi, int sampleOffset);
     bool resolveProfiles (juce::String& error);
 
@@ -398,9 +406,11 @@ private:
     gb::DrumProfile               kit;
     gb::BassProfile               bassProfile;
     gb::PhraseProfile             guitarProfile;
+    gb::PhraseProfile             guitar2Profile;
     gb::PhraseProfile             pianoProfile;
-    bool                          haveGuitar = false;
-    bool                          havePiano  = false;
+    bool                          haveGuitar  = false;
+    bool                          haveGuitar2 = false;
+    bool                          havePiano   = false;
     std::vector<gb::SectionReport> sections;
     Status                        status;
     juce::File                    planFile;

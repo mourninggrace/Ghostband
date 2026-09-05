@@ -54,7 +54,11 @@
 
   "name": "Shreddage 3 Hydra (Kontakt)",
   "id": "shreddage3_hydra",
-  "channel": 2,
+  // Eleven. As the second guitar it cannot share channel 2 with the rhythm
+  // guitar, and this is where the rig has it. If you use Shreddage as a song's
+  // ONLY guitar, set the GUITAR channel to 11 in Settings, or it will be sent
+  // notes on 2 and hear nothing.
+  "channel": 11,
 
   "mode": "notes",
 

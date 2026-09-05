@@ -148,6 +148,16 @@ struct Performance
     std::vector<ControlIntent> drumControls;
     std::vector<ControlIntent> bassControls;
     PhrasePart              guitar;
+
+    // A second guitarist, on their own channel.
+    //
+    // By convention `guitar` holds the riff and `guitar2` plays over it, but
+    // nothing here enforces that: which one is out front is a per-section
+    // decision like every other role in this engine, so the same pair can swap
+    // between a verse and a solo. A part with no profile named is not
+    // generated at all, so a song with one guitar costs nothing.
+    PhrasePart              guitar2;
+
     PhrasePart              piano;
     std::vector<Marker>     markers;
 

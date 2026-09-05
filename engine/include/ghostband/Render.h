@@ -22,9 +22,11 @@ struct SectionReport
     std::string chords;      // rendered as text, for the console summary
     int         drumHits    = 0;
     int         bassNotes   = 0;
-    int         guitarChords = 0;
-    int         pianoChords  = 0;
+    int         guitarChords  = 0;
+    int         guitar2Chords = 0;
+    int         pianoChords   = 0;
     std::string guitarFeel;      // empty when the part is not in this song
+    std::string guitar2Feel;
     std::string pianoFeel;
 };
 
@@ -47,8 +49,13 @@ struct RenderResult
 RenderResult renderPerformance (const SongPlan& plan,
                                 const DrumProfile& kit,
                                 const BassProfile& bass,
-                                const PhraseProfile* guitar = nullptr,
-                                const PhraseProfile* piano  = nullptr);
+                                const PhraseProfile* guitar  = nullptr,
+                                const PhraseProfile* piano   = nullptr,
+
+                                // Appended rather than slotted in beside the
+                                // first guitar, so every existing call still
+                                // compiles and still means what it did.
+                                const PhraseProfile* guitar2 = nullptr);
 
 bool writeMidi (const SongPlan& plan,
                 const Performance& perf,
@@ -56,8 +63,9 @@ bool writeMidi (const SongPlan& plan,
                 const BassProfile& bass,
                 const std::string& path,
                 std::string& error,
-                const PhraseProfile* guitar = nullptr,
-                const PhraseProfile* piano  = nullptr);
+                const PhraseProfile* guitar  = nullptr,
+                const PhraseProfile* piano   = nullptr,
+                const PhraseProfile* guitar2 = nullptr);
 
 // Walks every mapped drum voice and bass articulation in turn, with a marker
 // naming each one, so a profile can be checked against the real plugin by ear

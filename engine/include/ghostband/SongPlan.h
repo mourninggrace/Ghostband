@@ -27,14 +27,16 @@ struct SectionPlan
     bool playsDrums  = true;
     bool playsBass   = true;
     bool playsGuitar = true;
+    bool playsGuitar2 = true;
     bool playsPiano  = true;
 
     // auto/silent/sparse/muted/driving/open/busy. "auto" lets the section's
     // intensity and feel choose.
-    std::string guitarPhrase = "auto";
-    std::string pianoPhrase  = "auto";
+    std::string guitarPhrase  = "auto";
+    std::string guitar2Phrase = "auto";
+    std::string pianoPhrase   = "auto";
 
-    // Which of guitar and piano is out front here: auto/guitar/piano/both.
+    // Which chordal part is out front here: auto/guitar/guitar2/piano/both.
     // "auto" weighs the section - a distorted guitar wins a loud one, a piano
     // wins a half-time or quiet one - which is right most of the time, but not
     // when you already know what you want. "both" lets them share, which is
@@ -89,9 +91,11 @@ struct SongPlan
     // are opt-in precisely so that adding them to the engine leaves every plan
     // written before them rendering exactly as it did.
     std::string guitarProfile;
+    std::string guitar2Profile;
     std::string pianoProfile;
 
-    bool hasGuitar() const { return ! guitarProfile.empty(); }
+    bool hasGuitar()  const { return ! guitarProfile.empty(); }
+    bool hasGuitar2() const { return ! guitar2Profile.empty(); }
     bool hasPiano()  const { return ! pianoProfile.empty(); }
 
     std::vector<SectionPlan> sections;

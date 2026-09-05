@@ -249,14 +249,16 @@ bool GhostbandProcessor::resolveProfiles (juce::String& error)
             error = "Using generic settings: " + juce::String (named) + " was not found.";
     };
 
-    loadPhrase (plan.guitarProfile, channelGuitar.load(), guitarProfile, haveGuitar);
-    loadPhrase (plan.pianoProfile,  channelPiano.load(),  pianoProfile,  havePiano);
+    loadPhrase (plan.guitarProfile,  channelGuitar.load(),  guitarProfile,  haveGuitar);
+    loadPhrase (plan.guitar2Profile, channelGuitar2.load(), guitar2Profile, haveGuitar2);
+    loadPhrase (plan.pianoProfile,   channelPiano.load(),   pianoProfile,   havePiano);
 
     // The user's channel assignment wins over whatever a profile happens to say.
     kit.channel           = juce::jlimit (1, 16, channelDrums.load());
     bassProfile.channel   = juce::jlimit (1, 16, channelBass.load());
-    guitarProfile.channel = juce::jlimit (1, 16, channelGuitar.load());
-    pianoProfile.channel  = juce::jlimit (1, 16, channelPiano.load());
+    guitarProfile.channel  = juce::jlimit (1, 16, channelGuitar.load());
+    guitar2Profile.channel = juce::jlimit (1, 16, channelGuitar2.load());
+    pianoProfile.channel   = juce::jlimit (1, 16, channelPiano.load());
 
     return error.isEmpty();
 }
@@ -1414,8 +1416,8 @@ void GhostbandProcessor::regenerate()
     gb::SongPlan working;
     gb::DrumProfile workingKit;
     gb::BassProfile workingBass;
-    gb::PhraseProfile workingGuitar, workingPiano;
-    bool withGuitar = false, withPiano = false;
+    gb::PhraseProfile workingGuitar, workingGuitar2, workingPiano;
+    bool withGuitar = false, withGuitar2 = false, withPiano = false;
 
     {
         const juce::ScopedLock sl (stateLock);
@@ -1429,14 +1431,17 @@ void GhostbandProcessor::regenerate()
         working       = plan;
         workingKit    = kit;
         workingBass   = bassProfile;
-        workingGuitar = guitarProfile;
-        workingPiano  = pianoProfile;
-        withGuitar    = haveGuitar;
-        withPiano     = havePiano;
+        workingGuitar  = guitarProfile;
+        workingGuitar2 = guitar2Profile;
+        workingPiano   = pianoProfile;
+        withGuitar     = haveGuitar;
+        withGuitar2    = haveGuitar2;
+        withPiano      = havePiano;
     }
 
-    const gb::PhraseProfile* guitarPtr = withGuitar ? &workingGuitar : nullptr;
-    const gb::PhraseProfile* pianoPtr  = withPiano  ? &workingPiano  : nullptr;
+    const gb::PhraseProfile* guitarPtr  = withGuitar  ? &workingGuitar  : nullptr;
+    const gb::PhraseProfile* guitar2Ptr = withGuitar2 ? &workingGuitar2 : nullptr;
+    const gb::PhraseProfile* pianoPtr   = withPiano   ? &workingPiano   : nullptr;
 
     working.complexity = complexity.load();
     working.humanize   = humanize.load();
@@ -1447,9 +1452,9 @@ void GhostbandProcessor::regenerate()
     // planner lands it will need a network call, and that will have to move to
     // a background thread - the sequence swap below is already built for it.
     const gb::RenderResult result = gb::renderPerformance (working, workingKit, workingBass,
-                                                           guitarPtr, pianoPtr);
+                                                           guitarPtr, pianoPtr, guitar2Ptr);
 
-    rebuildSequence (result, workingKit, workingBass, working, guitarPtr, pianoPtr);
+    rebuildSequence (result, workingKit, workingBass, working, guitarPtr, pianoPtr, guitar2Ptr);
 
     {
         const juce::ScopedLock sl (stateLock);
@@ -1466,7 +1471,8 @@ void GhostbandProcessor::regenerate()
         status.bassNotes = static_cast<int> (result.performance.bass.size());
         status.drumProfile   = workingKit.name;
         status.bassProfile   = workingBass.name;
-        status.guitarProfile = withGuitar ? juce::String (workingGuitar.name) : juce::String();
+        status.guitarProfile  = withGuitar  ? juce::String (workingGuitar.name)  : juce::String();
+        status.guitar2Profile = withGuitar2 ? juce::String (workingGuitar2.name) : juce::String();
         status.pianoProfile  = withPiano  ? juce::String (workingPiano.name)  : juce::String();
 
         status.unverifiedProfiles = workingKit.needsVerification
@@ -1498,7 +1504,8 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
                                           const gb::BassProfile& bassToUse,
                                           const gb::SongPlan& planToUse,
                                           const gb::PhraseProfile* guitarToUse,
-                                          const gb::PhraseProfile* pianoToUse)
+                                          const gb::PhraseProfile* pianoToUse,
+                                          const gb::PhraseProfile* guitar2ToUse)
 {
     // Reuse the exact same profile rendering the CLI uses, then flatten the two
     // tracks into one time-ordered stream the audio thread can walk. The
@@ -1533,19 +1540,25 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
     append (drums);
     append (bass);
 
-    if (guitarToUse != nullptr && ! result.performance.guitar.chords.empty())
+    // A part counts as present if it has chords OR a lead line. Testing chords
+    // alone dropped any part that only ever solos - and a soloing part has no
+    // chords by design, one player cannot comp and solo at once. A plan whose
+    // guitar solos the whole way through played no guitar at all here, while
+    // the CLI rendered it perfectly.
+    const auto appendPart = [&append] (const gb::PhraseProfile* profile,
+                                       const gb::PhrasePart& part)
     {
-        gb::MidiTrack t;
-        guitarToUse->render (result.performance.guitar, t);
-        append (t);
-    }
+        if (profile == nullptr || (part.chords.empty() && part.lead.empty()))
+            return;
 
-    if (pianoToUse != nullptr && ! result.performance.piano.chords.empty())
-    {
         gb::MidiTrack t;
-        pianoToUse->render (result.performance.piano, t);
+        profile->render (part, t);
         append (t);
-    }
+    };
+
+    appendPart (guitarToUse,  result.performance.guitar);
+    appendPart (guitar2ToUse, result.performance.guitar2);
+    appendPart (pianoToUse,   result.performance.piano);
 
     std::stable_sort (built.begin(), built.end(),
                       [] (const TimedMessage& a, const TimedMessage& b)
