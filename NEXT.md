@@ -10,14 +10,66 @@ plans play the full band now** - they had named no guitar or piano profile, and
 those parts are opt-in on the name, so a preset called "metal" rendered as drums
 and bass. The harness now fails any plan that names a part it never plays.
 
-**The open item is still the guitar solo.** It exists, it plays, and the user's verdict
-after hearing it was "it'll need some work for sure" - no detail beyond that,
-because they were falling asleep. Do not guess at what is wrong with it. Ask
-them which way it is wrong: too busy, too sparse, too jumpy, aimless, or landing
-on notes that sound wrong. Each of those is a different knob in the generator
-and they move independently.
+**The guitar solo was rewritten** and is waiting to be heard. It lives in
+`preset-thrash`'s solo section (12 bars, straight feel, bass and drums under
+it). Ask what is wrong with it before changing anything - the table further
+down says which knob answers which complaint.
 
 ## Session 9 - what changed
+
+**The solo was a melody, and what was wanted was a lead.** Reported as "too
+simple, single note being held and changed after a few seconds", and the
+measurement agreed exactly: 3.3 notes a bar, a median gap of a quarter note, and
+silences of a bar and a half. The reference given was Satriani, Vai and Hammett.
+
+The old generator wrote two bar phrases, mostly stepwise, with a note to land on
+and a rest to answer into. That is a good blues vocabulary and it cannot be
+turned into a lead by raising a density knob - a busier wandering line is still
+a wandering line. So it is rebuilt around five devices, each of which makes many
+notes out of one idea:
+
+| device | what it is |
+|--------|------------|
+| RUN | straight subdivisions through the scale, turning round at the end of the neck |
+| SEQUENCE | a three or four note cell moved one scale step per repeat - the most identifiable thing in the style |
+| PEDAL | a fixed high note alternating with a line moving underneath it |
+| LICK | a short motif played two or three times unchanged |
+| LAND | a fast approach into one long chord tone - the breath |
+
+Density is a property of the device rather than a setting: a run is sixteen
+notes in a bar because that is what a run is. Measured on `preset-thrash`:
+**12.9 notes per bar over 22 semitones**, reading as sequence, lick, pedal,
+breath, descending sequence, lick, breath, pedal. The blues, which is swung and
+so gets an eighth grid, went from 3.3 to 6.8.
+
+Two things learned building it. Devices are drawn by **weight**, not evenly -
+an even draw gave four plain runs in eight phrases and never fired the lick
+once. And the anti-repeat looks back **two** phrases, because a pedal at both
+ends of a solo reads as one idea used twice however far apart it lands.
+
+Under a shuffle the grid drops to eighths, because the swing pass removes
+anything that is not on a swung eighth and a sixteenth run would otherwise come
+out with half its notes missing. `plan.swing` is threaded into the generator
+for exactly this.
+
+**The harness could not have caught the original fault.** Every phrasing check -
+one voice, in range, mostly stepwise, stops to breathe - passed while the solo
+played 3.3 notes a bar, because a line with almost nothing in it phrases
+beautifully. There are now checks for notes per bar, for restating an idea (any
+four note pitch pattern occurring twice), and for using more than one octave.
+
+### If the solo needs adjusting
+
+| complaint | where to look, in `generateSolo` |
+|-----------|----------------------------------|
+| too busy / too sparse | `slotsPerBar`, and the `weights` array - more LAND is more air |
+| too mechanical, too scalar | lower the RUN weight further, raise SEQUENCE and LICK |
+| not enough repetition | the LICK rebuild odds (`rng.chance (0.45)`) - lower means the motif is kept longer |
+| never rests | the `mustLand` chance, and the whole-bar skip at the bottom of the loop |
+| wrong register | `voice.tonic` picks the lowest tonic in the profile's chord zone; the whole line hangs off it |
+| wrong landing notes | the chord-tone search on the phrase's last step |
+
+
 
 **The metal preset was drums and bass.** `demo-metal.json` and `demo-rock.json`
 predate guitar and piano support and never gained the two profile lines, and a

@@ -1190,6 +1190,59 @@ int main (int argc, char** argv)
                 check (longestRest > 240, "and it stops to breathe",
                        "longest rest " + juce::String (longestRest) + " ticks");
 
+                // Density, which is the check that was missing. Every test
+                // above passed while the solo was playing 3.3 notes a bar with
+                // gaps of a bar and a half - one note held and then changed,
+                // which is exactly how it was reported. Phrasing checks cannot
+                // see that, because a line with almost nothing in it phrases
+                // beautifully.
+                //
+                // The blues is a shuffle, so the swing pass leaves eighths and
+                // drops anything between them: eight slots in a bar, and a
+                // solo worth the name uses most of them.
+                int soloBars = 0, soloNotes = 0;
+                for (const gb::SectionReport& sec : r.sections)
+                    if (sec.name == "solo")
+                    {
+                        soloBars += sec.bars;
+                        for (const gb::LeadIntent& n : lead)
+                            if (n.tick >= sec.startTick && n.tick < sec.endTick)
+                                ++soloNotes;
+                    }
+
+                const double perBar = soloBars > 0 ? soloNotes / (double) soloBars : 0.0;
+                check (perBar >= 5.0, "and it plays like a solo rather than holding one note",
+                       juce::String (perBar, 1) + " notes per bar over "
+                           + juce::String (soloBars) + " bars");
+
+                // A run has no internal shape; a sequence or a repeated lick is
+                // the same shape restated, and that is what separates this from
+                // a scale exercise. Finding any four-note pitch pattern that
+                // occurs twice is the cheapest evidence one of them fired.
+                bool restated = false;
+                for (size_t i = 0; i + 4 <= lead.size() && ! restated; ++i)
+                    for (size_t j = i + 1; j + 4 <= lead.size() && ! restated; ++j)
+                    {
+                        int same = 0;
+                        for (int k = 0; k < 4; ++k)
+                            if (lead[i + k].pitch == lead[j + k].pitch) ++same;
+                        if (same == 4) restated = true;
+                    }
+
+                check (restated, "and it restates an idea rather than only running");
+
+                // Two octaves are available and a lead that stays inside one of
+                // them sounds like it never left first position.
+                int lowest = 127, highest = 0;
+                for (const gb::LeadIntent& n : lead)
+                {
+                    lowest  = std::min (lowest,  n.pitch);
+                    highest = std::max (highest, n.pitch);
+                }
+
+                check (highest - lowest >= 12, "and it uses more than one octave",
+                       juce::String (highest - lowest) + " semitones");
+
                 // A soloing part stops comping. Both at once is not something
                 // one player can do.
                 bool compedDuringSolo = false;

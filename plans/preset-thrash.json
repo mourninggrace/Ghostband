@@ -78,11 +78,15 @@
       "lead": "guitar"
     },
     {
+      // The guitar actually solos here rather than comping through it. A
+      // soloing part stops holding the harmony - one player, one pair of hands
+      // - so this is bass and drums underneath, which is where a thrash solo
+      // usually sits anyway. Straight feel, so the line can use sixteenths.
       "name": "solo", "bars": 12, "intensity": 0.92,
       "feel": "double_time", "plays": "drums+bass+guitar", "fill": "auto",
       "chords": ["Dm", "Bb", "C", "Dm", "Dm", "Eb", "C", "Dm",
                  "Bb", "C", "Dm", "Dm"],
-      "bass": "eighths", "guitar": "busy", "lead": "guitar"
+      "bass": "eighths", "guitar": "solo", "lead": "guitar"
     },
     {
       "name": "chorus3", "bars": 8, "intensity": 1.0,
