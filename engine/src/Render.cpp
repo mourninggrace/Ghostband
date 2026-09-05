@@ -441,13 +441,18 @@ static void generateSolo (const SectionPlan& s,
                 // A fast approach, then one note held. The approach is what
                 // makes the held note sound arrived at rather than merely next.
                 //
-                // It runs up or down and starts in a different place each time.
-                // Fixed at "ascend into the last beat" it came out as the same
-                // seven notes every time it fired, which is the one thing a
-                // breath cannot be if it is going to keep working.
+                // It runs up or down, and it starts at the top of the bar.
+                //
+                // It used to start late - as far in as three quarters of the
+                // way through - so the bar opened with silence and only then
+                // ran into the held note. In a solo at this tempo that is most
+                // of a second of nothing, twice, and it was heard exactly that
+                // way: "it just stopped for a second or two". The breath in
+                // this phrase is meant to be the held note, which is a sound;
+                // it was a rest, which is not.
                 const int  approach = 3 + rng.below (5);
                 const bool rising   = rng.chance (0.6);
-                const int  start    = std::max (0, slotsPerBar - approach - 1 - rng.below (5));
+                const int  start    = rng.below (2);
 
                 int d = rising ? std::max (0, degree - approach)
                                : std::min (voice.top, degree + approach);
