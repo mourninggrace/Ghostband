@@ -32,6 +32,15 @@ public:
     void addNoteOn        (int tick, int channel, int note, int velocity);
     void addNoteOff       (int tick, int channel, int note);
     void addCC            (int tick, int channel, int cc, int value);
+
+    // Pitch bend, as a signed offset in semitones. The instrument's own bend
+    // range is what turns that into a wheel position, so the caller works in
+    // semitones and never in the 14-bit number - getting that conversion wrong
+    // in two places is how a part ends up a quarter tone out.
+    //
+    // Ordered with the controllers, so a bend always lands before the note it
+    // is bending.
+    void addPitchBend     (int tick, int channel, double semitones, double rangeSemitones);
     void addMarker        (int tick, const std::string& text);
     void addText          (int tick, const std::string& text);
     void addTempo         (int tick, double bpm);

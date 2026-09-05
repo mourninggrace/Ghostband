@@ -40,6 +40,23 @@
   // of why a generated guitar part sounds like a keyboard.
   "strum_ticks": 9,
 
+  // Bends. UNTESTED on this instrument - it is here so it can be heard.
+  //
+  // IRON 2 exposes no bend, vibrato or slide control among its parameters, but
+  // pitch bend is a MIDI message rather than a parameter and a sampler can
+  // honour it without saying so anywhere. The only way to find out is to send
+  // one and listen.
+  //
+  // A bend goes on the note a phrase lands on. The note sounds a tone flat and
+  // the wheel carries it up to the written pitch, which is what a guitarist
+  // does and what keeps the landing note on the chord.
+  //
+  // If the solo sounds a whole tone flat on its held notes, IRON 2 is ignoring
+  // the wheel: delete this block and the part goes back to plain notes.
+  // range_semitones must match the instrument's own wheel range - two is the
+  // usual default, and a wrong value lands the bend short or sharp.
+  "bend": { "range_semitones": 2, "reach_semitones": 2, "ticks": 90 },
+
   // Arrangement moves these as the song goes: more drive in a loud section,
   // brighter when the guitar is leading, effect in for a chorus or solo. They do
   // nothing until IRON 2 has been taught them - right-click a knob, choose MIDI

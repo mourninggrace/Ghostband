@@ -17,6 +17,59 @@ down says which knob answers which complaint.
 
 ## Session 9 - what changed
 
+**Ghostband bends now.** It emitted no pitch bend anywhere before this;
+`LeadIntent::target` marked the notes a bend belonged on and nothing consumed
+it.
+
+A bend goes **into** the note, not away from it: the sounding note starts a tone
+below the target and the wheel carries it up to the written pitch. That is what
+a guitarist does, and it is the only version that keeps the harmony - the
+landing note was chosen because it is a chord tone, so bending up away from it
+would leave the line off the chord at the exact moment it is meant to agree with
+it. The climb eases out over six steps rather than being linear, because a bend
+is quick off the fret and slow as it arrives.
+
+**It is off unless a profile declares it**, and that is deliberate. Pitch bend
+is a channel message: it moves everything sounding on the channel, and one left
+off centre leaves the part transposed for every note afterwards - which sounds
+like Ghostband put the guitar out of tune, not like a bug. So every bend is
+followed by a return to centre, no note is ever started while the wheel is off
+centre, and panic centres the wheel on all sixteen channels before it sends
+anything else. All three are asserted in the harness against the rendered MIDI,
+because none of them is visible in the intents.
+
+A profile opts in with `"bend": { "range_semitones": 2, "reach_semitones": 2,
+"ticks": 90 }`. `range_semitones` must match the instrument's own wheel range or
+the bend lands short or sharp.
+
+### IRON 2 and the lead guitar question
+
+`vg-iron2.json` declares bend **untested**, so it can be heard. If the solo's
+held notes sound a whole tone flat, IRON 2 is ignoring the wheel - delete the
+block and it goes back to plain notes.
+
+What is settled: IRON 2 exposes 24 parameters and **not one is an
+articulation**. No bend, vibrato, slide or legato control; the only pitch
+control is a global `Tune`. Parameters are global to the plugin rather than
+per-mode, so that holds in Instrument mode too. It is a riff machine, and it
+was never going to shred.
+
+Guitar Rig 7 is **not** the answer and was talked out of: it is an effect, not
+an instrument, it makes no sound from MIDI, and AmpliTube 5 is already
+installed. The gap is a lead *instrument*. Ordered recommendation given: Ample
+Sound (standalone VST3, no Kontakt tax, cheapest, lowest integration risk),
+Shreddage 3 (most controllable via TACT, but check the Kontakt requirement),
+Heavier7Strings, Orange Tree Evolution, Prominy. Avoid anything sold as a
+"player" or "pattern" instrument - that is IRON 2's category.
+
+The probe has a `--mode lead` that answers this by measurement: pitch bend range,
+real sustain length, and legato versus re-attack. **Run it against a demo before
+buying anything.** Note that it loads a fresh instance, which for IRON 2 comes up
+in Player mode, and `programs: 0` means there is no preset slot to switch it -
+so its numbers for IRON 2 are about a looping riff and should be ignored.
+
+
+
 **The solo was a melody, and what was wanted was a lead.** Reported as "too
 simple, single note being held and changed after a few seconds", and the
 measurement agreed exactly: 3.3 notes a bar, a median gap of a quarter note, and

@@ -1243,6 +1243,62 @@ int main (int argc, char** argv)
                 check (highest - lowest >= 12, "and it uses more than one octave",
                        juce::String (highest - lowest) + " semitones");
 
+                // ---- bends must always come home ----------------------------
+                // Pitch bend is a channel message: it moves everything sounding
+                // on that channel, and one left off centre leaves the whole part
+                // transposed for every note after it. That failure is silent in
+                // the intents and only audible as "the plugin put my guitar out
+                // of tune", so it is asserted on the MIDI itself.
+                gb::PhraseProfile bendy = guitar;
+                bendy.canBend            = true;
+                bendy.bendRangeSemitones = 2.0;
+                bendy.bendSemitones      = 2.0;
+                bendy.bendTicks          = 90;
+
+                gb::MidiTrack track;
+                bendy.render (r.performance.guitar, track);
+
+                std::vector<gb::MidiEvent> ordered = track.events;
+                std::stable_sort (ordered.begin(), ordered.end(),
+                                  [] (const gb::MidiEvent& a, const gb::MidiEvent& b)
+                                  {
+                                      if (a.tick != b.tick) return a.tick < b.tick;
+                                      return a.order < b.order;
+                                  });
+
+                int  bends = 0, notesWhileBent = 0, lastValue = 8192;
+                bool bentNow = false;
+
+                for (const gb::MidiEvent& e : ordered)
+                {
+                    if (e.bytes.size() < 3) continue;
+
+                    const int status = e.bytes[0] & 0xF0;
+
+                    if (status == 0xE0)
+                    {
+                        ++bends;
+                        lastValue = (e.bytes[2] << 7) | e.bytes[1];
+                        bentNow   = (lastValue != 8192);
+                    }
+                    else if (status == 0x90 && e.bytes[2] > 0 && bentNow)
+                    {
+                        // A note started while the wheel is off centre is a note
+                        // sounding at the wrong pitch, unless it is the note the
+                        // bend was written for - and that one is started before
+                        // the wheel moves, not after.
+                        ++notesWhileBent;
+                    }
+                }
+
+                check (bends > 0, "a bendable profile actually bends",
+                       juce::String (bends) + " wheel moves");
+                check (lastValue == 8192, "and the wheel is left at centre",
+                       "final value " + juce::String (lastValue));
+                check (notesWhileBent == 0,
+                       "and no note is ever started while the wheel is off centre",
+                       juce::String (notesWhileBent) + " would sound at the wrong pitch");
+
                 // A soloing part stops comping. Both at once is not something
                 // one player can do.
                 bool compedDuringSolo = false;

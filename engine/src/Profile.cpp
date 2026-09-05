@@ -528,6 +528,11 @@ std::string PhraseProfile::toJson() const
     j += "  \"velocity_max\": " + std::to_string (velocityMax) + ",\n";
     j += "  \"strum_ticks\": "  + std::to_string (strumTicks) + ",\n";
 
+    if (canBend)
+        j += "  \"bend\": { \"range_semitones\": " + num (bendRangeSemitones)
+           + ", \"reach_semitones\": " + num (bendSemitones)
+           + ", \"ticks\": " + std::to_string (bendTicks) + " },\n";
+
     if (phraseDriven)
     {
         j += "  \"phrase_lead_ticks\": " + std::to_string (phraseLeadTicks) + ",\n";
@@ -820,6 +825,22 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
             std::swap (out.chordLowest, out.chordHighest);
     }
 
+    const Json& bend = j["bend"];
+    if (bend.isObject())
+    {
+        out.canBend            = true;
+        out.bendRangeSemitones = bend.numberOr ("range_semitones", 2.0);
+        out.bendSemitones      = bend.numberOr ("reach_semitones", 2.0);
+        out.bendTicks          = clampInt (bend.intOr ("ticks", 90), 1, 960);
+
+        if (out.bendRangeSemitones < 0.01) out.bendRangeSemitones = 2.0;
+
+        // Asking for more bend than the wheel can reach lands short of the note
+        // it was aiming at, which is out of tune rather than expressive.
+        if (out.bendSemitones > out.bendRangeSemitones)
+            out.bendSemitones = out.bendRangeSemitones;
+    }
+
     loadControls (j, out.controls);
 
     const Json& phrases = j["phrases"];
@@ -894,6 +915,19 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
 
     // A solo line. One note at a time, so each is stopped before the next
     // begins - a lead that overlaps itself stops reading as one player.
+    //
+    // Bends go on the notes a phrase is aiming at, and they bend *into* the
+    // note rather than away from it: the sounding note starts a tone below the
+    // target and the wheel carries it up to pitch. That is what a guitarist
+    // does, and it is the only version that keeps the harmony intact - the
+    // landing note was chosen because it is a chord tone, so bending up away
+    // from it would leave the line off the chord at exactly the moment it is
+    // supposed to agree with it.
+    //
+    // The wheel is a channel message, so every bend is followed by a return to
+    // centre. A bend left hanging detunes everything the part plays afterwards.
+    bool bendIsOffCentre = false;
+
     for (size_t i = 0; i < part.lead.size(); ++i)
     {
         const LeadIntent& n = part.lead[i];
@@ -909,9 +943,54 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
             end = std::min (end, part.lead[i + 1].tick);
         end = std::max (n.tick + 1, end);
 
-        track.addNoteOn  (n.tick, channel, pitch,
-                          velocityFor (n.accent, velocityMin, velocityMax));
-        track.addNoteOff (end, channel, pitch);
+        const int reach = static_cast<int> (bendSemitones + 0.5);
+
+        // Only worth bending a note long enough to hear it arrive, and only if
+        // the note it would start from is still on the instrument.
+        const bool bendThisOne = canBend && n.target && reach > 0
+                              && end - n.tick > bendTicks + 20
+                              && pitch - reach >= chordLowest;
+
+        if (bendThisOne)
+        {
+            // Start flat by the reach, then climb to zero, so the note arrives
+            // at the pitch that was written.
+            const int sounded = pitch - reach;
+            const int steps   = 6;
+
+            track.addPitchBend (n.tick, channel, 0.0, bendRangeSemitones);
+            track.addNoteOn    (n.tick, channel, sounded,
+                                velocityFor (n.accent, velocityMin, velocityMax));
+
+            for (int st = 1; st <= steps; ++st)
+            {
+                const double through = static_cast<double> (st) / steps;
+
+                // Eases out rather than climbing evenly: a bend is quick off the
+                // fret and slow as it reaches the note, and a linear one sounds
+                // like a pitch envelope instead of a finger.
+                const double shaped = 1.0 - (1.0 - through) * (1.0 - through);
+                track.addPitchBend (n.tick + (bendTicks * st) / steps, channel,
+                                    shaped * reach, bendRangeSemitones);
+            }
+
+            track.addNoteOff   (end, channel, sounded);
+            track.addPitchBend (end, channel, 0.0, bendRangeSemitones);
+            bendIsOffCentre = false;
+        }
+        else
+        {
+            // A plain note must not inherit the previous one's bend.
+            if (bendIsOffCentre)
+            {
+                track.addPitchBend (n.tick, channel, 0.0, bendRangeSemitones);
+                bendIsOffCentre = false;
+            }
+
+            track.addNoteOn  (n.tick, channel, pitch,
+                              velocityFor (n.accent, velocityMin, velocityMax));
+            track.addNoteOff (end, channel, pitch);
+        }
     }
 
     const int zoneSpan = chordHighest - chordLowest;

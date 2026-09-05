@@ -64,6 +64,28 @@ static void pushMeta (std::vector<MidiEvent>& events, int tick, unsigned char me
     events.push_back (e);
 }
 
+void MidiTrack::addPitchBend (int tick, int channel, double semitones, double rangeSemitones)
+{
+    const double range = rangeSemitones > 0.01 ? rangeSemitones : 2.0;
+    double fraction = semitones / range;
+    if (fraction >  1.0) fraction =  1.0;
+    if (fraction < -1.0) fraction = -1.0;
+
+    // 8192 is centre; 0 and 16383 are the extremes. 8191 rather than 8192 on the
+    // way up because the range above centre is one step shorter than the one
+    // below it, and asking for full bend has to produce 16383 exactly.
+    const int value = 8192 + static_cast<int> (fraction * (fraction >= 0.0 ? 8191.0 : 8192.0));
+    const int clamped = clampInt (value, 0, 16383);
+
+    MidiEvent e;
+    e.tick  = tick < 0 ? 0 : tick;
+    e.order = orderCC;
+    e.bytes = { static_cast<unsigned char> (0xE0 | (clampInt (channel, 1, 16) - 1)),
+                static_cast<unsigned char> (clamped & 0x7F),
+                static_cast<unsigned char> ((clamped >> 7) & 0x7F) };
+    events.push_back (e);
+}
+
 void MidiTrack::addMarker (int tick, const std::string& text)
 {
     pushMeta (events, tick, 0x06, std::vector<unsigned char> (text.begin(), text.end()));

@@ -301,6 +301,26 @@ public:
     // Zero for a piano, where the notes genuinely do land together.
     int  strumTicks = 0;
 
+    // Bends, and whether this instrument has any.
+    //
+    // Off unless a profile says otherwise, and deliberately so. Pitch bend is a
+    // channel message: it moves everything sounding on the channel, and one left
+    // off centre leaves the whole part out of tune until something resets it. An
+    // instrument that ignores bend loses nothing by never being sent one, and an
+    // instrument that honours it must not be sent one until somebody has heard
+    // that it does.
+    //
+    // `bendRangeSemitones` is the instrument's own wheel range, not a choice -
+    // getting it wrong puts the bend short or sharp of the note it is aiming at.
+    // Two semitones is the near-universal default.
+    bool   canBend            = false;
+    double bendRangeSemitones = 2.0;
+
+    // How far a bend reaches for, and how long it takes to arrive. A whole tone
+    // over about a sixteenth is the ordinary rock bend.
+    double bendSemitones      = 2.0;
+    int    bendTicks          = 90;
+
     // Controls are declared per profile; see gb::ControlSet.
     using ControlDef = gb::ControlDef;
 

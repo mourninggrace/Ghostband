@@ -1575,6 +1575,12 @@ void GhostbandProcessor::sendAllNotesOff (juce::MidiBuffer& midi, int sampleOffs
     // Belt and braces for anything holding a note we did not start.
     for (int ch = 1; ch <= 16; ++ch)
     {
+        // Centre the wheel. A stop in the middle of a bend leaves the
+        // instrument transposed, and it stays that way through every later
+        // note until something resets it - which reads as the plugin having
+        // put the guitar out of tune, not as a stop landing awkwardly.
+        midi.addEvent (juce::MidiMessage::pitchWheel (ch, 8192), sampleOffset);
+
         midi.addEvent (juce::MidiMessage::allNotesOff (ch), sampleOffset);
         midi.addEvent (juce::MidiMessage::allSoundOff (ch), sampleOffset);
     }
