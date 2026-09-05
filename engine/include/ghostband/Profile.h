@@ -335,6 +335,20 @@ public:
     // and a monophonic instrument starts stealing its own voices.
     int legatoOverlapTicks = 0;
 
+    // How far apart two notes can be and still be hammered on or pulled off.
+    //
+    // Shreddage's manual is explicit: the hammer/pull range defaults to two
+    // semitones, and a wider interval simply will not trigger one. Overlapping
+    // a leap therefore buys nothing and costs something - on a monophonic
+    // instrument it is one more chance to steal a voice.
+    //
+    // It also matters musically. A player hammers within a position and picks
+    // when the hand moves, so overlapping everything is not just useless at the
+    // leaps, it is wrong at them. And a line where every note is a hammer-on
+    // fades: Shreddage scales legato volume down until a non-legato note is
+    // struck, so a run with no picked notes in it quietly disappears.
+    int legatoMaxLeapSemitones = 2;
+
     // Controls are declared per profile; see gb::ControlSet.
     using ControlDef = gb::ControlDef;
 

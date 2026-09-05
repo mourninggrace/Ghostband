@@ -94,8 +94,23 @@
   // are excluded automatically; the wheel has to come home before the next note
   // starts.
   //
-  // Turn MONO on in Shreddage for this to do what it should.
-  "legato": { "overlap_ticks": 12 },
+  // max_leap_semitones matches Shreddage's own hammer/pull range, which the
+  // manual says defaults to two semitones - a wider interval will not trigger a
+  // hammer-on however much it overlaps, so overlapping one buys nothing and
+  // gives a monophonic instrument one more chance to steal its own voice.
+  //
+  // It matters for a second reason. Shreddage scales legato volume down until a
+  // non-legato note is struck ("Realistic Volume", manual p22), so a run in
+  // which every note is hammered fades away to nothing. Picking the leaps is
+  // what resets it - which is also what a real player does when the hand moves.
+  //
+  // SETTINGS THIS EXPECTS IN SHREDDAGE, from the manual:
+  //   Performance Style = Mono Lead (Mid/High)   "perfect for lead parts";
+  //                       Standard plays low on the neck and prefers open strings
+  //   Poly Input Latency = 0                     manual p11 recommends very low
+  //                       or zero for fast parts, or the fretting jumps around
+  //   Pitch Bend Range   = 2                     matches the bend block below
+  "legato": { "overlap_ticks": 12, "max_leap_semitones": 2 },
 
   // Bends. Declared because this is a lead instrument and pitch bend is the
   // articulation Ghostband can send safely - it is a channel message rather

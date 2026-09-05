@@ -530,7 +530,9 @@ std::string PhraseProfile::toJson() const
 
     if (legatoOverlapTicks > 0)
         j += "  \"legato\": { \"overlap_ticks\": "
-           + std::to_string (legatoOverlapTicks) + " },\n";
+           + std::to_string (legatoOverlapTicks)
+           + ", \"max_leap_semitones\": " + std::to_string (legatoMaxLeapSemitones)
+           + " },\n";
 
     if (canBend)
         j += "  \"bend\": { \"range_semitones\": " + num (bendRangeSemitones)
@@ -831,7 +833,10 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
 
     const Json& legato = j["legato"];
     if (legato.isObject())
-        out.legatoOverlapTicks = clampInt (legato.intOr ("overlap_ticks", 0), 0, 120);
+    {
+        out.legatoOverlapTicks       = clampInt (legato.intOr ("overlap_ticks", 0), 0, 120);
+        out.legatoMaxLeapSemitones   = clampInt (legato.intOr ("max_leap_semitones", 2), 0, 24);
+    }
 
     const Json& bend = j["bend"];
     if (bend.isObject())
@@ -1018,7 +1023,16 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
             // exactly how it was reported.
             const bool nextIsHeld = haveNext && part.lead[i + 1].target;
 
-            if (legatoOverlapTicks > 0 && haveNext && ! nextIsHeld)
+            // Only where the instrument could actually hammer it. Anything
+            // wider is picked, which is what a player does when the hand moves
+            // - and it is what keeps a run from being one unbroken legato
+            // chain, which on this instrument fades to nothing.
+            const int leap = haveNext
+                               ? std::abs (part.lead[i + 1].pitch - n.pitch)
+                               : 128;
+
+            if (legatoOverlapTicks > 0 && haveNext && ! nextIsHeld
+                && leap <= legatoMaxLeapSemitones)
             {
                 const int nextStart = part.lead[i + 1].tick;
                 const int nextEnd   = nextStart + std::max (1, part.lead[i + 1].durationTicks);
