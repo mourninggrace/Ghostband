@@ -30,6 +30,7 @@
   "drum_profile":   "profiles/ssd5-terry-date.json",
   "bass_profile":   "profiles/modo-bass-2.json",
   "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
   "piano_profile":  "profiles/virtual-pianist.json",
 
   "sections": [
@@ -38,45 +39,45 @@
       "name": "intro", "bars": 4, "intensity": 0.26,
       "feel": "straight", "plays": "bass+guitar", "fill": "none",
       "chords": ["F#m", "F#m", "D", "A"],
-      "bass": "roots", "guitar": "sparse", "lead": "guitar"
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "lead": "guitar"
     },
     {
       "name": "verse1", "bars": 8, "intensity": 0.30,
       "feel": "straight", "plays": "drums+bass+guitar", "fill": "small",
       "chords": ["F#m", "F#m", "D", "A"],
-      "bass": "roots", "guitar": "sparse", "lead": "guitar"
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "lead": "guitar"
     },
     {
       // Four bars of winding up, and the only place the piano appears early.
       "name": "prechorus1", "bars": 4, "intensity": 0.58,
       "feel": "straight", "plays": "full", "fill": "small",
       "chords": ["D", "D", "E", "E"],
-      "bass": "eighths", "guitar": "muted", "piano": "sparse", "lead": "guitar"
+      "bass": "eighths", "guitar": "muted", "guitar2": "silent", "piano": "sparse", "lead": "guitar"
     },
     {
       "name": "chorus1", "bars": 8, "intensity": 0.90,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["D", "A", "E", "F#m"],
-      "bass": "eighths", "guitar": "driving", "piano": "open", "lead": "guitar"
+      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "guitar"
     },
     {
       // Straight back down to almost nothing. No easing out of it.
       "name": "verse2", "bars": 8, "intensity": 0.32,
       "feel": "straight", "plays": "drums+bass+guitar", "fill": "small",
       "chords": ["F#m", "F#m", "D", "A"],
-      "bass": "roots", "guitar": "sparse", "lead": "guitar"
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "lead": "guitar"
     },
     {
       "name": "prechorus2", "bars": 4, "intensity": 0.62,
       "feel": "straight", "plays": "full", "fill": "small",
       "chords": ["D", "D", "E", "E"],
-      "bass": "eighths", "guitar": "muted", "piano": "sparse", "lead": "guitar"
+      "bass": "eighths", "guitar": "muted", "guitar2": "silent", "piano": "sparse", "lead": "guitar"
     },
     {
       "name": "chorus2", "bars": 8, "intensity": 0.92,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["D", "A", "E", "F#m"],
-      "bass": "eighths", "guitar": "driving", "piano": "open", "lead": "guitar"
+      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "guitar"
     },
     {
       // The quietest thing in the song, right before the loudest.
@@ -86,16 +87,30 @@
       "bass": "roots", "piano": "sparse", "lead": "piano"
     },
     {
+      // Added so the lead guitar has somewhere to play. After the bridge and
+      // before the last chorus is where a rock song puts a solo: the
+      // arrangement has just dropped and needs lifting back into the ending.
+      //
+      // The rhythm guitar keeps the riff going underneath - a soloing player
+      // cannot also hold the harmony, which is the whole reason for a second
+      // guitar part.
+      "name": "solo", "bars": 8, "intensity": 0.88,
+      "feel": "straight", "plays": "full", "fill": "auto",
+      "chords": ["Bm", "D", "A", "E", "Bm", "D", "A", "E"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo",
+      "piano": "silent", "lead": "guitar2"
+    },
+    {
       "name": "chorus3", "bars": 8, "intensity": 0.96,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["D", "A", "E", "F#m"],
-      "bass": "eighths", "guitar": "busy", "piano": "open", "lead": "both"
+      "bass": "eighths", "guitar": "busy", "guitar2": "silent", "piano": "open", "lead": "both"
     },
     {
       "name": "ending", "bars": 6, "intensity": 0.44,
       "feel": "straight", "plays": "drums+bass+guitar", "fill": "none",
       "chords": ["F#m", "D", "A", "E", "F#m", "F#m"],
-      "guitar": "sparse", "lead": "guitar"
+      "guitar": "sparse", "guitar2": "silent", "lead": "guitar"
     }
   ]
 }

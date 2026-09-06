@@ -32,6 +32,7 @@
   "drum_profile":   "profiles/ssd5-terry-date.json",
   "bass_profile":   "profiles/modo-bass-2.json",
   "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
   "piano_profile":  "profiles/virtual-pianist.json",
 
   "sections": [
@@ -40,13 +41,13 @@
       "name": "intro", "bars": 4, "intensity": 0.30,
       "feel": "straight", "plays": "guitar", "fill": "none",
       "chords": ["F", "C", "Dm", "Bb"],
-      "guitar": "open", "lead": "guitar"
+      "guitar": "open", "guitar2": "silent", "lead": "guitar"
     },
     {
       "name": "verse1", "bars": 8, "intensity": 0.46,
       "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
       "chords": ["Dm", "Bb", "F", "C"],
-      "bass": "eighths", "guitar": "driving", "lead": "guitar"
+      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "lead": "guitar"
     },
     {
       // Twelve bars against an eight bar verse. The chorus outlasting the verse
@@ -55,20 +56,20 @@
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["Bb", "F", "C", "Dm", "Bb", "F", "C", "C",
                  "Bb", "F", "C", "Dm"],
-      "bass": "eighths", "guitar": "driving", "piano": "open", "lead": "guitar"
+      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "guitar"
     },
     {
       "name": "verse2", "bars": 8, "intensity": 0.50,
       "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
       "chords": ["Dm", "Bb", "F", "C"],
-      "bass": "eighths", "guitar": "driving", "lead": "guitar"
+      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "lead": "guitar"
     },
     {
       "name": "chorus2", "bars": 12, "intensity": 0.90,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["Bb", "F", "C", "Dm", "Bb", "F", "C", "C",
                  "Bb", "F", "C", "Dm"],
-      "bass": "eighths", "guitar": "driving", "piano": "open", "lead": "guitar"
+      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "guitar"
     },
     {
       // The half-time part everybody waits for. Piano leads it, alone with the
@@ -82,21 +83,35 @@
       "name": "build", "bars": 8, "intensity": 0.66,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["Bb", "F", "C", "Dm"],
-      "bass": "eighths", "guitar": "muted", "piano": "driving", "lead": "piano"
+      "bass": "eighths", "guitar": "muted", "guitar2": "silent", "piano": "driving", "lead": "piano"
+    },
+    {
+      // Added so the lead guitar has somewhere to play. After the bridge and
+      // before the last chorus is where a rock song puts a solo: the
+      // arrangement has just dropped and needs lifting back into the ending.
+      //
+      // The rhythm guitar keeps the riff going underneath - a soloing player
+      // cannot also hold the harmony, which is the whole reason for a second
+      // guitar part.
+      "name": "solo", "bars": 8, "intensity": 0.90,
+      "feel": "straight", "plays": "full", "fill": "auto",
+      "chords": ["Bm", "G", "D", "A", "Bm", "G", "D", "A"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo",
+      "piano": "silent", "lead": "guitar2"
     },
     {
       "name": "chorus3", "bars": 12, "intensity": 0.98,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["Bb", "F", "C", "Dm", "Bb", "F", "C", "C",
                  "Bb", "F", "C", "Dm"],
-      "bass": "eighths", "guitar": "busy", "piano": "open", "lead": "both"
+      "bass": "eighths", "guitar": "busy", "guitar2": "silent", "piano": "open", "lead": "both"
     },
     {
       // Stops dead on the one, no ringing out.
       "name": "ending", "bars": 4, "intensity": 0.82,
       "feel": "straight", "plays": "full", "fill": "none",
       "chords": ["Bb", "F", "C", "Dm"],
-      "guitar": "driving", "piano": "open", "lead": "both"
+      "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "both"
     }
   ]
 }

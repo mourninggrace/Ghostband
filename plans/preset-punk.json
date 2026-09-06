@@ -31,37 +31,38 @@
   "drum_profile":   "profiles/ssd5-terry-date.json",
   "bass_profile":   "profiles/modo-bass-2.json",
   "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
 
   "sections": [
     {
       // Count-in, essentially.
       "name": "intro", "bars": 2, "intensity": 0.55,
       "feel": "straight", "plays": "drums+guitar", "fill": "small",
-      "chords": ["G"], "guitar": "driving", "lead": "guitar"
+      "chords": ["G"], "guitar": "driving", "guitar2": "silent", "lead": "guitar"
     },
     {
       "name": "verse1", "bars": 8, "intensity": 0.70,
       "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
       "chords": ["G", "G", "C", "D"],
-      "bass": "eighths", "guitar": "driving", "lead": "guitar"
+      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "lead": "guitar"
     },
     {
       "name": "chorus1", "bars": 8, "intensity": 0.92,
       "feel": "straight", "plays": "drums+bass+guitar", "fill": "small",
       "chords": ["C", "D", "G", "G"],
-      "bass": "eighths", "guitar": "busy", "lead": "guitar"
+      "bass": "eighths", "guitar": "busy", "guitar2": "silent", "lead": "guitar"
     },
     {
       "name": "verse2", "bars": 8, "intensity": 0.74,
       "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
       "chords": ["G", "G", "C", "D"],
-      "bass": "eighths", "guitar": "driving", "lead": "guitar"
+      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "lead": "guitar"
     },
     {
       "name": "chorus2", "bars": 8, "intensity": 0.94,
       "feel": "straight", "plays": "drums+bass+guitar", "fill": "small",
       "chords": ["C", "D", "G", "G"],
-      "bass": "eighths", "guitar": "busy", "lead": "guitar"
+      "bass": "eighths", "guitar": "busy", "guitar2": "silent", "lead": "guitar"
     },
     {
       // Eight bars of everything stopping except the rhythm section. The one
@@ -72,15 +73,29 @@
       "bass": "roots"
     },
     {
+      // Added so the lead guitar has somewhere to play. After the bridge and
+      // before the last chorus is where a rock song puts a solo: the
+      // arrangement has just dropped and needs lifting back into the ending.
+      //
+      // The rhythm guitar keeps the riff going underneath - a soloing player
+      // cannot also hold the harmony, which is the whole reason for a second
+      // guitar part.
+      "name": "solo", "bars": 4, "intensity": 0.94,
+      "feel": "straight", "plays": "full", "fill": "auto",
+      "chords": ["G", "C", "D", "G"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo",
+      "piano": "silent", "lead": "guitar2"
+    },
+    {
       "name": "chorus3", "bars": 8, "intensity": 1.0,
       "feel": "straight", "plays": "drums+bass+guitar", "fill": "big",
       "chords": ["C", "D", "G", "G"],
-      "bass": "eighths", "guitar": "busy", "lead": "guitar"
+      "bass": "eighths", "guitar": "busy", "guitar2": "silent", "lead": "guitar"
     },
     {
       "name": "ending", "bars": 2, "intensity": 0.9,
       "feel": "straight", "plays": "drums+bass+guitar", "fill": "none",
-      "chords": ["C", "G"], "guitar": "driving", "lead": "guitar"
+      "chords": ["C", "G"], "guitar": "driving", "guitar2": "silent", "lead": "guitar"
     }
   ]
 }
