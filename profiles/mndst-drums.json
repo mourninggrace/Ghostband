@@ -52,7 +52,9 @@
 
   "name": "MINDst Drums",
   "id": "mndst_drums",
-  "channel": 10,
+  // Twelve, which is where the rig has it. Ten is General MIDI's drum channel
+  // and is where SSD5 still sits, so the two never collide if both are loaded.
+  "channel": 12,
 
   "needs_verification": true,
   "verification_note": "Note map derived from a probe sweep, not confirmed by ear. Walk the Calibrate screen before trusting it.",

@@ -68,15 +68,38 @@ temporary file now, which it should have from the start.
 
 ### CHANNELS, as the rig has them
 
-    1   bass            MODO Bass 2
-    2   guitar          UJAM VG IRON 2      (rhythm)
-    3   piano           UJAM Virtual Pianist
-   10   drums           SSD5 Terry Date
-   11   guitar 2        Shreddage 3 Hydra   (lead)
-   12   drums 2         MINDst Drums        - constrainer exists, nothing sends to it yet
+    1   bass       MODO Bass 2
+    2   guitar     UJAM VG IRON 2        (rhythm)
+    3   piano      UJAM Virtual Pianist
+   11   guitar 2   Shreddage 3 Hydra     (lead, and every song's solo)
+   12   drums      MINDst Drums
 
-All five are the plugin's defaults and all are changeable in Settings. Channel
-12 is waiting on the kit-per-song work below.
+Each comes from the instrument's own profile, because a channel belongs to the
+instrument rather than to the part it is filling. SSD5 keeps channel 10 for
+when it is not shelved, so the two kits can never collide.
+
+### THE KIT: MINDst, with SSD5 shelved  [DECIDED 2026-09-06]
+
+One drummer, decided. Every song plays MINDst.
+
+**SSD5 is shelved, not deleted**, and switching back is one command:
+`SwitchDrums ssd5` then `Install.bat`. It rewrites the drum profile named in
+every song; the channel comes from the profile, so Settings needs nothing.
+`SwitchDrums` on its own says which kit is in use.
+
+The deciding evidence, from probing both the same way:
+
+| | SSD5 | MINDst |
+|---|---|---|
+| named parameters | **1** (`Bypass`) | **3588**, all named |
+| other parameters | 2080 anonymous `MIDI CC n\|m` slots | - |
+| sounded when probed headlessly | 0 of 73 | 57 of 73 |
+| profiles needed | 7, one per kit | 1 |
+
+**This is also the answer to the SSD5 master volume, which resisted every
+attempt for weeks: there was nothing there to map.** SSD5 exposes no named
+control at all, so neither Ghostband nor Gig Performer can reach a volume by
+name, and its own Map page will not assign one a CC. MINDst names everything.
 
 ### 1. Two guitars - rhythm and lead  [DONE 2026-09-05]
 

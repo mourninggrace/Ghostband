@@ -20,7 +20,7 @@
   "seed":       1971,
   "ending":     "cymbal_ring",
 
-  "drum_profile":   "profiles/ssd5-terry-date.json",
+  "drum_profile":   "profiles/mndst-drums.json",
   "bass_profile":   "profiles/modo-bass-2.json",
   "guitar_profile": "profiles/vg-iron2.json",
   "guitar2_profile": "profiles/shreddage-3-hydra.json",

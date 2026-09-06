@@ -87,7 +87,7 @@ int main (int argc, char** argv)
         check (proc.planIsBuiltIn(), "reports that it is on the built-in plan");
         check (! proc.getSections().empty(), "built-in plan has an arrangement",
                juce::String (static_cast<int> (proc.getSections().size())) + " sections");
-        check (proc.getSequenceNoteOnCount (10) > 0 && proc.getSequenceNoteOnCount (1) > 0,
+        check (proc.getSequenceNoteOnCount (proc.channelDrums.load()) > 0 && proc.getSequenceNoteOnCount (1) > 0,
                "built-in plan produces both drums and bass");
 
         // The built-in plan used to name no profiles at all, so guitar and piano
@@ -123,10 +123,13 @@ int main (int argc, char** argv)
               << status.drumHits << " drum hits, " << status.bassNotes << " bass notes\n";
     std::cout << "  drums: " << status.drumProfile << "\n  bass : " << status.bassProfile << "\n\n";
 
-    std::cout << "  sequence holds " << proc.getSequenceNoteOnCount (10) << " note-ons on ch10, "
+    std::cout << "  sequence holds " << proc.getSequenceNoteOnCount (proc.channelDrums.load()) << " note-ons on ch10, "
               << proc.getSequenceNoteOnCount (1) << " on ch1\n\n";
 
-    check (status.drumProfile.contains ("Terry Date") || status.drumProfile.contains ("SSD5"),
+    // That a profile resolved, not which one. Naming the kit here meant swapping
+    // kits looked like a broken path.
+    check (status.drumProfile.isNotEmpty()
+               && ! status.drumProfile.contains ("not found"),
            "drum profile resolved from a path relative to the project root",
            status.drumProfile);
     check (status.bassProfile.contains ("MODO"),
@@ -293,13 +296,20 @@ int main (int argc, char** argv)
     check (totalOn == totalOff, "every note-on is matched by a note-off",
            juce::String (totalOn) + " on vs " + juce::String (totalOff) + " off");
 
-    check (noteOnByChannel.count (10) > 0, "drums are emitted on channel 10");
-    check (noteOnByChannel.count (1) > 0,  "bass is emitted on channel 1");
+    // On the kit's own channel, which is the kit's to decide - MINDst is on 12,
+    // SSD5 on 10 - not a constant the test gets to assume.
+    const int drumCh = proc.channelDrums.load();
+    const int bassCh = proc.channelBass.load();
+
+    check (noteOnByChannel.count (drumCh) > 0, "drums are emitted on their channel",
+           "channel " + juce::String (drumCh));
+    check (noteOnByChannel.count (bassCh) > 0, "bass is emitted on its channel",
+           "channel " + juce::String (bassCh));
 
     // The drum profile emits exactly one note per intent, so these must agree.
-    check (noteOnByChannel[10] == status.drumHits,
+    check (noteOnByChannel[drumCh] == status.drumHits,
            "drum note count matches what the engine reported",
-           juce::String (noteOnByChannel[10]) + " vs " + juce::String (status.drumHits));
+           juce::String (noteOnByChannel[drumCh]) + " vs " + juce::String (status.drumHits));
 
     // Bass carries keyswitches on top of the played notes, so it must be at
     // least the reported count and not wildly more.
@@ -352,7 +362,7 @@ int main (int argc, char** argv)
         // two and made a correct change look like a regression.
         const int kPlayed = 26;
 
-        const int drumsBefore = proc.getSequenceNoteOnCount (10);
+        const int drumsBefore = proc.getSequenceNoteOnCount (proc.channelDrums.load());
         const int bassBefore  = proc.getSequenceNoteOnCount (1, kPlayed);
         const int pitchBefore = proc.getSequencePitchSum (1);
 
@@ -364,10 +374,10 @@ int main (int argc, char** argv)
 
         // Transposing must move the pitches without disturbing the performance:
         // same rhythm, same number of notes, different notes.
-        check (proc.getSequenceNoteOnCount (10) == drumsBefore
+        check (proc.getSequenceNoteOnCount (proc.channelDrums.load()) == drumsBefore
                    && proc.getSequenceNoteOnCount (1, kPlayed) == bassBefore,
                "transposing does not change the drumming or the note count",
-               juce::String (proc.getSequenceNoteOnCount (10)) + "/"
+               juce::String (proc.getSequenceNoteOnCount (proc.channelDrums.load())) + "/"
                    + juce::String (proc.getSequenceNoteOnCount (1, kPlayed))
                    + " was " + juce::String (drumsBefore) + "/" + juce::String (bassBefore));
         check (proc.getSequencePitchSum (1) != pitchBefore,
@@ -422,7 +432,7 @@ int main (int argc, char** argv)
             if (queuedYet)
             {
                 ++blocksAfterQueue;
-                if (jumpedAtTick < 0 && proc.getSequenceNoteOnCount (10) >= 0
+                if (jumpedAtTick < 0 && proc.getSequenceNoteOnCount (proc.channelDrums.load()) >= 0
                     && proc.activeSection.load() == targetSection)
                     jumpedAtTick = proc.playbackTick.load();
             }
@@ -494,7 +504,7 @@ int main (int argc, char** argv)
             check (gtr > 0, "guitar plays", juce::String (gtr) + " note-ons on ch2");
             check (pno > 0, "piano plays",  juce::String (pno) + " note-ons on ch3");
 
-            check (proc.getSequenceNoteOnCount (10) > 0 && proc.getSequenceNoteOnCount (1) > 0,
+            check (proc.getSequenceNoteOnCount (proc.channelDrums.load()) > 0 && proc.getSequenceNoteOnCount (1) > 0,
                    "drums and bass still play alongside them");
 
             // The intro is "drums+bass", so the guitar must not start at tick 0.
