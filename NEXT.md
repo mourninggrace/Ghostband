@@ -3,6 +3,25 @@
 Last updated 2026-09-06, session 12. Everything described as done is committed,
 pushed, installed, and covered by the harness (172 checks).
 
+## SESSION 12 RESULT
+
+Confirmed working by ear: Teach reaches the right instrument, the mix knob
+moves one control, the interface is readable. Twelve faults fixed. Four of
+them were one shape - a lookup written before the second guitar existed and
+never revisited: channelForPart, both of playsString shortcuts, and the
+calibration step list.
+
+**The one worth remembering.** Shreddage learned CC 20 for its Pitch Bend
+Range while its owner did everything right. regenerate() ends by re-sending
+the mix levels; every Settings edit regenerates; the second guitar level is
+CC 20. A knob in MIDI Learn takes the first controller it hears. Ghostband
+was teaching the wrong CC to the wrong knob, invisibly. Anything this plugin
+transmits as a side effect can be latched onto by something listening - so
+sendLevels is now silent when nothing changed, and a Teach owns the wire.
+
+**Ghostband does not automate pitch bend range.** It is a setting with one
+correct value, which every bend is sized against. Set it to 2 by hand.
+
 ## SESSION 12: the mix knob, and an audit
 
 Reported: the GTR 2 mix knob moved Shreddage's volume AND bite together; take
