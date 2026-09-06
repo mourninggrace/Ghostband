@@ -568,13 +568,13 @@ void GhostbandProcessor::testPart (int part)
         return;
 
     {
-        static const char* names[] = { "drums", "bass", "guitar", "piano" };
+        static const char* names[] = { "drums", "bass", "guitar", "piano", "guitar 2" };
         juce::String notes;
         for (int n : f.notes)
             notes += (notes.isEmpty() ? "" : " ") + juce::String (n);
 
         const juce::ScopedLock sl (stateLock);
-        lastMidiReport = juce::String ("Test ") + names[juce::jlimit (0, 3, part)]
+        lastMidiReport = juce::String ("Test ") + names[juce::jlimit (0, 4, part)]
                        + ": notes " + notes + " on channel " + juce::String (f.channel);
     }
 
@@ -1134,13 +1134,13 @@ void GhostbandProcessor::sendLevels()
     }
 
     {
-        static const char* names[] = { "drums", "bass", "guitar", "piano" };
+        static const char* names[] = { "drums", "bass", "guitar", "piano", "guitar 2" };
         juce::String report;
         for (size_t i = 0; i < out.size() && i < 8; ++i)
         {
             const Message& m = out[i];
             report += (report.isEmpty() ? "" : "   ")
-                    + juce::String (names[juce::jlimit (0, 3, static_cast<int> (i))])
+                    + juce::String (names[juce::jlimit (0, 4, static_cast<int> (i))])
                     + " CC" + juce::String (m.cc)
                     + (m.cc == 7 ? "(untaught)" : "")
                     + " ch" + juce::String (m.channel)

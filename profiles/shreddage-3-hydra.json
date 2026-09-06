@@ -202,14 +202,18 @@
   // it CAN do is push a fixed tone harder, which is what a guitarist does
   // anyway: the amp does not change for the solo, the playing hits it harder.
   //
-  //   drive        Engine Volume is PRE-FX gain, so raising it drives whatever
-  //                amp is in Console harder. This is the gain control.
-  //   bite         an EQ that adds brightness and takes out low-mid body. Up
-  //                for a solo so the line cuts through the rhythm guitar.
-  //   pickup       neck / neck+bridge / bridge. Neck is round and vocal and is
-  //                where leads live; bridge is tight and is for riffing.
-  //   tracks       multi-tracking, 1 to 4 virtual guitars. A rhythm part
-  //                doubles; a lead must stay single or it smears.
+  //   Volume          MAIN page, top left, under Tone & Signal. It is PRE-FX
+  //                   gain, so raising it drives whatever amp is in Console
+  //                   harder. This is the gain control, despite its name.
+  //   Bite            MAIN page, right hand group. Adds brightness and takes
+  //                   out low-mid body. Up for a solo, so the line cuts.
+  //   Signal          the pickup selector: neck / neck+bridge / bridge. Neck is
+  //                   round and vocal and is where leads live.
+  //   Multi-Tracking  the row of little guitars, 1 to 4. A rhythm part doubles;
+  //                   a lead must stay single or it smears.
+  //   Kontakt volume  NOT a Shreddage knob - Kontakt's own instrument volume,
+  //                   in the header above the Shreddage interface. Assigned
+  //                   from Kontakt's Automation tab by dragging a CC onto it.
   //
   // All four follow "lead" - up, brighter, warmer and single-tracked when this
   // guitar is out front, back to the rhythm setting when it is not.
@@ -223,11 +227,15 @@
   // the volume that mix reaches has to be KONTAKT's instrument volume, assigned
   // from Kontakt's Automation tab - drag a MIDI CC onto the slider. That is not
   // a right-click, which is why right-clicking it did nothing.
+  // NAMED AFTER THE KNOB YOU RIGHT-CLICK, not after what it does. The first
+  // version called these drive/bite/pickup/tracks, and three of those four are
+  // not written anywhere on Shreddage's interface - so the Settings list named
+  // controls that appeared not to exist.
   "controls": {
-    "drive":  { "cc": 20, "follows": "lead", "type": "knob", "low": 0.35, "high": 0.85 },
-    "bite":   { "cc": 21, "follows": "lead", "type": "knob", "low": 0.15, "high": 0.70 },
-    "pickup": { "cc": 22, "follows": "lead", "type": "select", "positions": 3, "low": 1, "high": 0 },
-    "tracks": { "cc": 23, "follows": "lead", "type": "select", "positions": 4, "low": 1, "high": 0 },
-    "level":  { "cc": 24, "follows": "level", "type": "knob", "low": 0, "high": 1 }
+    "volume":         { "cc": 20, "follows": "lead", "type": "knob", "low": 0.35, "high": 0.85 },
+    "bite":           { "cc": 21, "follows": "lead", "type": "knob", "low": 0.15, "high": 0.70 },
+    "signal":         { "cc": 22, "follows": "lead", "type": "select", "positions": 3, "low": 1, "high": 0 },
+    "multi-tracking": { "cc": 23, "follows": "lead", "type": "select", "positions": 4, "low": 1, "high": 0 },
+    "kontakt volume": { "cc": 24, "follows": "level", "type": "knob", "low": 0, "high": 1 }
   }
 }

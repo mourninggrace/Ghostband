@@ -1420,7 +1420,11 @@ juce::String GhostbandEditor::controlUnitsHint (const juce::String& type, int po
 
 void GhostbandEditor::refreshControls()
 {
-    const int part = juce::jlimit (0, 3, learnPart.getSelectedId() - 1);
+    // 0..4, not 0..3. Clamping to four parts while the buttons beside this list
+    // clamped to five meant picking "guitar 2" showed the PIANO's mappings while
+    // Teach and Save acted on the second guitar - a list of one instrument's
+    // controls with another instrument's buttons under it.
+    const int part = juce::jlimit (0, 4, learnPart.getSelectedId() - 1);
     const int count = processor.getControlCount (part);
     ctlSelected = juce::jlimit (0, juce::jmax (0, count - 1), ctlSelected);
 
@@ -1543,7 +1547,7 @@ void GhostbandEditor::pushControlEdit()
     if (suppressControlCallbacks || screen != Screen::Settings)
         return;
 
-    const int part = juce::jlimit (0, 3, learnPart.getSelectedId() - 1);
+    const int part = juce::jlimit (0, 4, learnPart.getSelectedId() - 1);
     if (processor.getControlCount (part) == 0)
         return;
 
