@@ -442,6 +442,16 @@ void GhostbandProcessor::enterCalibration()
         };
 
         addPhraseSteps (guitarProfile, "guitar", haveGuitar);
+
+        // The second guitar, which was simply missing from this list.
+        //
+        // Calibrate is how a profile stops being a guess, and Shreddage's is
+        // the profile that most needs it: its range is written down as
+        // "reasoned rather than measured - walk the Calibrate screen to confirm
+        // it", and the screen did not offer it. The one instrument whose file
+        // asks to be calibrated was the one instrument that could not be.
+        addPhraseSteps (guitar2Profile, "guitar 2", haveGuitar2);
+
         addPhraseSteps (pianoProfile,  "piano",  havePiano);
     }
 

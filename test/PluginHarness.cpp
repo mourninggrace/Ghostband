@@ -794,6 +794,45 @@ int main (int argc, char** argv)
         proc.loadPlan (band.existsAsFile() ? band : juce::File (planPath));
         check (! proc.isCalibrating(), "does not start in calibration mode");
 
+        // ---- calibration reaches every instrument in the song ---------------
+        // Calibrate is how a profile stops being a guess, and it walked guitar
+        // and piano but not the second guitar - so Shreddage, whose profile
+        // says in as many words that its range is "reasoned rather than
+        // measured - walk the Calibrate screen to confirm it", was the one
+        // instrument that could not be walked.
+        //
+        // Checked by channel rather than by label, because a channel is what a
+        // step actually reaches and a label is only what it claims.
+        {
+            proc.enterCalibration();
+
+            std::set<int> channels;
+            for (int i = 0; i < proc.getCalibrationStepCount(); ++i)
+                channels.insert (proc.getCalibrationStep (i).channel);
+
+            const auto reaches = [&channels] (int ch) { return channels.count (ch) > 0; };
+
+            check (reaches (proc.channelDrums.load()) && reaches (proc.channelBass.load()),
+                   "calibration reaches drums and bass");
+
+            for (int part = 2; part <= 4; ++part)
+            {
+                if (! proc.partIsInSong (part))
+                    continue;
+
+                const int ch = proc.channelForPart (part);
+                static const char* names[5] = { "drums", "bass", "guitar", "piano", "guitar 2" };
+
+                check (reaches (ch),
+                       juce::String ("calibration reaches ") + names[part],
+                       "channel " + juce::String (ch)
+                           + (reaches (ch) ? " is stepped through"
+                                           : " is never played - it cannot be calibrated"));
+            }
+
+            proc.exitCalibration();
+        }
+
         proc.enterCalibration();
         check (proc.isCalibrating(), "enters calibration");
 
