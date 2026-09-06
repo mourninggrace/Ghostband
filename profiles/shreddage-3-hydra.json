@@ -242,8 +242,26 @@
   // version called these drive/bite/pickup/tracks, and three of those four are
   // not written anywhere on Shreddage's interface - so the Settings list named
   // controls that appeared not to exist.
+  //
+  // VOLUME FOLLOWS "level", which is a change of mind and worth saying why.
+  //
+  // It followed "lead" - up when this guitar is out front - which is musically
+  // the better use of a pre-FX gain and left NOTHING for the GTR 2 mix knob to
+  // reach. The knob then fell back to CC 7, which Kontakt did not answer, so it
+  // moved nothing at all. That is this project's own rule broken by its own
+  // author: a control that does nothing is worse than no control.
+  //
+  // A working fader beats automated gain. Bite still follows "lead" and carries
+  // most of that gesture anyway - a solo cuts through because it is brighter
+  // more than because it is hotter.
+  //
+  // It is still pre-FX gain rather than an output level, so turning it down
+  // makes the guitar cleaner as well as quieter. If that becomes a problem the
+  // honest target is KONTAKT's instrument volume: its Automation tab, MIDI tab,
+  // drag CC 20 onto the volume slider. That is a drag, not a right-click, which
+  // is why right-clicking it did nothing.
   "controls": {
-    "volume": { "cc": 20, "follows": "lead", "type": "knob", "low": 0.35, "high": 0.85 },
+    "volume": { "cc": 20, "follows": "level", "type": "knob", "low": 0.0, "high": 1.0 },
     "bite": { "cc": 21, "follows": "lead", "type": "knob", "low": 0.15, "high": 0.7 },
     "signal": { "cc": 22, "follows": "lead", "type": "select", "positions": 3, "low": 1, "high": 0 }
   }

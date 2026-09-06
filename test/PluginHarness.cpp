@@ -2017,6 +2017,78 @@ int main (int argc, char** argv)
             check (count == 0 || leads > 0,
                    "the profile's own \"follows\" survives the taught store",
                    juce::String (leads) + " control(s) still follow \"lead\"");
+
+            // And the knob reaches something. A part whose profile declares
+            // controls but none following "level" has a mix knob that falls
+            // back to CC 7 - which Kontakt did not answer, so the GTR 2 knob
+            // moved nothing while looking exactly like one that worked.
+            check (count == 0 || levels == 1,
+                   "the second guitar's mix knob reaches a real control",
+                   levels == 1 ? juce::String ("yes")
+                               : juce::String ("no - falling back to CC 7"));
+
+            check (count == 0 || proc.levelIsTaught (gtr2),
+                   "and the plugin agrees that it is taught");
+
+            // On the wire, on Shreddage's own channel. Twice now a mix knob has
+            // been declared fixed on the strength of the code reading right.
+            juce::AudioBuffer<float> buf (2, blockSize);
+            juce::MidiBuffer out;
+
+            for (int i = 0; i < 8; ++i) { out.clear(); proc.processBlock (buf, out); }
+
+            proc.levelGuitar2.store (0.60f);
+            proc.sendLevels();
+
+            int cc = -1, value = -1, channel = -1;
+            for (int i = 0; i < 8 && cc < 0; ++i)
+            {
+                out.clear();
+                proc.processBlock (buf, out);
+                for (const auto meta : out)
+                {
+                    const auto m = meta.getMessage();
+                    if (m.isController() && m.getChannel() == proc.channelGuitar2.load())
+                    {
+                        cc = m.getControllerNumber();
+                        value = m.getControllerValue();
+                        channel = m.getChannel();
+                    }
+                }
+            }
+
+            check (count == 0 || (cc > 0 && cc != 7),
+                   "the GTR 2 mix knob leaves the plugin on a taught controller",
+                   "CC" + juce::String (cc) + " ch" + juce::String (channel)
+                       + "=" + juce::String (value));
+
+            // ---- where the two guitars actually end up ----------------------
+            // The CLI resolves channels straight from the profiles. The PLUGIN
+            // does not: it layers a saved slot channel, a per-instrument learned
+            // channel and a collision resolver on top, and none of that is
+            // exercised by rendering a plan from the command line. "The solo is
+            // playing on IRON 2" is a claim about this path, so this is the
+            // path that has to be measured.
+            const int chGtr  = proc.channelGuitar.load();
+            const int chGtr2 = proc.channelGuitar2.load();
+
+            check (chGtr != chGtr2,
+                   "the two guitars are on different channels",
+                   "guitar ch" + juce::String (chGtr)
+                       + ", guitar 2 ch" + juce::String (chGtr2));
+
+            const int onGtr  = proc.getSequenceNoteOnCount (chGtr);
+            const int onGtr2 = proc.getSequenceNoteOnCount (chGtr2);
+
+            check (onGtr2 > 0,
+                   "the second guitar is actually sent notes",
+                   juce::String (onGtr2) + " note-ons on ch" + juce::String (chGtr2)
+                       + " (rhythm guitar has " + juce::String (onGtr)
+                       + " on ch" + juce::String (chGtr) + ")");
+
+            check (chGtr2 == 11,
+                   "and on the channel Shreddage's profile asks for",
+                   "ch" + juce::String (chGtr2));
         }
     }
 

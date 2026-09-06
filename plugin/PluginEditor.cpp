@@ -13,6 +13,14 @@ const char* kStyleIds[] = { "hard_rock", "metal", "thrash", "groove_metal",
                             "alt_rock", "emo", "ballad", "blues" };
 const char* kTuningIds[] = { "standard", "drop_d", "drop_c", "b_standard" };
 
+// The standing half of the MIDI Learn help. refreshControls puts a live line
+// above it saying what the selected part's mix knob currently reaches, which is
+// the half that changes.
+const char* kLearnHelp =
+    "Add a control, name it, choose what it should follow. Knob sweeps, switch "
+    "is on or off, select holds one of a fixed set of choices. Then put the "
+    "control into MIDI Learn in the instrument and press Teach.";
+
 constexpr int kNumStyles  = static_cast<int> (sizeof (kStyleIds)  / sizeof (kStyleIds[0]));
 constexpr int kNumTunings = static_cast<int> (sizeof (kTuningIds) / sizeof (kTuningIds[0]));
 
@@ -1085,9 +1093,11 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     initLabel (ctlValueHint, "", 10.0f, ghost::dim, juce::Justification::centredLeft);
 
     initLabel (learnHeading, "MIDI LEARN", 11.0f, ghost::text, juce::Justification::centredLeft);
-    initLabel (learnHelp,
-               "Add a control, name it, choose what it should follow. Knob sweeps, switch is on or off, select holds one of a fixed set of choices. Use random for a control with no right answer, and level for the instrument's own volume so the mix knobs on the song screen reach it. Then put the control into MIDI Learn in the instrument and press Teach.",
-               11.0f, ghost::dim, juce::Justification::topLeft);
+    // Shorter than it was, because refreshControls now puts a live line above
+    // it saying what the mix knob reaches, and the label has room for one
+    // paragraph rather than two. What came out is the part the list already
+    // shows: which type means what.
+    initLabel (learnHelp, kLearnHelp, 11.0f, ghost::dim, juce::Justification::topLeft);
     learnHelp.setJustificationType (juce::Justification::topLeft);
 
     initLabel (settingsHeading, "SETTINGS", 15.0f, ghost::text, juce::Justification::centredLeft);
@@ -1447,6 +1457,34 @@ void GhostbandEditor::refreshControls()
         : "This song has no " + learnPart.getText()
               + ". Its mappings are safe in the instrument's profile - load a "
                 "song that uses it to see them.");
+
+    // What this part's mix knob currently reaches, said out loud.
+    //
+    // "level" was explained in the help paragraph below and missed anyway,
+    // which is fair: it is one word in the middle of five sentences, and the
+    // consequence of not setting it shows up on a different screen as a knob
+    // that silently does nothing. The mapping list is where it is fixed, so it
+    // is where the state belongs.
+    juce::String mix = "MIX KNOB: ";
+    {
+        juce::String reaches;
+        for (int i = 0; i < count; ++i)
+        {
+            const auto c = processor.getControl (part, i);
+            if (c.follows == "level")
+            {
+                reaches = c.name + " (CC" + juce::String (c.cc) + ")";
+                break;
+            }
+        }
+
+        mix += reaches.isNotEmpty()
+                 ? reaches
+                 : juce::String ("nothing yet - set one control to follow \"level\", "
+                                 "or the knob falls back to CC 7 and most plugins ignore it.");
+    }
+    learnHelp.setText (mix + "\n" + kLearnHelp, juce::dontSendNotification);
+    learnHelp.setColour (juce::Label::textColourId, ghost::dim);
 
     const bool any = count > 0;
     ctlAdd.setEnabled (inSong);
@@ -2293,6 +2331,7 @@ void GhostbandEditor::resized()
     juce::Label*  levelLabels[5]  = { &levelDrumsLabel, &levelBassLabel,
                                       &levelGuitarLabel, &levelGuitar2Label,
                                       &levelPianoLabel };
+    static const char* kLevelNames[5] = { "DRUMS", "BASS", "GTR", "GTR 2", "PIANO" };
 
     // A knob is laid out only for a part whose volume can actually be reached.
     // SSD5 has no volume anything outside it can address, so a drum mix knob is
@@ -2316,6 +2355,19 @@ void GhostbandEditor::resized()
         levelLabels[i]->setVisible (show);
         if (! reachable)
             continue;
+
+        // A knob with no control following "level" still sends CC 7, which some
+        // plugins answer and most ignore. That is a guess, not a connection, so
+        // it is drawn as one - dimmed, with the label saying CC 7 outright.
+        // Shreddage sat in exactly this state and looked identical to a knob
+        // that worked, which is how it went unnoticed through two sessions.
+        const bool taught = processor.levelIsTaught (partForKnob[i]);
+        levelLabels[i]->setColour (juce::Label::textColourId,
+                                   taught ? ghost::dim : ghost::warn);
+        levelLabels[i]->setText (taught ? kLevelNames[i]
+                                        : juce::String (kLevelNames[i]) + " \xc2\xb7 CC7",
+                                 juce::dontSendNotification);
+        levelSliders[i]->setAlpha (taught ? 1.0f : 0.55f);
 
         auto cell = mixRow.removeFromLeft (52);
         levelLabels[i]->setBounds (cell.removeFromTop (11));
