@@ -64,6 +64,15 @@ int main (int argc, char** argv)
     std::cout << "\nGhostband plugin harness\n========================\n\n";
     std::cout << "plan: " << planPath << "\n\n";
 
+    // Before any processor exists, because one reads the store on construction.
+    // A test run must never rewrite the channels and taught controls of every
+    // instrument on the machine, and for one run of this harness it did.
+    const juce::File testStore = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                     .getChildFile ("ghostband-harness")
+                                     .getChildFile ("learned-controls.json");
+    testStore.deleteFile();
+    GhostbandProcessor::setLearnedControlsFileForTesting (testStore);
+
     GhostbandProcessor proc;
 
     check (proc.producesMidi(), "plugin declares MIDI output");
@@ -132,15 +141,42 @@ int main (int argc, char** argv)
     // are drums and bass only, so a plan could lose half the band and still
     // pass. This ties the check to what the plan asked for rather than to a
     // fixed count, so it holds for any plan passed on the command line.
+    // Asked on the channel the instrument is actually on, not on a fixed one.
+    // A channel follows the instrument now, so "the guitar" is on 2 when it is
+    // IRON 2 and on 11 when it is Shreddage.
     if (status.guitarProfile.isNotEmpty())
-        check (proc.getSequenceNoteOnCount (2) > 0,
+    {
+        const int ch = proc.channelGuitar.load();
+        check (proc.getSequenceNoteOnCount (ch) > 0,
                "plan names a guitar profile and the guitar plays",
-               juce::String (proc.getSequenceNoteOnCount (2)) + " note-ons on ch2");
+               juce::String (proc.getSequenceNoteOnCount (ch)) + " note-ons on ch"
+                   + juce::String (ch));
+    }
+
+    if (status.guitar2Profile.isNotEmpty())
+    {
+        const int ch = proc.channelGuitar2.load();
+        check (proc.getSequenceNoteOnCount (ch) > 0,
+               "plan names a second guitar and it plays",
+               juce::String (proc.getSequenceNoteOnCount (ch)) + " note-ons on ch"
+                   + juce::String (ch));
+    }
+
+    // Two instruments on one channel is a doubling nobody asked for, and it is
+    // how Shreddage's notes and its articulation keyswitches ended up being sent
+    // to IRON 2 - which played the few that fell in its range and dropped the
+    // rest, so the guitar simply went missing.
+    if (status.guitarProfile.isNotEmpty() && status.guitar2Profile.isNotEmpty())
+        check (proc.channelGuitar.load() != proc.channelGuitar2.load(),
+               "and the two guitars are not on the same channel",
+               "gtr " + juce::String (proc.channelGuitar.load())
+                   + ", gtr2 " + juce::String (proc.channelGuitar2.load()));
 
     if (status.pianoProfile.isNotEmpty())
-        check (proc.getSequenceNoteOnCount (3) > 0,
+        check (proc.getSequenceNoteOnCount (proc.channelPiano.load()) > 0,
                "plan names a piano profile and the piano plays",
-               juce::String (proc.getSequenceNoteOnCount (3)) + " note-ons on ch3");
+               juce::String (proc.getSequenceNoteOnCount (proc.channelPiano.load()))
+                   + " note-ons on ch" + juce::String (proc.channelPiano.load()));
 
     // ---- walk the song ---------------------------------------------------
     const double sampleRate = 48000.0;
@@ -1790,7 +1826,10 @@ int main (int argc, char** argv)
         proc.levelBass.store   (0.55f);
         proc.levelGuitar.store (0.80f);
         proc.levelPiano.store  (0.20f);
+        // Through the real path, because that is what remembers a channel now -
+        // it belongs to the instrument, not to the slot or to the saved state.
         proc.channelGuitar.store (7);
+        proc.applyChannels();
 
         juce::MemoryBlock saved;
         proc.getStateInformation (saved);

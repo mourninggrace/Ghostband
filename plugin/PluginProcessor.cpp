@@ -257,9 +257,27 @@ bool GhostbandProcessor::resolveProfiles (juce::String& error)
     loadPhrase (plan.guitar2Profile, channelGuitar2.load(), guitar2Profile, haveGuitar2);
     loadPhrase (plan.pianoProfile,   channelPiano.load(),   pianoProfile,   havePiano);
 
-    // The user's channel assignment wins over whatever a profile happens to say.
-    kit.channel           = juce::jlimit (1, 16, channelDrums.load());
-    bassProfile.channel   = juce::jlimit (1, 16, channelBass.load());
+    // The channel follows the INSTRUMENT, not the part it is filling.
+    //
+    // It used to be taken from the slot, so loading Shreddage as a song's only
+    // guitar sent Shreddage's notes and Shreddage's articulation keyswitches to
+    // whatever was on the guitar slot's channel - IRON 2 - which played the
+    // handful that happened to fall inside its range and dropped the rest. The
+    // rack has one constrainer per plugin; a plugin's channel does not change
+    // because a song gave it a different job.
+    //
+    // The profile's own channel is the default, and a channel set in Settings
+    // is remembered against the instrument, exactly as its taught controls are.
+    const auto channelFor = [this] (const std::string& instrument, const std::string& id,
+                                    int declared)
+    {
+        const std::string key = instrumentKeyFor (instrument, id);
+        const auto found = learnedChannels.find (key);
+        return juce::jlimit (1, 16, found != learnedChannels.end() ? found->second : declared);
+    };
+
+    kit.channel         = channelFor (kit.instrument,         kit.id,         kit.channel);
+    bassProfile.channel = channelFor (bassProfile.instrument, bassProfile.id, bassProfile.channel);
     // Taught mappings override whatever the profile files carry.
     mergeLearnedControls (kit.controls,            kit.instrument,            kit.id);
     mergeLearnedControls (bassProfile.controls,    bassProfile.instrument,    bassProfile.id);
@@ -267,9 +285,32 @@ bool GhostbandProcessor::resolveProfiles (juce::String& error)
     if (haveGuitar2) mergeLearnedControls (guitar2Profile.controls, guitar2Profile.instrument, guitar2Profile.id);
     if (havePiano)   mergeLearnedControls (pianoProfile.controls,   pianoProfile.instrument,   pianoProfile.id);
 
-    guitarProfile.channel  = juce::jlimit (1, 16, channelGuitar.load());
-    guitar2Profile.channel = juce::jlimit (1, 16, channelGuitar2.load());
-    pianoProfile.channel   = juce::jlimit (1, 16, channelPiano.load());
+    guitarProfile.channel  = channelFor (guitarProfile.instrument,  guitarProfile.id,  guitarProfile.channel);
+    guitar2Profile.channel = channelFor (guitar2Profile.instrument, guitar2Profile.id, guitar2Profile.channel);
+    pianoProfile.channel   = channelFor (pianoProfile.instrument,   pianoProfile.id,   pianoProfile.channel);
+
+    // Two instruments on one channel is a doubling nobody asked for, and the
+    // pair that collides is exactly the pair a twin-guitar song uses. Move the
+    // second one rather than letting both play every note the other does.
+    if (haveGuitar && haveGuitar2 && guitar2Profile.channel == guitarProfile.channel)
+    {
+        int wanted = 11;
+        const auto taken = [&] (int c)
+        {
+            return c == guitarProfile.channel || c == kit.channel || c == bassProfile.channel
+                || (havePiano && c == pianoProfile.channel);
+        };
+        while (wanted <= 16 && taken (wanted)) ++wanted;
+        if (wanted <= 16)
+            guitar2Profile.channel = wanted;
+    }
+
+    // The Settings boxes show what the instruments are actually on.
+    channelDrums.store   (kit.channel);
+    channelBass.store    (bassProfile.channel);
+    if (haveGuitar)  channelGuitar.store  (guitarProfile.channel);
+    if (haveGuitar2) channelGuitar2.store (guitar2Profile.channel);
+    if (havePiano)   channelPiano.store   (pianoProfile.channel);
 
     return error.isEmpty();
 }
@@ -438,10 +479,28 @@ void GhostbandProcessor::applyChannels()
 {
     {
         const juce::ScopedLock sl (stateLock);
-        kit.channel           = juce::jlimit (1, 16, channelDrums.load());
-        bassProfile.channel   = juce::jlimit (1, 16, channelBass.load());
-        guitarProfile.channel = juce::jlimit (1, 16, channelGuitar.load());
-        pianoProfile.channel  = juce::jlimit (1, 16, channelPiano.load());
+
+        // Setting a slot's channel sets the channel of the INSTRUMENT in that
+        // slot, and remembers it against that instrument. Putting Shreddage in
+        // the guitar slot and moving that slot to 11 should not mean IRON 2 is
+        // on 11 the next time a song uses it there.
+        const auto assign = [this] (int wanted, const std::string& instrument,
+                                    const std::string& id, int& target)
+        {
+            target = juce::jlimit (1, 16, wanted);
+
+            const std::string key = instrumentKeyFor (instrument, id);
+            if (! key.empty())
+                learnedChannels[key] = target;
+        };
+
+        assign (channelDrums.load(),   kit.instrument,            kit.id,            kit.channel);
+        assign (channelBass.load(),    bassProfile.instrument,    bassProfile.id,    bassProfile.channel);
+        if (haveGuitar)  assign (channelGuitar.load(),  guitarProfile.instrument,  guitarProfile.id,  guitarProfile.channel);
+        if (haveGuitar2) assign (channelGuitar2.load(), guitar2Profile.instrument, guitar2Profile.id, guitar2Profile.channel);
+        if (havePiano)   assign (channelPiano.load(),   pianoProfile.instrument,   pianoProfile.id,   pianoProfile.channel);
+
+        saveLearnedControls();
     }
     regenerate();
     sendLevels();
@@ -667,30 +726,72 @@ void GhostbandProcessor::walkControl (int part, int index)
 // the plugin in the rack rather than about the profile file naming it - and
 // seven files describe one SSD5.
 
+static juce::File& learnedControlsOverride()
+{
+    static juce::File f;
+    return f;
+}
+
+void GhostbandProcessor::setLearnedControlsFileForTesting (const juce::File& f)
+{
+    learnedControlsOverride() = f;
+}
+
 juce::File GhostbandProcessor::learnedControlsFile()
 {
+    if (learnedControlsOverride() != juce::File())
+        return learnedControlsOverride();
+
     return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
                .getChildFile ("Ghostband")
                .getChildFile ("learned-controls.json");
 }
 
+std::string GhostbandProcessor::instrumentKeyFor (const std::string& instrument,
+                                                 const std::string& id)
+{
+    return instrument.empty() ? id : instrument;
+}
+
 void GhostbandProcessor::loadLearnedControls()
 {
     learnedControls.clear();
+    learnedChannels.clear();
 
     const juce::File f = learnedControlsFile();
     if (! f.existsAsFile())
         return;
 
     juce::var parsed = juce::JSON::parse (f.loadFileAsString());
-    if (auto* obj = parsed.getDynamicObject())
+    auto* obj = parsed.getDynamicObject();
+    if (obj == nullptr)
+        return;
+
+    const auto readControls = [this] (const juce::DynamicObject& from)
     {
-        for (const auto& entry : obj->getProperties())
+        for (const auto& entry : from.getProperties())
         {
             gb::ControlSet set;
             if (gb::parseControlsJson (entry.value.toString().toStdString(), set))
                 learnedControls[entry.name.toString().toStdString()] = set;
         }
+    };
+
+    // The first version of this file was a flat map of instrument to controls.
+    // Read it either way rather than throwing away what somebody has taught.
+    if (obj->hasProperty ("controls") || obj->hasProperty ("channels"))
+    {
+        if (auto* c = obj->getProperty ("controls").getDynamicObject())
+            readControls (*c);
+
+        if (auto* ch = obj->getProperty ("channels").getDynamicObject())
+            for (const auto& entry : ch->getProperties())
+                learnedChannels[entry.name.toString().toStdString()]
+                    = juce::jlimit (1, 16, static_cast<int> (entry.value));
+    }
+    else
+    {
+        readControls (*obj);
     }
 }
 
@@ -699,10 +800,18 @@ void GhostbandProcessor::saveLearnedControls() const
     const juce::File f = learnedControlsFile();
     f.getParentDirectory().createDirectory();
 
-    auto* obj = new juce::DynamicObject();
+    auto* controls = new juce::DynamicObject();
     for (const auto& entry : learnedControls)
-        obj->setProperty (juce::Identifier (juce::String (entry.first)),
-                          juce::String (entry.second.toJson()));
+        controls->setProperty (juce::Identifier (juce::String (entry.first)),
+                               juce::String (entry.second.toJson()));
+
+    auto* channels = new juce::DynamicObject();
+    for (const auto& entry : learnedChannels)
+        channels->setProperty (juce::Identifier (juce::String (entry.first)), entry.second);
+
+    auto* obj = new juce::DynamicObject();
+    obj->setProperty ("controls", juce::var (controls));
+    obj->setProperty ("channels", juce::var (channels));
 
     juce::var wrapper (obj);
     f.replaceWithText (juce::JSON::toString (wrapper, false));

@@ -1,6 +1,13 @@
 {
   // A song whose only job is to get Shreddage in front of the Calibrate screen.
   //
+  // It puts Shreddage in the GUITAR slot, which is what exposed the channel bug:
+  // the slot's channel used to override the profile's, so this sent Shreddage's
+  // notes and its articulation keyswitches to whatever else sat on channel 2.
+  // Channels follow the instrument now, so this plays Shreddage on 11 and IRON 2
+  // hears nothing at all. Prefer preset-twin-guitar for listening - it has both
+  // guitars doing their own job.
+  //
   // Calibrate walks whatever the loaded plan names, so a plan has to point at
   // the profile before its range can be checked. This is preset-thrash with the
   // guitar swapped, which means the solo section is already a real lead line to

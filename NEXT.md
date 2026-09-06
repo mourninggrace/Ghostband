@@ -44,6 +44,28 @@ byte-identical file. That evidence was real and the conclusion was wrong: the
 file was identical because it was always right, and re-teaching appeared to fix
 it because re-teaching also happens to reload nothing. One line fixes it.
 
+### A CHANNEL BELONGS TO THE INSTRUMENT, not to the slot
+
+Reported as: loading Shreddage, IRON 2 receiving keyswitches instead of notes,
+no guitar audio, and the solo coming out of IRON 2 with Shreddage never used.
+
+`calibrate-shreddage.json` puts Shreddage in the **guitar** slot, and the plugin
+overrode a profile's channel with the slot's - so everything written for
+Shreddage went to channel 2, where IRON 2 was listening. IRON 2 played the notes
+that happened to fall inside its own 60-89 range, dropped everything below it,
+and received Shreddage's articulation keyswitches at 12-23 as if they were
+notes.
+
+Channels follow the instrument now, exactly as taught controls do: the profile's
+declared channel is the default, and a channel set in Settings is remembered
+against the instrument rather than the slot. Two guitars that would collide are
+separated automatically. Verified: Shreddage in the guitar slot lands on 11 with
+IRON 2 silent; the twin plan puts IRON 2 on 2 and Shreddage on 11.
+
+**The harness was writing to the real store.** A test run rewrote the channels
+and taught controls of every instrument on the machine - it points at a
+temporary file now, which it should have from the start.
+
 ### CHANNELS, as the rig has them
 
     1   bass            MODO Bass 2

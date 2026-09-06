@@ -90,6 +90,11 @@ public:
     // The tempo the loaded song is written at.
     double                         getPlanBpm() const;
 
+    // Tests must not write to the user's real mappings. The harness points this
+    // at a temporary folder; without it a test run rewrote the channels and the
+    // taught controls of every instrument on the machine.
+    static void setLearnedControlsFileForTesting (const juce::File& f);
+
     // Diagnostics for the harness: what the audio thread would actually play,
     // as opposed to what the engine says it generated.
     // `minNote` separates played notes from keyswitches, which are note-ons on
@@ -422,6 +427,20 @@ private:
     // `id`), and are written to one file outside the project so they survive
     // every song, every profile and every gig.
     std::map<std::string, gb::ControlSet> learnedControls;
+
+    // And the channel, for exactly the same reason.
+    //
+    // A channel belongs to the instrument, not to the part it is filling: the
+    // rack has one constrainer per plugin, and IRON 2 is on 2 whether it is the
+    // song's only guitar or its second. Overriding a profile's channel with the
+    // slot's meant loading Shreddage into the guitar slot sent Shreddage's
+    // notes AND its articulation keyswitches to IRON 2 on channel 2 - which
+    // played the parts that happened to fall in IRON 2's range and silently
+    // dropped the rest.
+    std::map<std::string, int> learnedChannels;
+
+    static std::string instrumentKeyFor (const std::string& instrument,
+                                         const std::string& id);
 
     static juce::File   learnedControlsFile();
     void                loadLearnedControls();
