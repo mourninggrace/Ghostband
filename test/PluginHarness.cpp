@@ -599,6 +599,150 @@ int main (int argc, char** argv)
         juce::ignoreUnused (originalName);
     }
 
+    // ---- a plan survives being written and read back -------------------------
+    // Everything the Edit screen changes is held in a SongPlan and saved by
+    // toJson, so anything toJson cannot spell is silently lost the moment you
+    // press Save - and lost in a file that still looks perfectly reasonable.
+    //
+    // The second guitar was added long after this serialiser was written, and
+    // both of playsString's shortcuts predate it: "full" was returned for a
+    // section playing drums, bass, guitar and piano with the second guitar OFF
+    // (so saving turned it back on), and "none" for a section where ONLY the
+    // second guitar played (so a lead break saved as silence).
+    //
+    // Rather than check the parts that are known to have broken, this walks
+    // every plan in the folder and compares every field of every section.
+    {
+        const juce::File plansDir = juce::File (planPath).getParentDirectory();
+        juce::Array<juce::File> plans;
+        plansDir.findChildFiles (plans, juce::File::findFiles, false, "*.json");
+
+        int checked = 0, mismatched = 0;
+        juce::String firstBad;
+
+        for (const juce::File& f : plans)
+        {
+            gb::SongPlan a, b;
+            std::string err;
+
+            if (! gb::SongPlan::load (f.getFullPathName().toStdString(), a, err))
+                continue;
+
+            if (! gb::SongPlan::parse (a.toJson(), "round-trip", b, err))
+            {
+                ++mismatched;
+                if (firstBad.isEmpty())
+                    firstBad = f.getFileName() + " will not re-parse: " + juce::String (err);
+                continue;
+            }
+
+            ++checked;
+
+            const auto note = [&firstBad, &f] (const juce::String& what, size_t i)
+            {
+                if (firstBad.isEmpty())
+                    firstBad = f.getFileName() + " section " + juce::String ((int) i)
+                             + ": " + what;
+            };
+
+            if (a.sections.size() != b.sections.size())
+            {
+                ++mismatched;
+                note ("section count changed", 0);
+                continue;
+            }
+
+            bool bad = false;
+            for (size_t i = 0; i < a.sections.size(); ++i)
+            {
+                const gb::SectionPlan& x = a.sections[i];
+                const gb::SectionPlan& y = b.sections[i];
+
+                const auto differs = [&] (bool cond, const char* what)
+                {
+                    if (! cond) return false;
+                    bad = true;
+                    note (what, i);
+                    return true;
+                };
+
+                differs (x.name != y.name,                 "name");
+                differs (x.role != y.role,                 "role");
+                differs (x.bars != y.bars,                 "bars");
+                differs (std::abs (x.intensity - y.intensity) > 0.001, "intensity");
+                differs (x.feel != y.feel,                 "feel");
+                differs (x.chords != y.chords,             "chords");
+                differs (x.bassPattern != y.bassPattern,   "bass pattern");
+                differs (x.fill != y.fill,                 "fill");
+                differs (x.playsDrums != y.playsDrums,     "plays drums");
+                differs (x.playsBass != y.playsBass,       "plays bass");
+                differs (x.playsGuitar != y.playsGuitar,   "plays guitar");
+                differs (x.playsGuitar2 != y.playsGuitar2, "PLAYS SECOND GUITAR");
+                differs (x.playsPiano != y.playsPiano,     "plays piano");
+                differs (x.guitarPhrase != y.guitarPhrase,   "guitar phrase");
+                differs (x.guitar2Phrase != y.guitar2Phrase, "SECOND GUITAR PHRASE");
+                differs (x.pianoPhrase != y.pianoPhrase,     "piano phrase");
+                differs (x.lead != y.lead,                 "lead");
+                differs (x.vary != y.vary,                 "vary");
+            }
+
+            if (bad) ++mismatched;
+        }
+
+        check (checked > 5, "there are plans to round-trip",
+               juce::String (checked) + " parsed");
+        check (mismatched == 0, "every plan survives being saved and read back",
+               mismatched == 0 ? juce::String ("all ") + juce::String (checked) + " intact"
+                               : juce::String (mismatched) + " changed - first: " + firstBad);
+
+        // The two shortcuts, built on purpose. No plan in the folder happens to
+        // hit either today, so the sweep above would have passed with the bug
+        // still in place - and a test that cannot fail is not a test.
+        {
+            gb::SongPlan made;
+            std::string err;
+            gb::SongPlan::parse (
+                "{ \"name\": \"shortcut probe\", \"bpm\": 120,"
+                "  \"drum_profile\": \"profiles/gm-drums.json\","
+                "  \"bass_profile\": \"profiles/modo-bass-2.json\","
+                "  \"sections\": ["
+                "    { \"name\": \"everything but the lead\", \"bars\": 4,"
+                "      \"plays\": \"drums+bass+guitar+piano\" },"
+                "    { \"name\": \"lead alone\", \"bars\": 4,"
+                "      \"plays\": \"guitar2\" } ]}",
+                "probe", made, err);
+
+            check (made.sections.size() == 2, "the shortcut probe plan parses",
+                   juce::String ((int) made.sections.size()) + " sections");
+
+            if (made.sections.size() == 2)
+            {
+                gb::SongPlan back;
+                const bool ok = gb::SongPlan::parse (made.toJson(), "probe2", back, err);
+
+                check (ok && back.sections.size() == 2,
+                       "and survives a round trip", juce::String (err));
+
+                if (ok && back.sections.size() == 2)
+                {
+                    // "full" used to swallow this: everything else on, second
+                    // guitar off, saved as "full", reloaded with it back ON.
+                    check (! back.sections[0].playsGuitar2,
+                           "a section with every part BUT the second guitar keeps it off",
+                           back.sections[0].playsGuitar2 ? "it came back switched on"
+                                                         : "still off");
+
+                    // "none" used to swallow this: only the second guitar on,
+                    // saved as silence, and the lead break lost.
+                    check (back.sections[1].playsGuitar2,
+                           "and a section played by the second guitar alone survives",
+                           back.sections[1].playsGuitar2 ? "still playing"
+                                                         : "came back silent");
+                }
+            }
+        }
+    }
+
     // ---- per-section reroll -----------------------------------------------
     // The whole promise is that rerolling one section cannot disturb another.
     // That is a property of how section seeds are derived, and it is exactly the

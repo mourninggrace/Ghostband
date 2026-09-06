@@ -1,18 +1,4 @@
 {
-  // NOTHING KEPT FOR LATER - emo.
-  //
-  // Close cousin to the alt rock preset and deliberately so - at the engine
-  // level they are the same style of thing, and what separates them is the
-  // writing rather than the groove. Being honest about that is better than
-  // inventing a difference in the generator that nobody asked for.
-  //
-  // What actually makes this one emo is in the chart: it lives on the relative
-  // major, so the chords are bright while the key is not; the choruses are
-  // longer than the verses, which is unusual and is why they feel like release
-  // rather than arrival; and there is no solo anywhere. The guitar plays
-  // driving eighths almost continuously rather than sitting out, which is the
-  // other half of the sound.
-
   "title": "Nothing Kept For Later",
 
   "key":  "D",
@@ -25,7 +11,7 @@
   "play_style":  "pick",
 
   "complexity": 0.48,
-  "humanize":   0.70,
+  "humanize":   0.7,
   "seed":       2003,
   "ending":     "hard_stop",
 
@@ -37,11 +23,9 @@
 
   "sections": [
     {
-      // Guitar alone on the bright chord, which sets up the whole song.
-      "name": "intro", "bars": 4, "intensity": 0.30,
+      "name": "intro", "bars": 4, "intensity": 0.3,
       "feel": "straight", "plays": "guitar", "fill": "none",
-      "chords": ["F", "C", "Dm", "Bb"],
-      "guitar": "open", "guitar2": "silent", "lead": "guitar"
+      "chords": ["F", "C", "Dm", "Bb"], "guitar": "open", "guitar2": "silent", "lead": "guitar"
     },
     {
       "name": "verse1", "bars": 8, "intensity": 0.46,
@@ -50,30 +34,24 @@
       "bass": "eighths", "guitar": "driving", "guitar2": "silent", "lead": "guitar"
     },
     {
-      // Twelve bars against an eight bar verse. The chorus outlasting the verse
-      // is the shape this genre is built on.
       "name": "chorus1", "bars": 12, "intensity": 0.86,
       "feel": "straight", "plays": "full", "fill": "big",
-      "chords": ["Bb", "F", "C", "Dm", "Bb", "F", "C", "C",
-                 "Bb", "F", "C", "Dm"],
+      "chords": ["Bb", "F", "C", "Dm", "Bb", "F", "C", "C", "Bb", "F", "C", "Dm"],
       "bass": "eighths", "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "guitar"
     },
     {
-      "name": "verse2", "bars": 8, "intensity": 0.50,
+      "name": "verse2", "bars": 8, "intensity": 0.5,
       "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
       "chords": ["Dm", "Bb", "F", "C"],
       "bass": "eighths", "guitar": "driving", "guitar2": "silent", "lead": "guitar"
     },
     {
-      "name": "chorus2", "bars": 12, "intensity": 0.90,
+      "name": "chorus2", "bars": 12, "intensity": 0.9,
       "feel": "straight", "plays": "full", "fill": "big",
-      "chords": ["Bb", "F", "C", "Dm", "Bb", "F", "C", "C",
-                 "Bb", "F", "C", "Dm"],
+      "chords": ["Bb", "F", "C", "Dm", "Bb", "F", "C", "C", "Bb", "F", "C", "Dm"],
       "bass": "eighths", "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "guitar"
     },
     {
-      // The half-time part everybody waits for. Piano leads it, alone with the
-      // rhythm section, and it is the only place the guitar stops.
       "name": "bridge", "bars": 8, "intensity": 0.28,
       "feel": "half_time", "plays": "drums+bass+piano", "fill": "none",
       "chords": ["Bb", "Bb", "F", "C"],
@@ -86,32 +64,21 @@
       "bass": "eighths", "guitar": "muted", "guitar2": "silent", "piano": "driving", "lead": "piano"
     },
     {
-      // Added so the lead guitar has somewhere to play. After the bridge and
-      // before the last chorus is where a rock song puts a solo: the
-      // arrangement has just dropped and needs lifting back into the ending.
-      //
-      // The rhythm guitar keeps the riff going underneath - a soloing player
-      // cannot also hold the harmony, which is the whole reason for a second
-      // guitar part.
-      "name": "solo", "bars": 8, "intensity": 0.90,
+      "name": "solo", "bars": 12, "intensity": 0.9,
       "feel": "straight", "plays": "full", "fill": "auto",
       "chords": ["Bm", "G", "D", "A", "Bm", "G", "D", "A"],
-      "bass": "eighths", "guitar": "driving", "guitar2": "solo",
-      "piano": "silent", "lead": "guitar2"
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "piano": "silent", "lead": "both"
     },
     {
       "name": "chorus3", "bars": 12, "intensity": 0.98,
       "feel": "straight", "plays": "full", "fill": "big",
-      "chords": ["Bb", "F", "C", "Dm", "Bb", "F", "C", "C",
-                 "Bb", "F", "C", "Dm"],
+      "chords": ["Bb", "F", "C", "Dm", "Bb", "F", "C", "C", "Bb", "F", "C", "Dm"],
       "bass": "eighths", "guitar": "busy", "guitar2": "silent", "piano": "open", "lead": "both"
     },
     {
-      // Stops dead on the one, no ringing out.
-      "name": "ending", "bars": 4, "intensity": 0.82,
+      "name": "ending", "bars": 8, "intensity": 0.82,
       "feel": "straight", "plays": "full", "fill": "none",
-      "chords": ["Bb", "F", "C", "Dm"],
-      "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "both"
+      "chords": ["Bb", "F", "C", "Dm"], "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "both"
     }
   ]
 }

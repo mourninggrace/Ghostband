@@ -223,8 +223,21 @@ static std::string jsonNumber (double v)
 
 static std::string playsString (const SectionPlan& s)
 {
-    if (s.playsDrums && s.playsBass && s.playsGuitar && s.playsPiano) return "full";
-    if (! (s.playsDrums || s.playsBass || s.playsGuitar || s.playsPiano)) return "none";
+    // Both shortcuts have to count the second guitar, and neither did.
+    //
+    // "full" was true of a section playing drums, bass, guitar and piano even
+    // when the second guitar was switched off - so saving turned it back on,
+    // because "full" means everything on the way back in. And "none" was true
+    // of a section where ONLY the second guitar played, which saved a lead
+    // break as silence and lost it on the next load.
+    //
+    // A part added after a shortcut was written is exactly what a shortcut
+    // fails to notice.
+    if (s.playsDrums && s.playsBass && s.playsGuitar && s.playsGuitar2 && s.playsPiano)
+        return "full";
+
+    if (! (s.playsDrums || s.playsBass || s.playsGuitar || s.playsGuitar2 || s.playsPiano))
+        return "none";
 
     std::string out;
     auto add = [&out] (const char* n) { if (! out.empty()) out += "+"; out += n; };
