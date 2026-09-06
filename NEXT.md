@@ -1,7 +1,61 @@
 # Where Ghostband stands, and what to do next
 
-Last updated 2026-09-05, session 9. Everything described as done is committed,
-pushed, installed, and covered by the harness.
+Last updated 2026-09-06, session 12. Everything described as done is committed,
+pushed, installed, and covered by the harness (166 checks).
+
+## SESSION 12: the mix knob, and an audit
+
+Reported: the GTR 2 mix knob moved Shreddage's volume AND bite together; take
+bite's mapping away and it moved volume and the pickup selector instead. Three
+faults stacked into that, and one shape underlies all three - **a lookup with no
+case for the thing being looked up.**
+
+1. **`sendLevels` wrote to every control following `"level"`.** A part has one
+   mix knob, so it reaches one control. Now enforced where the state is created
+   (the Settings list takes `"level"` off whatever held it) and again at the
+   sender, because stores written before the fix exist on other machines.
+
+2. **`mergeLearnedControls` replaced the profile's whole control set from the
+   taught store.** MIDI Learn teaches exactly one thing: which knob sits on
+   which CC. `follows`, `type` and the range are declared in the profile, next
+   to the comment saying why, under version control. Letting a cache win meant
+   an edit to a profile was reverted on load and then written back over the file
+   on the next save. **A fix committed to git was undone by opening the plugin,
+   twice, to this same profile.** The store now supplies CC numbers and nothing
+   else; a control only the store knows about still comes across whole, which is
+   what carries a mapping taught on one SSD5 file to the other six.
+
+3. **`channelForPart` had no case for part 4**, so the second guitar fell
+   through to the rhythm guitar's channel. Every Teach sweep and every Test
+   aimed at a GTR 2 control went to IRON 2 on channel 2 instead of Shreddage on
+   11 - the knob being taught never saw the controller move, and one nobody was
+   watching did. `teachControl` held a second copy of the same switch with the
+   same hole.
+
+Found in the audit that followed and fixed: the levels report named guitar 2's
+message "piano" and the piano's "guitar 2" - the one line a mapping fault gets
+diagnosed from was lying about two of the five. Two `switch (part)` blocks let
+an unrecognised part index fall through to **writing the piano's profile**;
+both are now explicit and refuse instead.
+
+Audited clean: every other `switch (part)` handles case 4; the editor's part
+indexing (`forPart`, `partForKnob`, the learn list) is consistent; all 11 plans
+render; both reference songs hold at 1231/629 and 996/423. Per-channel MIDI was
+measured rather than assumed - the arrangement correctly skips `"none"` and
+`"level"` controls on every channel, and the solo goes out on 11 with its bends.
+
+### Still open from this session
+
+- **Shreddage's articulations can be driven by MIDI CC**, not only by
+  keyswitch - there is a Map button on the Articulations page. Ghostband cannot
+  use that yet: `PhraseProfile` holds `phraseKeys` (notes) and has no CC path,
+  the way `BassProfile` articulations do. Worth building - it would retire the
+  one genuinely dangerous thing Ghostband does, which is writing notes that are
+  not notes. **Kontakt cannot be probed headlessly**, so the CC numbers have to
+  be typed in by hand on both sides.
+- **The GTR 2 mix knob now falls back to CC 7 on channel 11**, because all three
+  Shreddage tone controls follow `"lead"` and none follows `"level"`. Kontakt
+  normally answers CC 7. Untested by ear.
 
 ## START HERE
 
