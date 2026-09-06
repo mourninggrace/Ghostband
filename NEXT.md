@@ -1,7 +1,7 @@
 # Where Ghostband stands, and what to do next
 
 Last updated 2026-09-06, session 12. Everything described as done is committed,
-pushed, installed, and covered by the harness (166 checks).
+pushed, installed, and covered by the harness (172 checks).
 
 ## SESSION 12: the mix knob, and an audit
 
@@ -53,9 +53,29 @@ measured rather than assumed - the arrangement correctly skips `"none"` and
   one genuinely dangerous thing Ghostband does, which is writing notes that are
   not notes. **Kontakt cannot be probed headlessly**, so the CC numbers have to
   be typed in by hand on both sides.
-- **The GTR 2 mix knob now falls back to CC 7 on channel 11**, because all three
-  Shreddage tone controls follow `"lead"` and none follows `"level"`. Kontakt
-  normally answers CC 7. Untested by ear.
+- **THE SOLO IS NOT A GHOSTBAND FAULT.** Reported as "the solo is being played
+  on IRON 2", and it survived reverting the Shreddage articulation change. The
+  plugin's own runtime routing is now measured in the harness - not the CLI's,
+  which never touches the slot/learned/collision channel layers: **guitar ch2
+  with 1505 note-ons, guitar 2 ch11 with 156**, the solo among them with its
+  bends. Ghostband sends it to 11. The remaining suspect is the rack: if IRON
+  2's MIDI channel constrainer is on Omni/All rather than channel 2 only, it
+  receives channel 11 and plays the solo itself. Check that before touching any
+  code.
+
+### Fixed after the audit, same session
+
+**The GTR 2 mix knob reached nothing.** All three Shreddage controls followed
+`"lead"`, so the knob fell back to CC 7, which Kontakt does not answer. Volume
+now follows `"level"` - a working fader beats automated pre-FX gain, and bite
+keeps `"lead"` and carries most of that gesture anyway. Verified on the wire as
+CC 20 on channel 11.
+
+The worse half was that it was invisible. `levelIsTaught` had existed for two
+sessions with a comment saying it is there "so the UI can say whether the knob
+reaches anything real", and nothing called it. The mapping list now leads with
+what the selected part's mix knob reaches, and a knob with no level control is
+dimmed and labelled CC7 - a guess should not look identical to a connection.
 
 ## START HERE
 
