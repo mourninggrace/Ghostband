@@ -118,7 +118,34 @@ Each comes from the instrument's own profile, because a channel belongs to the
 instrument rather than to the part it is filling. SSD5 keeps channel 10 for
 when it is not shelved, so the two kits can never collide.
 
-### THE KIT: MINDst, with SSD5 shelved  [DECIDED 2026-09-06]
+### THE KIT: back to SSD5, MINDst shelved  [DECIDED 2026-09-06, reversed same day]
+
+Tried MINDst, switched back after hearing it. **Every song plays SSD5.**
+
+I recommended MINDst on the wrong evidence: it won on parameter nameability -
+3588 named against SSD5's one - which solved the master volume MAPPING problem.
+That is a convenience. The drum sound is the product, and I let a tooling
+problem outrank the thing the tool exists to produce.
+
+The specific failure was double bass. MINDst models two HANDS in detail - snare
+round robins across both hands with a Leading Hand control, hi hat Alternate
+Hands - and its thirty page manual **does not contain the word "foot"**. No
+two-pedal modelling is documented anywhere, so fast repeated kicks retrigger one
+sample.
+
+`SwitchDrums mndst` brings it back. Untested before shelving: its Kick **One
+Shot** toggle. Ghostband sends a note-off 30 ticks after each hit and with One
+Shot off that note-off ENDS the sample, so every drum may have been truncated
+the whole time. That might change the verdict entirely and nobody checked.
+
+**The drum mix knob is gone from the song screen**, and by rule rather than by
+special case: a profile can declare `"volume_reachable": false`, and the plugin
+lays out no knob for a part whose volume nothing outside can address. SSD5
+declares it - one named parameter, Bypass, 2080 anonymous CC slots, no CC 7. Use
+a gain block in the host. The knob returns on its own for a kit that can be
+reached.
+
+### THE OLD MINDst DECISION, kept for the reasoning
 
 One drummer, decided. Every song plays MINDst.
 

@@ -1,33 +1,17 @@
 {
-  // SHELVED, not deleted. Every song plays MINDst Drums as of 2026-09-06.
-  //
-  // SSD5 stays because it is the calibrated, verified kit that worked, and if
-  // MINDst turns out to have problems the way back should be quick. It is:
-  //
-  //     SwitchDrums ssd5        then        Install.bat
-  //
-  // which rewrites the drum profile named in every song. The channel comes from
-  // this file - 10 - so nothing in Settings needs touching either way.
-  //
-  // Why the change: SSD5 exposes exactly ONE named parameter, Bypass, and 2080
-  // anonymous "MIDI CC n|m" slots. There is no volume for a host or for
-  // Ghostband to reach by name, which is why its master volume resisted every
-  // attempt for weeks - there was nothing there to map. MINDst names all 3588
-  // of its parameters.
-  // Terry Date kit - the one currently in use.
-  //
-  // Inherits the whole SSD5 map and states only what differs. If calibration
-  // shows a piece is missing from this kit, set it to null here and the
-  // generator will substitute rather than trigger the wrong sample.
-
-  "inherits": "ssd5.json",
-
   "name": "SSD5 - Terry Date",
   "id": "ssd5_terry_date",
 
   // All seven SSD5 profiles are the same plugin in the same rack, so a knob
   // taught on any one of them is taught for all of them.
   "instrument": "ssd5",
+
+  // Its volume cannot be reached from outside. SSD5 exposes one named parameter
+  // - Bypass - and 2080 anonymous "MIDI CC n|m" slots, its Map page will not
+  // assign a volume CC, and it does not implement CC 7. Ghostband hides the
+  // drum mix knob rather than offering one that does nothing; use a gain block
+  // in the host.
+  "volume_reachable": false,
 
   "needs_verification": true,
   "verification_note": "Inherits the unverified SSD5 base map. Calibrate before trusting it.",

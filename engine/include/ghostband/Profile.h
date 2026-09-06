@@ -177,6 +177,20 @@ public:
     // does not say, which is what every profile written before this did.
     std::string instrument;
 
+    // False when this instrument's volume cannot be reached from outside at all.
+    //
+    // SSD5 exposes exactly one named parameter, Bypass, and 2080 anonymous
+    // "MIDI CC n|m" slots; its own Map page will not assign a volume CC, and it
+    // does not implement CC 7. So no control here can follow "level", CC 7 is
+    // not a fallback, and a mix knob for it is a knob that does nothing - which
+    // this project has repeatedly found to be worse than no knob at all.
+    //
+    // The plugin hides that part's mix knob when this is false. Use a gain block
+    // in the host instead. Default true: an instrument is assumed reachable
+    // until somebody establishes otherwise.
+    bool volumeReachable = true;
+
+
     int  channel     = 10;
     int  velocityMin = 25;
     int  velocityMax = 127;
@@ -233,6 +247,20 @@ public:
     // against this rather than against `id`. Falls back to `id` when a profile
     // does not say, which is what every profile written before this did.
     std::string instrument;
+
+    // False when this instrument's volume cannot be reached from outside at all.
+    //
+    // SSD5 exposes exactly one named parameter, Bypass, and 2080 anonymous
+    // "MIDI CC n|m" slots; its own Map page will not assign a volume CC, and it
+    // does not implement CC 7. So no control here can follow "level", CC 7 is
+    // not a fallback, and a mix knob for it is a knob that does nothing - which
+    // this project has repeatedly found to be worse than no knob at all.
+    //
+    // The plugin hides that part's mix knob when this is false. Use a gain block
+    // in the host instead. Default true: an instrument is assumed reachable
+    // until somebody establishes otherwise.
+    bool volumeReachable = true;
+
 
     int  channel     = 1;
     int  velocityMin = 30;
@@ -305,6 +333,20 @@ public:
     // against this rather than against `id`. Falls back to `id` when a profile
     // does not say, which is what every profile written before this did.
     std::string instrument;
+
+    // False when this instrument's volume cannot be reached from outside at all.
+    //
+    // SSD5 exposes exactly one named parameter, Bypass, and 2080 anonymous
+    // "MIDI CC n|m" slots; its own Map page will not assign a volume CC, and it
+    // does not implement CC 7. So no control here can follow "level", CC 7 is
+    // not a fallback, and a mix knob for it is a knob that does nothing - which
+    // this project has repeatedly found to be worse than no knob at all.
+    //
+    // The plugin hides that part's mix knob when this is false. Use a gain block
+    // in the host instead. Default true: an instrument is assumed reachable
+    // until somebody establishes otherwise.
+    bool volumeReachable = true;
+
 
     int  channel     = 2;
     int  velocityMin = 60;

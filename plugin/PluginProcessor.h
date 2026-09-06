@@ -340,6 +340,10 @@ public:
     // and what looks like every saved mapping being lost.
     bool        partIsInSong (int part) const;
 
+    // False when this part's instrument has no volume anything outside it can
+    // reach. The mix knob is hidden rather than offered and left inert.
+    bool        partVolumeReachable (int part) const;
+
     // The last thing Test or a mix knob actually put on the wire, in words.
     //
     // Two faults today were invisible MIDI: notes sent into a range where the

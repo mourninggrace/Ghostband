@@ -28,7 +28,7 @@
   "seed":       1977,
   "ending":     "hard_stop",
 
-  "drum_profile":   "profiles/mndst-drums.json",
+  "drum_profile":   "profiles/ssd5-terry-date.json",
   "bass_profile":   "profiles/modo-bass-2.json",
   "guitar_profile": "profiles/vg-iron2.json",
   "guitar2_profile": "profiles/shreddage-3-hydra.json",

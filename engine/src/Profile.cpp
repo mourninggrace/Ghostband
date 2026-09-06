@@ -224,6 +224,7 @@ bool DrumProfile::loadImpl (const std::string& path, DrumProfile& out,
     out.name              = j.stringOr ("name", out.name);
     out.id                = j.stringOr ("id", out.id);
     out.instrument        = j.stringOr ("instrument", "");
+    out.volumeReachable   = j.boolOr ("volume_reachable", true);
     out.channel           = clampInt (j.intOr ("channel", out.channel), 1, 16);
     out.velocityMin       = clampInt (j.intOr ("velocity_min", out.velocityMin), 1, 127);
     out.velocityMax       = clampInt (j.intOr ("velocity_max", out.velocityMax), 1, 127);
@@ -333,6 +334,7 @@ bool BassProfile::load (const std::string& path, BassProfile& out, std::string& 
     out.name               = j.stringOr ("name", out.name);
     out.id                 = j.stringOr ("id", out.id);
     out.instrument        = j.stringOr ("instrument", "");
+    out.volumeReachable   = j.boolOr ("volume_reachable", true);
     out.channel            = clampInt (j.intOr ("channel", out.channel), 1, 16);
     out.velocityMin        = clampInt (j.intOr ("velocity_min", out.velocityMin), 1, 127);
     out.velocityMax        = clampInt (j.intOr ("velocity_max", out.velocityMax), 1, 127);
@@ -842,6 +844,7 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
     out.name              = j.stringOr ("name", out.name);
     out.id                = j.stringOr ("id", out.id);
     out.instrument        = j.stringOr ("instrument", "");
+    out.volumeReachable   = j.boolOr ("volume_reachable", true);
     out.channel           = clampInt (j.intOr ("channel", out.channel), 1, 16);
     out.velocityMin       = clampInt (j.intOr ("velocity_min", out.velocityMin), 1, 127);
     out.velocityMax       = clampInt (j.intOr ("velocity_max", out.velocityMax), 1, 127);

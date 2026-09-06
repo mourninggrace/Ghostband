@@ -2293,8 +2293,30 @@ void GhostbandEditor::resized()
     juce::Label*  levelLabels[5]  = { &levelDrumsLabel, &levelBassLabel,
                                       &levelGuitarLabel, &levelGuitar2Label,
                                       &levelPianoLabel };
+
+    // A knob is laid out only for a part whose volume can actually be reached.
+    // SSD5 has no volume anything outside it can address, so a drum mix knob is
+    // a knob that does nothing - and this project keeps rediscovering that a
+    // control which does nothing is worse than no control at all. The knob
+    // returns on its own if a kit that can be reached is loaded.
+    //
+    // Part order here is drums, bass, guitar, guitar 2, piano; the processor
+    // indexes guitar 2 as 4, so the lookup is not the loop counter.
+    static const int partForKnob[5] = { 0, 1, 2, 4, 3 };
+
     for (int i = 0; i < 5; ++i)
     {
+        const bool reachable = processor.partVolumeReachable (partForKnob[i]);
+
+        // Only the song screen ever positions these, so only it may show them -
+        // resized() runs last after a screen change and would otherwise unhide
+        // them over whatever the new screen has drawn there.
+        const bool show = reachable && screen == Screen::Song;
+        levelSliders[i]->setVisible (show);
+        levelLabels[i]->setVisible (show);
+        if (! reachable)
+            continue;
+
         auto cell = mixRow.removeFromLeft (52);
         levelLabels[i]->setBounds (cell.removeFromTop (11));
         levelSliders[i]->setBounds (cell.reduced (3, 0));

@@ -872,6 +872,20 @@ bool GhostbandProcessor::partIsInSong (int part) const
     }
 }
 
+bool GhostbandProcessor::partVolumeReachable (int part) const
+{
+    const juce::ScopedLock sl (stateLock);
+    switch (part)
+    {
+        case 0:  return kit.volumeReachable;
+        case 1:  return bassProfile.volumeReachable;
+        case 2:  return ! haveGuitar  || guitarProfile.volumeReachable;
+        case 3:  return ! havePiano   || pianoProfile.volumeReachable;
+        case 4:  return ! haveGuitar2 || guitar2Profile.volumeReachable;
+        default: return true;
+    }
+}
+
 gb::ControlSet* GhostbandProcessor::controlSetFor (int part)
 {
     switch (part)

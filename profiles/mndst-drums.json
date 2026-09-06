@@ -1,4 +1,27 @@
 {
+  // SHELVED as of 2026-09-06. Every song plays SSD5 again.
+  //
+  // The switch to MINDst was made on the wrong evidence. It won on parameter
+  // nameability - 3588 named against SSD5's one - which solved the master
+  // volume MAPPING problem. That is a convenience. The drum sound is the
+  // product, and by ear SSD5 is better: "the quality of SSD5 was outstanding
+  // and that is more important to me than a master volume knob".
+  //
+  // The specific failure was double bass. MINDst models two HANDS in detail -
+  // snare round robins across both hands with a Leading Hand control, hi hat
+  // Alternate Hands - and its thirty page manual does not contain the word
+  // "foot". There is no two-pedal modelling documented anywhere, so fast
+  // repeated kicks retrigger one sample. For a kit built around a session
+  // drummer's DW kit that is consistent; it is not what this project needs.
+  //
+  // Everything here stays correct and measured. To bring it back:
+  //
+  //     SwitchDrums mndst        then        Install.bat
+  //
+  // and try its Kick "One Shot" toggle first - Ghostband sends a note-off 30
+  // ticks after each hit, and with One Shot off that note-off ENDS the sample.
+  // That was never tested and might change the verdict.
+
   // MINDst Drums.
   //
   // Built from a probe sweep of notes 24-96 on channel 10, measuring peak, RMS,
