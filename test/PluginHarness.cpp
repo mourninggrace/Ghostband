@@ -2062,6 +2062,37 @@ int main (int argc, char** argv)
                    "CC" + juce::String (cc) + " ch" + juce::String (channel)
                        + "=" + juce::String (value));
 
+            // And CC 7 must not be going there as well.
+            //
+            // This is the best account of a whole evening lost. When Shreddage
+            // had no control following "level", the mix knob fell back to CC 7
+            // on channel 11 - and Kontakt DOES answer CC 7 as instrument
+            // volume. Any knob position below full therefore turned Shreddage
+            // down, the position was saved into the host session, and the solo
+            // section came back sounding like only the rhythm guitar was
+            // playing it. The fallback was written on the reasoning that it
+            // "costs nothing and is right for anything that does respond",
+            // which is exactly half true: it is not free when it lands on an
+            // instrument that responds and nobody expects it to.
+            bool sawCC7 = false;
+            for (int i = 0; i < 8; ++i)
+            {
+                out.clear();
+                proc.processBlock (buf, out);
+                for (const auto meta : out)
+                {
+                    const auto m = meta.getMessage();
+                    if (m.isController() && m.getControllerNumber() == 7
+                        && m.getChannel() == proc.channelGuitar2.load())
+                        sawCC7 = true;
+                }
+            }
+
+            check (count == 0 || ! sawCC7,
+                   "and no CC 7 follows it onto the same channel",
+                   sawCC7 ? "CC 7 still sent - it can mute a Kontakt instrument"
+                          : "none");
+
             // ---- where the two guitars actually end up ----------------------
             // The CLI resolves channels straight from the profiles. The PLUGIN
             // does not: it layers a saved slot channel, a per-instrument learned
