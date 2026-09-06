@@ -2093,6 +2093,36 @@ int main (int argc, char** argv)
                    sawCC7 ? "CC 7 still sent - it can mute a Kontakt instrument"
                           : "none");
 
+            // The same trap, one part over. SSD5 declares that its volume
+            // cannot be reached, so its mix knob is not drawn at all - and the
+            // CC 7 fallback went on being sent to channel 10 anyway, carrying a
+            // level nobody could see or correct. A hidden knob that still
+            // transmits is worse than either a working one or none.
+            const int chDrums = proc.channelDrums.load();
+            proc.levelDrums.store (0.20f);
+            proc.sendLevels();
+
+            bool drumsCC7 = false;
+            for (int i = 0; i < 8; ++i)
+            {
+                out.clear();
+                proc.processBlock (buf, out);
+                for (const auto meta : out)
+                {
+                    const auto m = meta.getMessage();
+                    if (m.isController() && m.getControllerNumber() == 7
+                        && m.getChannel() == chDrums)
+                        drumsCC7 = true;
+                }
+            }
+
+            check (proc.partVolumeReachable (0) || ! drumsCC7,
+                   "a part with no reachable volume transmits nothing at all",
+                   drumsCC7 ? "CC 7 still going to ch" + juce::String (chDrums)
+                            : "silent, as its hidden knob implies");
+
+            proc.levelDrums.store (1.0f);
+
             // ---- where the two guitars actually end up ----------------------
             // The CLI resolves channels straight from the profiles. The PLUGIN
             // does not: it layers a saved slot channel, a per-instrument learned

@@ -1186,22 +1186,35 @@ void GhostbandProcessor::sendLevels()
     // appeared, correctly, to do nothing.
     //
     // Now a part's knob drives whichever of its controls is mapped with
-    // follows "level", taught through MIDI Learn like any other. CC 7 is still
-    // sent when a part has no such control, because it costs nothing and is
-    // right for anything that does respond.
+    // follows "level", taught through MIDI Learn like any other.
+    //
+    // CC 7 is the fallback when a part has no such control, and it was added on
+    // the reasoning that it "costs nothing and is right for anything that does
+    // respond". That is exactly half true. Kontakt DOES answer CC 7 as
+    // instrument volume, so when Shreddage briefly had nothing following
+    // "level" the GTR 2 knob became a hidden volume control on it: any position
+    // below full turned the guitar down, the host session saved that position,
+    // and the solo came back sounding like only the rhythm guitar was playing
+    // it. A fallback is not free when it lands on something that listens.
+    //
+    // So it is now suppressed for a part whose profile says its volume cannot
+    // be reached. That flag means "no message controls this", and sending one
+    // anyway contradicts the flag - worse, the knob is HIDDEN in that case, so
+    // CC 7 kept going out at a level nobody could see or correct. SSD5 sat in
+    // exactly that state on channel 10.
     struct Message { int channel, cc, value; };
     std::vector<Message> out;
 
     {
         const juce::ScopedLock sl (stateLock);
 
-        struct Part { int channel; float level; const gb::ControlSet* set; };
+        struct Part { int channel; float level; const gb::ControlSet* set; bool reachable; };
         const Part parts[5] = {
-            { kit.channel,            levelDrums.load(),   &kit.controls },
-            { bassProfile.channel,    levelBass.load(),    &bassProfile.controls },
-            { guitarProfile.channel,  levelGuitar.load(),  haveGuitar  ? &guitarProfile.controls  : nullptr },
-            { guitar2Profile.channel, levelGuitar2.load(), haveGuitar2 ? &guitar2Profile.controls : nullptr },
-            { pianoProfile.channel,   levelPiano.load(),   havePiano   ? &pianoProfile.controls   : nullptr },
+            { kit.channel,            levelDrums.load(),   &kit.controls,          kit.volumeReachable },
+            { bassProfile.channel,    levelBass.load(),    &bassProfile.controls,  bassProfile.volumeReachable },
+            { guitarProfile.channel,  levelGuitar.load(),  haveGuitar  ? &guitarProfile.controls  : nullptr, ! haveGuitar  || guitarProfile.volumeReachable },
+            { guitar2Profile.channel, levelGuitar2.load(), haveGuitar2 ? &guitar2Profile.controls : nullptr, ! haveGuitar2 || guitar2Profile.volumeReachable },
+            { pianoProfile.channel,   levelPiano.load(),   havePiano   ? &pianoProfile.controls   : nullptr, ! havePiano   || pianoProfile.volumeReachable },
         };
 
         for (const Part& p : parts)
@@ -1232,7 +1245,7 @@ void GhostbandProcessor::sendLevels()
                 }
             }
 
-            if (! taught)
+            if (! taught && p.reachable)
                 out.push_back ({ p.channel, 7,
                                  juce::jlimit (0, 127, juce::roundToInt (p.level * 127.0f)) });
         }
