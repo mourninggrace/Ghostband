@@ -14,13 +14,13 @@ instrument gets played as music - which is exactly what went wrong when IRON 2
 received Shreddage keyswitches. A CC that nothing has learned does nothing at
 all. This trades the most dangerous mechanism in the plugin for the safest one.
 
-**What it needs.**  holds  - notes - and nothing
-else.  articulations already support both a keyswitch and a
+**What it needs.** `PhraseProfile` holds `phraseKeys` — notes — and nothing
+else. `BassProfile` articulations already support both a keyswitch and a
 CC-with-value, so the shape to copy exists in the same file. The work is:
 
-  1.  learns a CC form alongside the note form, in the same
-      block, so old profiles keep working untouched.
-  2.  emits whichever form the profile declares.
+  1. `PhraseProfile` learns a CC form alongside the note form, inside the same
+     `phrases` block, so every existing profile keeps working untouched.
+  2. `Profile.cpp` emits whichever form the profile declares.
   3. Shreddage's profile switches to CC once the numbers are known.
 
 **What it cannot do.** Kontakt will not load headlessly, so nothing can discover
