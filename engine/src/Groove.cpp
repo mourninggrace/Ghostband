@@ -3,6 +3,7 @@
 #include "ghostband/Rng.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cctype>
 
 namespace gb {
@@ -633,7 +634,7 @@ void generateBassBar (const GrooveContext& ctx,
                       const Chord& chord,
                       const Chord& nextChord,
                       const std::string& pattern,
-                      bool isLastBarOfSection,
+                      bool /*isLastBarOfSection*/,
                       Rng& rng,
                       std::vector<BassIntent>& out)
 {
@@ -681,6 +682,26 @@ void generateBassBar (const GrooveContext& ctx,
     // what makes a gallop feel urgent; slower rock sits fractionally behind.
     const double basePush = metal ? -3.0 : (in > 0.6 ? -1.5 : 1.5);
 
+    // Carried across onsets so a note can be played against the one before it.
+    // A hammer-on and a slide are both relationships between two notes, not
+    // properties of one, which is why nothing here could ask for either before.
+    //
+    // Seeded from the line so far rather than reset per bar, because the note an
+    // approach note is aiming at is the first note of the NEXT bar - which is
+    // precisely the note that should be hammered, and would be invisible to a
+    // check that started fresh every bar. Dead notes are skipped: they are
+    // choked fills, and hammering off one is not a thing a hand does.
+    int prevPitch = -1;
+    int prevAbsT  = -1;
+
+    for (auto it = out.rbegin(); it != out.rend(); ++it)
+        if (it->artic != BassArtic::Dead)
+        {
+            prevPitch = it->pitch;
+            prevAbsT  = it->tick;
+            break;
+        }
+
     for (size_t i = 0; i < onsets.size(); ++i)
     {
         const int t = onsets[i];
@@ -697,12 +718,40 @@ void generateBassBar (const GrooveContext& ctx,
         else if (! metal && gap >= ctx.beatTicks && rng.chance (0.18) && i > 0)
             pitch = fifth;                          // occasional fifth on long notes
 
-        // Walk into the next section with a chromatic approach note.
+        // Walk into a chord change with a chromatic approach note.
+        //
+        // This used to be gated on the last bar of a SECTION, where the caller
+        // passes an invalid chord because the next section has not been built -
+        // so the condition could never be true and the whole idea was dead code.
+        // Chord changes happen every bar or two inside a section and the next
+        // bar's chord is known, which is where a bassist actually does this.
+        //
+        // Kept to busy bars with a short last note, because that is what a
+        // passing note is. On a bar holding one root for four beats, walking off
+        // it at the end is not a bassist, it is a fidget. No dice are rolled:
+        // the decision is the notes and the grid, so a song written before this
+        // keeps the same count of notes at the same times.
         const bool lastOnset = (i + 1 == onsets.size());
-        if (isLastBarOfSection && lastOnset && nextChord.valid && nextChord.rootPc != chord.rootPc)
+        bool approaching = false;
+
+        if (lastOnset && nextChord.valid && nextChord.rootPc != chord.rootPc
+            && onsets.size() >= 4 && gap <= ctx.beatTicks / 2)
         {
             const int target = rootInBassRange (nextChord.rootPc, ctx.lowestBassNote);
-            pitch = target > pitch ? target - 1 : target + 1;
+            int from = target > pitch ? target - 1 : target + 1;
+
+            // Approach from the other side rather than off the end of the neck.
+            // A semitone below the lowest string is not a quiet note, it is no
+            // note - the renderer drops anything out of range - so this turned
+            // a chord change into a hole whenever the target was the bottom.
+            if (from < ctx.lowestBassNote)  from = target + 1;
+            if (from > ctx.highestBassNote) from = target - 1;
+
+            if (from >= ctx.lowestBassNote && from <= ctx.highestBassNote)
+            {
+                pitch = from;
+                approaching = true;
+            }
         }
 
         BassIntent b;
@@ -717,12 +766,45 @@ void generateBassBar (const GrooveContext& ctx,
         else if (isHeavyStyle (ctx.style) && in < 0.35) b.artic = BassArtic::PalmMute;
         else                                  b.artic = BassArtic::Normal;
 
+        // ---- hammers and slides -------------------------------------------
+        //
+        // The profile has mapped both for as long as it has existed and nothing
+        // ever asked for either, so a bass that could hammer and slide played
+        // every note picked.
+        //
+        // Chosen from the notes themselves rather than from a dice roll, which
+        // matters for more than tidiness: an articulation is a label on a note
+        // that already exists, so deciding it without consuming any randomness
+        // means every song written before this keeps the same notes at the same
+        // times and merely plays them better.
+        //
+        // A chromatic approach note IS a slide. It is a semitone aimed at the
+        // note it resolves to, and a bassist gets there with a finger rather
+        // than by picking twice.
+        if (approaching)
+        {
+            b.artic = BassArtic::Slide;
+        }
+        else if (b.artic == BassArtic::Normal && prevPitch >= 0 && prevAbsT >= 0)
+        {
+            // A hammer-on is a step, close behind the note before it. Wider than
+            // a tone is a jump the hand has to make, and a long gap is time
+            // enough to pick - both are picked notes on a real instrument.
+            const int step = std::abs (pitch - prevPitch);
+            if (step >= 1 && step <= 2
+                && (barStartTick + t) - prevAbsT <= ctx.beatTicks / 2)
+                b.artic = BassArtic::Hammer;
+        }
+
         // Short and clipped when muted, otherwise let it ring to just before the
         // next attack so the line stays connected.
         const double sustain = (b.artic == BassArtic::PalmMute) ? 0.55 : 0.92;
         b.durationTicks = std::max (sixteenth / 2, static_cast<int> (gap * sustain));
 
         out.push_back (b);
+
+        prevPitch = pitch;
+        prevAbsT  = barStartTick + t;
 
         // Dead notes fill the space between attacks at higher complexity. They
         // are pitched but choked, and they are most of what makes a bass line

@@ -2048,12 +2048,13 @@ juce::File GhostbandProcessor::getPlanFile() const
     return planFile;
 }
 
-int GhostbandProcessor::getSequenceNoteOnCount (int channel) const
+int GhostbandProcessor::getSequenceNoteOnCount (int channel, int minNote) const
 {
     const juce::SpinLock::ScopedLockType lock (sequenceLock);
     int n = 0;
     for (const TimedMessage& m : sequence)
-        if (m.message.isNoteOn() && m.message.getChannel() == channel)
+        if (m.message.isNoteOn() && m.message.getChannel() == channel
+            && m.message.getNoteNumber() >= minNote)
             ++n;
     return n;
 }

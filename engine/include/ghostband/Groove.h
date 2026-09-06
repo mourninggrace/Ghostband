@@ -107,6 +107,9 @@ void generateBassBar (const GrooveContext& ctx,
                       const Chord& chord,
                       const Chord& nextChord,
                       const std::string& pattern,        // auto/lock_kick/...
+                      // Kept in the signature and no longer read: approach
+                      // notes are decided by the next bar's chord, which is
+                      // known everywhere, rather than by where a section ends.
                       bool isLastBarOfSection,
                       Rng& rng,
                       std::vector<BassIntent>& out);

@@ -308,8 +308,16 @@ int main (int argc, char** argv)
     proc.loadPlan (juce::File (planPath));
     {
         const int before      = proc.getKeyPitchClass();
+        // Played notes only. Keyswitches are note-ons on the same channel below
+        // the instrument's range - MODO's sit at 13, 15, 22 and 24 - and a
+        // hammer-on firing in one key and not another is the articulation
+        // following the fingering, which is the bass playing correctly rather
+        // than the performance changing. Counting them as notes conflated the
+        // two and made a correct change look like a regression.
+        const int kPlayed = 26;
+
         const int drumsBefore = proc.getSequenceNoteOnCount (10);
-        const int bassBefore  = proc.getSequenceNoteOnCount (1);
+        const int bassBefore  = proc.getSequenceNoteOnCount (1, kPlayed);
         const int pitchBefore = proc.getSequencePitchSum (1);
 
         const int target = (before + 5) % 12;
@@ -321,8 +329,11 @@ int main (int argc, char** argv)
         // Transposing must move the pitches without disturbing the performance:
         // same rhythm, same number of notes, different notes.
         check (proc.getSequenceNoteOnCount (10) == drumsBefore
-                   && proc.getSequenceNoteOnCount (1) == bassBefore,
-               "transposing does not change the drumming or the note count");
+                   && proc.getSequenceNoteOnCount (1, kPlayed) == bassBefore,
+               "transposing does not change the drumming or the note count",
+               juce::String (proc.getSequenceNoteOnCount (10)) + "/"
+                   + juce::String (proc.getSequenceNoteOnCount (1, kPlayed))
+                   + " was " + juce::String (drumsBefore) + "/" + juce::String (bassBefore));
         check (proc.getSequencePitchSum (1) != pitchBefore,
                "transposing actually moves the bass pitches",
                juce::String (pitchBefore) + " -> " + juce::String (proc.getSequencePitchSum (1)));
@@ -1426,6 +1437,48 @@ int main (int argc, char** argv)
 
                 check (! compedDuringSolo, "and stops playing chords while it does");
             }
+        }
+    }
+
+    // ---- the bass plays more than one way -----------------------------------
+    // MODO maps seven articulations and the generator asked for three, so a bass
+    // that could hammer and slide picked every note. Worse, the code that would
+    // have produced a slide - the chromatic approach into a chord change - was
+    // gated on the last bar of a section, where the caller passes an invalid
+    // chord, so the condition could never once be true.
+    //
+    // Asserted on the intents rather than the MIDI, because a profile that does
+    // not map an articulation renders it silently as a plain note, which would
+    // hide the generator going back to asking for nothing.
+    {
+        gb::SongPlan plan;
+        std::string err;
+        if (gb::SongPlan::load (juce::File (planPath).getFullPathName().toStdString(), plan, err))
+        {
+            gb::DrumProfile kit;
+            gb::BassProfile bass;
+            const gb::RenderResult r = gb::renderPerformance (plan, kit, bass);
+
+            std::set<int> used;
+            for (const gb::BassIntent& b : r.performance.bass)
+                used.insert (static_cast<int> (b.artic));
+
+            juce::StringArray names;
+            for (int a : used) names.add (gb::bassArticName (static_cast<gb::BassArtic> (a)));
+
+            check (used.size() >= 2, "the bass plays in more than one way",
+                   names.joinIntoString (", "));
+
+            // A note the instrument cannot reach is not a quiet note, it is no
+            // note - the renderer drops it - so an approach note walking off the
+            // bottom of the neck turned a chord change into a hole.
+            int outOfRange = 0;
+            for (const gb::BassIntent& b : r.performance.bass)
+                if (b.pitch < bass.lowestNoteFor (plan.bassTuning) || b.pitch > bass.highestNote)
+                    ++outOfRange;
+
+            check (outOfRange == 0, "and every note it writes is on the instrument",
+                   juce::String (outOfRange) + " would be dropped");
         }
     }
 

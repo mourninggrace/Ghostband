@@ -103,14 +103,37 @@ is probably wanted is one kit per song or per section rather than per hit. A
 section-level `drums:` naming a profile is a much smaller change than a second
 drum part, and may be the whole feature.
 
-### 4. The bass only ever plays three articulations
+### 4. The bass only ever played three articulations  [DONE 2026-09-06]
 
-`profiles/modo-bass-2.json` maps palm mute, dead, hammer, slide and the force
-switches. The generator emits exactly three: Normal, PalmMute, Dead. **Hammer
-and slide are mapped and never asked for** - the gap is in `Groove.cpp`, not in
-the profile. A slide into a chord change and a hammer between close notes is the
-bass equivalent of the legato work just done on the guitar, and it is the
-cheapest realism left in the project.
+Fixed, and there were two faults behind it.
+
+The generator asked for Normal, PalmMute and Dead and never for hammer or
+slide, though MODO maps both. And the code that would have produced a slide -
+the chromatic approach into a chord change - was gated on the last bar of a
+SECTION, which is precisely the bar where the caller passes an invalid chord
+because the next section has not been built. **The condition could never once be
+true.** It is gated on the next bar's chord now, which is known everywhere, and
+restricted to busy bars with a short last note, because that is what a passing
+note is.
+
+A hammer is any step of a tone or less landing close behind the note before it,
+tracked across the bar line so the note an approach note aims at is the one that
+gets hammered. Both decisions are made from the notes and the grid with **no
+randomness at all**, which is why every song written before this keeps the same
+notes at the same times and simply plays them better - demo-metal is still
+1231/629 and demo-rock 996/423.
+
+Measured on demo-band: 24 slides, 10 hammers, 42 dead notes, palm mute and
+normal. Five of MODO's seven; slap and pop are slap-bass technique and no style
+asks for them.
+
+Two smaller things fell out of it. An approach note a semitone below the lowest
+string is not a quiet note, it is no note - the renderer drops anything out of
+range - so a chord change became a hole whenever the target was the bottom of
+the neck; it approaches from the other side now. And the transpose test counted
+keyswitches as notes, so a hammer firing in one key and not another looked like
+a regression when it is the articulation following the fingering; it counts
+played notes only.
 
 ### 4b. Taught mappings are per instrument now  [DONE 2026-09-05]
 

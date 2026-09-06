@@ -92,7 +92,10 @@ public:
 
     // Diagnostics for the harness: what the audio thread would actually play,
     // as opposed to what the engine says it generated.
-    int getSequenceNoteOnCount (int channel) const;
+    // `minNote` separates played notes from keyswitches, which are note-ons on
+    // the same channel sitting below the instrument's playable range. Counting
+    // them together conflates the performance with the articulation.
+    int getSequenceNoteOnCount (int channel, int minNote = 0) const;
     int getSequencePitchSum   (int channel) const;
     int getBarTicks() const;
 
