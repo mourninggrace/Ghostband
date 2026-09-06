@@ -125,6 +125,17 @@ public:
     static const char* screenName (int screenIndex);
     static constexpr int numScreens = 5;
 
+    // The reroll path, reachable without a mouse.
+    //
+    // It runs from a ctrl-click on the section list, through a lambda, into a
+    // selection vector, through a second lambda on the Roll button, and only
+    // then into the processor. Every piece of that was tested except the
+    // pieces that join it up - and "the button says Reroll 2 sections and
+    // clicking it does nothing" is a claim about precisely those joins.
+    void ctrlClickSectionForTesting (int index);
+    void pressRollForTesting();
+    int  rerollSelectionSizeForTesting() const;
+
 private:
     void changeListenerCallback (juce::ChangeBroadcaster*) override;
     void timerCallback() override;
@@ -179,6 +190,11 @@ private:
     // list you have to click. It was in the Roll button's tooltip and nowhere
     // else, so the feature read as broken rather than as undiscovered.
     juce::Label      rollHintLabel;
+
+    // True while rollHintLabel is reporting a reroll that just happened rather
+    // than showing its standing hint, so the next selection change puts the
+    // hint back instead of leaving a stale claim on screen.
+    bool             rollHintDirty = false;
 
     juce::Label planLabel;
     juce::Label headlineLabel;

@@ -1887,6 +1887,77 @@ int main (int argc, char** argv)
         {
             auto* gbEd = dynamic_cast<GhostbandEditor*> (ed);
 
+            // ---- ctrl-click a section, then press Roll ----------------------
+            // rerollSections is asserted elsewhere and works. What was never
+            // covered is the wiring from the click to that call: a selection
+            // vector filled by one lambda and read by another. Reported as
+            // "the button says Reroll 2 sections and clicking it does nothing".
+            if (gbEd != nullptr)
+            {
+                proc.loadPlan (juce::File (planPath));
+
+                const auto before = proc.getSections();
+                const int  target = 2;
+
+                gbEd->ctrlClickSectionForTesting (target);
+                check (gbEd->rerollSelectionSizeForTesting() == 1,
+                       "ctrl-clicking a section selects it",
+                       juce::String (gbEd->rerollSelectionSizeForTesting()) + " selected");
+
+                gbEd->pressRollForTesting();
+                const auto after = proc.getSections();
+
+                bool targetMoved = false;
+                int  othersMoved = 0;
+                for (size_t i = 0; i < before.size() && i < after.size(); ++i)
+                {
+                    const bool moved = before[i].drumHits  != after[i].drumHits
+                                    || before[i].bassNotes != after[i].bassNotes;
+                    if (static_cast<int> (i) == target) targetMoved = moved;
+                    else if (moved)                     ++othersMoved;
+                }
+
+                check (targetMoved,
+                       "and pressing Roll rerolls it through the editor's own path",
+                       juce::String (before[target].drumHits) + "/"
+                           + juce::String (before[target].bassNotes) + " -> "
+                           + juce::String (after[target].drumHits) + "/"
+                           + juce::String (after[target].bassNotes));
+
+                check (othersMoved == 0,
+                       "leaving every other section alone",
+                       juce::String (othersMoved) + " others moved");
+
+                // A section carried by a lone guitar reported "0 / 0" on screen
+                // and stayed there through every reroll, because the counts
+                // column only knew about drums and bass. It read as an empty
+                // section and made a working reroll look dead. So: no section
+                // that plays ANYTHING may total zero.
+                int emptyLooking = 0;
+                for (const auto& sec : after)
+                {
+                    const int total = sec.drumHits + sec.bassNotes + sec.guitarChords
+                                    + sec.guitar2Chords + sec.pianoChords;
+                    const bool silent = sec.guitarFeel == "silent"
+                                     && sec.guitar2Feel == "silent"
+                                     && sec.pianoFeel == "silent";
+                    if (total == 0 && ! silent) ++emptyLooking;
+                }
+
+                check (emptyLooking == 0,
+                       "no sounding section reports itself as empty",
+                       juce::String (emptyLooking) + " sections total zero");
+
+                // And the seed must NOT change - that is the whole-song reroll,
+                // and it is what makes a section reroll look like it did
+                // nothing: the seed box is the only thing on screen that moves.
+                gbEd->ctrlClickSectionForTesting (target);   // deselect
+                check (gbEd->rerollSelectionSizeForTesting() == 0,
+                       "and ctrl-clicking again deselects it");
+
+                proc.loadPlan (juce::File (planPath));
+            }
+
             // What a component is, for a message that says which one to go fix.
             const auto describe = [] (juce::Component* c) -> juce::String
             {

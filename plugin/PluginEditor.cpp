@@ -210,11 +210,20 @@ void SectionList::paint (juce::Graphics& g)
         g.fillRoundedRectangle (meter.withWidth (juce::roundToInt (meter.getWidth() * s.intensity))
                                      .toFloat(), 2.0f);
 
+        // Drums / bass / everything chordal.
+        //
+        // This used to show drums and bass only, so an intro carried by a lone
+        // guitar read as "0 / 0" - indistinguishable from an empty section, and
+        // it stayed 0 / 0 through every reroll. The section WAS being rerolled;
+        // the two numbers on screen were simply blind to the only part playing
+        // in it, which made a working feature look dead.
         r.removeFromRight (10);                    // keep the counts off the meter
-        auto counts = r.removeFromRight (96);
+        auto counts = r.removeFromRight (112);
+        const int chordal = s.guitarChords + s.guitar2Chords + s.pianoChords;
         g.setColour (ghost::dim);
         g.setFont (juce::Font (juce::FontOptions (11.0f)));
-        g.drawText (juce::String (s.drumHits) + " / " + juce::String (s.bassNotes),
+        g.drawText (juce::String (s.drumHits) + " / " + juce::String (s.bassNotes)
+                        + " / " + juce::String (chordal),
                     counts, juce::Justification::centredRight);
 
         auto nameArea = r.removeFromTop (rowHeight / 2).withTrimmedTop (5);
@@ -425,7 +434,28 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         // nothing selected, take a new global seed and reroll everything.
         if (! rerollSelection.empty())
         {
+            // Say what happened, by name.
+            //
+            // A section reroll changes the hits/notes counts on the right of
+            // each row and nothing else on screen - no new seed, no new
+            // arrangement shape - so it was reported as "the button says Roll 2
+            // sections and clicking it does nothing". The work was being done
+            // and the plugin never said so. Whole-song rerolls only LOOKED like
+            // they worked because the seed box changes with them.
+            const auto sections = processor.getSections();
+
+            juce::StringArray named;
+            for (int i : rerollSelection)
+                if (i >= 0 && i < static_cast<int> (sections.size()))
+                    named.add (juce::String (sections[(size_t) i].name));
+
             processor.rerollSections (rerollSelection);
+
+            rollHintLabel.setText ("rerolled " + named.joinIntoString (", ")
+                                       + " - counts on the right have moved",
+                                   juce::dontSendNotification);
+            rollHintLabel.setColour (juce::Label::textColourId, ghost::accent);
+            rollHintDirty = true;
             return;
         }
 
@@ -437,6 +467,9 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 
     sectionList.onSectionToggled = [this] (int index)
     {
+        // NOTE: kept as the single place a section is toggled, so
+        // ctrlClickSectionForTesting exercises the real thing rather than a
+        // copy of it that can drift.
         const auto it = std::find (rerollSelection.begin(), rerollSelection.end(), index);
         if (it == rerollSelection.end()) rerollSelection.push_back (index);
         else                             rerollSelection.erase (it);
@@ -444,6 +477,14 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         std::sort (rerollSelection.begin(), rerollSelection.end());
         sectionList.setSelection (rerollSelection);
         updateRollButtonText();
+
+        if (rollHintDirty)
+        {
+            rollHintLabel.setText ("ctrl-click a section to reroll just that one",
+                                   juce::dontSendNotification);
+            rollHintLabel.setColour (juce::Label::textColourId, ghost::dim);
+            rollHintDirty = false;
+        }
     };
 
     // ---- song controls ----
@@ -1381,6 +1422,23 @@ const char* GhostbandEditor::screenName (int index)
 {
     static const char* names[numScreens] = { "song", "calibrate", "edit", "settings", "about" };
     return names[juce::jlimit (0, numScreens - 1, index)];
+}
+
+void GhostbandEditor::ctrlClickSectionForTesting (int index)
+{
+    if (sectionList.onSectionToggled)
+        sectionList.onSectionToggled (index);
+}
+
+void GhostbandEditor::pressRollForTesting()
+{
+    if (rollButton.onClick)
+        rollButton.onClick();
+}
+
+int GhostbandEditor::rerollSelectionSizeForTesting() const
+{
+    return static_cast<int> (rerollSelection.size());
 }
 
 void GhostbandEditor::showScreenForSnapshot (int index)
