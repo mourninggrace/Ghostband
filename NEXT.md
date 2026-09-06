@@ -80,15 +80,28 @@ the guitar/piano handover logic is the model), the Settings channel list, and
 every plan that wants it. Big, and everything else on this list is easier once
 it exists.
 
-### 2. Articulation keyswitches for notes-mode instruments
+### 2. Articulation keyswitches for notes-mode instruments  [DONE 2026-09-06]
 
-Ghostband only emits keyswitches for phrase-driven instruments, where the
-keyswitch *is* the performance and is held for its length. Shreddage is a notes
-instrument whose keyswitches choose an articulation alongside the notes - palm
-mute for a low riff, power chords for a chorus, tremolo where the section wants
-it. Its whole map is already recorded in `profiles/shreddage-3-hydra.json`.
+A phrase instrument's keyswitch IS the performance - you hold it and it plays a
+riff. A notes instrument's only chooses HOW the notes it is sent will sound, and
+is tapped rather than held because it latches. Same `phrases` block in the file,
+because the thing being chosen is still the section's feel; entirely different
+emission.
 
-This is what turns Hydra from a better guitar sound into a guitarist.
+Shreddage maps open/sparse/muted/driving/busy/solo onto Sustain, Staccato, Mute,
+Power Chord Sustain, Tremolo and Sustain. Measured on a full song: eight
+switches, one per section, sent ahead of the notes, never restated when
+unchanged - palm-muted verses, power chords in the choruses, sustain under the
+solo.
+
+**Nothing is sent until a profile declares `keyswitches_verified`.** A guessed
+keyswitch has silenced a whole song in this project; the notes go out and the
+switches do not until the numbers have been checked. Shreddage's were read off
+its own ARTICULATIONS page.
+
+One trap worth remembering: Shreddage splits the Sustain keyswitch by the
+velocity the KEY is pressed at, not just played notes - 120-126 selects Rake and
+127 selects Pinch Harmonics. `phrase_velocity` is pinned to 100 for that reason.
 
 ### 3. A kit per song, and per section  [CONFIRMED SCOPE]
 

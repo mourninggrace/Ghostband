@@ -80,6 +80,45 @@
   "velocity_min": 45,
   "velocity_max": 119,
 
+  // ---- articulation keyswitches ----
+  //
+  // Read off Shreddage's own ARTICULATIONS page, not guessed. A notes
+  // instrument's keyswitch chooses HOW the notes it is sent will sound; it is
+  // tapped rather than held, because these latch.
+  //
+  // Mapped to the section feel, which is the same vocabulary the rest of the
+  // engine already speaks:
+  //
+  //   open    12  Sustain              ringing chords
+  //   sparse  14  Staccato             short and spaced
+  //   muted   13  Mute                 palm muted, the verse voice
+  //   driving 15  Power Chord Sustain  the chorus riff
+  //   busy    18  Tremolo              tremolo picking
+  //   solo    12  Sustain              a lead line wants to ring, and legato
+  //                                    needs a sustained note to hammer from
+  //
+  // "silent" is deliberately unmapped: there is no articulation for not
+  // playing, and leaving the last one selected through a rest is correct.
+  "phrases": {
+    "open":    12,
+    "sparse":  14,
+    "muted":   13,
+    "driving": 15,
+    "busy":    18,
+    "solo":    12
+  },
+
+  "keyswitches_verified": true,
+
+  // 100, and this is not arbitrary.
+  //
+  // Shreddage splits the Sustain keyswitch by the velocity the KEY is pressed
+  // at, exactly as it splits played notes: 1-119 selects Sustain, 120-126
+  // selects Rake and 127 selects Pinch Harmonics. Press the articulation switch
+  // too hard and the instrument selects a different articulation from the one
+  // being asked for.
+  "phrase_velocity": 100,
+
   // A lead line is one note at a time, so there is nothing to spread. Left at
   // zero rather than borrowed from the rhythm guitar profile, where nine ticks
   // of strum is what stops a chord sounding like a keyboard.

@@ -339,6 +339,21 @@ public:
     // Zero for a piano, where the notes genuinely do land together.
     int  strumTicks = 0;
 
+    // Articulation keyswitches, for an instrument that plays notes.
+    //
+    // A phrase-driven instrument's keyswitch IS the performance: you hold it and
+    // it plays a riff. A notes instrument's keyswitch only chooses HOW the notes
+    // it is sent will sound - palm muted, staccato, a power chord, tremolo - and
+    // is tapped rather than held, because it latches. Same `phrases` block in
+    // the file, because the thing being chosen is still the section's feel;
+    // completely different emission.
+    //
+    // Off unless the profile says the numbers have been checked. A guessed
+    // keyswitch is the one mistake in this project that has silenced a whole
+    // song, so the same discipline the bass articulations use applies here: the
+    // notes go out and the switches do not, until somebody has confirmed them.
+    bool keyswitchesVerified = false;
+
     // Bends, and whether this instrument has any.
     //
     // Off unless a profile says otherwise, and deliberately so. Pitch bend is a
@@ -422,6 +437,10 @@ public:
 
     // Every phrase key this profile defines, lowest first, for calibration.
     std::vector<std::pair<PhraseFeel, int>> allPhraseKeys() const;
+
+    // -1 removes it. Public so a keyswitch map can be built without a file -
+    // the harness needs one, and calibration will want to write one.
+    void setKeyFor (PhraseFeel f, int note);
 
 private:
     std::vector<int> phraseKeys;   // indexed by PhraseFeel

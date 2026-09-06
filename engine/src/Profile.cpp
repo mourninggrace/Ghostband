@@ -540,6 +540,9 @@ std::string PhraseProfile::toJson() const
     j += "  \"velocity_max\": " + std::to_string (velocityMax) + ",\n";
     j += "  \"strum_ticks\": "  + std::to_string (strumTicks) + ",\n";
 
+    if (keyswitchesVerified)
+        j += "  \"keyswitches_verified\": true,\n";
+
     if (legatoOverlapTicks > 0)
         j += "  \"legato\": { \"overlap_ticks\": "
            + std::to_string (legatoOverlapTicks)
@@ -800,6 +803,13 @@ bool PhraseProfile::save (const std::string& path, std::string& error) const
     return true;
 }
 
+void PhraseProfile::setKeyFor (PhraseFeel f, int note)
+{
+    const size_t i = static_cast<size_t> (f);
+    if (i < phraseKeys.size())
+        phraseKeys[i] = clampInt (note, -1, 127);
+}
+
 int PhraseProfile::keyFor (PhraseFeel f) const
 {
     const size_t i = static_cast<size_t> (f);
@@ -856,6 +866,8 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
         if (out.chordHighest < out.chordLowest)
             std::swap (out.chordLowest, out.chordHighest);
     }
+
+    out.keyswitchesVerified = j.boolOr ("keyswitches_verified", false);
 
     const Json& legato = j["legato"];
     if (legato.isObject())
@@ -944,6 +956,31 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
 
             track.addNoteOn  (on, channel, key, phraseVelocity);
             track.addNoteOff (off, channel, key);
+        }
+    }
+
+    // ---- articulation keyswitches, for a notes instrument ------------------
+    //
+    // Tapped, not held. These latch: the switch selects an articulation and the
+    // instrument stays on it until told otherwise, so holding it down would be
+    // wrong and restating it on every note would flood the instrument.
+    //
+    // Sent ahead of the notes it applies to, and only when it changes - the same
+    // rule the bass articulations follow, for the same reason.
+    if (! phraseDriven && keyswitchesVerified && ! part.phrases.empty())
+    {
+        int lastKey = -1;
+
+        for (const PhraseIntent& p : part.phrases)
+        {
+            const int key = keyFor (p.feel);
+            if (key < 0 || key == lastKey)
+                continue;   // no such articulation here, or already selected
+
+            const int on = std::max (0, p.tick - phraseLeadTicks);
+            track.addNoteOn  (on, channel, key, phraseVelocity);
+            track.addNoteOff (on + std::max (1, phraseBlipTicks), channel, key);
+            lastKey = key;
         }
     }
 

@@ -1440,6 +1440,61 @@ int main (int argc, char** argv)
         }
     }
 
+    // ---- a notes instrument can be told how to play -------------------------
+    // A phrase instrument's keyswitch IS the performance; a notes instrument's
+    // only chooses how the notes it is sent will sound. Ghostband only ever
+    // emitted the first kind, so Shreddage's palm mute, power chords and
+    // tremolo were mapped, documented and unreachable.
+    //
+    // The guard matters as much as the feature: a guessed keyswitch has
+    // silenced a whole song in this project before, so nothing is sent until a
+    // profile says its numbers were checked.
+    {
+        gb::PhraseProfile g;
+        g.phraseDriven = false;
+        g.chordLowest  = 40;
+        g.chordHighest = 84;
+        g.setKeyFor (gb::PhraseFeel::Muted,   13);
+        g.setKeyFor (gb::PhraseFeel::Driving, 15);
+
+        gb::PhrasePart part;
+        gb::ChordIntent c; c.tick = 0; c.durationTicks = 480; c.rootPc = 4;
+        c.thirdSemis = 3; c.fifthSemis = 7;
+        part.chords.push_back (c);
+        c.tick = 1920; part.chords.push_back (c);
+
+        gb::PhraseIntent a; a.tick = 0;    a.feel = gb::PhraseFeel::Muted;   part.phrases.push_back (a);
+        gb::PhraseIntent b; b.tick = 1920; b.feel = gb::PhraseFeel::Driving; part.phrases.push_back (b);
+
+        const auto switchesIn = [] (const gb::PhraseProfile& profile, const gb::PhrasePart& p)
+        {
+            gb::MidiTrack t;
+            profile.render (p, t);
+            int n = 0;
+            for (const gb::MidiEvent& e : t.events)
+                if (e.bytes.size() >= 3 && (e.bytes[0] & 0xF0) == 0x90
+                    && e.bytes[2] > 0 && e.bytes[1] < 26)
+                    ++n;
+            return n;
+        };
+
+        g.keyswitchesVerified = false;
+        check (switchesIn (g, part) == 0,
+               "an unverified keyswitch map sends nothing",
+               juce::String (switchesIn (g, part)) + " sent");
+
+        g.keyswitchesVerified = true;
+        check (switchesIn (g, part) == 2,
+               "and a verified one switches articulation per section",
+               juce::String (switchesIn (g, part)) + " switches");
+
+        // Restating a latching switch on every section floods the instrument.
+        part.phrases[1].feel = gb::PhraseFeel::Muted;
+        check (switchesIn (g, part) == 1,
+               "and never restates one that has not changed",
+               juce::String (switchesIn (g, part)) + " sent for two identical sections");
+    }
+
     // ---- the bass plays more than one way -----------------------------------
     // MODO maps seven articulations and the generator asked for three, so a bass
     // that could hammer and slide picked every note. Worse, the code that would
