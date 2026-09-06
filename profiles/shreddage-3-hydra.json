@@ -184,6 +184,50 @@
   // Emulated is an LFO on the pitch and sounds like one.
   "vibrato": { "cc": 1, "depth": 90, "ticks": 160 },
 
-  // Built in the plugin's Settings screen by MIDI Learn, never guessed here.
-  "controls": {}
+  // ---- tone, and the hard limit on it ----
+  //
+  // Shreddage has TWO layers of controls and only one of them can be reached.
+  //
+  //   Shreddage Engine (the MAIN page)  - "virtually every knob can be MIDI
+  //     learned", manual p7. Right-click the knob, move a CC.
+  //
+  //   Console (the amps, distortion, cabinets, EQ, delay - everything that
+  //     makes a lead tone a lead tone) - CANNOT be automated or MIDI learned
+  //     at all. From the Console manual's own FAQ: "The only way to make
+  //     Console completely modular was to remove native automation / CC learn
+  //     from the controls." The escape hatch it names is a Mod Matrix script,
+  //     and Hydra does not have one.
+  //
+  // So Ghostband cannot switch Shreddage from a clean tone to a lead tone. What
+  // it CAN do is push a fixed tone harder, which is what a guitarist does
+  // anyway: the amp does not change for the solo, the playing hits it harder.
+  //
+  //   drive        Engine Volume is PRE-FX gain, so raising it drives whatever
+  //                amp is in Console harder. This is the gain control.
+  //   bite         an EQ that adds brightness and takes out low-mid body. Up
+  //                for a solo so the line cuts through the rhythm guitar.
+  //   pickup       neck / neck+bridge / bridge. Neck is round and vocal and is
+  //                where leads live; bridge is tight and is for riffing.
+  //   tracks       multi-tracking, 1 to 4 virtual guitars. A rhythm part
+  //                doubles; a lead must stay single or it smears.
+  //
+  // All four follow "lead" - up, brighter, warmer and single-tracked when this
+  // guitar is out front, back to the rhythm setting when it is not.
+  //
+  // THESE CC NUMBERS ARE ASSIGNED, NOT TAUGHT. Ghostband will send them and
+  // Shreddage will ignore them until each knob is right-clicked and learned. A
+  // CC nothing has learned does nothing, which is why declaring them is safe
+  // where declaring a keyswitch would not be.
+  //
+  // For the mix knob, see "level" below: Console's faders cannot be learned, so
+  // the volume that mix reaches has to be KONTAKT's instrument volume, assigned
+  // from Kontakt's Automation tab - drag a MIDI CC onto the slider. That is not
+  // a right-click, which is why right-clicking it did nothing.
+  "controls": {
+    "drive":  { "cc": 20, "follows": "lead", "type": "knob", "low": 0.35, "high": 0.85 },
+    "bite":   { "cc": 21, "follows": "lead", "type": "knob", "low": 0.15, "high": 0.70 },
+    "pickup": { "cc": 22, "follows": "lead", "type": "select", "positions": 3, "low": 1, "high": 0 },
+    "tracks": { "cc": 23, "follows": "lead", "type": "select", "positions": 4, "low": 1, "high": 0 },
+    "level":  { "cc": 24, "follows": "level", "type": "knob", "low": 0, "high": 1 }
+  }
 }

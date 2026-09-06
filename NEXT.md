@@ -44,6 +44,46 @@ byte-identical file. That evidence was real and the conclusion was wrong: the
 file was identical because it was always right, and re-teaching appeared to fix
 it because re-teaching also happens to reload nothing. One line fixes it.
 
+### GUITAR TONE: what can and cannot be reached  [RESEARCHED 2026-09-06]
+
+Shreddage has two layers of controls and only one is reachable.
+
+**Shreddage Engine** - the MAIN page: Volume, Tone, pickup Signal switch, Bite,
+Extra Attack, Multi-Tracking, Vibrato Amount, Responsiveness. "Virtually every
+knob can be MIDI learned" (manual p7). Right-click, move a CC.
+
+**Console** - the amps, distortion pedals, cabinet IRs, EQ, delay, reverb.
+Everything that makes a lead tone a lead tone. **Cannot be automated or MIDI
+learned at all.** From the Console manual's own FAQ: *"The only way to make
+Console completely modular was to remove native automation / CC learn from the
+controls."* The escape hatch it offers is a Mod Matrix script, and **Hydra does
+not have one** - checked.
+
+**So Ghostband cannot switch Shreddage from a clean tone to a lead tone.** That
+is a property of the instrument, not a gap in the engine, and no amount of work
+here changes it.
+
+What it CAN do is push a fixed tone harder, which is what a guitarist does
+anyway - the amp does not change for the solo, the playing hits it harder.
+Declared in the profile, all following "lead":
+
+    drive    Engine Volume is PRE-FX gain, so it drives Console's amp harder
+    bite     brightness and less low-mid body, so the line cuts through
+    pickup   neck for the solo, bridge for riffing
+    tracks   multi-tracking - a rhythm doubles, a lead stays single
+
+Measured on thrash: all four move one bar before the solo and back after.
+
+**If you want a genuinely different amp for solos**, it has to happen outside
+Kontakt - a second amp block in Gig Performer fed by the same channel, or
+AmpliTube on a send - because Console cannot be told anything from outside.
+
+**And the Shreddage master volume is explained.** Console's faders cannot be
+learned, which is why right-clicking did nothing. The volume the mix knob should
+reach is KONTAKT's instrument volume, assigned from Kontakt's **Automation tab**
+by dragging a MIDI CC onto the slider - not a right-click, which is why the
+right-click attempt failed.
+
 ### A CHANNEL BELONGS TO THE INSTRUMENT, not to the slot
 
 Reported as: loading Shreddage, IRON 2 receiving keyswitches instead of notes,
