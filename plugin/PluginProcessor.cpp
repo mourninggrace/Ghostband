@@ -611,17 +611,11 @@ void GhostbandProcessor::testPart (int part)
 
 void GhostbandProcessor::teachControl (int part, int cc)
 {
-    int channel = 2;
-    {
-        const juce::ScopedLock sl (stateLock);
-        switch (part)
-        {
-            case 0:  channel = kit.channel;           break;
-            case 1:  channel = bassProfile.channel;   break;
-            case 3:  channel = pianoProfile.channel;  break;
-            default: channel = guitarProfile.channel; break;
-        }
-    }
+    // channelForPart, not a second copy of the same switch. The copy that used
+    // to live here had the same hole - no case for the second guitar - so the
+    // learn sweep went to the rhythm guitar. Two functions that must agree
+    // about which instrument a part speaks to should not be two functions.
+    const int channel = channelForPart (part);
 
     const double sr = juce::jmax (8000.0, getSampleRate());
 
@@ -646,6 +640,14 @@ int GhostbandProcessor::channelForPart (int part) const
         case 0:  return kit.channel;
         case 1:  return bassProfile.channel;
         case 3:  return pianoProfile.channel;
+        // Four is the second guitar, and it was missing from this switch, so it
+        // fell through to the rhythm guitar's channel. Every Teach sweep and
+        // every Test aimed at a GTR 2 control therefore went to IRON 2 on
+        // channel 2 rather than to Shreddage on 11: the knob you were trying to
+        // teach never saw the controller move, and a knob you were not looking
+        // at did. That is the whole reason mappings kept landing on the wrong
+        // instrument.
+        case 4:  return guitar2Profile.channel;
         default: return guitarProfile.channel;
     }
 }
@@ -817,6 +819,31 @@ void GhostbandProcessor::saveLearnedControls() const
     f.replaceWithText (juce::JSON::toString (wrapper, false));
 }
 
+// A part has one mix knob, so it reaches one control.
+//
+// "level" is the only follow that is answered by a fader rather than by the
+// arrangement, and the fader is single. When several controls claimed it the
+// knob wrote to all of them at once - on Shreddage that was volume, bite and
+// the pickup selector moving together, which reads as the plugin being broken
+// rather than as a mapping being wrong.
+//
+// The FIRST one wins and the rest are released to "none", which is the honest
+// outcome: they were not being followed by anything, they were being dragged
+// along. Kept as a free function so the two places that can create the state -
+// loading from the store, and editing in Settings - cannot disagree about it.
+static void enforceSingleLevelControl (gb::ControlSet& controls)
+{
+    bool seen = false;
+    for (gb::ControlDef& c : controls.editable())
+    {
+        if (c.follows != "level")
+            continue;
+
+        if (seen) c.follows = "none";
+        else      seen = true;
+    }
+}
+
 void GhostbandProcessor::mergeLearnedControls (gb::ControlSet& controls,
                                                const std::string& instrument,
                                                const std::string& id)
@@ -830,7 +857,47 @@ void GhostbandProcessor::mergeLearnedControls (gb::ControlSet& controls,
     const auto found = learnedControls.find (key);
     if (found != learnedControls.end())
     {
-        controls = found->second;   // what was taught wins over what shipped
+        // The store carries CC NUMBERS, and nothing else.
+        //
+        // It used to replace the whole control set - "what was taught wins over
+        // what shipped" - which sounds right and is not. MIDI Learn teaches one
+        // thing: which of the plugin's knobs sits on which controller. That is a
+        // fact about the rack, and it is the reason this store exists at all,
+        // because seven profile files describe one SSD5 and teaching it once
+        // should be enough.
+        //
+        // "follows", "type", "positions", "low" and "high" are not taught by
+        // anything. They are declared in the profile, next to the comment saying
+        // why, under version control. Letting a cached copy of them win meant an
+        // edit to a profile was silently reverted on load and then written back
+        // over the file on the next save - which is exactly what happened to
+        // Shreddage: the file said the tone knobs follow "lead", the store said
+        // all three follow "level", the store won, and one mix knob moved three
+        // knobs at once.
+        //
+        // So: the profile keeps its own intent, the store supplies the CC, and a
+        // control only the store knows about comes across whole - there is no
+        // profile opinion to prefer in that case, and that is what carries a
+        // mapping taught against one SSD5 file to the other six.
+        auto& mine = controls.editable();
+
+        for (gb::ControlDef& c : mine)
+        {
+            const int taught = found->second.ccFor (c.name);
+            if (taught >= 0)
+                c.cc = taught;
+        }
+
+        for (const gb::ControlDef& stored : found->second.all())
+        {
+            const bool known = std::any_of (mine.begin(), mine.end(),
+                                            [&stored] (const gb::ControlDef& c)
+                                            { return c.name == stored.name; });
+            if (! known)
+                mine.push_back (stored);
+        }
+
+        enforceSingleLevelControl (controls);
         return;
     }
 
@@ -1009,6 +1076,15 @@ void GhostbandProcessor::updateControl (int part, int index, const ControlSlot& 
         // the type is chosen, so the list never shows an impossible mapping.
         if (c.type == "select" && c.positions < 2)
             c.positions = 3;
+
+        // Choosing "level" here takes it off whatever had it before, because
+        // the part has one mix knob and it reaches one control. Done in this
+        // direction - the just-edited control wins - since the alternative is
+        // the list quietly refusing the choice the owner made a moment ago.
+        if (c.follows == "level")
+            for (int i = 0; i < static_cast<int> (list.size()); ++i)
+                if (i != index && list[static_cast<size_t> (i)].follows == "level")
+                    list[static_cast<size_t> (i)].follows = "none";
     }
     regenerate();
 }
@@ -1049,7 +1125,14 @@ bool GhostbandProcessor::saveControls (int part, juce::String& error)
             case 1:  set = &bassProfile.controls;    inst = &bassProfile.instrument;    id = &bassProfile.id;    break;
             case 2:  set = &guitarProfile.controls;  inst = &guitarProfile.instrument;  id = &guitarProfile.id;  break;
             case 4:  set = &guitar2Profile.controls; inst = &guitar2Profile.instrument; id = &guitar2Profile.id; break;
-            default: set = &pianoProfile.controls;   inst = &pianoProfile.instrument;   id = &pianoProfile.id;   break;
+            case 3:  set = &pianoProfile.controls;   inst = &pianoProfile.instrument;   id = &pianoProfile.id;   break;
+            // Named rather than left to "default", which meant any part index
+            // this function did not recognise wrote its mappings into the
+            // PIANO. Callers all clamp to 0..4 today, so it never fired - but
+            // the last two faults in this file were both a missing case
+            // silently resolving to the wrong instrument, and a save is the
+            // worst place to find the third.
+            default: break;
         }
 
         if (set != nullptr)
@@ -1068,7 +1151,8 @@ bool GhostbandProcessor::saveControls (int part, juce::String& error)
             case 1:  ok = bassProfile.save (path, e);    break;
             case 2:  ok = guitarProfile.save (path, e);  break;
             case 4:  ok = guitar2Profile.save (path, e); break;
-            default: ok = pianoProfile.save (path, e);   break;
+            case 3:  ok = pianoProfile.save (path, e);   break;
+            default: e = "unknown part"; ok = false;     break;
         }
     }
 
@@ -1138,6 +1222,13 @@ void GhostbandProcessor::sendLevels()
                                           juce::roundToInt (def.valueAt (p.level) * 127.0));
                     out.push_back ({ p.channel, def.cc, value });
                     taught = true;
+
+                    // One knob, one control. Two places upstream now make a
+                    // second "level" impossible to create, but a store written
+                    // before them still exists on this machine and on anyone
+                    // else's, and a fader that writes to three controllers is
+                    // not a fault worth trusting a migration to catch.
+                    break;
                 }
             }
 
@@ -1148,7 +1239,12 @@ void GhostbandProcessor::sendLevels()
     }
 
     {
-        static const char* names[] = { "drums", "bass", "guitar", "piano", "guitar 2" };
+        // In the order the parts array above is built, which is NOT the order
+        // the part indices run in. This read "piano" against guitar 2's message
+        // and "guitar 2" against the piano's, so the one line that reports where
+        // a mix knob went was lying about two of the five - and that line is
+        // what a mapping problem gets diagnosed from.
+        static const char* names[] = { "drums", "bass", "guitar", "guitar 2", "piano" };
         juce::String report;
         for (size_t i = 0; i < out.size() && i < 8; ++i)
         {

@@ -1882,6 +1882,144 @@ int main (int argc, char** argv)
             proc.removeControl (bass, 0);
     }
 
+    // ---- one mix knob moves one control -------------------------------------
+    // Shreddage arrived with volume, bite and the pickup selector all following
+    // "level", and the GTR 2 mix knob moved all three at once: turn it up and
+    // the guitar got louder, brighter and changed pickup together. Take away
+    // bite and it moved volume and the pickup instead, which is what a fader
+    // wired to a bus rather than to a channel does.
+    //
+    // Nothing about that was visible in the mapping list, because each row on
+    // its own was a perfectly reasonable mapping. Only the set was wrong.
+    {
+        const int bass = 1;
+
+        while (proc.getControlCount (bass) > 0)
+            proc.removeControl (bass, 0);
+
+        const auto followLevel = [&proc, bass] (int index, const char* name)
+        {
+            proc.addControl (bass);
+            auto s = proc.getControl (bass, index);
+            s.name    = name;
+            s.follows = "level";
+            s.low     = 0.0;
+            s.high    = 1.0;
+            proc.updateControl (bass, index, s);
+        };
+
+        followLevel (0, "volume");
+        followLevel (1, "bite");
+        followLevel (2, "signal");
+
+        int following = 0;
+        for (int i = 0; i < proc.getControlCount (bass); ++i)
+            if (proc.getControl (bass, i).follows == "level")
+                ++following;
+
+        check (following == 1, "only one control can follow the mix knob",
+               juce::String (following) + " of 3 follow \"level\"");
+
+        // And the one that follows it is the one chosen last, not the one that
+        // happened to be first in the list - refusing the owner's most recent
+        // choice would be its own kind of wrong.
+        check (proc.getControl (bass, 2).follows == "level",
+               "the control just set to \"level\" is the one that keeps it",
+               proc.getControl (bass, 2).follows);
+
+        // The wire, not the list. Exactly one of these three controllers may
+        // carry the knob - the arrangement drives others on this channel, and
+        // counting every controller on it would fail on a healthy plugin.
+        std::set<int> mine;
+        for (int i = 0; i < 3; ++i)
+            mine.insert (proc.getControl (bass, i).cc);
+
+        // Drain first. Every control edit re-sends the levels, so by now the
+        // queue holds a message from each intermediate state this test built on
+        // the way here - which is correct behaviour and looks exactly like the
+        // fault being tested for.
+        juce::AudioBuffer<float> buf (2, blockSize);
+        juce::MidiBuffer out;
+
+        for (int i = 0; i < 8; ++i) { out.clear(); proc.processBlock (buf, out); }
+
+        proc.levelBass.store (0.75f);
+        proc.sendLevels();
+
+        std::set<int> moved;
+        std::map<int, juce::String> values;
+
+        for (int i = 0; i < 8; ++i)
+        {
+            out.clear();
+            proc.processBlock (buf, out);
+            for (const auto meta : out)
+            {
+                const auto m = meta.getMessage();
+                if (m.isController() && m.getChannel() == 1
+                    && mine.count (m.getControllerNumber()) > 0)
+                {
+                    moved.insert (m.getControllerNumber());
+                    values[m.getControllerNumber()]
+                        += juce::String (m.getControllerValue()) + ",";
+                }
+            }
+        }
+
+        juce::String which;
+        for (int cc : moved) which += juce::String (cc) + "=" + values[cc] + " ";
+
+        check (moved.size() == 1, "and one mix knob writes one controller",
+               juce::String ((int) moved.size()) + " of its 3 moved: " + which
+                   + " (level is on CC "
+                   + juce::String (proc.getControl (bass, 2).cc) + ")");
+
+        while (proc.getControlCount (bass) > 0)
+            proc.removeControl (bass, 0);
+    }
+
+    // ---- a profile's intent outlives the taught store ------------------------
+    // The store remembers which knob sits on which CC, because seven profile
+    // files describe one SSD5 and teaching it once should be enough. It used to
+    // remember far more than that - it replaced the profile's whole controls
+    // block - so "follows", the range, and the type came back from a cache
+    // instead of from the file.
+    //
+    // That is not a cosmetic difference. An edit to a profile was reverted on
+    // load and then written back over the file on the next save, so a fix
+    // committed to git could be undone by opening the plugin. It cost a real
+    // fix to Shreddage's tone controls, which is why this is pinned.
+    {
+        const juce::File plan ("C:/Projects/Ghostband/plans/preset-thrash.json");
+
+        if (plan.existsAsFile())
+        {
+            proc.loadPlan (plan);
+
+            const int gtr2 = 4;
+            const int count = proc.getControlCount (gtr2);
+
+            // The profile says its three tone controls follow "lead": up and
+            // brighter when this guitar is out front. Only its CC numbers are
+            // the store's business.
+            int levels = 0, leads = 0;
+            for (int i = 0; i < count; ++i)
+            {
+                const auto c = proc.getControl (gtr2, i);
+                if (c.follows == "level") ++levels;
+                if (c.follows == "lead")  ++leads;
+            }
+
+            check (count == 0 || levels <= 1,
+                   "a loaded profile never brings more than one \"level\" control",
+                   juce::String (levels) + " of " + juce::String (count));
+
+            check (count == 0 || leads > 0,
+                   "the profile's own \"follows\" survives the taught store",
+                   juce::String (leads) + " control(s) still follow \"lead\"");
+        }
+    }
+
     // ---- the rig survives a restart -----------------------------------------
     // The mix and the channel assignments are part of how a rig is set up. They
     // were not in the saved state at all, so every knob sprang back to full and
