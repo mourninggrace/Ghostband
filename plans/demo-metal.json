@@ -28,6 +28,7 @@
   "drum_profile":   "profiles/ssd5-terry-date.json",
   "bass_profile":   "profiles/modo-bass-2.json",
   "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
   "piano_profile":  "profiles/virtual-pianist.json",
 
   // The piano is declared but stays out of the way. Metal is a guitar
@@ -45,7 +46,7 @@
       "chords": ["Dm"],
       "plays": "full",
       "fill": "auto",
-      "guitar": "muted", "piano": "silent", "lead": "guitar"
+      "guitar": "muted", "guitar2": "silent", "piano": "silent", "lead": "guitar"
     },
     {
       "name": "verse1",
@@ -55,7 +56,7 @@
       "chords": ["Dm", "Dm", "Bb", "C"],
       "bass": "lock_kick",
       "fill": "auto",
-      "guitar": "muted", "piano": "silent", "lead": "guitar"
+      "guitar": "muted", "guitar2": "silent", "piano": "silent", "lead": "guitar"
     },
     {
       "name": "chorus1",
@@ -65,7 +66,7 @@
       "chords": ["Bb", "F", "C", "Dm"],
       "bass": "lock_kick",
       "fill": "auto",
-      "guitar": "driving", "piano": "silent", "lead": "guitar"
+      "guitar": "driving", "guitar2": "silent", "piano": "silent", "lead": "guitar"
     },
     {
       // vary:false makes this bit-identical to verse1. Set it true and the
@@ -78,7 +79,7 @@
       "bass": "lock_kick",
       "vary": true,
       "fill": "auto",
-      "guitar": "muted", "piano": "silent", "lead": "guitar"
+      "guitar": "muted", "guitar2": "silent", "piano": "silent", "lead": "guitar"
     },
     {
       "name": "chorus2",
@@ -88,7 +89,7 @@
       "chords": ["Bb", "F", "C", "Dm"],
       "bass": "lock_kick",
       "fill": "auto",
-      "guitar": "driving", "piano": "silent", "lead": "guitar"
+      "guitar": "driving", "guitar2": "silent", "piano": "silent", "lead": "guitar"
     },
     {
       // The one place the piano belongs. Half time, the guitar drops to open
@@ -100,11 +101,11 @@
       "chords": ["Gm", "Gm", "Bb", "C"],
       "bass": "lock_kick",
       "fill": "big",
-      "guitar": "open", "piano": "driving", "lead": "piano"
+      "guitar": "open", "guitar2": "silent", "piano": "driving", "lead": "piano"
     },
     {
       // The guitar keeps comping here rather than soloing. Ghostband can write
-      // a solo - set "guitar": "solo" - but a soloing part stops holding the
+      // a solo - set "guitar": "driving", "guitar2": "solo" - but a soloing part stops holding the
       // harmony, and with the piano silent there would be nothing under it.
       "name": "solo",
       "bars": 8,
@@ -113,7 +114,7 @@
       "chords": ["Dm", "Bb", "F", "C"],
       "bass": "lock_kick_octave",
       "fill": "auto",
-      "guitar": "driving", "piano": "silent", "lead": "guitar"
+      "guitar": "driving", "guitar2": "solo", "piano": "silent", "lead": "guitar2"
     },
     {
       "name": "ending",
@@ -123,7 +124,7 @@
       "chords": ["Dm"],
       "bass": "lock_kick",
       "fill": "none",
-      "guitar": "driving", "piano": "silent", "lead": "guitar"
+      "guitar": "driving", "guitar2": "silent", "piano": "silent", "lead": "guitar"
     }
   ]
 }

@@ -18,6 +18,7 @@
   "drum_profile":   "profiles/ssd5-terry-date.json",
   "bass_profile":   "profiles/modo-bass-2.json",
   "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
   "piano_profile":  "profiles/virtual-pianist.json",
 
   "sections": [
@@ -30,7 +31,7 @@
       "name": "theme", "bars": 10, "intensity": 0.6,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["Em", "A", "Em", "A", "C", "B", "Em", "A", "C", "B"],
-      "bass": "lock_kick", "guitar": "driving", "piano": "sparse", "lead": "guitar"
+      "bass": "lock_kick", "guitar": "driving", "guitar2": "silent", "piano": "sparse", "lead": "guitar"
     },
     {
       "name": "verse1", "bars": 8, "intensity": 0.42,
@@ -42,13 +43,13 @@
       "name": "heavy", "bars": 8, "intensity": 0.86,
       "feel": "half_time", "plays": "drums+bass+guitar", "fill": "big",
       "chords": ["Em", "Em", "C", "A"],
-      "bass": "lock_kick", "guitar": "muted", "lead": "guitar"
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "silent", "lead": "guitar"
     },
     {
       "name": "chorus1", "bars": 8, "intensity": 0.82,
       "feel": "straight", "plays": "full", "fill": "auto",
       "chords": ["C", "G", "A", "Em"],
-      "bass": "eighths", "guitar": "open", "piano": "open", "lead": "both"
+      "bass": "eighths", "guitar": "open", "guitar2": "silent", "piano": "open", "lead": "both"
     },
     {
       "name": "verse2", "bars": 8, "intensity": 0.48,
@@ -60,7 +61,7 @@
       "name": "development", "bars": 14, "intensity": 0.7,
       "feel": "straight", "plays": "full", "fill": "auto",
       "chords": ["Em", "A", "C", "B", "Em", "A", "F#m", "B", "C", "G", "A", "Em", "C", "B"],
-      "bass": "lock_kick", "guitar": "busy", "piano": "sparse", "lead": "guitar"
+      "bass": "lock_kick", "guitar": "busy", "guitar2": "silent", "piano": "sparse", "lead": "guitar"
     },
     {
       "name": "quiet", "bars": 6, "intensity": 0.2,
@@ -72,18 +73,18 @@
       "name": "solo", "bars": 12, "intensity": 0.9,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["Em", "A", "C", "B", "Em", "A", "C", "B", "Am", "B", "Em", "Em"],
-      "bass": "eighths", "guitar": "busy", "piano": "driving", "lead": "guitar"
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "piano": "driving", "lead": "guitar2"
     },
     {
       "name": "chorus2", "bars": 8, "intensity": 0.94,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["C", "G", "A", "Em"],
-      "bass": "eighths", "guitar": "open", "piano": "open", "lead": "both"
+      "bass": "eighths", "guitar": "open", "guitar2": "silent", "piano": "open", "lead": "both"
     },
     {
       "name": "ending", "bars": 6, "intensity": 0.62,
       "feel": "half_time", "plays": "full", "fill": "none",
-      "chords": ["Em", "A", "C", "B", "Em", "Em"], "guitar": "open", "piano": "open", "lead": "both"
+      "chords": ["Em", "A", "C", "B", "Em", "Em"], "guitar": "open", "guitar2": "silent", "piano": "open", "lead": "both"
     }
   ]
 }

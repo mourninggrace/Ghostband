@@ -23,6 +23,7 @@
   "drum_profile":   "profiles/ssd5-terry-date.json",
   "bass_profile":   "profiles/modo-bass-2.json",
   "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
   "piano_profile":  "profiles/virtual-pianist.json",
 
   // Unlike the metal plan, the piano earns a place through the whole song here.
@@ -49,7 +50,7 @@
       "chords": ["Em", "Em", "C", "D"],
       "bass": "auto",
       "fill": "auto",
-      "guitar": "muted", "piano": "sparse", "lead": "guitar"
+      "guitar": "muted", "guitar2": "silent", "piano": "sparse", "lead": "guitar"
     },
     {
       "name": "chorus1",
@@ -59,7 +60,7 @@
       "chords": ["C", "G", "D", "Em"],
       "bass": "eighths",
       "fill": "auto",
-      "guitar": "driving", "piano": "open", "lead": "guitar"
+      "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "guitar"
     },
     {
       // Same chords as verse 1, different instrument out front. This is the
@@ -71,7 +72,7 @@
       "chords": ["Em", "Em", "C", "D"],
       "bass": "auto",
       "fill": "auto",
-      "guitar": "muted", "piano": "driving", "lead": "piano"
+      "guitar": "muted", "guitar2": "silent", "piano": "driving", "lead": "piano"
     },
     {
       "name": "chorus2",
@@ -81,7 +82,7 @@
       "chords": ["C", "G", "D", "Em"],
       "bass": "eighths",
       "fill": "auto",
-      "guitar": "driving", "piano": "open", "lead": "guitar"
+      "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "guitar"
     },
     {
       "name": "bridge",
@@ -91,7 +92,7 @@
       "chords": ["Am", "Am", "C", "D"],
       "bass": "roots",
       "fill": "big",
-      "guitar": "open", "piano": "driving", "lead": "piano"
+      "guitar": "open", "guitar2": "silent", "piano": "driving", "lead": "piano"
     },
     {
       "name": "solo",
@@ -101,7 +102,7 @@
       "chords": ["Em", "C", "G", "D"],
       "bass": "eighths",
       "fill": "auto",
-      "guitar": "driving", "piano": "open", "lead": "guitar"
+      "guitar": "driving", "guitar2": "solo", "piano": "open", "lead": "guitar2"
     },
     {
       "name": "ending",
@@ -111,7 +112,7 @@
       "chords": ["C", "D", "Em", "Em"],
       "bass": "auto",
       "fill": "none",
-      "guitar": "driving", "piano": "open", "lead": "both"
+      "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "both"
     }
   ]
 }

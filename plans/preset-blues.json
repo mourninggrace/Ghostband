@@ -44,6 +44,7 @@
   "drum_profile":   "profiles/ssd5-terry-date.json",
   "bass_profile":   "profiles/modo-bass-2.json",
   "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
   "piano_profile":  "profiles/virtual-pianist.json",
 
   "sections": [
@@ -61,13 +62,13 @@
       "name": "verse1", "bars": 12, "intensity": 0.50,
       "feel": "straight", "plays": "full", "fill": "auto",
       "chords": ["A7", "A7", "A7", "A7", "D7", "D7", "A7", "A7", "E7", "D7", "A7", "E7"],
-      "bass": "eighths", "guitar": "sparse", "piano": "driving", "lead": "piano"
+      "bass": "eighths", "guitar": "sparse", "guitar2": "silent", "piano": "driving", "lead": "piano"
     },
     {
       "name": "verse2", "bars": 12, "intensity": 0.58,
       "feel": "straight", "plays": "full", "fill": "auto",
       "chords": ["A7", "A7", "A7", "A7", "D7", "D7", "A7", "A7", "E7", "D7", "A7", "E7"],
-      "bass": "eighths", "guitar": "sparse", "piano": "driving", "lead": "piano"
+      "bass": "eighths", "guitar": "sparse", "guitar2": "silent", "piano": "driving", "lead": "piano"
     },
     {
       // The guitar takes a chorus, which in blues means twelve bars of its own -
@@ -76,7 +77,7 @@
       "name": "solo", "bars": 12, "intensity": 0.80,
       "feel": "straight", "plays": "full", "fill": "auto",
       "chords": ["A7", "A7", "A7", "A7", "D7", "D7", "A7", "A7", "E7", "D7", "A7", "E7"],
-      "bass": "eighths", "guitar": "solo", "piano": "sparse", "lead": "guitar"
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "guitar2": "solo", "piano": "sparse", "lead": "guitar2"
     },
     {
       // Stop time: everything drops to accents on the one and the band leaves
@@ -90,14 +91,14 @@
       "name": "verse3", "bars": 12, "intensity": 0.72,
       "feel": "straight", "plays": "full", "fill": "auto",
       "chords": ["A7", "A7", "A7", "A7", "D7", "D7", "A7", "A7", "E7", "D7", "A7", "E7"],
-      "bass": "eighths", "guitar": "driving", "piano": "driving", "lead": "both"
+      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "piano": "driving", "lead": "both"
     },
     {
       // Turnaround, and it slows to a stop.
       "name": "ending", "bars": 4, "intensity": 0.60,
       "feel": "straight", "plays": "full", "fill": "none",
       "chords": ["E7", "D7", "A7", "E7"],
-      "guitar": "open", "piano": "open", "lead": "both"
+      "guitar": "open", "guitar2": "silent", "piano": "open", "lead": "both"
     }
   ]
 }

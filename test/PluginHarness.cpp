@@ -1196,8 +1196,14 @@ int main (int argc, char** argv)
             guitar.chordLowest  = 60;
             guitar.chordHighest = 84;
 
-            const gb::RenderResult r = gb::renderPerformance (plan, kit, bass, &guitar, nullptr);
-            const auto& lead = r.performance.guitar.lead;
+            // Both guitars, and the lead line from whichever one is soloing.
+            // Shreddage is the solo guitar in every song that has a solo, so the
+            // line moved to guitar2 and this was reading an empty part.
+            const gb::RenderResult r = gb::renderPerformance (plan, kit, bass, &guitar,
+                                                              nullptr, &guitar);
+            const auto& lead = ! r.performance.guitar2.lead.empty()
+                                 ? r.performance.guitar2.lead
+                                 : r.performance.guitar.lead;
 
             check (! lead.empty(), "a solo section produces a melodic line",
                    juce::String ((int) lead.size()) + " notes");
@@ -1309,7 +1315,7 @@ int main (int argc, char** argv)
                 // of this check reported 318 unwanted overlaps in a part that
                 // had none.
                 gb::PhrasePart leadOnly;
-                leadOnly.lead = r.performance.guitar.lead;
+                leadOnly.lead = lead;
 
                 gb::MidiTrack track;
                 bendy.render (leadOnly, track);
@@ -1410,9 +1416,9 @@ int main (int argc, char** argv)
                 // the length of the overlap and then stops dead. Invisible on a
                 // run of sixteenths, a dead second on a phrase ending.
                 int heldCutShort = 0;
-                for (size_t k = 0; k + 1 < r.performance.guitar.lead.size(); ++k)
+                for (size_t k = 0; k + 1 < lead.size(); ++k)
                 {
-                    const gb::LeadIntent& next = r.performance.guitar.lead[k + 1];
+                    const gb::LeadIntent& next = lead[k + 1];
                     if (! next.target) continue;
 
                     for (const gb::MidiEvent& e : seq)
@@ -1464,10 +1470,14 @@ int main (int argc, char** argv)
 
                 // A soloing part stops comping. Both at once is not something
                 // one player can do.
+                const gb::PhrasePart& soloist = ! r.performance.guitar2.lead.empty()
+                                                  ? r.performance.guitar2
+                                                  : r.performance.guitar;
+
                 bool compedDuringSolo = false;
                 for (const gb::SectionReport& sec : r.sections)
                     if (sec.name == "solo")
-                        for (const gb::ChordIntent& c : r.performance.guitar.chords)
+                        for (const gb::ChordIntent& c : soloist.chords)
                             if (c.tick >= sec.startTick && c.tick < sec.endTick)
                                 compedDuringSolo = true;
 

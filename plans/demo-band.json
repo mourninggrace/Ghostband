@@ -18,6 +18,7 @@
   "drum_profile":   "profiles/ssd5-terry-date.json",
   "bass_profile":   "profiles/modo-bass-2.json",
   "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
   "piano_profile":  "profiles/virtual-pianist.json",
 
   "sections": [
@@ -29,24 +30,24 @@
     {
       "name": "verse1", "bars": 8, "intensity": 0.45,
       "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
-      "chords": ["Em", "Em", "C", "D"], "guitar": "muted"
+      "chords": ["Em", "Em", "C", "D"], "guitar": "muted", "guitar2": "silent"
     },
     {
       "name": "chorus1", "bars": 8, "intensity": 0.85,
       "feel": "straight", "plays": "full", "fill": "auto",
       "chords": ["C", "G", "D", "Em"],
-      "bass": "eighths", "guitar": "open", "piano": "open"
+      "bass": "eighths", "guitar": "open", "guitar2": "silent", "piano": "open"
     },
     {
       "name": "verse2", "bars": 8, "intensity": 0.5,
       "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
-      "chords": ["Em", "Em", "C", "D"], "guitar": "muted"
+      "chords": ["Em", "Em", "C", "D"], "guitar": "muted", "guitar2": "silent"
     },
     {
       "name": "chorus2", "bars": 8, "intensity": 0.88,
       "feel": "straight", "plays": "full", "fill": "auto",
       "chords": ["C", "G", "D", "Em"],
-      "bass": "eighths", "guitar": "open", "piano": "open"
+      "bass": "eighths", "guitar": "open", "guitar2": "silent", "piano": "open"
     },
     {
       "name": "bridge", "bars": 8, "intensity": 0.35,
@@ -56,14 +57,14 @@
     },
     {
       "name": "solo", "bars": 8, "intensity": 0.8,
-      "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
+      "feel": "straight", "plays": "full", "fill": "auto",
       "chords": ["Em", "C", "G", "D"],
-      "bass": "eighths", "guitar": "driving", "piano": "driving"
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "lead": "guitar2", "piano": "driving"
     },
     {
       "name": "ending", "bars": 4, "intensity": 0.7,
       "feel": "straight", "plays": "full", "fill": "none",
-      "chords": ["C", "D", "Em", "Em"], "guitar": "open", "piano": "open"
+      "chords": ["C", "D", "Em", "Em"], "guitar": "open", "guitar2": "silent", "piano": "open"
     }
   ]
 }

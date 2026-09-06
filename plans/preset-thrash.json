@@ -1,4 +1,29 @@
 {
+  // TERMINAL VELOCITY - thrash, with two guitarists.
+  //
+  // guitar is the rhythm player and never stops; guitar2 is the lead and only
+  // appears for the solo, where the rhythm guitar keeps the riff going
+  // underneath it. That is the whole point of a second guitar part: a soloing
+  // player cannot also hold the harmony, so with one guitar the solo section
+  // lost its guitar entirely and sat on bass and drums.
+  //
+  // The two need different MIDI channels and get them from their profiles -
+  // IRON 2 on 2, Shreddage on 11 - because a channel belongs to the instrument
+  // rather than to the part it is filling.
+  //
+  // This replaces the single-guitar version of the same song. Two plans for one
+  // song differing only in which is better is the same confusion "demo band"
+  // and "demo band previous" caused in the Load plan list.
+  // TWIN GUITAR - the same thrash song with two guitarists.
+  //
+  // guitar is the rhythm player and never stops; guitar2 is the lead and only
+  // appears for the solo, where the rhythm guitar keeps the riff going
+  // underneath it. That is the whole point of the second part: a soloing player
+  // cannot also hold the harmony, so before this the solo section lost its
+  // guitar entirely and sat on bass and drums.
+  //
+  // The two need different MIDI channels. The plugin assigns them in Settings;
+  // the CLI moves the second one off the first automatically.
   // TERMINAL VELOCITY - thrash.
   //
   // Fast, tight and in Phrygian, which is where the flattened second that
@@ -28,7 +53,8 @@
 
   "drum_profile":   "profiles/ssd5-terry-date.json",
   "bass_profile":   "profiles/modo-bass-2.json",
-  "guitar_profile": "profiles/vg-iron2.json",
+  "guitar_profile":  "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
   "piano_profile":  "profiles/virtual-pianist.json",
 
   "sections": [
@@ -42,31 +68,31 @@
       "name": "riff", "bars": 8, "intensity": 0.72,
       "feel": "double_time", "plays": "drums+bass+guitar", "fill": "big",
       "chords": ["Dm", "Dm", "Eb", "Dm"],
-      "bass": "lock_kick", "guitar": "muted", "lead": "guitar"
+      "bass": "lock_kick", "guitar2": "silent", "guitar": "muted", "lead": "guitar"
     },
     {
       "name": "verse1", "bars": 8, "intensity": 0.62,
       "feel": "double_time", "plays": "drums+bass+guitar", "fill": "auto",
       "chords": ["Dm", "Dm", "Bb", "C"],
-      "bass": "lock_kick", "guitar": "muted", "lead": "guitar"
+      "bass": "lock_kick", "guitar2": "silent", "guitar": "muted", "lead": "guitar"
     },
     {
       "name": "chorus1", "bars": 8, "intensity": 0.95,
       "feel": "straight", "plays": "drums+bass+guitar", "fill": "big",
       "chords": ["Bb", "C", "Dm", "Dm"],
-      "bass": "eighths", "guitar": "driving", "lead": "guitar"
+      "bass": "eighths", "guitar2": "silent", "guitar": "driving", "lead": "guitar"
     },
     {
       "name": "verse2", "bars": 8, "intensity": 0.68,
       "feel": "double_time", "plays": "drums+bass+guitar", "fill": "auto",
       "chords": ["Dm", "Dm", "Bb", "C"],
-      "bass": "lock_kick", "guitar": "muted", "lead": "guitar"
+      "bass": "lock_kick", "guitar2": "silent", "guitar": "muted", "lead": "guitar"
     },
     {
       "name": "chorus2", "bars": 8, "intensity": 0.98,
       "feel": "straight", "plays": "drums+bass+guitar", "fill": "big",
       "chords": ["Bb", "C", "Dm", "Dm"],
-      "bass": "eighths", "guitar": "driving", "lead": "guitar"
+      "bass": "eighths", "guitar2": "silent", "guitar": "driving", "lead": "guitar"
     },
     {
       // Half the speed and twice the weight. The piano comes back here, low
@@ -74,7 +100,7 @@
       "name": "breakdown", "bars": 8, "intensity": 0.55,
       "feel": "half_time", "plays": "full", "fill": "big",
       "chords": ["Dm", "Dm", "Dm", "Eb"],
-      "bass": "lock_kick", "guitar": "muted", "piano": "sparse",
+      "bass": "lock_kick", "guitar2": "silent", "guitar": "muted", "piano": "sparse",
       "lead": "guitar"
     },
     {
@@ -83,22 +109,22 @@
       // - so this is bass and drums underneath, which is where a thrash solo
       // usually sits anyway. Straight feel, so the line can use sixteenths.
       "name": "solo", "bars": 12, "intensity": 0.92,
-      "feel": "double_time", "plays": "drums+bass+guitar", "fill": "auto",
+      "feel": "double_time", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
       "chords": ["Dm", "Bb", "C", "Dm", "Dm", "Eb", "C", "Dm",
                  "Bb", "C", "Dm", "Dm"],
-      "bass": "eighths", "guitar": "solo", "lead": "guitar"
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "lead": "guitar2"
     },
     {
       "name": "chorus3", "bars": 8, "intensity": 1.0,
       "feel": "straight", "plays": "drums+bass+guitar", "fill": "big",
       "chords": ["Bb", "C", "Dm", "Dm"],
-      "bass": "eighths", "guitar": "driving", "lead": "guitar"
+      "bass": "eighths", "guitar2": "silent", "guitar": "driving", "lead": "guitar"
     },
     {
       "name": "ending", "bars": 4, "intensity": 0.9,
       "feel": "double_time", "plays": "drums+bass+guitar", "fill": "none",
       "chords": ["Dm", "Eb", "Dm", "Dm"],
-      "bass": "lock_kick", "guitar": "muted", "lead": "guitar"
+      "bass": "lock_kick", "guitar2": "silent", "guitar": "muted", "lead": "guitar"
     }
   ]
 }
