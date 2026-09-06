@@ -232,10 +232,8 @@
   // not written anywhere on Shreddage's interface - so the Settings list named
   // controls that appeared not to exist.
   "controls": {
-    "volume":         { "cc": 20, "follows": "lead", "type": "knob", "low": 0.35, "high": 0.85 },
-    "bite":           { "cc": 21, "follows": "lead", "type": "knob", "low": 0.15, "high": 0.70 },
-    "signal":         { "cc": 22, "follows": "lead", "type": "select", "positions": 3, "low": 1, "high": 0 },
-    "multi-tracking": { "cc": 23, "follows": "lead", "type": "select", "positions": 4, "low": 1, "high": 0 },
-    "kontakt volume": { "cc": 24, "follows": "level", "type": "knob", "low": 0, "high": 1 }
+    "volume": { "cc": 20, "follows": "lead", "type": "knob", "low": 0.35, "high": 0.85 },
+    "bite": { "cc": 21, "follows": "lead", "type": "knob", "low": 0.15, "high": 0.7 },
+    "signal": { "cc": 22, "follows": "lead", "type": "select", "positions": 3, "low": 1, "high": 0 }
   }
 }
