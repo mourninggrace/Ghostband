@@ -17,9 +17,15 @@ namespace colours
     const juce::Colour cardRaised   { 0xff1c1c23 };   // controls sitting on a card
     const juce::Colour line         { 0xff2a2a33 };   // hairline separators
 
+    // Raised, twice over, after "almost all writing is completely unreadable".
+    //
+    // These are read on a rack in a dim room at arm's length, not on a designer's
+    // monitor at 60cm. dim was 0xff8a8f99 - grey on near-black, carrying the
+    // section detail, every field label and the whole footer. It was doing far
+    // too much work for how little of it reached the eye.
     const juce::Colour text         { 0xfff2f3f5 };   // white
-    const juce::Colour silver       { 0xffc4c9d2 };   // secondary text
-    const juce::Colour dim          { 0xff8a8f99 };   // labels
+    const juce::Colour silver       { 0xffd2d6de };   // secondary text
+    const juce::Colour dim          { 0xffa9aeba };   // labels
 
     const juce::Colour red          { 0xffe23b54 };   // primary accent
     const juce::Colour purple       { 0xff8b5cf6 };   // secondary accent

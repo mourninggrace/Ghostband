@@ -120,8 +120,10 @@ public:
     // with the rest of the plugin state.
     // Big enough that everything fits on first open. The old default cut the
     // section list off before anything had been resized.
-    std::atomic<int> editorWidth  { 620 };
-    std::atomic<int> editorHeight { 780 };
+    // Bigger, because the type inside it got bigger. 620x780 was sized around
+    // 11pt body text; readable type needs somewhere to sit or it just clips.
+    std::atomic<int> editorWidth  { 720 };
+    std::atomic<int> editorHeight { 880 };
 
     // Play at the song's own tempo rather than the host's.
     //

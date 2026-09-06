@@ -890,7 +890,14 @@ int main (int argc, char** argv)
     // run the same engine through the same profiles, so any divergence means one
     // path has grown a bug - as happened once already, when the dials were held
     // as float and rounding sent the RNG down a different branch.
-    if (argc > 3)
+    // argv[2] and argv[3] are the expected counts - but only when they are
+    // counts. Running with "--snapshot <dir>" put a flag and a path in those
+    // slots, both of which read as zero, so the harness held the plugin to
+    // 0 drum hits and 0 bass notes and reported a parity failure that was
+    // nothing but its own argument parsing.
+    const bool countsGiven = argc > 3 && ! juce::String (argv[2]).startsWith ("--");
+
+    if (countsGiven)
     {
         proc.loadPlan (juce::File (planPath));   // reset the dials the rolls changed
         const auto reloaded = proc.getStatus();

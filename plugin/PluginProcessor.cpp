@@ -2354,8 +2354,12 @@ void GhostbandProcessor::setStateInformation (const void* data, int sizeInBytes)
     complexity.store (xml->getDoubleAttribute ("complexity", 0.5));
     humanize.store   (xml->getDoubleAttribute ("humanize", 0.5));
     seed.store       (xml->getIntAttribute ("seed", 1));
-    editorWidth.store  (juce::jlimit (560, 2200, xml->getIntAttribute ("editorW", 620)));
-    editorHeight.store (juce::jlimit (690, 2000, xml->getIntAttribute ("editorH", 780)));
+    // The floor moved with the type: 560x690 was a size at which 11pt body text
+    // just fitted, and nothing readable fits in it. The default matches the
+    // header, so a session saved before this opens at the new size rather than
+    // at a cramped old one.
+    editorWidth.store  (juce::jlimit (660, 2200, xml->getIntAttribute ("editorW", 720)));
+    editorHeight.store (juce::jlimit (780, 2000, xml->getIntAttribute ("editorH", 880)));
     usePlanTempo.store (xml->getBoolAttribute ("planTempo", true));
 
     const auto level = [&xml] (const char* key)

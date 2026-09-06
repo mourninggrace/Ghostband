@@ -15,6 +15,7 @@ namespace ghost
     const juce::Colour line       = colours::line;
     const juce::Colour text       = colours::text;
     const juce::Colour dim        = colours::dim;
+    const juce::Colour silver     = colours::silver;
     const juce::Colour accent     = colours::accent;
     const juce::Colour warn       = colours::warn;
 }
@@ -44,7 +45,9 @@ public:
 
     std::function<void (int)> onSectionClicked;
 
-    static constexpr int rowHeight = 36;
+    // Grown with the type. A section row carries a 15pt name over 13pt detail;
+    // 36px held those at 13 over 11 and clips them now.
+    static constexpr int rowHeight = 44;
 
 private:
     int rowAt (juce::Point<int> p) const;
@@ -70,7 +73,7 @@ public:
 
     std::function<void (int)> onRowClicked;
 
-    static constexpr int rowHeight = 26;
+    static constexpr int rowHeight = 32;
 
 private:
     std::vector<Row> rows;
@@ -99,7 +102,7 @@ public:
 
     std::function<void (int)> onRowClicked;
 
-    static constexpr int rowHeight = 26;
+    static constexpr int rowHeight = 32;
 
 private:
     std::vector<Row> rows;
@@ -140,6 +143,7 @@ private:
     void changeListenerCallback (juce::ChangeBroadcaster*) override;
     void timerCallback() override;
     void refreshFromProcessor();
+    void layOutFooter (juce::Rectangle<int> area);
     void markDialsDirty();
     void styleButton (juce::TextButton& b, bool primary);
     void styleSlider (juce::Slider& s);
@@ -200,6 +204,20 @@ private:
     juce::Label headlineLabel;
     juce::Label statusLabel;
     juce::Label profilesLabel;
+
+    // What those two footer lines actually are.
+    //
+    // They were an unlabelled pile: two lines of small grey text stacked on
+    // each other, in two colours, with nothing saying what either one was or
+    // why it was there. Reported in those words. A caption each, and a hairline
+    // above them, is the whole fix - the information was fine, its presentation
+    // gave no way in.
+    juce::Label statusCaption;
+    juce::Label profilesCaption;
+
+    // Where to draw that hairline. Set during layout, because only layout knows
+    // where the footer ended up on each screen.
+    juce::Rectangle<int> footerRule;
     juce::Label summaryLabel;
     juce::Label transportLabel;
 
