@@ -4,7 +4,38 @@ Written 2026-09-06 at the end of session 12, checked against the code rather
 than copied out of NEXT.md — several things that file still listed as open are
 in fact done, and are noted at the bottom so nobody rediscovers them.
 
-Nothing here is scheduled. It is for reading and thinking about.
+## DECIDED: next session is B1, articulations over MIDI CC
+
+Chosen 2026-09-06. Everything else here waits.
+
+Read B1 below for the why. In short: Ghostband currently picks Shreddage's
+articulations by **sending notes 12-23**, and a note aimed at the wrong
+instrument gets played as music - which is exactly what went wrong when IRON 2
+received Shreddage keyswitches. A CC that nothing has learned does nothing at
+all. This trades the most dangerous mechanism in the plugin for the safest one.
+
+**What it needs.**  holds  - notes - and nothing
+else.  articulations already support both a keyswitch and a
+CC-with-value, so the shape to copy exists in the same file. The work is:
+
+  1.  learns a CC form alongside the note form, in the same
+      block, so old profiles keep working untouched.
+  2.  emits whichever form the profile declares.
+  3. Shreddage's profile switches to CC once the numbers are known.
+
+**What it cannot do.** Kontakt will not load headlessly, so nothing can discover
+which CC each articulation ends up on. Those numbers get typed in by hand on
+both sides - in Shreddage's Articulations page via its Map button, and in the
+profile. Expect that to be the fiddly part, and expect the Teach fix from
+session 12 to matter here: a knob in MIDI Learn takes the first controller it
+hears.
+
+**Do not break.** The reference songs must still render 1231/629 and 996/423,
+and a profile that declares note keyswitches must behave exactly as it does now.
+
+---
+
+The rest is for reading and thinking about; nothing else is scheduled.
 
 ---
 
