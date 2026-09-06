@@ -169,6 +169,21 @@
   // the number to correct, and Shreddage exposes it in its own interface.
   "bend": { "range_semitones": 2, "reach_semitones": 2, "ticks": 240 },
 
+  // Vibrato, on the modwheel, which is where Shreddage takes it by default
+  // (MAIN page, Vibrato Amount, gear icon - Controller: modwheel or aftertouch).
+  //
+  // The other half of the bend. A guitarist slides up into a note and then
+  // shakes it; a held note that just sits there is the clearest sign nobody is
+  // holding the instrument. It comes in after the bend has arrived rather than
+  // with the attack, because vibrato from the attack sounds like an LFO.
+  //
+  // 90 rather than 127: full modwheel is a wobble, not a vibrato. Raise
+  // Shreddage's own Vibrato Amount if you want more depth per unit of wheel.
+  //
+  // Set Mode to Fingered on that gear icon for the recorded vibrato samples;
+  // Emulated is an LFO on the pitch and sounds like one.
+  "vibrato": { "cc": 1, "depth": 90, "ticks": 160 },
+
   // Built in the plugin's Settings screen by MIDI Learn, never guessed here.
   "controls": {}
 }

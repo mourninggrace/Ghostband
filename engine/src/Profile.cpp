@@ -876,6 +876,14 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
         out.legatoMaxLeapSemitones   = clampInt (legato.intOr ("max_leap_semitones", 2), 0, 24);
     }
 
+    const Json& vib = j["vibrato"];
+    if (vib.isObject())
+    {
+        out.vibratoCC    = clampInt (vib.intOr ("cc", -1), -1, 127);
+        out.vibratoDepth = clampInt (vib.intOr ("depth", 90), 0, 127);
+        out.vibratoTicks = clampInt (vib.intOr ("ticks", 160), 1, 960);
+    }
+
     const Json& bend = j["bend"];
     if (bend.isObject())
     {
@@ -1004,6 +1012,26 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
     // centre. A bend left hanging detunes everything the part plays afterwards.
     bool bendIsOffCentre = false;
 
+    // Shakes a held note, then puts the controller back where it was found.
+    //
+    // Comes in AFTER the note has arrived rather than with it: a guitarist bends
+    // up to the pitch and only then starts shaking it, and vibrato applied from
+    // the attack sounds like a synthesiser LFO, which is exactly the thing this
+    // is trying not to sound like.
+    const auto shake = [this, &track] (int from, int to)
+    {
+        if (vibratoCC < 0 || to - from < vibratoTicks + 40)
+            return;
+
+        const int steps = 4;
+        for (int i = 1; i <= steps; ++i)
+            track.addCC (from + (vibratoTicks * i) / steps, channel, vibratoCC,
+                         (vibratoDepth * i) / steps);
+
+        // Always back to nothing, or every note after this one is shaking too.
+        track.addCC (std::max (from + 1, to - 1), channel, vibratoCC, 0);
+    };
+
     for (size_t i = 0; i < part.lead.size(); ++i)
     {
         const LeadIntent& n = part.lead[i];
@@ -1051,6 +1079,9 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
                 track.addPitchBend (n.tick + (bendTicks * st) / steps, channel,
                                     shaped * reach, bendRangeSemitones);
             }
+
+            // Once the bend has arrived, not before.
+            shake (n.tick + bendTicks, end);
 
             track.addNoteOff   (end, channel, sounded);
             track.addPitchBend (end, channel, 0.0, bendRangeSemitones);
@@ -1105,6 +1136,13 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
 
             track.addNoteOn  (n.tick, channel, pitch,
                               velocityFor (n.accent, velocityMin, velocityMax));
+
+            // A held note the phrase lands on gets vibrato whether or not it
+            // was bent into - some landings are approached from above and are
+            // not bent at all, and they should still be alive.
+            if (n.target)
+                shake (n.tick + std::max (60, bendTicks / 3), end);
+
             track.addNoteOff (off, channel, pitch);
         }
     }

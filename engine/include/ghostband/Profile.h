@@ -354,6 +354,22 @@ public:
     // notes go out and the switches do not, until somebody has confirmed them.
     bool keyswitchesVerified = false;
 
+    // Vibrato, on the notes a phrase lands on.
+    //
+    // The other half of the gesture the bend starts: a guitarist slides up into
+    // a note and then shakes it, and a held note with no vibrato is the single
+    // most obvious tell that nobody is holding the instrument.
+    //
+    // Sent as a controller rather than a keyswitch, so like the bend the worst
+    // case is that nothing happens - which is why it can be declared before it
+    // has been heard. Shreddage takes it on the modwheel by default; anything
+    // that does not is simply unaffected.
+    //
+    // Off unless a profile names the controller.
+    int vibratoCC     = -1;
+    int vibratoDepth  = 90;    // how far the controller is pushed, 0-127
+    int vibratoTicks  = 160;   // how long it takes to come in
+
     // Bends, and whether this instrument has any.
     //
     // Off unless a profile says otherwise, and deliberately so. Pitch bend is a

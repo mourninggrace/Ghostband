@@ -1371,6 +1371,51 @@ int main (int argc, char** argv)
                        "and no note is ever started while the wheel is off centre",
                        juce::String (notesWhileBent) + " would sound at the wrong pitch");
 
+                // ---- vibrato comes home too ---------------------------------
+                // A modwheel left up shakes every note after it, and unlike a
+                // stuck bend it does not sound out of tune - it sounds like the
+                // instrument is broken in a way nobody can point at.
+                gb::PhraseProfile shaky = bendy;
+                shaky.vibratoCC    = 1;
+                shaky.vibratoDepth = 90;
+                shaky.vibratoTicks = 160;
+
+                gb::MidiTrack vibTrack;
+                shaky.render (leadOnly, vibTrack);
+
+                std::vector<gb::MidiEvent> vibSeq = vibTrack.events;
+                std::stable_sort (vibSeq.begin(), vibSeq.end(),
+                                  [] (const gb::MidiEvent& a, const gb::MidiEvent& b)
+                                  {
+                                      if (a.tick != b.tick) return a.tick < b.tick;
+                                      return a.order < b.order;
+                                  });
+
+                int moves = 0, wheelNow = 0, notesWhileShaking = 0;
+                for (const gb::MidiEvent& e : vibSeq)
+                {
+                    if (e.bytes.size() < 3) continue;
+                    const int status = e.bytes[0] & 0xF0;
+
+                    if (status == 0xB0 && e.bytes[1] == 1)
+                    {
+                        ++moves;
+                        wheelNow = e.bytes[2];
+                    }
+                    else if (status == 0x90 && e.bytes[2] > 0 && wheelNow != 0)
+                    {
+                        ++notesWhileShaking;
+                    }
+                }
+
+                check (moves > 0, "held notes are given vibrato",
+                       juce::String (moves) + " modwheel moves");
+                check (wheelNow == 0, "and the wheel is left down",
+                       "final value " + juce::String (wheelNow));
+                check (notesWhileShaking == 0,
+                       "and no note is started while it is still up",
+                       juce::String (notesWhileShaking) + " would shake unasked");
+
                 // ---- legato is an overlap, and only the overlap it asked for --
                 // A library that detects legato rather than keyswitching it fires
                 // on a note taken while the previous one still sounds, so the
