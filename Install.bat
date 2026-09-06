@@ -13,13 +13,31 @@ if not exist "%SRC%" (
 rem A host keeps the plugin DLL open while it is loaded, and the copy then
 rem silently leaves the old build in place - which looks exactly like the fix
 rem not working. Refuse rather than mislead.
+rem
+rem WAIT rather than refuse outright. Gig Performer takes several seconds to
+rem actually exit - it unloads every plugin and saves its state on the way out -
+rem so "closed" and "gone from the process list" are not the same moment. This
+rem refused twice on a host that had been closed, which sends you back to check
+rem something you had already done. Fifteen seconds of patience costs nothing
+rem and covers the gap.
+set "WAITED=0"
+:waitforhost
 tasklist /fi "imagename eq GigPerformer5.exe" 2>nul | find /i "GigPerformer5.exe" >nul
-if not errorlevel 1 (
+if errorlevel 1 goto hostclosed
+
+if %WAITED% GEQ 15 (
     echo.
-    echo Gig Performer 5 is running and is holding the plugin open.
-    echo Close it first, then run this again.
+    echo Gig Performer 5 is still running after 15 seconds and is holding the
+    echo plugin open. Close it, then run this again.
     exit /b 1
 )
+
+if %WAITED%==0 echo Waiting for Gig Performer 5 to finish closing...
+ping -n 2 127.0.0.1 >nul
+set /a WAITED+=1
+goto waitforhost
+
+:hostclosed
 
 echo Installing to "%DST%"
 xcopy "%SRC%" "%DST%\" /E /I /Y /Q
