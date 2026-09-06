@@ -209,11 +209,22 @@
   //                   out low-mid body. Up for a solo, so the line cuts.
   //   Signal          the pickup selector: neck / neck+bridge / bridge. Neck is
   //                   round and vocal and is where leads live.
-  //   Multi-Tracking  the row of little guitars, 1 to 4. A rhythm part doubles;
-  //                   a lead must stay single or it smears.
-  //   Kontakt volume  NOT a Shreddage knob - Kontakt's own instrument volume,
-  //                   in the header above the Shreddage interface. Assigned
-  //                   from Kontakt's Automation tab by dragging a CC onto it.
+  //
+  // NOT HERE, and deliberately - neither can be reached:
+  //
+  //   Multi-Tracking  four on/off toggles, not a knob. The manual says
+  //                   "enabling the guitar of choice and disabling any other
+  //                   guitars", and right-click MIDI learn does nothing on a
+  //                   toggle - "virtually every KNOB" does not cover them.
+  //                   Set by hand, once: ONE guitar for a lead patch, because
+  //                   a doubled lead smears. It cannot change per section.
+  //
+  //   a level control  Nothing follows "level" here, so Ghostband falls back
+  //                   to CC 7 for this part mix knob. That costs nothing and
+  //                   may work outright. If it does not, the next route is
+  //                   Kontakt own automation - and Console faders are never
+  //                   an option, their CC learn having been removed to make
+  //                   Console modular.
   //
   // All four follow "lead" - up, brighter, warmer and single-tracked when this
   // guitar is out front, back to the rhythm setting when it is not.
