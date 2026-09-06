@@ -627,6 +627,15 @@ void GhostbandProcessor::teachControl (int part, int cc)
     // about which instrument a part speaks to should not be two functions.
     const int channel = channelForPart (part);
 
+    // Claim the wire for the length of the sweep.
+    //
+    // Change detection above already stops the levels repeating themselves, but
+    // an edit that moves a level control's own CC would still legitimately send
+    // one - and a MIDI Learn cannot tell a legitimate message from the sweep it
+    // is waiting for. It takes the first thing it hears. So for as long as a
+    // Teach is in flight, nothing else is allowed to speak.
+    teachingUntil.store (juce::Time::getMillisecondCounter() + 2500);
+
     const double sr = juce::jmax (8000.0, getSampleRate());
 
     const juce::SpinLock::ScopedLockType lock (auditionLock);
@@ -1189,6 +1198,19 @@ void GhostbandProcessor::sendLevels()
 {
     // Where each mix knob has to reach.
     //
+    // SILENT WHEN NOTHING HAS CHANGED, and that is not an optimisation.
+    //
+    // regenerate() ends by re-sending the levels, and every edit in the
+    // Settings list regenerates. So merely selecting a control fired a
+    // controller message at the instrument - and if that instrument had a knob
+    // sitting in MIDI Learn, the knob latched onto THAT message instead of the
+    // sweep the Teach button was about to send. Shreddage's Pitch Bend Range
+    // learned CC 20, which is the second guitar's level, because CC 20 arrived
+    // while it was listening.
+    //
+    // Ghostband was teaching the wrong control to the wrong knob, and doing it
+    // while the owner watched and did everything right.
+    //
     // This used to send CC 7 - channel volume - and nothing else, on an
     // assumption never tested against a real instrument. Most instrument
     // plugins do not implement CC 7 at all; they expose volume as their own
@@ -1282,6 +1304,31 @@ void GhostbandProcessor::sendLevels()
 
         const juce::ScopedLock sl (stateLock);
         lastMidiReport = "Levels sent -  " + report;
+    }
+
+    // Not a word while a Teach is in flight. See teachControl.
+    if (juce::Time::getMillisecondCounter() < static_cast<juce::uint32> (teachingUntil.load()))
+        return;
+
+    // Nothing to say unless something actually moved. A repeat of what the
+    // instruments were already told is pure noise on the wire, and noise on
+    // the wire is what a MIDI Learn latches onto.
+    {
+        const juce::ScopedLock sl (stateLock);
+
+        std::vector<int> now;
+        now.reserve (out.size() * 3);
+        for (const Message& m : out)
+        {
+            now.push_back (m.channel);
+            now.push_back (m.cc);
+            now.push_back (m.value);
+        }
+
+        if (now == lastLevelsSent)
+            return;
+
+        lastLevelsSent = std::move (now);
     }
 
     const juce::SpinLock::ScopedLockType lock (auditionLock);
@@ -2358,8 +2405,8 @@ void GhostbandProcessor::setStateInformation (const void* data, int sizeInBytes)
     // just fitted, and nothing readable fits in it. The default matches the
     // header, so a session saved before this opens at the new size rather than
     // at a cramped old one.
-    editorWidth.store  (juce::jlimit (660, 2200, xml->getIntAttribute ("editorW", 720)));
-    editorHeight.store (juce::jlimit (780, 2000, xml->getIntAttribute ("editorH", 880)));
+    editorWidth.store  (juce::jlimit (700, 2400, xml->getIntAttribute ("editorW", 800)));
+    editorHeight.store (juce::jlimit (820, 2200, xml->getIntAttribute ("editorH", 960)));
     usePlanTempo.store (xml->getBoolAttribute ("planTempo", true));
 
     const auto level = [&xml] (const char* key)

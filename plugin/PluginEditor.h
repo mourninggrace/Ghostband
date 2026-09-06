@@ -47,7 +47,7 @@ public:
 
     // Grown with the type. A section row carries a 15pt name over 13pt detail;
     // 36px held those at 13 over 11 and clips them now.
-    static constexpr int rowHeight = 44;
+    static constexpr int rowHeight = 52;
 
 private:
     int rowAt (juce::Point<int> p) const;
@@ -73,7 +73,7 @@ public:
 
     std::function<void (int)> onRowClicked;
 
-    static constexpr int rowHeight = 32;
+    static constexpr int rowHeight = 38;
 
 private:
     std::vector<Row> rows;
@@ -102,7 +102,7 @@ public:
 
     std::function<void (int)> onRowClicked;
 
-    static constexpr int rowHeight = 32;
+    static constexpr int rowHeight = 38;
 
 private:
     std::vector<Row> rows;

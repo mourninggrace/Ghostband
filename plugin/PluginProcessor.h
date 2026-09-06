@@ -122,8 +122,8 @@ public:
     // section list off before anything had been resized.
     // Bigger, because the type inside it got bigger. 620x780 was sized around
     // 11pt body text; readable type needs somewhere to sit or it just clips.
-    std::atomic<int> editorWidth  { 720 };
-    std::atomic<int> editorHeight { 880 };
+    std::atomic<int> editorWidth  { 800 };
+    std::atomic<int> editorHeight { 960 };
 
     // Play at the song's own tempo rather than the host's.
     //
@@ -493,6 +493,16 @@ private:
     std::vector<juce::MidiMessage> levelMessages;
     std::atomic<bool>             calibrating { false };
     std::vector<CalibrationStep>  calibrationSteps;
+
+    // The last set of level messages actually sent, as flat channel/cc/value
+    // triples. Compared before sending so an unchanged mix says nothing - a
+    // repeated controller message is noise, and noise is what a knob sitting in
+    // MIDI Learn latches onto instead of the sweep meant for it.
+    std::vector<int>              lastLevelsSent;
+
+    // Millisecond counter until which a Teach sweep owns the wire and nothing
+    // else may transmit. A MIDI Learn takes the first controller it hears.
+    std::atomic<juce::int64>      teachingUntil { 0 };
     bool                          calibrationEdited = false;
     bool                          planDirty = false;
 

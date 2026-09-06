@@ -265,7 +265,7 @@
     "bite": { "cc": 21, "follows": "lead", "type": "knob", "low": 0.15, "high": 0.7 },
     "signal": { "cc": 22, "follows": "lead", "type": "select", "positions": 3, "low": 1, "high": 0 },
     "xtra attack": { "cc": 23, "follows": "random", "type": "knob", "low": 0, "high": 1 },
-    "pitch bend range": { "cc": 24, "follows": "fixed", "type": "knob", "low": 0.167, "high": 0.167 },
+    "pitch bend range": { "cc": 24, "follows": "none", "type": "knob", "low": 0, "high": 1 },
     "unison bend": { "cc": 25, "follows": "random", "type": "knob", "low": 0, "high": 1 },
     "tone": { "cc": 26, "follows": "random", "type": "knob", "low": 0, "high": 1 },
     "strumming mode": { "cc": 27, "follows": "none", "type": "switch", "low": 0, "high": 1 },

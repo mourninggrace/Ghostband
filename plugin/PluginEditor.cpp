@@ -136,7 +136,7 @@ void SectionList::paint (juce::Graphics& g)
     if (sections.empty())
     {
         g.setColour (ghost::dim);
-        g.setFont (juce::Font (juce::FontOptions (15.0f)));
+        g.setFont (juce::Font (juce::FontOptions (17.0f)));
         g.drawText ("No arrangement yet.", getLocalBounds().reduced (12),
                     juce::Justification::centredTop);
         return;
@@ -188,7 +188,7 @@ void SectionList::paint (juce::Graphics& g)
             g.setColour (ghost::warn);
             g.fillRect (row.withWidth (3));
 
-            g.setFont (juce::Font (juce::FontOptions (12.0f).withStyle ("Bold")));
+            g.setFont (juce::Font (juce::FontOptions (14.0f).withStyle ("Bold")));
             g.drawText ("NEXT", row.reduced (10, 0).removeFromRight (150)
                                    .removeFromLeft (40),
                         juce::Justification::centredLeft);
@@ -221,18 +221,18 @@ void SectionList::paint (juce::Graphics& g)
         auto counts = r.removeFromRight (112);
         const int chordal = s.guitarChords + s.guitar2Chords + s.pianoChords;
         g.setColour (ghost::dim);
-        g.setFont (juce::Font (juce::FontOptions (13.0f)));
+        g.setFont (juce::Font (juce::FontOptions (15.0f)));
         g.drawText (juce::String (s.drumHits) + " / " + juce::String (s.bassNotes)
                         + " / " + juce::String (chordal),
                     counts, juce::Justification::centredRight);
 
         auto nameArea = r.removeFromTop (rowHeight / 2).withTrimmedTop (5);
         g.setColour (active ? ghost::accent : ghost::text);
-        g.setFont (juce::Font (juce::FontOptions (15.0f).withStyle ("Bold")));
+        g.setFont (juce::Font (juce::FontOptions (17.0f).withStyle ("Bold")));
         g.drawText (juce::String (s.name), nameArea, juce::Justification::centredLeft);
 
         g.setColour (ghost::dim);
-        g.setFont (juce::Font (juce::FontOptions (13.0f)));
+        g.setFont (juce::Font (juce::FontOptions (15.0f)));
         g.drawText (juce::String (s.bars) + " bars   "
                         + juce::String (s.feel).replace ("_", " ") + "   "
                         + juce::String (s.chords),
@@ -291,12 +291,12 @@ void CalibrationList::paint (juce::Graphics& g)
 
         auto inner = r.reduced (12, 0);
         g.setColour (active ? ghost::accent : ghost::text);
-        g.setFont (juce::Font (juce::FontOptions (14.0f)));
+        g.setFont (juce::Font (juce::FontOptions (16.0f)));
         g.drawText (rows[i].label, inner.removeFromLeft (inner.getWidth() - 60),
                     juce::Justification::centredLeft);
 
         g.setColour (ghost::dim);
-        g.setFont (juce::Font (juce::FontOptions (13.0f)));
+        g.setFont (juce::Font (juce::FontOptions (15.0f)));
         g.drawText ("note " + juce::String (rows[i].note), inner,
                     juce::Justification::centredRight);
     }
@@ -332,7 +332,7 @@ void ControlList::paint (juce::Graphics& g)
     if (rows.empty())
     {
         g.setColour (ghost::dim);
-        g.setFont (juce::Font (juce::FontOptions (14.0f)));
+        g.setFont (juce::Font (juce::FontOptions (16.0f)));
         g.drawText (emptyMessage, getLocalBounds().reduced (12),
                     juce::Justification::centredTop);
         return;
@@ -355,7 +355,7 @@ void ControlList::paint (juce::Graphics& g)
         auto inner = r.reduced (12, 0);
 
         g.setColour (ghost::dim);
-        g.setFont (juce::Font (juce::FontOptions (13.0f)));
+        g.setFont (juce::Font (juce::FontOptions (15.0f)));
         g.drawText ("CC " + juce::String (rows[i].cc), inner.removeFromLeft (52),
                     juce::Justification::centredLeft);
 
@@ -368,7 +368,7 @@ void ControlList::paint (juce::Graphics& g)
                     inner.removeFromRight (150), juce::Justification::centredRight);
 
         g.setColour (active ? ghost::accent : ghost::text);
-        g.setFont (juce::Font (juce::FontOptions (14.0f)));
+        g.setFont (juce::Font (juce::FontOptions (16.0f)));
         g.drawText (rows[i].name, inner, juce::Justification::centredLeft);
     }
 }
@@ -617,36 +617,36 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         addAndMakeVisible (l);
     };
 
-    initLabel (mixLabel,          "MIX",    13.0f, ghost::dim, juce::Justification::centredLeft);
-    initLabel (levelDrumsLabel,   "DRUMS",  12.0f,  ghost::dim, juce::Justification::centred);
-    initLabel (levelBassLabel,    "BASS",   12.0f,  ghost::dim, juce::Justification::centred);
-    initLabel (levelGuitarLabel,  "GTR",    12.0f,  ghost::dim, juce::Justification::centred);
-    initLabel (levelGuitar2Label, "GTR 2",  12.0f,  ghost::dim, juce::Justification::centred);
-    initLabel (levelPianoLabel,   "PIANO",  12.0f,  ghost::dim, juce::Justification::centred);
-    initLabel (keyLabel,        "KEY",        13.0f, ghost::dim,   juce::Justification::centredLeft);
-    initLabel (modeLabel,       "MODE",       13.0f, ghost::dim,   juce::Justification::centredLeft);
-    initLabel (styleLabel,      "STYLE",      13.0f, ghost::dim,   juce::Justification::centredLeft);
-    initLabel (tuningLabel,     "BASS TUNING",13.0f, ghost::dim,   juce::Justification::centredLeft);
-    initLabel (tempoLabel,      "",           13.0f, ghost::dim,   juce::Justification::centredRight);
-    initLabel (complexityLabel, "COMPLEXITY", 13.0f, ghost::dim,   juce::Justification::centredLeft);
-    initLabel (humanizeLabel,   "HUMANIZE",   13.0f, ghost::dim,   juce::Justification::centredLeft);
-    initLabel (seedLabel,       "SEED",       13.0f, ghost::dim,   juce::Justification::centredLeft);
-    initLabel (planLabel,       "",           15.0f, ghost::text,  juce::Justification::centredLeft);
-    initLabel (headlineLabel,   "",           13.5f, ghost::accent, juce::Justification::centredLeft);
-    initLabel (summaryLabel,    "",           13.5f, ghost::dim,   juce::Justification::centredRight);
-    initLabel (transportLabel,  "stopped",    13.5f, ghost::dim,   juce::Justification::centredLeft);
-    initLabel (statusLabel,     "",           13.5f, ghost::dim,   juce::Justification::centredLeft);
-    initLabel (profilesLabel,   "",           13.0f, ghost::silver, juce::Justification::centredLeft);
+    initLabel (mixLabel,          "MIX",    15.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (levelDrumsLabel,   "DRUMS",  14.0f,  ghost::dim, juce::Justification::centred);
+    initLabel (levelBassLabel,    "BASS",   14.0f,  ghost::dim, juce::Justification::centred);
+    initLabel (levelGuitarLabel,  "GTR",    14.0f,  ghost::dim, juce::Justification::centred);
+    initLabel (levelGuitar2Label, "GTR 2",  14.0f,  ghost::dim, juce::Justification::centred);
+    initLabel (levelPianoLabel,   "PIANO",  14.0f,  ghost::dim, juce::Justification::centred);
+    initLabel (keyLabel,        "KEY",        15.0f, ghost::dim,   juce::Justification::centredLeft);
+    initLabel (modeLabel,       "MODE",       15.0f, ghost::dim,   juce::Justification::centredLeft);
+    initLabel (styleLabel,      "STYLE",      15.0f, ghost::dim,   juce::Justification::centredLeft);
+    initLabel (tuningLabel,     "BASS TUNING",15.0f, ghost::dim,   juce::Justification::centredLeft);
+    initLabel (tempoLabel,      "",           15.0f, ghost::dim,   juce::Justification::centredRight);
+    initLabel (complexityLabel, "COMPLEXITY", 15.0f, ghost::dim,   juce::Justification::centredLeft);
+    initLabel (humanizeLabel,   "HUMANIZE",   15.0f, ghost::dim,   juce::Justification::centredLeft);
+    initLabel (seedLabel,       "SEED",       15.0f, ghost::dim,   juce::Justification::centredLeft);
+    initLabel (planLabel,       "",           17.0f, ghost::text,  juce::Justification::centredLeft);
+    initLabel (headlineLabel,   "",           15.5f, ghost::accent, juce::Justification::centredLeft);
+    initLabel (summaryLabel,    "",           15.5f, ghost::dim,   juce::Justification::centredRight);
+    initLabel (transportLabel,  "stopped",    15.5f, ghost::dim,   juce::Justification::centredLeft);
+    initLabel (statusLabel,     "",           15.5f, ghost::dim,   juce::Justification::centredLeft);
+    initLabel (profilesLabel,   "",           15.0f, ghost::silver, juce::Justification::centredLeft);
 
     // Small caps captions, dim, so the eye reads them as headings rather than
     // as more of the same text. The values beside them are silver; the two
     // together are what turns a stack of grey lines into a labelled block.
-    initLabel (statusCaption,   "STATUS",      11.5f, ghost::dim, juce::Justification::centredLeft);
-    initLabel (profilesCaption, "INSTRUMENTS", 11.5f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (statusCaption,   "STATUS",      14.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (profilesCaption, "INSTRUMENTS", 14.0f, ghost::dim, juce::Justification::centredLeft);
 
     // Deliberately not in any of updateModeVisibility's screen lists: this one
     // is on the footer rail, which every screen keeps, so it is always shown.
-    initLabel (latencyLabel,    "",           13.0f, ghost::dim,   juce::Justification::centredRight);
+    initLabel (latencyLabel,    "",           15.0f, ghost::dim,   juce::Justification::centredRight);
 
     seedEditor.setJustification (juce::Justification::centredLeft);
     seedEditor.setInputRestrictions (7, "0123456789");
@@ -654,7 +654,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     seedEditor.setColour (juce::TextEditor::outlineColourId, ghost::line);
     seedEditor.setColour (juce::TextEditor::focusedOutlineColourId, ghost::accent.withAlpha (0.6f));
     seedEditor.setColour (juce::TextEditor::textColourId, ghost::text);
-    seedEditor.setFont (juce::Font (juce::FontOptions (15.0f)));
+    seedEditor.setFont (juce::Font (juce::FontOptions (17.0f)));
     seedEditor.onReturnKey = [this]
     {
         processor.seed.store (juce::jmax (1, seedEditor.getText().getIntValue()));
@@ -671,7 +671,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     bpmEditor.setColour (juce::TextEditor::outlineColourId, ghost::line);
     bpmEditor.setColour (juce::TextEditor::focusedOutlineColourId, ghost::accent.withAlpha (0.6f));
     bpmEditor.setColour (juce::TextEditor::textColourId, ghost::text);
-    bpmEditor.setFont (juce::Font (juce::FontOptions (15.0f)));
+    bpmEditor.setFont (juce::Font (juce::FontOptions (17.0f)));
 
     const auto commitBpm = [this]
     {
@@ -689,9 +689,9 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     bpmEditor.onFocusLost  = commitBpm;
     addAndMakeVisible (bpmEditor);
 
-    initLabel (bpmLabel, "BPM", 13.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (bpmLabel, "BPM", 15.0f, ghost::dim, juce::Justification::centredLeft);
     initLabel (rollHintLabel, "ctrl-click a section to reroll just that one",
-               13.0f, ghost::dim, juce::Justification::centredRight);
+               15.0f, ghost::dim, juce::Justification::centredRight);
 
     // Clicking a section queues it; the processor lands the jump on the next bar
     // line so the transition stays in time.
@@ -724,8 +724,8 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         addAndMakeVisible (*b);
     }
 
-    initLabel (calHintLabel, "", 14.0f, ghost::text, juce::Justification::centredLeft);
-    initLabel (calNoteLabel, "", 25.0f, ghost::accent, juce::Justification::centred);
+    initLabel (calHintLabel, "", 16.0f, ghost::text, juce::Justification::centredLeft);
+    initLabel (calNoteLabel, "", 28.0f, ghost::accent, juce::Justification::centred);
 
     styleButton (tempoModeButton, false);
     addChildComponent (tempoModeButton);
@@ -801,7 +801,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         t.setColour (juce::TextEditor::outlineColourId, ghost::line);
         t.setColour (juce::TextEditor::focusedOutlineColourId, ghost::accent.withAlpha (0.6f));
         t.setColour (juce::TextEditor::textColourId, ghost::text);
-        t.setFont (juce::Font (juce::FontOptions (15.0f)));
+        t.setFont (juce::Font (juce::FontOptions (17.0f)));
         t.onFocusLost = [this] { pushSectionEdit(); };
         t.onReturnKey = [this] { pushSectionEdit(); };
         addChildComponent (t);
@@ -843,14 +843,14 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         addChildComponent (*t);
     }
 
-    initLabel (edNameLabel,      "NAME",      13.0f, ghost::dim, juce::Justification::centredLeft);
-    initLabel (edBarsLabel,      "BARS",      13.0f, ghost::dim, juce::Justification::centredLeft);
-    initLabel (edIntensityLabel, "INTENSITY", 13.0f, ghost::dim, juce::Justification::centredLeft);
-    initLabel (edFeelLabel,      "FEEL",      13.0f, ghost::dim, juce::Justification::centredLeft);
-    initLabel (edFillLabel,      "FILL",      13.0f, ghost::dim, juce::Justification::centredLeft);
-    initLabel (edChordsLabel,    "CHORDS",    13.0f, ghost::dim, juce::Justification::centredLeft);
-    initLabel (edPlaysLabel,     "PLAYS",     13.0f, ghost::dim, juce::Justification::centredLeft);
-    initLabel (edLeadLabel,      "LEAD",      13.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (edNameLabel,      "NAME",      15.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (edBarsLabel,      "BARS",      15.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (edIntensityLabel, "INTENSITY", 15.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (edFeelLabel,      "FEEL",      15.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (edFillLabel,      "FILL",      15.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (edChordsLabel,    "CHORDS",    15.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (edPlaysLabel,     "PLAYS",     15.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (edLeadLabel,      "LEAD",      15.0f, ghost::dim, juce::Justification::centredLeft);
 
     editButton.onClick   = [this] { screen = Screen::Edit; editSelected = 0;
                                     pullSectionEdit(); updateModeVisibility(); };
@@ -922,7 +922,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     aboutButton.onClick    = [this] { screen = Screen::About;    updateModeVisibility(); };
     backButton.onClick     = [this] { screen = Screen::Song;     updateModeVisibility(); };
 
-    resetSizeButton.onClick = [this] { setSize (720, 880); };
+    resetSizeButton.onClick = [this] { setSize (800, 960); };
 
     reloadProfilesBtn.onClick = [this] { processor.reloadPlan(); };
 
@@ -982,14 +982,14 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         };
         addChildComponent (*c.box);
 
-        initLabel (*c.label, c.name, 13.0f, ghost::dim, juce::Justification::centredLeft);
+        initLabel (*c.label, c.name, 15.0f, ghost::dim, juce::Justification::centredLeft);
     }
 
     for (juce::Label* l : { &chDrumsName, &chBassName, &chGuitarName,
                             &chGuitar2Name, &chPianoName })
-        initLabel (*l, "", 13.5f, ghost::text, juce::Justification::centredLeft);
+        initLabel (*l, "", 15.5f, ghost::text, juce::Justification::centredLeft);
 
-    initLabel (learnPartName, "", 13.5f, ghost::accent, juce::Justification::centredLeft);
+    initLabel (learnPartName, "", 15.5f, ghost::accent, juce::Justification::centredLeft);
 
     juce::TextButton* testButtons[5] = { &testDrums, &testBass, &testGuitar,
                                          &testPiano, &testGuitar2 };
@@ -1038,7 +1038,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     }
 
     ctlName.setColour (juce::TextEditor::textColourId, ghost::text);
-    ctlName.setFont (juce::Font (juce::FontOptions (15.0f)));
+    ctlName.setFont (juce::Font (juce::FontOptions (17.0f)));
     ctlName.onFocusLost = [this] { pushControlEdit(); };
     ctlName.onReturnKey = [this] { pushControlEdit(); };
     addChildComponent (ctlName);
@@ -1049,7 +1049,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     addChildComponent (ctlType);
 
     ctlPositions.setColour (juce::TextEditor::textColourId, ghost::text);
-    ctlPositions.setFont (juce::Font (juce::FontOptions (15.0f)));
+    ctlPositions.setFont (juce::Font (juce::FontOptions (17.0f)));
     ctlPositions.setJustification (juce::Justification::centred);
     ctlPositions.setInputRestrictions (3, "0123456789");
     ctlPositions.onFocusLost = [this] { pushControlEdit(); };
@@ -1057,7 +1057,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     addChildComponent (ctlPositions);
 
     ctlValue.setColour (juce::TextEditor::textColourId, ghost::text);
-    ctlValue.setFont (juce::Font (juce::FontOptions (15.0f)));
+    ctlValue.setFont (juce::Font (juce::FontOptions (17.0f)));
     ctlValue.setJustification (juce::Justification::centred);
     ctlValue.setInputRestrictions (3, "0123456789");
     ctlValue.onFocusLost = [this] { pushControlEdit(); };
@@ -1067,7 +1067,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     for (juce::TextEditor* e : { &ctlFrom, &ctlTo })
     {
         e->setColour (juce::TextEditor::textColourId, ghost::text);
-        e->setFont (juce::Font (juce::FontOptions (15.0f)));
+        e->setFont (juce::Font (juce::FontOptions (17.0f)));
         e->setJustification (juce::Justification::centred);
         e->setInputRestrictions (3, "0123456789");
         e->onFocusLost = [this] { pushControlEdit(); };
@@ -1127,31 +1127,31 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     ctlViewport.setScrollBarsShown (true, false);
     addChildComponent (ctlViewport);
 
-    initLabel (ctlNameLabel,    "NAME",    13.0f, ghost::dim, juce::Justification::centredLeft);
-    initLabel (ctlFollowsLabel, "FOLLOWS", 13.0f, ghost::dim, juce::Justification::centredLeft);
-    initLabel (ctlTypeLabel,    "TYPE",    13.0f, ghost::dim, juce::Justification::centredLeft);
-    initLabel (ctlPositionsLabel, "CHOICES", 13.0f, ghost::dim, juce::Justification::centredLeft);
-    initLabel (ctlPositionsHint, "how many choices", 13.0f, ghost::dim,
+    initLabel (ctlNameLabel,    "NAME",    15.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (ctlFollowsLabel, "FOLLOWS", 15.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (ctlTypeLabel,    "TYPE",    15.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (ctlPositionsLabel, "CHOICES", 15.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (ctlPositionsHint, "how many choices", 15.0f, ghost::dim,
                juce::Justification::centredLeft);
-    initLabel (ctlValueLabel, "VALUE", 13.0f, ghost::dim, juce::Justification::centredLeft);
-    initLabel (ctlRangeLabel, "RANGE", 13.0f, ghost::dim, juce::Justification::centredLeft);
-    initLabel (ctlRangeToLabel, "to", 13.0f, ghost::dim, juce::Justification::centred);
-    initLabel (ctlRangeHint, "", 13.0f, ghost::dim, juce::Justification::centredLeft);
-    initLabel (ctlValueHint, "", 13.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (ctlValueLabel, "VALUE", 15.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (ctlRangeLabel, "RANGE", 15.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (ctlRangeToLabel, "to", 15.0f, ghost::dim, juce::Justification::centred);
+    initLabel (ctlRangeHint, "", 15.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (ctlValueHint, "", 15.0f, ghost::dim, juce::Justification::centredLeft);
 
-    initLabel (learnHeading, "MIDI LEARN", 13.5f, ghost::text, juce::Justification::centredLeft);
+    initLabel (learnHeading, "MIDI LEARN", 15.5f, ghost::text, juce::Justification::centredLeft);
     // Shorter than it was, because refreshControls now puts a live line above
     // it saying what the mix knob reaches, and the label has room for one
     // paragraph rather than two. What came out is the part the list already
     // shows: which type means what.
-    initLabel (learnHelp, kLearnHelp, 13.5f, ghost::dim, juce::Justification::topLeft);
+    initLabel (learnHelp, kLearnHelp, 15.5f, ghost::dim, juce::Justification::topLeft);
     learnHelp.setJustificationType (juce::Justification::topLeft);
 
-    initLabel (settingsHeading, "SETTINGS", 17.0f, ghost::text, juce::Justification::centredLeft);
+    initLabel (settingsHeading, "SETTINGS", 19.0f, ghost::text, juce::Justification::centredLeft);
     initLabel (channelsHelp,
                "Each part is sent on its own MIDI channel. Set the matching channel on each "
                "instrument, or use a channel filter in your host.",
-               13.5f, ghost::dim, juce::Justification::topLeft);
+               15.5f, ghost::dim, juce::Justification::topLeft);
     channelsHelp.setJustificationType (juce::Justification::topLeft);
 
     processor.stateChanged.addChangeListener (this);
@@ -1164,7 +1164,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     setResizable (true, true);
     // The floor is what the song screen actually needs before the section list
     // starts being clipped, not an arbitrary small number.
-    setResizeLimits (660, 780, 2200, 2000);
+    setResizeLimits (700, 820, 2400, 2200);
 
     // Restore the remembered size, then start recording changes to it. The
     // order matters: recording before this point captures the zero-sized
@@ -1923,12 +1923,12 @@ void GhostbandEditor::paint (juce::Graphics& g)
     auto title = header.reduced (20.0f, 0.0f);
 
     g.setColour (ghost::colours::text);
-    g.setFont (juce::Font (juce::FontOptions (26.0f).withStyle ("Bold")));
+    g.setFont (juce::Font (juce::FontOptions (29.0f).withStyle ("Bold")));
     g.drawText ("GHOSTBAND", title.withTrimmedBottom (22.0f).toNearestInt(),
                 juce::Justification::centredLeft);
 
     g.setColour (ghost::colours::dim);
-    g.setFont (juce::Font (juce::FontOptions (13.0f)));
+    g.setFont (juce::Font (juce::FontOptions (15.0f)));
     g.drawText ("MIDI BRAIN   -   DRUMS   BASS   GUITAR x2   PIANO",
                 title.withTrimmedTop (36.0f).toNearestInt(),
                 juce::Justification::centredLeft);
@@ -1940,7 +1940,7 @@ void GhostbandEditor::paint (juce::Graphics& g)
     ghost::drawLamp (g, lamp, running);
 
     g.setColour (running ? ghost::colours::red : ghost::colours::dim);
-    g.setFont (juce::Font (juce::FontOptions (12.0f)));
+    g.setFont (juce::Font (juce::FontOptions (14.0f)));
     g.drawText (running ? "RUNNING" : "IDLE",
                 juce::Rectangle<int> (static_cast<int> (header.getRight()) - 110,
                                       static_cast<int> (header.getCentreY()) - 6, 76, 12),
@@ -2005,11 +2005,11 @@ void GhostbandEditor::paintAbout (juce::Graphics& g, juce::Rectangle<int> area)
     // The header band already says GHOSTBAND, so the hero line here says what it
     // is instead of saying the name twice.
     block ("A MIDI brain for the instruments you already own.",
-           juce::Font (juce::FontOptions (21.0f).withStyle ("Bold")),
+           juce::Font (juce::FontOptions (23.0f).withStyle ("Bold")),
            ghost::colours::text, 6);
 
     block ("Version " GHOSTBAND_VERSION "   ::   by Kyle Yeroshefsky",
-           juce::Font (juce::FontOptions (14.0f)),
+           juce::Font (juce::FontOptions (16.0f)),
            ghost::colours::silver, 16);
 
     {
@@ -2023,18 +2023,18 @@ void GhostbandEditor::paintAbout (juce::Graphics& g, juce::Rectangle<int> area)
     block ("Ghostband makes no sound of its own. It writes an arrangement - drums, "
            "bass, guitar and piano - and performs it through the instruments you "
            "already own, by sending them MIDI.",
-           juce::Font (juce::FontOptions (15.5f)), ghost::colours::text, 12);
+           juce::Font (juce::FontOptions (17.5f)), ghost::colours::text, 12);
 
     block ("You own the song: its key, tempo, style, and the order of its sections. "
            "Ghostband fills in the playing. Every part is generated from a seed, so "
            "the same song always comes back exactly as you left it - and rerolling "
            "one section never disturbs another.",
-           juce::Font (juce::FontOptions (15.5f)), ghost::colours::text, 22);
+           juce::Font (juce::FontOptions (17.5f)), ghost::colours::text, 22);
 
     // A small labelled block, which reads as specification rather than prose.
     {
-        const juce::Font label (juce::FontOptions (12.5f).withStyle ("Bold"));
-        const juce::Font value (juce::FontOptions (14.0f));
+        const juce::Font label (juce::FontOptions (14.5f).withStyle ("Bold"));
+        const juce::Font value (juce::FontOptions (16.0f));
 
         struct Row { const char* label; juce::String value; };
         const Row rows[] = {
@@ -2064,7 +2064,7 @@ void GhostbandEditor::paintAbout (juce::Graphics& g, juce::Rectangle<int> area)
 
     block ("The donate button is a button, not a nag. Nothing is gated behind it and "
            "nothing ever will be.",
-           juce::Font (juce::FontOptions (13.0f)), ghost::colours::dim, 0);
+           juce::Font (juce::FontOptions (15.0f)), ghost::colours::dim, 0);
 }
 
 void GhostbandEditor::resized()
@@ -2140,7 +2140,7 @@ void GhostbandEditor::resized()
     {
         // Reserve the footer before anything else takes the space, or the list
         // grows straight over it.
-        layOutFooter (r.removeFromBottom (51));
+        layOutFooter (r.removeFromBottom (58));
         r.removeFromBottom (10);
 
         auto s = r;
@@ -2178,7 +2178,7 @@ void GhostbandEditor::resized()
         // "MIX KNOB:" line above it, so at 34 it was cut off mid-sentence -
         // which is a worse failure than being small, because the reader cannot
         // even tell something is missing.
-        learnHelp.setBounds (s.removeFromTop (76));
+        learnHelp.setBounds (s.removeFromTop (92));
         s.removeFromTop (6);
 
         auto learnRow = s.removeFromTop (28);
@@ -2316,7 +2316,7 @@ void GhostbandEditor::resized()
         edDownButton.setBounds (row.removeFromLeft (60));
 
         r.removeFromTop (10);
-        layOutFooter (r.removeFromBottom (51));
+        layOutFooter (r.removeFromBottom (58));
         r.removeFromBottom (8);
 
         viewport.setBounds (r);
@@ -2346,7 +2346,7 @@ void GhostbandEditor::resized()
         calPlayButton.setBounds (nudge.removeFromLeft (90));
 
         r.removeFromTop (12);
-        layOutFooter (r.removeFromBottom (51));
+        layOutFooter (r.removeFromBottom (58));
         r.removeFromBottom (8);
 
         calViewport.setBounds (r);
@@ -2480,7 +2480,7 @@ void GhostbandEditor::resized()
     }
     r.removeFromTop (6);
 
-    layOutFooter (r.removeFromBottom (51));
+    layOutFooter (r.removeFromBottom (58));
 
     r.removeFromBottom (8);
     viewport.setBounds (r);

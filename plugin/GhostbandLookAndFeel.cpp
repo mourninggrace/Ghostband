@@ -208,7 +208,7 @@ void GhostbandLookAndFeel::drawToggleButton (juce::Graphics& g, juce::ToggleButt
                        .withCentre ({ knobX, pill.getCentreY() }));
 
     g.setColour (b.isEnabled() ? (highlighted ? colours::text : colours::silver) : colours::dim);
-    g.setFont (juce::Font (juce::FontOptions (13.0f)));
+    g.setFont (juce::Font (juce::FontOptions (15.0f)));
     g.drawText (b.getButtonText(),
                 b.getLocalBounds().withTrimmedLeft (static_cast<int> (pill.getRight()) + 7),
                 juce::Justification::centredLeft);
@@ -248,12 +248,12 @@ void GhostbandLookAndFeel::drawPopupMenuBackground (juce::Graphics& g, int width
 
 juce::Font GhostbandLookAndFeel::getTextButtonFont (juce::TextButton&, int)
 {
-    return juce::Font (juce::FontOptions (14.0f));
+    return juce::Font (juce::FontOptions (16.0f));
 }
 
 juce::Font GhostbandLookAndFeel::getComboBoxFont (juce::ComboBox&)
 {
-    return juce::Font (juce::FontOptions (14.0f));
+    return juce::Font (juce::FontOptions (16.0f));
 }
 
 juce::Font GhostbandLookAndFeel::getLabelFont (juce::Label& l)
