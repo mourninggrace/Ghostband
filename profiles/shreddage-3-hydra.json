@@ -261,7 +261,7 @@
   // drag CC 20 onto the volume slider. That is a drag, not a right-click, which
   // is why right-clicking it did nothing.
   "controls": {
-    "volume": { "cc": 20, "follows": "fixed", "type": "knob", "low": 1, "high": 1 },
+    "volume": { "cc": 20, "follows": "level", "type": "knob", "low": 0, "high": 1 },
     "bite": { "cc": 21, "follows": "lead", "type": "knob", "low": 0, "high": 1 },
     "signal": { "cc": 22, "follows": "random once", "type": "switch", "positions": 3, "low": 0, "high": 1 },
     "xtra attack": { "cc": 23, "follows": "random", "type": "knob", "low": 0, "high": 1 },

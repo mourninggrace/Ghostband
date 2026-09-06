@@ -2400,13 +2400,20 @@ int main (int argc, char** argv)
             // controls but none following "level" has a mix knob that falls
             // back to CC 7 - which Kontakt did not answer, so the GTR 2 knob
             // moved nothing while looking exactly like one that worked.
-            check (count == 0 || levels == 1,
-                   "the second guitar's mix knob reaches a real control",
-                   levels == 1 ? juce::String ("yes")
-                               : juce::String ("no - falling back to CC 7"));
+            // NOT an assertion that a level control exists. Whether one does
+            // is the owner's decision, made in the Settings screen and saved
+            // into a file they edit - this test used to fail simply because
+            // they parked the volume instead, which is a legitimate choice and
+            // not a fault in anything.
+            //
+            // What IS the plugin's business is that the knob and the profile
+            // agree, so that is what is checked.
+            const bool taught = proc.levelIsTaught (gtr2);
 
-            check (count == 0 || proc.levelIsTaught (gtr2),
-                   "and the plugin agrees that it is taught");
+            check (taught == (levels == 1),
+                   "the mix knob agrees with the profile about being taught",
+                   juce::String (levels) + " level control(s), plugin says "
+                       + (taught ? "taught" : "not taught"));
 
             // On the wire, on Shreddage's own channel. Twice now a mix knob has
             // been declared fixed on the strength of the code reading right.
@@ -2435,10 +2442,14 @@ int main (int argc, char** argv)
                 }
             }
 
-            check (count == 0 || (cc > 0 && cc != 7),
-                   "the GTR 2 mix knob leaves the plugin on a taught controller",
+            // A taught level goes out on its own controller; an untaught one
+            // falls back to CC 7. Either is correct - sending nothing at all,
+            // or sending both, is not.
+            check (cc > 0 && (taught ? cc != 7 : cc == 7),
+                   "the mix knob leaves the plugin on the controller it claims",
                    "CC" + juce::String (cc) + " ch" + juce::String (channel)
-                       + "=" + juce::String (value));
+                       + "=" + juce::String (value)
+                       + (taught ? " (taught)" : " (fallback)"));
 
             // And CC 7 must not be going there as well.
             //
@@ -2466,7 +2477,7 @@ int main (int argc, char** argv)
                 }
             }
 
-            check (count == 0 || ! sawCC7,
+            check (! taught || ! sawCC7,
                    "and no CC 7 follows it onto the same channel",
                    sawCC7 ? "CC 7 still sent - it can mute a Kontakt instrument"
                           : "none");

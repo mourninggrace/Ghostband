@@ -3,6 +3,11 @@
 Last updated 2026-09-06, session 12. Everything described as done is committed,
 pushed, installed, and covered by the harness (172 checks).
 
+**What is still to do lives in [BACKLOG.md](BACKLOG.md)**, checked against the
+code rather than copied out of this file - which had at least two items listed
+as open that were finished sessions ago. This file is the history; that one is
+the plan.
+
 ## SESSION 12 RESULT
 
 Confirmed working by ear: Teach reaches the right instrument, the mix knob

@@ -1,0 +1,170 @@
+# Ghostband: what is left
+
+Written 2026-09-06 at the end of session 12, checked against the code rather
+than copied out of NEXT.md — several things that file still listed as open are
+in fact done, and are noted at the bottom so nobody rediscovers them.
+
+Nothing here is scheduled. It is for reading and thinking about.
+
+---
+
+## A. Things you asked for that are not built
+
+### A1. Colour themes, about eight
+**Size: small. Risk: none.**
+Every colour already routes through `ghost::` constants in
+`GhostbandLookAndFeel.h`, so this is a palette table, a picker on the Settings
+screen, and saving the choice with the rest of the plugin state. Self-contained
+— it cannot break anything that makes sound.
+
+### A2. More presets, and variations within a genre
+**Size: small each, adds up. Risk: none.**
+The shipped set is one plan per style. Two or three per style, differing in
+tempo, key and arrangement rather than only in name. Pure data; no engine work.
+
+### A3. The lead guitar playing fills, not only solos
+**Size: medium. Risk: medium — it changes what every twin-guitar song sounds
+like.**
+Your idea. Shreddage currently either solos or is silent. A real second
+guitarist answers the vocal line in the gaps, doubles the riff in a chorus, and
+plays a pickup into the next section. This is the largest musical improvement
+left on the list.
+
+### A4. The user manual
+**Size: medium. Risk: none.**
+Agreed several sessions ago, never started. The About screen already has a
+button pointing at it.
+
+### A5. The AI planner
+**Size: large. Risk: medium.**
+The last planned feature. You supply your own key; it must stay entirely
+optional, and Ghostband must work exactly as it does now without it.
+
+### A6. An all-UJAM profile set, as a second rig
+**Size: small — profiles are data. Risk: none.**
+So the same song can be A/B'd through two rigs. Worth remembering why the
+wholesale switch was talked out of: UJAM's drummer and bassist are phrase
+players, so Ghostband would stop writing the parts and start picking from
+prerecorded grooves, losing the kick/bass lock and intensity actually driving
+the playing.
+
+---
+
+## B. Engine work that removes a real risk
+
+### B1. Articulations over MIDI CC instead of keyswitch notes
+**Size: medium. Risk: low to build, removes a high risk.**
+This is the one I would argue for first.
+
+Ghostband selects Shreddage's articulations by **sending notes 12–23**. A note
+aimed at the wrong instrument gets *played* — that is exactly the IRON 2
+disaster, where keyswitches landed on a guitar that treated them as music. A CC
+that nothing has learned does nothing at all.
+
+You found that Shreddage can drive articulations from MIDI CC (the Map button on
+the Articulations page). The engine cannot use it yet: `PhraseProfile` holds
+`phraseKeys` — notes — and has no CC path, though `BassProfile` articulations
+already have exactly that. So the pattern exists and needs porting.
+
+**Kontakt cannot be probed headlessly**, so the CC numbers have to be typed in by
+hand on both sides. That is the whole cost.
+
+### B2. Guitar articulations for phrase instruments
+**Size: large. Risk: medium.**
+Only worth it if you ever replace IRON 2 with a sampled guitar library.
+`PhraseProfile` has chord zones, strum spread and phrase keys but no
+articulation system — no palm mute, slide, or hammer-on the way `BassProfile`
+has them. This is what separates "a guitarist" from "a keyboard playing guitar
+samples".
+
+---
+
+## C. Things only you can settle
+
+### C1. Shreddage's pitch bend range
+In Shreddage: right-click **Pitch Bend Range → remove MIDI automation** (it
+wrongly learned CC 20), then set it to **2** by hand. Ghostband no longer touches
+this control, so once it is right it stays right.
+
+### C2. Walk Shreddage through Calibrate
+Now possible — the Calibrate screen could not reach the second guitar until
+today. Its range, 30 to 88, is reasoned from an eight-string's tuning and has
+never been confirmed. The solo plays 34 to 87 without a hole, which is evidence
+and not proof.
+
+### C3. Did the drums come up?
+Ghostband was sending a stale CC 7 to SSD5 on channel 10, frozen at whatever the
+drum mix knob was set to before that knob was removed from the screen. It is no
+longer sent. If your drums sound bigger now, that was why; if identical, SSD5
+was ignoring it and nothing was ever wrong.
+
+### C4. AmpliTube 5 and Guitar Rig 7
+You asked several sessions ago whether these are still needed now that IRON 2
+and Shreddage bring their own amps and cabinets. **I never answered.** Worth
+deciding, because it affects how guitar tone gets shaped from here.
+
+---
+
+## D. Known limitations, not bugs
+
+### D1. SSD5's volume cannot be reached over MIDI
+Its CC map is fixed — hi-hat and articulation functions, no MIDI Learn — so no
+controller can move its level. Hence no drums mix knob. A Gig Performer gain
+block is the fallback and works today. If SSD5's Map page turns out to have MIDI
+Learn buttons after all, the knob returns on its own: the profile just drops
+`"volume_reachable": false`.
+
+### D2. Console's controls cannot be automated
+Shreddage's amps, distortion, cabinets, EQ and delay have had CC learn removed
+deliberately, per Console's own FAQ. So Ghostband cannot switch Shreddage from a
+clean tone to a lead tone — it can only push a fixed tone harder, which is what
+a guitarist does anyway.
+
+### D3. Kontakt cannot be probed headlessly
+Loading it outside a host gives an empty instance, so Shreddage can only be
+calibrated from inside Gig Performer. Same wall as IRON 2 in Player mode.
+
+---
+
+## E. Ideas raised, never scheduled
+
+- **Latching section loop** — click once and a section repeats until told
+  otherwise. The jump-offset machinery already supports it.
+- **Live following** — Ghostband comping behind what you play. The largest
+  unbuilt idea; needs chord detection and tempo tracking.
+- **"Connect it to any plugin and it just works."** Auto-mapping by measurement
+  is already proven on UJAM. The blocker for licensed plugins is that they will
+  not sound in a headless host — the answer is Ghostband's vestigial audio
+  *input* pins: route an instrument's audio back in and it can measure its own
+  output from inside the host, where everything is licensed and working.
+- **MINDst, revisited.** Shelved because SSD5 sounds better, which is the right
+  reason. One thing was never tested: its Kick **One Shot** toggle. Ghostband
+  sends a note-off 30 ticks after each hit, and with One Shot off that note-off
+  *ends* the sample — so every MINDst drum may have been truncated the whole
+  time it was being judged. `SwitchDrums mndst` brings it back.
+
+---
+
+## F. Housekeeping
+
+### F1. NEXT.md has become a log, not a plan
+It is over a thousand lines of accreted session history, and it listed at least
+two items as open that were finished sessions ago. Worth splitting: a short
+"where things stand" file, this backlog, and an archive nobody has to read.
+
+---
+
+## Already done, despite what NEXT.md says
+
+Checked in the code today:
+
+- **"A guitar that only solos disappears in the plugin"** — fixed. The plugin
+  counts a part present if it has chords *or* a lead line.
+- **"Bring the older presets up to date so every solo section has something
+  soloing"** — done. All eleven plans have the second guitar soloing.
+- **Section-only reroll** — worked all along; the section rows just could not
+  show it, because the counts column was blind to guitar and piano. An intro
+  carried by one guitar read "0 / 0" and stayed there through every reroll.
+- **Adjustable BPM, and the host/plan tempo switch** — done.
+- **Taught mappings global per instrument** — done, and as of today the store no
+  longer overwrites what the profile declares.
