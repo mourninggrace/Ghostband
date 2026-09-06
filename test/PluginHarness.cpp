@@ -1746,6 +1746,123 @@ int main (int argc, char** argv)
                        "the profile saves again", juce::String (saveErr));
                 check (tmp.loadFileAsString() == afterText,
                        "saving twice changes nothing the second time");
+
+                // ---- a hostile control name -----------------------------
+                // The name is free text typed into the Settings screen, and it
+                // is written straight back into the profile. Nothing escaped
+                // it, so one double quote produced a file that was no longer
+                // JSON - and the next load failed, fell back to the generic
+                // profile, and the instrument silently lost its note range,
+                // its keyswitches and its bends. Two keystrokes.
+                {
+                    gb::PhraseProfile::ControlDef nasty;
+                    nasty.name = "wah \"the\" pedal \\ 100%\ttone";
+                    nasty.cc = 42;
+                    prof.editableControls().push_back (nasty);
+
+                    std::string nastyErr;
+                    check (prof.save (tmp.getFullPathName().toStdString(), nastyErr),
+                           "a profile saves with a quote in a control name",
+                           juce::String (nastyErr));
+
+                    gb::PhraseProfile reread;
+                    std::string rereadErr;
+                    const bool ok = gb::PhraseProfile::load (
+                        tmp.getFullPathName().toStdString(), reread, rereadErr);
+
+                    check (ok, "and the file is still valid JSON afterwards",
+                           juce::String (rereadErr));
+
+                    // The measurements have to still be there. This is the
+                    // failure that costs an evening: the file parses as
+                    // something, just not as this instrument any more.
+                    check (ok && tmp.loadFileAsString().contains ("60 to 89"),
+                           "and the measured findings are still in it");
+
+                    bool foundNasty = false;
+                    for (const auto& d : reread.allControls())
+                        if (d.name == nasty.name) foundNasty = true;
+
+                    check (foundNasty, "and the name reads back exactly as typed",
+                           juce::String (static_cast<int> (reread.allControls().size()))
+                               + " controls after reload");
+
+                    prof.editableControls().pop_back();
+                    prof.save (tmp.getFullPathName().toStdString(), nastyErr);
+                }
+
+                // ---- the block's name, quoted inside a string value -------
+                // findNamedBlock looks for "controls" in the raw file text. It
+                // skipped // comments but NOT strings, so a note that happened
+                // to quote the key was matched as if it were the block, and the
+                // save then spliced over everything after that note - the
+                // measurements included.
+                //
+                // A decoy nested inside the real block would not test this: the
+                // real key still comes first. The trap needs a string value
+                // ABOVE the block, which is exactly where a verification note
+                // lives.
+                {
+                    juce::String text = tmp.loadFileAsString();
+                    const int nameAt = text.indexOf ("\"name\"");
+
+                    if (nameAt > 0)
+                    {
+                        text = text.substring (0, nameAt)
+                             + "\"decoy_note\": \"the \\\"controls\\\": block is below this\",\n  "
+                             + text.substring (nameAt);
+                        tmp.replaceWithText (text);
+
+                        gb::PhraseProfile trap;
+                        std::string trapErr;
+                        const bool loadedTrap = gb::PhraseProfile::load (
+                            tmp.getFullPathName().toStdString(), trap, trapErr);
+
+                        check (loadedTrap, "a profile quoting \"controls\" in a note loads",
+                               juce::String (trapErr));
+
+                        std::string decoyErr;
+                        const bool saved = trap.save (tmp.getFullPathName().toStdString(),
+                                                      decoyErr);
+
+                        gb::PhraseProfile reread;
+                        std::string rereadErr;
+                        const bool ok = gb::PhraseProfile::load (
+                            tmp.getFullPathName().toStdString(), reread, rereadErr);
+
+                        check (saved && ok,
+                               "and saving it finds the real block, not the note",
+                               juce::String (rereadErr));
+                        check (ok && tmp.loadFileAsString().contains ("60 to 89"),
+                               "so the findings below that note survive the save");
+                        check (ok && reread.allControls().size() == trap.allControls().size(),
+                               "and the controls are still all there",
+                               juce::String (static_cast<int> (reread.allControls().size()))
+                                   + " of "
+                                   + juce::String (static_cast<int> (trap.allControls().size())));
+                    }
+                }
+
+                // Back to a clean copy for the tests below.
+                src.copyFileTo (tmp);
+
+                // ---- a failed save leaves the profile intact --------------
+                // Saving used to open the file with trunc, destroying it before
+                // knowing the write would succeed. Simulated by aiming a save
+                // at a path that cannot be written.
+                {
+                    const juce::String before = tmp.loadFileAsString();
+
+                    std::string failErr;
+                    const bool wrote = prof.save (
+                        (tmp.getFullPathName() + "/nope/deeper.json").toStdString(),
+                        failErr);
+
+                    check (! wrote, "a save to an impossible path fails",
+                           juce::String (failErr));
+                    check (tmp.loadFileAsString() == before,
+                           "and leaves the real profile byte for byte as it was");
+                }
             }
         }
         else

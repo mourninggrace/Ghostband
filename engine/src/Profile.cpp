@@ -576,10 +576,53 @@ std::string PhraseProfile::toJson() const
     return j;
 }
 
+// A JSON string, with the characters that would end it early made safe.
+//
+// A control's name is typed by hand in the Settings screen, and this is what
+// writes it back into the profile. Without escaping, one double quote in a name
+// produced a file that was no longer JSON - and the next load then failed, fell
+// back to the generic profile, and the instrument lost its note range, its
+// keyswitches, its bends and everything else measured about it. Two characters
+// on a keyboard, and an evening of calibration gone.
+static std::string jsonString (const std::string& s)
+{
+    std::string out = "\"";
+    for (const char raw : s)
+    {
+        const unsigned char c = static_cast<unsigned char> (raw);
+        switch (c)
+        {
+            case '"':  out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\b': out += "\\b";  break;
+            case '\f': out += "\\f";  break;
+            case '\n': out += "\\n";  break;
+            case '\r': out += "\\r";  break;
+            case '\t': out += "\\t";  break;
+            default:
+                if (c < 0x20)
+                {
+                    char esc[8];
+                    std::snprintf (esc, sizeof (esc), "\\u%04x", c);
+                    out += esc;
+                }
+                else
+                {
+                    // Bytes above 0x7f are left alone: profiles are UTF-8 and a
+                    // multi-byte character passes through unharmed as long as
+                    // it is not taken apart.
+                    out += raw;
+                }
+                break;
+        }
+    }
+    return out + "\"";
+}
+
 // Just the controls block, indented to sit inside a profile file.
 std::string ControlSet::toJson() const
 {
-    auto q = [] (const std::string& s) { return "\"" + s + "\""; };
+    auto q = [] (const std::string& s) { return jsonString (s); };
     auto num = [] (double v)
     {
         char buf[32];
@@ -625,8 +668,18 @@ std::string ControlSet::toJson() const
 static bool findNamedBlock (const std::string& text, const std::string& key,
                             size_t& at, size_t& close)
 {
-    // Find the key outside of a comment, so the explanation written above a
-    // controls block is never mistaken for the block itself.
+    // Find the key outside of a comment AND outside a string, so neither the
+    // explanation written above a controls block nor a control someone named
+    // "controls" is mistaken for the block itself.
+    //
+    // Strings were not tracked here before. That mattered in both directions: a
+    // "//" inside a string value swallowed the rest of that line, and a quoted
+    // key name inside a string value matched as if it were the key - which
+    // would have spliced the new block over whatever followed, in a file whose
+    // comments are the measurements. Nothing in the profiles today triggers
+    // either, but a control's name is typed by hand and reaches this text.
+    // The key is itself a quoted string, so it cannot be found by skipping every
+    // string: the walk stops at each one, compares, and only then steps over it.
     at = std::string::npos;
     for (size_t i = 0; i + 1 < text.size(); ++i)
     {
@@ -636,7 +689,28 @@ static bool findNamedBlock (const std::string& text, const std::string& key,
             continue;
         }
 
-        if (text.compare (i, key.size(), key) == 0) { at = i; break; }
+        if (text[i] != '"')
+            continue;
+
+        if (text.compare (i, key.size(), key) == 0)
+        {
+            // A key is followed by a colon. A string that merely reads the same
+            // as the key - a control someone named "controls", or a note
+            // quoting one - is a value, and is stepped over instead.
+            size_t after = i + key.size();
+            while (after < text.size() && std::isspace (static_cast<unsigned char> (text[after])))
+                ++after;
+
+            if (after < text.size() && text[after] == ':')
+            {
+                at = i;
+                break;
+            }
+        }
+
+        ++i;
+        while (i < text.size() && text[i] != '"')
+            i += (text[i] == '\\') ? 2 : 1;
     }
 
     if (at == std::string::npos) return false;
@@ -667,6 +741,59 @@ static bool findNamedBlock (const std::string& text, const std::string& key,
     }
 
     return close != std::string::npos;
+}
+
+// Writes a file by building it beside the original and then moving it into
+// place, so the original is only replaced once the replacement is complete.
+//
+// Every save here used to open the profile with std::ios::trunc, which destroys
+// the file BEFORE knowing the write will succeed. A full disk, a permissions
+// change, a crash, a host pulled down mid-save - any of them left a truncated
+// or empty profile, and these files hold measurements that cannot be
+// regenerated: the note range an instrument actually sounds in, which of its
+// modes the file describes, which keyswitch is which. Losing one costs an
+// evening at the keyboard with a notepad.
+//
+// A rename within a directory is the closest thing to atomic that a filesystem
+// offers, and it is the difference between "the save failed" and "the profile
+// is gone".
+static bool writeFileAtomically (const std::string& path, const std::string& text,
+                                 std::string& error)
+{
+    const std::string temp = path + ".tmp";
+
+    {
+        std::ofstream f (temp, std::ios::binary | std::ios::trunc);
+        if (! f)
+        {
+            error = "could not open " + temp + " for writing";
+            return false;
+        }
+
+        f.write (text.data(), static_cast<std::streamsize> (text.size()));
+        f.flush();
+
+        if (! f)
+        {
+            error = "failed while writing " + temp;
+            std::remove (temp.c_str());
+            return false;
+        }
+    }
+
+    // Windows will not rename onto an existing file, so the original goes
+    // first. That is the one moment the profile is absent, and it is a single
+    // directory operation rather than a whole file's worth of writing.
+    std::remove (path.c_str());
+
+    if (std::rename (temp.c_str(), path.c_str()) != 0)
+    {
+        error = "could not move " + temp + " into place";
+        return false;
+    }
+
+    error.clear();
+    return true;
 }
 
 static bool readWholeFile (const std::string& path, std::string& text)
@@ -732,22 +859,7 @@ bool spliceProfileBlock (const std::string& path, const std::string& key,
         return false;
     }
 
-    std::ofstream f (path, std::ios::binary | std::ios::trunc);
-    if (! f)
-    {
-        error = "could not open " + path + " for writing";
-        return false;
-    }
-
-    f.write (text.data(), static_cast<std::streamsize> (text.size()));
-    if (! f)
-    {
-        error = "failed while writing " + path;
-        return false;
-    }
-
-    error.clear();
-    return true;
+    return writeFileAtomically (path, text, error);
 }
 
 bool saveControlsInto (const std::string& path, const ControlSet& controls,
@@ -763,20 +875,7 @@ bool saveControlsInto (const std::string& path, const ControlSet& controls,
         return false;
     }
 
-    std::ofstream f (path, std::ios::binary | std::ios::trunc);
-    if (! f)
-    {
-        error = "could not open " + path + " for writing";
-        return false;
-    }
-
-    f.write (text.data(), static_cast<std::streamsize> (text.size()));
-    if (! f)
-    {
-        error = "failed while writing " + path;
-        return false;
-    }
-    return true;
+    return writeFileAtomically (path, text, error);
 }
 
 bool PhraseProfile::save (const std::string& path, std::string& error) const
@@ -786,20 +885,8 @@ bool PhraseProfile::save (const std::string& path, std::string& error) const
 
     // A phrase profile can be written from scratch, because toJson knows how to
     // spell one. The other profile types cannot, so only this one falls back.
-    std::ofstream f (path, std::ios::binary | std::ios::trunc);
-    if (! f)
-    {
-        error = "could not open " + path + " for writing";
+    if (! writeFileAtomically (path, toJson(), error))
         return false;
-    }
-
-    const std::string text = toJson();
-    f.write (text.data(), static_cast<std::streamsize> (text.size()));
-    if (! f)
-    {
-        error = "failed while writing " + path;
-        return false;
-    }
 
     error.clear();
     return true;
