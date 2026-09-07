@@ -505,6 +505,16 @@ private:
     // MIDI Learn latches onto instead of the sweep meant for it.
     std::vector<int>              lastLevelsSent;
 
+public:
+    // What the last naming suggested and why, so the interface can say it out
+    // loud. Changing a field under somebody and hoping they notice is how you
+    // end up with a mapping nobody chose and nobody can explain.
+    juce::String getLastSuggestion() const { return lastSuggestion; }
+    void clearLastSuggestion()             { lastSuggestion.clear(); }
+
+private:
+    juce::String                  lastSuggestion;
+
     // Millisecond counter until which a Teach sweep owns the wire and nothing
     // else may transmit. A MIDI Learn takes the first controller it hears.
     std::atomic<juce::int64>      teachingUntil { 0 };

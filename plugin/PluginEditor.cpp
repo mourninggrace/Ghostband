@@ -1733,6 +1733,18 @@ void GhostbandEditor::pushControlEdit()
     }
 
     processor.updateControl (part, ctlSelected, s);
+
+    // Say it out loud when Ghostband chose something. Silently changing two
+    // fields because of what you typed in a third is the sort of help nobody
+    // asked for; saying which and why makes it an offer.
+    const juce::String suggested = processor.getLastSuggestion();
+    if (suggested.isNotEmpty())
+    {
+        statusLabel.setText (suggested + "   (change it if that is wrong)",
+                             juce::dontSendNotification);
+        processor.clearLastSuggestion();
+    }
+
     refreshControls();
 }
 

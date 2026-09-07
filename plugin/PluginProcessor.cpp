@@ -1097,7 +1097,29 @@ void GhostbandProcessor::updateControl (int part, int index, const ControlSlot& 
         if (index < 0 || index >= static_cast<int> (list.size())) return;
 
         auto& c = list[static_cast<size_t> (index)];
-        c.name    = slot.name.trim().isEmpty() ? "control" : slot.name.trim().toStdString();
+
+        // Naming a control is when Ghostband can help, and the only time it
+        // should.
+        //
+        // Choosing between intensity, lead, level, random, random once, fixed
+        // and none asks the owner of a rig to already know how this engine
+        // thinks. The first person to map eleven controls got most of them
+        // wrong - not carelessly, there was nothing to go on - and one of them,
+        // a pitch bend range set to change per song, would have detuned every
+        // bend in the solos.
+        //
+        // So: guess from the name, ONCE, and only while the control still has
+        // the default everything. The moment anything has been chosen by hand
+        // that choice stands, including through later renames.
+        const std::string typed = slot.name.trim().isEmpty()
+                                    ? std::string ("control")
+                                    : slot.name.trim().toStdString();
+
+        const bool untouched = (c.follows == "intensity" && c.type == "knob"
+                                && c.low == 0.0 && c.high == 1.0);
+        const bool renamed   = (typed != c.name);
+
+        c.name    = typed;
         c.follows = slot.follows.toStdString();
         c.type      = slot.type.toStdString();
         c.positions = juce::jlimit (0, 128, slot.positions);
@@ -1109,6 +1131,22 @@ void GhostbandProcessor::updateControl (int part, int index, const ControlSlot& 
         // the type is chosen, so the list never shows an impossible mapping.
         if (c.type == "select" && c.positions < 2)
             c.positions = 3;
+
+        // The suggestion, applied after the fields above so it can see whether
+        // the edit itself changed anything. An edit that sets follows by hand
+        // is not overruled: untouched was measured before the assignment.
+        if (renamed && untouched && c.follows == "intensity")
+        {
+            const gb::ControlSuggestion sug = gb::suggestControl (c.name);
+            c.follows   = sug.follows;
+            c.type      = sug.type;
+            c.low       = sug.low;
+            c.high      = sug.high;
+            if (sug.positions >= 2) c.positions = sug.positions;
+
+            lastSuggestion = juce::String (c.name) + " follows \"" + sug.follows
+                           + "\" - " + sug.because;
+        }
 
         // Choosing "level" here takes it off whatever had it before, because
         // the part has one mix knob and it reaches one control. Done in this

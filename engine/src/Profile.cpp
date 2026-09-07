@@ -420,6 +420,172 @@ PhraseProfile::PhraseProfile()
     chordHighest = 72;
 }
 
+//==============================================================================
+// What a control should probably follow, from what it is called.
+//
+// Every rule here is a claim about instruments rather than about this engine,
+// which is why it lives in the engine's own file and not in the interface: the
+// CLI and any future tool should guess the same way.
+//
+// Ordered most specific first. "master volume" must not match the "master"
+// rule before the "volume" one, and "pitch bend range" must not be read as a
+// bend to perform rather than a range to leave alone.
+ControlSuggestion suggestControl (const std::string& name)
+{
+    std::string n;
+    for (char c : name)
+        n += static_cast<char> (std::tolower (static_cast<unsigned char> (c)));
+
+    // Whole words, not substrings.
+    //
+    // Plain find() reads "dynamics" as containing "mic" and "model" as
+    // containing "mod", so a dynamics knob was suggested a microphone's
+    // treatment and an amp model was suggested a modulation effect. Short
+    // words are the useful ones here - amp, cab, mic, mod, tune - and they are
+    // exactly the ones that hide inside longer ones.
+    //
+    // A boundary is anything that is not a letter, so "anti-repetition" still
+    // matches "repetition" and "pitch bend range" still matches "bend range".
+    const auto has = [&n] (const char* word)
+    {
+        const std::string w (word);
+        size_t from = 0;
+
+        while (true)
+        {
+            const size_t at = n.find (w, from);
+            if (at == std::string::npos) return false;
+
+            const bool startOk = (at == 0)
+                || ! std::isalpha (static_cast<unsigned char> (n[at - 1]));
+
+            const size_t after = at + w.size();
+            const bool endOk = (after >= n.size())
+                || ! std::isalpha (static_cast<unsigned char> (n[after]));
+
+            if (startOk && endOk) return true;
+            from = at + 1;
+        }
+    };
+
+    ControlSuggestion s;
+
+    // ---- settings: one correct value, nothing to express ----
+    //
+    // "none" rather than "fixed" throughout. Fixed would hold them actively,
+    // which costs a controller message per section on a wire where a knob
+    // sitting in MIDI Learn takes the first thing it hears. That is not
+    // hypothetical - it is how a pitch bend range learned a mix knob's CC.
+    if (has ("bend range") || has ("pitch bend") || has ("tune") || has ("tuning")
+        || has ("transpose") || has ("octave") || has ("capo"))
+    {
+        s.follows = "none";
+        s.because = "a setting with one correct value, so Ghostband leaves it alone";
+        return s;
+    }
+
+    if (has ("midi") || has ("channel") || has ("invert") || has ("latency")
+        || has ("velocity curve") || has ("round robin") || has ("repetition")
+        || has ("polyphon") || has ("mono mode") || has ("input"))
+    {
+        s.follows = "none";
+        s.type    = has ("mode") || has ("invert") ? "switch" : s.type;
+        s.because = "configuration rather than performance - set it by hand once";
+        return s;
+    }
+
+    // ---- the mix knob's target ----
+    if (has ("volume") || has ("level") || has ("output") || has ("master"))
+    {
+        s.follows = "level";
+        s.because = "this is what the part's mix knob should reach";
+        return s;
+    }
+
+    // ---- brightness and voice: up when the part is out front ----
+    if (has ("tone") || has ("bite") || has ("presence") || has ("bright")
+        || has ("treble") || has ("cut") || has ("air"))
+    {
+        s.follows = "lead";
+        s.low     = 0.2;
+        s.high    = 0.85;
+        s.because = "brighter when this part is leading, darker when supporting";
+        return s;
+    }
+
+    if (has ("pickup") || has ("signal") || has ("position"))
+    {
+        s.follows   = "lead";
+        s.type      = "select";
+        s.positions = 3;
+        s.because   = "neck behind somebody, bridge out front, as a player would";
+        return s;
+    }
+
+    // ---- a choice with no right answer, held for the song ----
+    if (has ("amp") || has ("cab") || has ("model") || has ("character")
+        || has ("voicing") || has ("mic") || has ("kit") || has ("preset")
+        || has ("selection") || has ("style"))
+    {
+        s.follows   = "random once";
+        s.type      = "select";
+        s.positions = 4;
+        s.because   = "a choice a band makes once and keeps for the whole song";
+        return s;
+    }
+
+    // ---- colour that can come and go ----
+    if (has ("reverb") || has ("ambience") || has ("delay") || has ("room")
+        || has ("width") || has ("focus") || has ("finisher") || has ("effect")
+        || has ("chorus") || has ("mod"))
+    {
+        s.follows = "random";
+        s.because = "colour, free to change between sections";
+        return s;
+    }
+
+    // ---- how hard it is being played ----
+    //
+    // AFTER colour, deliberately. "amount" and "depth" are generic modifiers
+    // that describe how much of the thing named beside them, so they have to
+    // yield to that noun: "ambience amount" is ambience, not intensity, and
+    // matching on "amount" first made it exactly that mistake.
+    if (has ("drive") || has ("gain") || has ("distort") || has ("dynamic")
+        || has ("attack") || has ("intensity") || has ("depth") || has ("amount"))
+    {
+        s.follows = "intensity";
+        s.low     = 0.25;
+        s.high    = 0.9;
+        s.because = "follows how hard the section is played";
+        return s;
+    }
+
+    // ---- a soloist's gesture ----
+    if (has ("vibrato") || has ("unison") || has ("slide") || has ("harmonic")
+        || has ("tap") || has ("whammy") || has ("wah"))
+    {
+        s.follows = "lead";
+        s.low     = 0.0;
+        s.high    = 0.45;
+        s.because = "a lead player's gesture, so it belongs to whoever is out front";
+        return s;
+    }
+
+    // Anything ending in "mode" or reading like a toggle is a switch, and a
+    // switch nobody has explained is safest left alone.
+    if (has ("mode") || has ("enable") || has ("bypass") || has ("on/off")
+        || has ("toggle") || has ("mute"))
+    {
+        s.follows = "none";
+        s.type    = "switch";
+        s.because = "a toggle with no obvious right answer, so nothing sends it";
+        return s;
+    }
+
+    s.because = "no rule matched the name, so this is the plain default";
+    return s;
+}
+
 double ControlDef::valueAt (double t) const
 {
     const auto clamp01 = [] (double v) { return v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v); };

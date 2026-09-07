@@ -906,6 +906,86 @@ int main (int argc, char** argv)
         }
     }
 
+    // ---- naming a control suggests what it should follow --------------------
+    // The names below are real ones off the instruments in this rig, and the
+    // expectations are what a person who knows the instrument would say. The
+    // first owner to map eleven controls got most of them wrong - not
+    // carelessly, there was nothing to go on - and one of them, a pitch bend
+    // range set to change per song, would have detuned every bend in the solos.
+    {
+        struct Case { const char* name; const char* follows; };
+        static const Case cases[] = {
+            // the mix knob's target
+            { "volume",               "level" },
+            { "master volume",        "level" },
+            { "output",               "level" },
+
+            // settings: one right value, so nothing is sent
+            { "pitch bend range",     "none" },
+            { "tune",                 "none" },
+            { "invert MIDI channels", "none" },
+            { "anti-repetition",      "none" },
+            { "MIDI guitar mode",     "none" },
+
+            // brightness and voice, up when out front
+            { "tone",                 "lead" },
+            { "bite",                 "lead" },
+            { "presence",             "lead" },
+            { "signal",               "lead" },
+            { "pickup",               "lead" },
+
+            // how hard the section is played
+            { "drive",                "intensity" },
+            { "xtra attack",          "intensity" },
+            { "dynamics",             "intensity" },
+
+            // a choice held for the whole song
+            { "amp model",            "random once" },
+            { "character",            "random once" },
+            { "cab",                  "random once" },
+
+            // colour, free to move
+            { "ambience amount",      "random" },
+            { "finisher",             "random" },
+            { "width",                "random" },
+
+            // a lead player's gesture
+            { "unison bend",          "lead" },
+            { "vibrato",              "lead" },
+        };
+
+        int wrong = 0;
+        juce::String firstWrong;
+
+        for (const Case& c : cases)
+        {
+            const gb::ControlSuggestion sug = gb::suggestControl (c.name);
+            if (sug.follows != c.follows)
+            {
+                ++wrong;
+                if (firstWrong.isEmpty())
+                    firstWrong = juce::String (c.name) + " -> " + sug.follows
+                               + ", wanted " + c.follows;
+            }
+        }
+
+        check (wrong == 0, "control names suggest the right thing to follow",
+               wrong == 0 ? juce::String ((int) (sizeof (cases) / sizeof (cases[0])))
+                              + " names"
+                          : juce::String (wrong) + " wrong, first: " + firstWrong);
+
+        // The dangerous one, called out on its own. A pitch bend range that
+        // moves re-tunes the ruler every bend is measured against.
+        check (gb::suggestControl ("pitch bend range").follows == "none",
+               "and a pitch bend range is never automated");
+
+        // A name nothing matches must not guess wildly.
+        const gb::ControlSuggestion unknown = gb::suggestControl ("wibble");
+        check (unknown.follows == "intensity" && unknown.type == "knob",
+               "an unrecognised name falls back to the plain default",
+               juce::String (unknown.follows) + " / " + unknown.type);
+    }
+
     // ---- per-section reroll -----------------------------------------------
     // The whole promise is that rerolling one section cannot disturb another.
     // That is a property of how section seeds are derived, and it is exactly the

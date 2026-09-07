@@ -97,6 +97,31 @@ struct ControlDef
 
 
 // The controls one profile declares, and everything done with them. Held by
+// What a control should probably follow, guessed from what it is called.
+//
+// Choosing between intensity, lead, level, random, random once, fixed and none
+// asks the owner of a rig to already know how this engine thinks - and the
+// first person to map eleven controls got most of them wrong, not through
+// carelessness but because there was nothing to go on. A knob named "volume"
+// has one sensible answer; so does one named "tune".
+//
+// A SUGGESTION, never a decision. It is applied when a control is first named
+// and never again, so anything chosen by hand afterwards stands.
+struct ControlSuggestion
+{
+    std::string follows = "intensity";
+    std::string type    = "knob";
+    double      low     = 0.0;
+    double      high    = 1.0;
+    int         positions = 0;
+
+    // Why, in a few words, so the interface can say it out loud rather than
+    // changing a field under someone and hoping they notice.
+    std::string because;
+};
+
+ControlSuggestion suggestControl (const std::string& name);
+
 // every profile type rather than only the phrase one: a drum kit and a bass
 // have knobs worth reaching too, and the mix knobs need somewhere to land.
 class ControlSet
