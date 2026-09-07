@@ -695,13 +695,19 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         addAndMakeVisible (*k.s);
     }
 
+    // `c` by reference, not by value, and that is the whole of what makes a
+    // theme change reach the labels. The ghost:: names are references into the
+    // live palette, so the address taken here keeps pointing at the colour
+    // applyTheme overwrites. Copied by value, every label would record the
+    // colour that was current when the window opened and keep it forever.
     auto initLabel = [this] (juce::Label& l, const juce::String& t, float size,
-                             juce::Colour c, juce::Justification j)
+                             juce::Colour& c, juce::Justification j)
     {
         l.setText (t, juce::dontSendNotification);
         l.setFont (juce::Font (juce::FontOptions (size)));
         l.setColour (juce::Label::textColourId, c);
         l.setJustificationType (j);
+        themedLabels.push_back ({ &l, &c });
         addAndMakeVisible (l);
     };
 
@@ -963,7 +969,17 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     edSaveButton.onClick = [this]
     {
         const juce::File target = processor.getPlanFile();
-        if (! target.existsAsFile()) { edSaveAsButton.triggerClick(); return; }
+
+        // No file, or a song that shipped in the bundle. A preset lives under
+        // Program Files, so saving over it fails on permissions - and it should
+        // not succeed anyway: the presets are the ones everybody gets, and
+        // editing one is how you start a song of your own, not how you replace
+        // a factory one. Both cases become Save as..., pointed at your songs.
+        if (! target.existsAsFile() || processor.planIsFactory())
+        {
+            edSaveAsButton.triggerClick();
+            return;
+        }
 
         juce::String err;
         if (processor.savePlan (target, err))
@@ -976,10 +992,19 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 
     edSaveAsButton.onClick = [this]
     {
-        const juce::File start = processor.getPlanFile().existsAsFile()
-                                   ? processor.getPlanFile()
-                                   : juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                                         .getChildFile ("my-song.json");
+        // Always your songs folder, never wherever the loaded song came from.
+        // Starting from a preset used to open this dialog inside the installed
+        // bundle under Program Files, which needs elevation to write and puts
+        // your song where an installer has to work around it.
+        //
+        // The name comes from the loaded song, so saving a preset you have been
+        // editing offers "preset-metal.json" in your own folder rather than
+        // making you retype it.
+        const juce::File current = processor.getPlanFile();
+        const juce::String suggested = current.existsAsFile() ? current.getFileName()
+                                                              : juce::String ("my-song.json");
+        const juce::File start = GhostbandProcessor::userSongsFolder()
+                                     .getChildFile (suggested);
 
         chooser = std::make_unique<juce::FileChooser> ("Save the song", start, "*.json");
         chooser->launchAsync (juce::FileBrowserComponent::saveMode
@@ -1105,19 +1130,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         themeBox.addItem (ghost::themeName (i), i + 1);
     themeBox.setSelectedId (processor.theme.load() + 1, juce::dontSendNotification);
 
-    themeBox.onChange = [this]
-    {
-        const int pick = themeBox.getSelectedId() - 1;
-        processor.theme.store (pick);
-        ghost::applyTheme (pick);
-
-        // Every component holds colours it was given when it was created, so a
-        // repaint alone leaves half the interface on the old palette. resized()
-        // runs the initLabel colours again on the way through.
-        lookAndFeelChanged();
-        resized();
-        repaint();
-    };
+    themeBox.onChange = [this] { applyThemeChoice (themeBox.getSelectedId() - 1); };
 
     reloadProfilesBtn.onClick = [this] { processor.reloadPlan(); };
 
@@ -1511,6 +1524,9 @@ void GhostbandEditor::styleCombo (juce::ComboBox& c)
 
 void GhostbandEditor::styleSlider (juce::Slider& s)
 {
+    if (std::find (themedSliders.begin(), themedSliders.end(), &s) == themedSliders.end())
+        themedSliders.push_back (&s);
+
     s.setSliderStyle (juce::Slider::LinearHorizontal);
     s.setTextBoxStyle (juce::Slider::TextBoxRight, false, 46, 20);
     s.setRange (0.0, 1.0, 0.01);
@@ -1677,6 +1693,86 @@ void GhostbandEditor::pressRollForTesting()
 int GhostbandEditor::rerollSelectionSizeForTesting() const
 {
     return static_cast<int> (rerollSelection.size());
+}
+
+// Switching palette with the window already open.
+//
+// The hard part is not the palette - applyTheme swaps that in one call, and
+// everything drawn in a paint() method reads the live colours and comes back
+// correct on the next repaint. The hard part is the components that were handed
+// a colour once, when they were built: a Label with an explicit textColourId
+// keeps it forever, and a LookAndFeel change cannot override an explicit
+// colour. Those have to be told again, by name, which is what recolour() does.
+void GhostbandEditor::applyThemeChoice (int index)
+{
+    processor.theme.store (index);
+    ghost::applyTheme (index);
+    recolour();
+
+    // sendLookAndFeelChange, not lookAndFeelChanged: the second tells this one
+    // component and stops there, and every control on the screen is a child.
+    sendLookAndFeelChange();
+    resized();
+    repaint();
+}
+
+void GhostbandEditor::recolour()
+{
+    for (const auto& e : themedLabels)
+        e.first->setColour (juce::Label::textColourId, *e.second);
+
+    for (juce::Slider* sl : themedSliders)
+        styleSlider (*sl);
+
+    // Everything below takes the same palette roles wherever it appears, so it
+    // is found by type rather than remembered. A child that was never styled
+    // gets styled now, which is correct rather than merely harmless.
+    for (int i = 0; i < getNumChildComponents(); ++i)
+    {
+        juce::Component* c = getChildComponent (i);
+
+        if (auto* b = dynamic_cast<juce::TextButton*> (c))
+        {
+            // styleButton stashed this when it first ran, so a primary button
+            // stays primary instead of quietly demoting itself on every change.
+            styleButton (*b, static_cast<bool> (b->getProperties()["primary"]));
+        }
+        else if (auto* combo = dynamic_cast<juce::ComboBox*> (c))
+        {
+            styleCombo (*combo);
+        }
+        else if (auto* field = dynamic_cast<juce::TextEditor*> (c))
+        {
+            field->setColour (juce::TextEditor::backgroundColourId, ghost::background);
+            field->setColour (juce::TextEditor::outlineColourId, ghost::line);
+            field->setColour (juce::TextEditor::focusedOutlineColourId,
+                              ghost::accent.withAlpha (0.6f));
+            field->setColour (juce::TextEditor::textColourId, ghost::text);
+
+            // setColour alone only reaches text typed AFTER it: a TextEditor
+            // stores a colour per run of text, fixed when that run was added.
+            // Without this the seed and the tempo were already in the box, so
+            // they kept the dark theme's near-white and vanished into the light
+            // theme's page - two boxes that looked empty while holding numbers.
+            field->applyColourToAllText (ghost::text, true);
+        }
+        else if (auto* toggle = dynamic_cast<juce::ToggleButton*> (c))
+        {
+            toggle->setColour (juce::ToggleButton::textColourId, ghost::text);
+            toggle->setColour (juce::ToggleButton::tickColourId, ghost::accent);
+            toggle->setColour (juce::ToggleButton::tickDisabledColourId, ghost::line);
+        }
+        else if (auto* vp = dynamic_cast<juce::Viewport*> (c))
+        {
+            vp->setColour (juce::ScrollBar::thumbColourId, ghost::line.brighter (0.4f));
+        }
+    }
+}
+
+void GhostbandEditor::setThemeForTesting (int index)
+{
+    themeBox.setSelectedId (index + 1, juce::dontSendNotification);
+    applyThemeChoice (index);
 }
 
 void GhostbandEditor::refreshTakes()
@@ -2536,20 +2632,32 @@ void GhostbandEditor::resized()
         }
         s.removeFromTop (8);
 
-        auto listArea = s.removeFromTop (juce::jmax (60, s.getHeight() - 46));
-        ctlViewport.setBounds (listArea);
-        ctlList.setSize (listArea.getWidth() - 10, ctlList.getHeight());
-        s.removeFromTop (8);
+        // The rows under the list are taken off the BOTTOM before the list is
+        // given what is left, rather than the list being handed everything bar
+        // a hand-counted number of pixels.
+        //
+        // That number was 46. The rows below need 8 + 28 + 10 + 28 = 74, so the
+        // theme picker was laid out in a rectangle of zero height - constructed,
+        // made visible, and invisible on every build it shipped in. Nothing
+        // caught it: an overlap checker cannot see a component with no area,
+        // and a colour test checks the palette rather than the control that
+        // chooses it. Counting from the bottom means adding another row here
+        // can shrink the list but can never squeeze a control out of existence.
+        auto below = s.removeFromBottom (juce::jmin (74, juce::jmax (0, s.getHeight() - 60)));
 
-        auto row = s.removeFromTop (28);
+        ctlViewport.setBounds (s);
+        ctlList.setSize (s.getWidth() - 10, ctlList.getHeight());
+
+        below.removeFromTop (8);
+        auto row = below.removeFromTop (28);
         reloadProfilesBtn.setBounds (row.removeFromLeft (170));
         row.removeFromLeft (8);
         resetSizeButton.setBounds (row.removeFromLeft (150));
         row.removeFromLeft (8);
         tempoModeButton.setBounds (row.removeFromLeft (140));
 
-        s.removeFromTop (10);
-        auto themeRow = s.removeFromTop (28);
+        below.removeFromTop (10);
+        auto themeRow = below.removeFromTop (28);
         themeLabel.setBounds (themeRow.removeFromLeft (60));
         themeBox.setBounds (themeRow.removeFromLeft (150));
         return;

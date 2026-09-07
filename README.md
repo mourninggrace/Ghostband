@@ -280,9 +280,18 @@ variation of the one before it. **Up** / **Down** reorder. The last section cann
 be deleted, because a song with no sections cannot render.
 
 **Save** writes the plan back, keeping the previous version alongside it. **Save
-as...** writes a new one. A plan written by the editor and read back produces a
-byte-identical song — the harness checks that round-trip on every build, because
-saving is only safe if it is true.
+as...** writes a new one, into `Documents\Ghostband\Songs` — your songs are kept
+apart from the presets, which live inside the installed bundle under Program
+Files where writing needs elevation anyway.
+
+Editing a preset and pressing **Save** therefore does not overwrite the preset:
+it becomes Save as..., offering the same name in your own folder. The presets are
+the ones everybody gets, and editing one is how you start a song of your own
+rather than how you replace a factory one.
+
+A plan written by the editor and read back produces a byte-identical song — the
+harness checks that round-trip on every build, because saving is only safe if it
+is true.
 
 ### Jumping sections live
 
@@ -324,6 +333,23 @@ instruments straight to the audio out and leave these unconnected.
 
 They are also the hook for a later feature — a plugin that can hear what it is
 producing could check its own output — but today they are vestigial.
+
+### Colour themes
+
+![The light theme](docs/screenshots/theme-paper.png)
+
+*The same song screen on Paper, the light theme.*
+
+Eight of them, on the **Settings** screen: Ghost, Ash, Ember, Cobalt, Moss,
+Oxblood, Slate and Paper. The choice is saved with the rest of the plugin state,
+so it survives closing the rackspace.
+
+A theme is not only a repaint. Every control that was handed a colour when it was
+built - each label, button, combo box and text field - has to be told the new one,
+because an explicit colour survives any number of look-and-feel changes. The
+harness checks that: it opens the window on the dark theme, switches to the light
+one, and requires every label to have moved and every one of them to still
+contrast with the page behind it.
 
 ### Windows DPI
 

@@ -136,6 +136,48 @@ juce::File GhostbandProcessor::bundledPlansFolder() const
              : juce::File::getSpecialLocation (juce::File::userDocumentsDirectory);
 }
 
+// Where songs you write go, kept away from the ones that ship.
+//
+// Save as... used to open on whatever song was loaded, so starting from a
+// preset put the save dialog inside the installed bundle - under Program Files,
+// where writing needs elevation and where the next install has to be careful
+// not to sweep the file away again. Songs of your own belong somewhere they are
+// yours, and somewhere an installer never looks.
+juce::File GhostbandProcessor::userSongsFolder()
+{
+    const juce::File dir =
+        juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+            .getChildFile ("Ghostband")
+            .getChildFile ("Songs");
+
+    dir.createDirectory();
+    return dir;
+}
+
+// Whether the loaded song is one that shipped inside the bundle. Saving over
+// one of those is not a thing to attempt and fail at: it is a thing to turn
+// into Save as..., pointed at the folder above.
+bool GhostbandProcessor::planIsFactory() const
+{
+    // Deliberately NOT bundledPlansFolder(). That falls back to Documents when
+    // there is no bundle - which is right for "where should Load plan open" and
+    // catastrophic here, because your own songs live under Documents too. Asked
+    // through the fallback, "is this a factory song" answers yes for every song
+    // you have ever written, and Save silently turns into Save as... forever.
+    const juce::File plans =
+        juce::File::getSpecialLocation (juce::File::currentExecutableFile)
+            .getParentDirectory()
+            .getParentDirectory()
+            .getChildFile ("Resources")
+            .getChildFile ("plans");
+
+    if (! plans.isDirectory())
+        return false;
+
+    const juce::File file = getPlanFile();
+    return file.existsAsFile() && file.isAChildOf (plans);
+}
+
 bool GhostbandProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     const auto out = layouts.getMainOutputChannelSet();

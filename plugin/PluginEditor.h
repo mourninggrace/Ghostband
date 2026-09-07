@@ -172,6 +172,11 @@ public:
     // pieces that join it up - and "the button says Reroll 2 sections and
     // clicking it does nothing" is a claim about precisely those joins.
     void ctrlClickSectionForTesting (int index);
+
+    // Switching theme with the window open goes through a different path from
+    // starting on one, and only the second was ever exercised - the picker
+    // itself was laid out at zero height and could not be clicked.
+    void setThemeForTesting (int index);
     void pressRollForTesting();
     int  rerollSelectionSizeForTesting() const;
 
@@ -279,6 +284,25 @@ private:
     Screen screen = Screen::Song;
 
     // ---- takes ----
+    void applyThemeChoice (int index);
+
+    // What a theme change has to re-apply by hand.
+    //
+    // Buttons, combo boxes and text fields are found by type at recolour time -
+    // every one of them takes the same palette roles, so there is nothing to
+    // remember. Labels and sliders are not like that: a label carries its own
+    // choice of role, and a slider may be one of the linear dials or one of the
+    // rotary mix knobs, which must never be restyled as linear. Those two get
+    // recorded as they are built.
+    std::vector<std::pair<juce::Label*, const juce::Colour*>> themedLabels;
+    std::vector<juce::Slider*> themedSliders;
+
+    // Re-applies every colour that was handed to a component when it was built.
+    // A Label given an explicit textColourId keeps it through any number of
+    // LookAndFeel changes, so without this half the interface stays on the old
+    // palette and the theme looks broken rather than applied.
+    void recolour();
+
     void refreshTakes();
     void saveTakeFromBox();
 

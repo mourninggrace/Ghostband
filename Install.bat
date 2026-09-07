@@ -62,6 +62,28 @@ if errorlevel 1 (
     exit /b 1
 )
 
+rem xcopy adds and overwrites but it never removes, so a preset deleted from the
+rem project stayed inside the bundle forever and went on being offered by Load
+rem plan. Two did for several sessions: a scratch calibration file and a
+rem superseded twin-guitar preset, both removed from the project in 220e598.
+rem
+rem "Delete anything here that is not in plans" would be the obvious rule and is
+rem the wrong one. Save as... opens on whatever song is loaded, so starting from
+rem a bundled preset puts the save dialog in this very folder - and an installer
+rem that sweeps away a song somebody saved there is a far worse bug than the one
+rem it fixes. So this removes only what a previous run of this installer put
+rem there, by name, from the manifest it wrote. Anything else is left alone.
+set "PLANDIR=%DST%\Contents\Resources\plans"
+set "MANIFEST=%PLANDIR%\shipped.txt"
+if exist "%MANIFEST%" (
+    for /f "usebackq delims=" %%P in ("%MANIFEST%") do (
+        if not exist "plans\%%P" (
+            echo   no longer shipped, removing: %%P
+            del /q "%PLANDIR%\%%P" 2>nul
+        )
+    )
+)
+
 rem The preset songs ship inside the bundle too, so Load plan opens on them
 rem rather than on an empty Documents folder on a machine that has never seen
 rem this repository.
@@ -74,6 +96,15 @@ if errorlevel 1 (
     echo.
     echo Could not copy the preset songs.
     exit /b 1
+)
+
+
+rem Record what was shipped, so the next install knows what it may remove.
+rem Written after the copy rather than before, so a copy that failed does not
+rem leave a manifest claiming files that are not there.
+if exist "%MANIFEST%" del /q "%MANIFEST%"
+for %%P in (plans\*.json) do (
+    echo %%~nxP | find /i "previous" >nul || echo %%~nxP>> "%MANIFEST%"
 )
 
 echo.

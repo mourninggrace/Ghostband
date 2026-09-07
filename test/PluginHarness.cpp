@@ -2782,6 +2782,104 @@ int main (int argc, char** argv)
                        collisions.joinIntoString ("; "));
             }
 
+            // ---- switching theme with the window open ------------------------
+            // Starting on a theme and switching to one are different paths, and
+            // only the first was ever exercised: the picker sat in a rectangle
+            // of zero height and could not be clicked. The second path has to
+            // re-apply every colour a component was handed when it was built -
+            // an explicit Label colour survives any LookAndFeel change - and
+            // without that, half the interface stays on the old palette.
+            if (gbEd != nullptr)
+            {
+                gbEd->showScreenForSnapshot (0);
+                ed->setSize (800, 960);
+
+                gbEd->setThemeForTesting (0);
+
+                juce::Array<juce::Colour> before;
+                for (int i = 0; i < ed->getNumChildComponents(); ++i)
+                    if (auto* l = dynamic_cast<juce::Label*> (ed->getChildComponent (i)))
+                        before.add (l->findColour (juce::Label::textColourId));
+
+                // Paper: the light one, so anything left behind is left behind
+                // in the most visible way there is.
+                const int paper = ghost::numThemes - 1;
+                gbEd->setThemeForTesting (paper);
+
+                check (juce::String (ghost::themeName (paper)) == "Paper",
+                       "the last theme is the light one", ghost::themeName (paper));
+
+                juce::Array<juce::Colour> after;
+                for (int i = 0; i < ed->getNumChildComponents(); ++i)
+                    if (auto* l = dynamic_cast<juce::Label*> (ed->getChildComponent (i)))
+                        after.add (l->findColour (juce::Label::textColourId));
+
+                int moved = 0, stuck = 0;
+                for (int i = 0; i < before.size() && i < after.size(); ++i)
+                    (before[i] == after[i] ? stuck : moved)++;
+
+                check (before.size() > 10, "there are labels to check",
+                       juce::String (before.size()));
+                check (stuck == 0 && moved > 0,
+                       "every label follows a theme change made with the window open",
+                       juce::String (moved) + " moved, " + juce::String (stuck) + " stuck");
+
+                // The palette itself must have gone light, or the check above
+                // would pass on two dark themes that merely differ.
+                check (ghost::colours::background.getPerceivedBrightness() > 0.5f,
+                       "and the light theme really is light",
+                       juce::String (ghost::colours::background.getPerceivedBrightness(), 2));
+
+                // Text on its own background has to stay readable. A theme that
+                // applies but cannot be read is not an applied theme.
+                float worst = 99.0f;
+                for (int i = 0; i < after.size(); ++i)
+                    worst = juce::jmin (worst,
+                                        std::abs (after[i].getPerceivedBrightness()
+                                                  - ghost::colours::background.getPerceivedBrightness()));
+
+                check (worst > 0.15f,
+                       "and every label still contrasts with the background it sits on",
+                       "closest " + juce::String (worst, 2));
+
+                gbEd->setThemeForTesting (0);
+            }
+
+            // ---- nothing visible has been squeezed out of existence ---------
+            // The loop above SKIPS components with empty bounds - it has to, or
+            // every unlaid-out label counts as sitting on top of every other
+            // one. That skip is a blind spot, and the theme picker lived in it:
+            // constructed, made visible, laid out in a rectangle of zero height
+            // by a screen that had counted its remaining pixels wrong, and
+            // therefore absent from a build that reported the feature as done.
+            //
+            // A visible child that the current screen positions must have real
+            // area. Run at the window's own minimum size, because below that
+            // the layout is allowed to run out of room.
+            for (int screen = 0; screen < GhostbandEditor::numScreens; ++screen)
+            {
+                if (gbEd != nullptr) gbEd->showScreenForSnapshot (screen);
+                ed->setSize (800, 960);
+
+                juce::StringArray vanished;
+                for (int i = 0; i < ed->getNumChildComponents(); ++i)
+                {
+                    juce::Component* c = ed->getChildComponent (i);
+                    if (c == nullptr || ! c->isVisible())
+                        continue;
+
+                    if (c->getWidth() < 4 || c->getHeight() < 4)
+                        vanished.add (describe (c) + " ("
+                                      + juce::String (c->getWidth()) + "x"
+                                      + juce::String (c->getHeight()) + ")");
+                }
+
+                check (vanished.isEmpty(),
+                       juce::String ("nothing is laid out at zero size on the ")
+                           + GhostbandEditor::screenName (screen) + " screen",
+                       vanished.joinIntoString ("; "));
+            }
+
             proc.editorBeingDeleted (ed);
             delete ed;
         }
@@ -3173,6 +3271,57 @@ int main (int argc, char** argv)
         proc.channelGuitar.store (2);
     }
 
+    // ---- your songs are kept apart from the ones that ship -------------------
+    // Save as... used to open on whatever song was loaded, so starting from a
+    // preset put the dialog inside the bundle under Program Files - which needs
+    // elevation to write, and which the installer then has to be careful not to
+    // sweep away again.
+    {
+        const juce::File songs = GhostbandProcessor::userSongsFolder();
+
+        check (songs.isDirectory(), "the user songs folder is created on demand",
+               songs.getFullPathName());
+        // Only askable where a bundle actually exists. Where it does not,
+        // bundledPlansFolder() IS the Documents fallback and the songs folder
+        // is legitimately inside it - which is the whole reason planIsFactory
+        // refuses to ask the question that way, checked immediately below.
+        const juce::File bundle = proc.bundledPlansFolder();
+        const bool realBundle = bundle.getFileName() == "plans"
+                             && bundle.getParentDirectory().getFileName() == "Resources";
+
+        if (realBundle)
+            check (! songs.isAChildOf (bundle) && songs != bundle,
+                   "and is not inside the folder the presets ship in",
+                   bundle.getFullPathName());
+        else
+            check (true, "no bundle in this tree, so the presets folder is the fallback",
+                   "which is why planIsFactory does not use it");
+
+        // The trap this is really here for. bundledPlansFolder() falls back to
+        // Documents when there is no bundle, and the songs folder is under
+        // Documents - so a factory test written against that fallback answers
+        // yes for every song you have ever written, and Save never saves again.
+        proc.loadPlan (juce::File (planPath));
+        check (! proc.planIsFactory(),
+               "a song loaded from outside a bundle is not a factory preset",
+               proc.getPlanFile().getFullPathName());
+
+        const juce::File mine = songs.getChildFile ("harness-song.json");
+        mine.deleteFile();
+        juce::String err;
+        check (proc.savePlan (mine, err), "a song saves into your songs folder", err);
+        check (mine.existsAsFile(), "and the file is really there");
+
+        proc.loadPlan (mine);
+        check (! proc.planIsFactory(),
+               "a song in your own folder is never treated as a factory preset",
+               "this is what would make Save stop working");
+
+        mine.deleteFile();
+        juce::File (mine.getParentDirectory().getChildFile ("backups")).deleteRecursively();
+        proc.loadPlan (juce::File (planPath));
+    }
+
     // ---- the take library ----------------------------------------------------
     // A take promises one thing: that what you heard comes back. Everything
     // below is that promise taken apart - the performance is identical, the
@@ -3542,6 +3691,40 @@ int main (int argc, char** argv)
                         std::cout << "  snapshot: " << out.getFullPathName() << "\n";
                     }
                 }
+
+                // The light theme, applied the way a person applies it: with
+                // the window already open. Every colour a component was handed
+                // when it was built has to be re-applied for this to be
+                // readable - 62 of 66 labels used to stay on the old palette,
+                // which on Paper means text the exact colour of the page.
+                if (gbEd != nullptr)
+                {
+                    gbEd->setThemeForTesting (ghost::numThemes - 1);
+
+                    for (int screen : { 0, 3 })
+                    {
+                        gbEd->showScreenForSnapshot (screen);
+                        ed->setSize (1000, screen == 3 ? 1320 : 900);
+
+                        const juce::Image img =
+                            ed->createComponentSnapshot (ed->getLocalBounds(), true);
+
+                        const juce::File out = dir.getChildFile (
+                            "editor-" + juce::String (GhostbandEditor::screenName (screen))
+                                + "-paper.png");
+                        out.deleteFile();
+                        juce::FileOutputStream stream (out);
+                        if (stream.openedOk())
+                        {
+                            juce::PNGImageFormat png;
+                            png.writeImageToStream (img, stream);
+                            std::cout << "  snapshot: " << out.getFullPathName() << std::endl;
+                        }
+                    }
+
+                    gbEd->setThemeForTesting (0);
+                }
+
 
                 proc.editorBeingDeleted (ed);
                 delete ed;

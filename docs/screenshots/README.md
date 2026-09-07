@@ -22,3 +22,8 @@ suffix, and it puts a cramped 600px window in the README.
 These always render in the DEFAULT theme regardless of which of the eight the
 owner is using. A screenshot of somebody else's colour scheme tells a reader
 nothing about the plugin.
+
+The one exception is `theme-paper.png`, which is the point of that shot: the
+light theme, rendered by SWITCHING to it with the window already open, because
+that is the path a person takes and it is a different one from starting on a
+theme. It is written as `editor-song-paper.png` by the same run.

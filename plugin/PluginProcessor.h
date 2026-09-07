@@ -87,6 +87,14 @@ public:
     // Where the preset songs live inside the installed bundle.
     juce::File                     bundledPlansFolder() const;
 
+    // Where songs you write go: Documents/Ghostband/Songs, created on demand.
+    // Separate from the presets on purpose - see the note on the definition.
+    static juce::File              userSongsFolder();
+
+    // True when the loaded song is one that shipped in the bundle, which is
+    // read-only in practice and must not be saved over.
+    bool                           planIsFactory() const;
+
     // The tempo the loaded song is written at.
     double                         getPlanBpm() const;
 
