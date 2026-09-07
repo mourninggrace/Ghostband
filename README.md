@@ -12,7 +12,7 @@ instrument.
 
 ### Download
 
-**[Ghostband 0.1.0 for Windows](https://github.com/mourninggrace/Ghostband/releases/latest)**
+**[Ghostband 0.2.0 for Windows](https://github.com/mourninggrace/Ghostband/releases/latest)**
 — unzip and drop the `Ghostband.vst3` folder into
 `C:\Program Files\Common Files\VST3\`, then rescan plugins in your host.
 
@@ -518,13 +518,55 @@ yet: the old code fell back to 44100, which does not fail loudly, it just plays
 the song at the wrong speed and drifts further out of step every block. It now
 emits silence until the rate is known.
 
-## What is deliberately not here yet
+## Where this is going
 
-- Guitars and keys (new roles, real engine work)
-- The AI planner — the plan format is already the handoff point for it
-- Live following, chord detection
-- The VST3 wrapper. The engine has no JUCE dependency and no audio-thread
-  assumptions specifically so that wrapping it later is mechanical.
+**None of this is built yet.** It is what version 2 is for, listed here because
+the architecture was shaped around it rather than because it is nearly done.
+
+### The AI planner
+
+**Describe a song in a sentence and hear it played by your own rig.**
+
+> *slow doom in D, quiet intro, huge chorus, a solo before the last verse*
+
+Today you load a preset. Tomorrow you say what you want, and Claude writes the
+**chart** — the chords, the section shape, the intensity curve, where the second
+guitar answers and where it stays out of the way. Ghostband's engine renders it
+exactly as it renders everything else, so the moment it lands you can Roll it,
+ctrl-click a section and reroll just that one, edit its chords, and save the take
+you liked. It arrives as an ordinary song, because that is all it is.
+
+The reason this is a feature and not a fantasy is that **the handoff already
+exists**. A plan is a small JSON file, fully specified, and every song in this
+repository is one. Nothing in the engine needs to change to accept a plan that a
+model wrote rather than a person — which is why the plan format was made a real
+file format in the first place instead of an internal structure.
+
+What it will not be:
+
+- **Not a dependency.** Ghostband works today with no key, no account and no
+  network, and it always will. `autoProgression` writes progressions locally.
+  The planner raises the ceiling; it is never the floor.
+- **Not a subscription.** You bring your own API key. Ghostband is free and
+  donation-ware, and a per-song cost billed to a project with no revenue is a
+  business model, not a feature.
+- **Never in the audio path.** Generation happens on a background thread and
+  playback never waits on a network call. The processor's sequence swap was
+  built for exactly this.
+
+The interesting part is not that a model can name four chords. It is that the
+model only has to be good at the thing models are good at — *shape, feel,
+intention* — while the parts that must be exactly right every time (the
+kick/bass lock, the articulations, determinism, the fact that one seed means one
+song forever) stay in code that is measured by 290 checks on every build.
+
+### Also planned
+
+- **Live following** — Ghostband comping behind what you actually play. The
+  largest unbuilt idea; needs chord detection and tempo tracking.
+- **A second rig, all UJAM**, so the same song can be A/B'd through two sets of
+  instruments.
+- **More presets**, and more variations within a genre.
 
 ## Licence
 
