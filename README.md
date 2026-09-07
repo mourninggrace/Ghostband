@@ -19,6 +19,18 @@ instrument.
 There is no separate support folder. `Ghostband.vst3` is a bundle, and the preset
 songs and driver profiles are already inside it.
 
+> ## ▶ Press play in your host
+>
+> **Ghostband follows the host's transport. If the transport is not running,
+> Ghostband sends nothing and it looks broken.**
+>
+> In **Gig Performer** that is the play button in the toolbar — enable it and the
+> band starts. Ghostband has its own Pause button for stopping the band without
+> stopping the host, but it cannot start a transport that is not moving.
+>
+> This is the single most common reason a fresh install appears to do nothing.
+
+
 ![The Ghostband song screen](docs/screenshots/song.png)
 
 *The song screen. Every section shows its chords, its feel, and how many drum hits and bass notes it actually plays.*
@@ -50,6 +62,11 @@ Forgot `--recursive`? Run `git submodule update --init --recursive` — the buil
 says so rather than failing obscurely.
 
 ## The plugin
+
+**Press play in your host first.** Ghostband follows the host transport; with it
+stopped, nothing is sent and the plugin looks dead. In Gig Performer that is the
+play button in the toolbar. See the note at the top.
+
 
 Copy `Ghostband.vst3` into your VST3 folder, then in a Gig Performer rackspace:
 

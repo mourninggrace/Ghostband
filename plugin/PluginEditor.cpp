@@ -729,7 +729,12 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     initLabel (planLabel,       "",           17.0f, ghost::text,  juce::Justification::centredLeft);
     initLabel (headlineLabel,   "",           15.5f, ghost::accent, juce::Justification::centredLeft);
     initLabel (summaryLabel,    "",           15.5f, ghost::dim,   juce::Justification::centredRight);
-    initLabel (transportLabel,  "stopped",    15.5f, ghost::dim,   juce::Justification::centredLeft);
+    // The same words the timer will use. Set here as well, because the timer
+    // only rewrites this when the playhead MOVES - so the very first thing a
+    // new user sees, before anything has moved, is whatever was hard-coded
+    // here, and "stopped" on its own does not tell them what to do about it.
+    initLabel (transportLabel,  "stopped   -   press play in your host",
+                                              15.5f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (statusLabel,     "",           15.5f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (profilesLabel,   "",           15.0f, ghost::silver, juce::Justification::centredLeft);
 
@@ -1438,7 +1443,17 @@ void GhostbandEditor::timerCallback()
         lastPlayheadTick = tick;
         sectionList.setPlayhead (tick);
 
-        juce::String where = "stopped";
+        // "stopped" alone is a status; this is an instruction. Ghostband
+        // follows the host transport, so with it stopped nothing is sent and a
+        // fresh install looks broken rather than idle - which is the single
+        // most common reason it appears to do nothing. The word that fixes it
+        // belongs on the screen, not only in the README.
+        //
+        // Not said while paused: then it IS just stopped, by you, and the
+        // Pause button beside this label already says how to undo that.
+        juce::String where = processor.paused.load()
+                               ? juce::String ("paused")
+                               : juce::String ("stopped   -   press play in your host");
         if (tick >= 0)
         {
             where = "playing";
