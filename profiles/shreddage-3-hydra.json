@@ -169,6 +169,12 @@
   // Same check, two dimensions, both explained. The owner spotted the second
   // one: "bc their velocities overlap... could just be letting us know".
   //
+  // CLEARED 2026-09-07. The three velocity rules were deleted and every
+  // triangle went with them, which confirms the reading above: it was the
+  // overlap between those three ranges and nothing else. None of the three did
+  // any work - Ghostband caps this instrument at velocity 119, and the other
+  // two spanned the whole range.
+  //
   // NOTHING GHOSTBAND USES IS AMBIGUOUS. Every articulation it sends is
   // selected by a CC 40 band that no other articulation claims, and the wire
   // was measured: 64 messages on thrash, no repeats, every gesture restored.
