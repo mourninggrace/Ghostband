@@ -40,7 +40,7 @@ echo commit %COMMIT%
 echo.
 
 rem ---- build ----------------------------------------------------------------
-call Build.bat
+call "%~dp0Build.bat"
 if errorlevel 1 exit /b 1
 
 rem ---- and it has to pass ---------------------------------------------------
