@@ -722,7 +722,20 @@ std::string PhraseProfile::toJson() const
            + ", \"reach_semitones\": " + num (bendSemitones)
            + ", \"ticks\": " + std::to_string (bendTicks) + " },\n";
 
-    if (phraseDriven)
+    // NOT gated on phraseDriven, which it used to be.
+    //
+    // A phrase instrument's keyswitch IS the performance, so it was assumed
+    // only those had one. A notes instrument's keyswitch chooses how its notes
+    // will sound - a different mechanism added later - and Shreddage is exactly
+    // that: notes mode, with six articulations. Writing this file out in full
+    // would have dropped every one of them.
+    //
+    // It has never happened, because save() splices the controls block into the
+    // existing file and only falls back to a full rewrite when there is no
+    // controls block to splice - and Shreddage has one. So this was a live
+    // trapdoor with a rug over it, found by a test profile that had no controls
+    // and therefore took the fallback.
+    if (! phraseKeys.empty())
     {
         j += "  \"phrase_lead_ticks\": " + std::to_string (phraseLeadTicks) + ",\n";
         j += "  \"phrase_blip_ticks\": " + std::to_string (phraseBlipTicks) + ",\n";
@@ -1154,7 +1167,20 @@ PhraseProfile::PhraseSwitch PhraseProfile::switchFor (PhraseFeel f) const
 int PhraseProfile::keyFor (PhraseFeel f) const
 {
     const size_t i = static_cast<size_t> (f);
-    return i < phraseKeys.size() ? phraseKeys[i].note : -1;
+    if (i >= phraseKeys.size())
+        return -1;
+
+    // A controller wins over a note, so a feel selected by controller has NO
+    // note as far as the rest of the engine is concerned. The keyswitch beside
+    // it in the file is a record of what the instrument used to be told, kept
+    // so nobody reads it off the Articulations page twice.
+    //
+    // Returning it here would have Calibrate offering a step that presses a key
+    // the arrangement never presses - a test of something that is not happening.
+    if (phraseKeys[i].byControl())
+        return -1;
+
+    return phraseKeys[i].note;
 }
 
 std::vector<std::pair<PhraseFeel, int>> PhraseProfile::allPhraseKeys() const
@@ -1165,7 +1191,7 @@ std::vector<std::pair<PhraseFeel, int>> PhraseProfile::allPhraseKeys() const
     // while the arrangement runs, not by auditioning it here.
     std::vector<std::pair<PhraseFeel, int>> out;
     for (size_t i = 0; i < phraseKeys.size(); ++i)
-        if (phraseKeys[i].note >= 0)
+        if (! phraseKeys[i].byControl() && phraseKeys[i].note >= 0)
             out.emplace_back (static_cast<PhraseFeel> (i), phraseKeys[i].note);
     return out;
 }

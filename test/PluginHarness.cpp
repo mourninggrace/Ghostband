@@ -915,62 +915,76 @@ int main (int argc, char** argv)
     //
     // Both must work, and a profile written the old way must behave exactly as
     // it did.
+    //
+    // Written as its own file rather than by patching a shipped profile. The
+    // first version copied shreddage-3-hydra.json and string-replaced one line
+    // in it - and broke the moment that profile moved to controllers on its
+    // own, because the replace silently matched nothing and the test started
+    // asserting against whatever the real file happened to say that day. A test
+    // that reads the thing it is testing is not a test.
     {
-        const juce::File src ("C:/Projects/Ghostband/profiles/shreddage-3-hydra.json");
         const juce::File tmp = juce::File::getSpecialLocation (juce::File::tempDirectory)
                                    .getChildFile ("gb-artic-test.json");
 
-        if (src.existsAsFile() && src.copyFileTo (tmp))
+        // One line, no newline escapes. JSON does not need them and this
+        // literal has been eaten twice by tooling on the way in.
+        tmp.replaceWithText (
+            "{ \"name\": \"artic probe\", \"id\": \"artic_probe\","
+            "  \"channel\": 11, \"mode\": \"notes\","
+            "  \"chord_zone\": { \"lowest_note\": 40, \"highest_note\": 88 },"
+            "  \"keyswitches_verified\": true,"
+            "  \"phrases\": { \"open\": 12, \"driving\": 15,"
+            "    \"muted\": { \"cc\": 40, \"value\": 37, \"keyswitch\": 13 } } }");
+
         {
-            // The shipped profile: keyswitches as notes.
-            gb::PhraseProfile byNote;
+            gb::PhraseProfile prof;
             std::string e;
-            const bool loadedNote = gb::PhraseProfile::load (tmp.getFullPathName().toStdString(),
-                                                            byNote, e);
+            const bool loaded = gb::PhraseProfile::load (tmp.getFullPathName().toStdString(),
+                                                        prof, e);
 
-            check (loadedNote, "a profile with note keyswitches still loads", juce::String (e));
-            check (loadedNote && byNote.keyFor (gb::PhraseFeel::Muted) == 13,
-                   "and its keyswitches read back as notes",
-                   juce::String (byNote.keyFor (gb::PhraseFeel::Muted)));
+            check (loaded, "a profile mixing keyswitches and controllers loads",
+                   juce::String (e));
 
-            // The same file with muted moved onto a controller.
-            juce::String text = tmp.loadFileAsString();
-            text = text.replace ("\"muted\":   13", "\"muted\": { \"cc\": 40, \"value\": 20 }");
-            tmp.replaceWithText (text);
+            const auto muted = prof.switchFor (gb::PhraseFeel::Muted);
+            check (loaded && muted.byControl() && muted.cc == 40 && muted.value == 37,
+                   "a feel on a controller reads back as one",
+                   "cc " + juce::String (muted.cc) + " = " + juce::String (muted.value));
 
-            gb::PhraseProfile byCC;
-            const bool loadedCC = gb::PhraseProfile::load (tmp.getFullPathName().toStdString(),
-                                                          byCC, e);
+            // The one that matters. A controller wins, so there is no note at
+            // all - otherwise Calibrate offers a step pressing a key that
+            // nothing ever sends, which is a test of something not happening.
+            check (loaded && prof.keyFor (gb::PhraseFeel::Muted) < 0,
+                   "and has no note anywhere in the engine",
+                   juce::String (prof.keyFor (gb::PhraseFeel::Muted)));
 
-            check (loadedCC, "and one with a controller loads too", juce::String (e));
+            bool offered = false;
+            for (const auto& k : prof.allPhraseKeys())
+                if (k.first == gb::PhraseFeel::Muted) offered = true;
 
-            const auto sw = byCC.switchFor (gb::PhraseFeel::Muted);
-            check (loadedCC && sw.byControl() && sw.cc == 40 && sw.value == 20,
-                   "and reads back as a controller, not a note",
-                   "cc " + juce::String (sw.cc) + " = " + juce::String (sw.value));
+            check (! offered, "so calibration does not offer it as a note to play");
 
-            // The one that matters: no note is emitted for it.
-            check (byCC.keyFor (gb::PhraseFeel::Muted) < 0,
-                   "and asking for its note gives nothing, so none is played",
-                   juce::String (byCC.keyFor (gb::PhraseFeel::Muted)));
+            check (loaded && prof.keyFor (gb::PhraseFeel::Driving) == 15
+                       && prof.keyFor (gb::PhraseFeel::Open) == 12,
+                   "while keyswitched feels keep their notes",
+                   juce::String (prof.keyFor (gb::PhraseFeel::Open)) + " / "
+                       + juce::String (prof.keyFor (gb::PhraseFeel::Driving)));
 
-            // Everything else in the file must be untouched by the change.
-            check (byCC.keyFor (gb::PhraseFeel::Driving) == 15,
-                   "while the feels still on notes keep their notes",
-                   juce::String (byCC.keyFor (gb::PhraseFeel::Driving)));
-
-            // And it survives being written back out.
             std::string saveErr;
-            check (byCC.save (tmp.getFullPathName().toStdString(), saveErr),
-                   "a controller articulation saves", juce::String (saveErr));
+            check (prof.save (tmp.getFullPathName().toStdString(), saveErr),
+                   "both forms save", juce::String (saveErr));
 
             gb::PhraseProfile reread;
             const bool ok = gb::PhraseProfile::load (tmp.getFullPathName().toStdString(),
-                                                     reread, e);
+                                                    reread, e);
             const auto back = reread.switchFor (gb::PhraseFeel::Muted);
-            check (ok && back.byControl() && back.cc == 40 && back.value == 20,
-                   "and comes back as a controller after a round trip",
+
+            check (ok && back.byControl() && back.cc == 40 && back.value == 37
+                       && back.note == 13,
+                   "and come back unchanged, the recorded keyswitch included",
                    juce::String (e));
+
+            check (ok && reread.keyFor (gb::PhraseFeel::Open) == 12,
+                   "including the ones that were notes to begin with");
 
             tmp.deleteFile();
         }

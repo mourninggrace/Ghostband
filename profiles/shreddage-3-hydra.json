@@ -147,13 +147,54 @@
   //
   // "silent" is deliberately unmapped: there is no articulation for not
   // playing, and leaving the last one selected through a rest is correct.
+  // ---- ONE CONTROLLER, FIVE VALUE BANDS ----
+  //
+  // Shreddage's Articulations page takes a MIDI CC rule with a value RANGE, so
+  // five articulations fit on one controller rather than needing five. Set in
+  // the instrument as Rule 1 of each articulation:
+  //
+  //   Sustain               CC 40,   0 - 24
+  //   Mute                  CC 40,  25 - 49
+  //   Staccato              CC 40,  50 - 74
+  //   Power Chord Sustain   CC 40,  75 - 99
+  //   Tremolo               CC 40, 100 - 127
+  //
+  // The values below sit in the MIDDLE of each band, so a value that arrives
+  // slightly wrong cannot cross a boundary into the neighbouring articulation.
+  //
+  // CC 40 is clear of everything this rig uses: the modwheel at 1, which drives
+  // Shreddage's vibrato, channel volume at 7, and the eleven taught controls at
+  // 20 to 30. Kontakt's default for a new rule is CC 1 with a range of 0-127 -
+  // both wrong here, and quietly: the modwheel would re-select an articulation
+  // on every vibrato move, and a full-width range is true of every value, so
+  // that articulation would simply always be on.
+  //
+  // WHY CONTROLLERS AT ALL. A keyswitch is a note, and a note aimed at the
+  // wrong instrument gets PLAYED - which is what happened when IRON 2 received
+  // this instrument's switches and treated all of them as music. A controller
+  // nothing has learned does nothing at all. That is also why this block can be
+  // written before the instrument is set up: until the rules exist in
+  // Shreddage, Ghostband sends CC 40 and nothing happens.
+  //
+  // The keyswitch each one used to use is kept beside its cc. It is a record
+  // rather than an instruction - the cc is what gets sent - and those numbers
+  // were read off the Articulations page once, which is work worth not redoing.
   "phrases": {
-    "open":    12,
-    "sparse":  14,
-    "muted":   13,
-    "driving": 15,
-    "busy":    18,
-    "solo":    12
+    "open":    { "cc": 40, "value":  10, "keyswitch": 12 },
+    "sparse":  { "cc": 40, "value":  62, "keyswitch": 14 },
+    "muted":   { "cc": 40, "value":  37, "keyswitch": 13 },
+    "driving": { "cc": 40, "value":  87, "keyswitch": 15 },
+    "busy":    { "cc": 40, "value": 114, "keyswitch": 18 },
+    "solo":    { "cc": 40, "value":  10, "keyswitch": 12 },
+
+    // Fills get Sustain too, and this one was missing until the wire was
+    // measured: an unmapped feel selects NOTHING, so an answering phrase came
+    // out on whatever articulation happened to be latched. Follow a chorus of
+    // power chords with a two-note answer and the answer is power chords.
+    //
+    // Sustain for the same reason the solo has it - an answer wants to ring,
+    // and legato needs a sustained note to hammer from.
+    "fills":   { "cc": 40, "value":  10, "keyswitch": 12 }
   },
 
   "keyswitches_verified": true,
