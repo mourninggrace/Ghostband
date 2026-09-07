@@ -4,6 +4,21 @@ Written 2026-09-06 at the end of session 12, checked against the code rather
 than copied out of NEXT.md — several things that file still listed as open are
 in fact done, and are noted at the bottom so nobody rediscovers them.
 
+## Releases
+
+**v0.1.0 published 2026-09-07** — the first one. Until then there was nothing to
+download: `build/` is ignored, no binary is tracked, and there were no releases,
+so the only way in was cloning with submodules and owning Visual Studio.
+
+`Release.bat` cuts one. It refuses a dirty tree or a failing build, and stages
+the profiles and preset songs INTO the bundle - the build output has neither, and
+a zip of it would install and then be unable to name an instrument or open a song.
+
+**Cadence, agreed 2026-09-07:** update the release periodically, after a
+substantial batch of changes, rather than per commit. Bump `project(Ghostband
+VERSION ...)` in `CMakeLists.txt`, commit, run `Release.bat`, then
+`gh release create`.
+
 ## The TAKE LIBRARY - DONE 2026-09-07
 
 Built. A Takes button on the song screen, a name box, a Save, and a list with
