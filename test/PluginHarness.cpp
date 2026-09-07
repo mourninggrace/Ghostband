@@ -743,6 +743,89 @@ int main (int argc, char** argv)
         }
     }
 
+    // ---- the second guitar answering, rather than soloing or silent ---------
+    // A fill is a lead line placed where the harmony leaves room. It has three
+    // properties worth holding: it lands only at the end of a four-bar group,
+    // it stays in the back half of that bar, and it sits under whoever it is
+    // answering rather than on top of them.
+    //
+    // The first pass had none of them. Given a whole bar it filled the whole
+    // bar - eleven notes of repeating cell, which is a run wearing a fill's
+    // job - and a held note could start past the end of its own phrase and
+    // land on the downbeat of the bar it was staying out of.
+    {
+        gb::SongPlan plan;
+        std::string err;
+
+        const bool made = gb::SongPlan::parse (
+            "{ \"name\": \"fills\", \"bpm\": 150, \"key\": \"E\","
+            "  \"style\": \"thrash\", \"seed\": 4242,"
+            "  \"drum_profile\": \"C:/Projects/Ghostband/profiles/ssd5-terry-date.json\","
+            "  \"bass_profile\": \"C:/Projects/Ghostband/profiles/modo-bass-2.json\","
+            "  \"guitar_profile\": \"C:/Projects/Ghostband/profiles/vg-iron2.json\","
+            "  \"guitar2_profile\": \"C:/Projects/Ghostband/profiles/shreddage-3-hydra.json\","
+            "  \"sections\": [ { \"name\": \"verse\", \"bars\": 16,"
+            "      \"intensity\": 0.8, \"chords\": [\"Em\"],"
+            "      \"plays\": \"drums+bass+guitar+guitar2\","
+            "      \"guitar\": \"driving\", \"guitar2\": \"fills\","
+            "      \"lead\": \"guitar\" } ] }",
+            "fills", plan, err);
+
+        check (made, "a plan can ask the second guitar for fills", juce::String (err));
+
+        if (made)
+        {
+            gb::DrumProfile kit;
+            gb::BassProfile bass;
+            gb::PhraseProfile gtr, gtr2;
+            std::string e;
+
+            gb::DrumProfile::load  ("C:/Projects/Ghostband/profiles/ssd5-terry-date.json", kit, e);
+            gb::BassProfile::load  ("C:/Projects/Ghostband/profiles/modo-bass-2.json", bass, e);
+            gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/vg-iron2.json", gtr, e);
+            gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/shreddage-3-hydra.json", gtr2, e);
+
+            const gb::RenderResult r = gb::renderPerformance (plan, kit, bass, &gtr, nullptr, &gtr2);
+
+            const int barTicks = gb::kPPQ * 4;
+            int notes = 0, offBoundary = 0, inFrontHalf = 0;
+            double accentSum = 0.0;
+
+            for (const gb::LeadIntent& n : r.performance.guitar2.lead)
+            {
+                ++notes;
+                accentSum += n.accent;
+
+                const int bar    = n.tick / barTicks;
+                const int within = n.tick % barTicks;
+
+                if ((bar + 1) % 4 != 0)              ++offBoundary;
+                if (within < barTicks / 2 - 20)      ++inFrontHalf;
+            }
+
+            check (notes > 6, "the second guitar actually plays fills",
+                   juce::String (notes) + " notes across 16 bars");
+
+            check (offBoundary == 0,
+                   "and only at the end of a four-bar group",
+                   juce::String (offBoundary) + " notes landed elsewhere");
+
+            check (inFrontHalf == 0,
+                   "and in the back half of the bar, behind whoever it answers",
+                   juce::String (inFrontHalf) + " notes in the front half");
+
+            // Under, not over. The rhythm guitar is leading this section.
+            const double avg = notes > 0 ? accentSum / notes : 1.0;
+            check (avg < 0.95, "and softer than a solo would be",
+                   juce::String (avg, 2) + " average accent");
+
+            // The rhythm guitar must be untouched by any of it.
+            check (! r.performance.guitar.chords.empty(),
+                   "while the rhythm guitar keeps playing underneath",
+                   juce::String ((int) r.performance.guitar.chords.size()) + " chords");
+        }
+    }
+
     // ---- per-section reroll -----------------------------------------------
     // The whole promise is that rerolling one section cannot disturb another.
     // That is a property of how section seeds are derived, and it is exactly the

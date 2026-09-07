@@ -221,6 +221,19 @@ static const int kSoloCells[5][4] = {
     { 0, 2, 1, 3 },
 };
 
+// Two ways to use one vocabulary.
+//
+// Continuous is a solo: phrases back to back for the whole section, because
+// that is what the section is for. Answering is a second guitarist behind
+// somebody else's part - the same devices and the same phrasing, placed only
+// where the harmony leaves room, which in practice is the end of each four-bar
+// group and the run-up into whatever comes next.
+//
+// Sharing the generator rather than writing a second one is deliberate: a fill
+// that phrases differently from the solos in the same song does not sound like
+// the same player.
+enum class SoloShape { Continuous, Answering };
+
 static void generateSolo (const SectionPlan& s,
                           const std::vector<Chord>& chords,
                           int sectionStartTick,
@@ -232,10 +245,13 @@ static void generateSolo (const SectionPlan& s,
                           const PhraseProfile* profile,
                           double humanize,
                           Rng& rng,
-                          PhrasePart& out)
+                          PhrasePart& out,
+                          SoloShape shape = SoloShape::Continuous)
 {
     if (chords.empty() || profile == nullptr || s.bars <= 0)
         return;
+
+    const bool answering = (shape == SoloShape::Answering);
 
     SoloVoice voice;
     voice.scale = &soloScale (mode, style);
@@ -284,6 +300,36 @@ static void generateSolo (const SectionPlan& s,
     {
         const int room = s.bars - bar;
 
+        // ---- where a fill is allowed to be at all ----
+        //
+        // A four-bar phrase ends on its fourth bar, and that is where the
+        // singer stops and the second guitar answers. Anywhere else and it is
+        // playing over the part it is supposed to be supporting.
+        //
+        // The last bar of the section always counts, however the bars divide,
+        // because the run-up into the next section is the other thing a second
+        // guitarist reliably plays.
+        if (answering)
+        {
+            const bool endOfFour  = ((bar + 1) % 4 == 0);
+            const bool lastBar    = (bar + 1 == s.bars);
+
+            if (! endOfFour && ! lastBar)
+            {
+                ++bar;
+                continue;
+            }
+
+            // And not every one of them. A fill in all four openings is a
+            // second solo; leaving some alone is what makes the ones that
+            // land read as answers rather than as a part.
+            if (! lastBar && ! rng.chance (0.62))
+            {
+                ++bar;
+                continue;
+            }
+        }
+
         // Every third or fourth phrase has to breathe, or the section is one
         // unbroken run and nothing inside it registers as an idea.
         const bool mustLand = (lastDevice >= 0 && lastDevice != 4 && rng.chance (0.38));
@@ -303,15 +349,33 @@ static void generateSolo (const SectionPlan& s,
                                  26,               // lick
                                  hot ? 16 : 40 };  // land
 
+        // A fill has one bar and somebody else's part underneath it, so it
+        // wants the devices with a shape and an ending. SEQUENCE and PEDAL are
+        // ideas that need room to develop; used inside a single bar they read
+        // as a fragment of something rather than as a phrase. LICK and LAND
+        // both start and finish where they are put.
+        // RUN is cut hardest of all here. There are only three or four fills in
+        // a section, so each one is heard as a statement rather than as part of
+        // a stream - and a scale up the neck is the one device with no internal
+        // shape, which the solo code already says about it. Three fills and all
+        // three a scale ascent is what the first pass produced.
+        const int fillWeights[5] = { hot ? 5 : 2,     // run
+                                     8,               // sequence
+                                     4,               // pedal
+                                     46,              // lick
+                                     37 };            // land
+
+        const int* w = answering ? fillWeights : weights;
+
         const auto draw = [&]
         {
             int total = 0;
-            for (int w : weights) total += w;
+            for (int i = 0; i < 5; ++i) total += w[i];
 
             int pick = rng.below (total);
             for (int i = 0; i < 5; ++i)
             {
-                pick -= weights[i];
+                pick -= w[i];
                 if (pick < 0) return i;
             }
             return 4;
@@ -327,11 +391,22 @@ static void generateSolo (const SectionPlan& s,
 
         // Never open with the breath. A solo that begins by resting for half a
         // bar and then running up to one held note has not started yet.
-        if (lastDevice < 0 && device == 4)
+        if (! answering && lastDevice < 0 && device == 4)
             device = 1;
 
-        const int bars  = (device == 4) ? 1 : ((room >= 2 && rng.chance (0.7)) ? 2 : 1);
-        const int slots = bars * slotsPerBar;
+        const int bars  = answering ? 1
+                        : ((device == 4) ? 1 : ((room >= 2 && rng.chance (0.7)) ? 2 : 1));
+
+        // A fill lives in the BACK of its bar.
+        //
+        // Given a whole bar it filled the whole bar - eleven notes of repeating
+        // cell, which is a run wearing a fill's job. An answer comes after the
+        // thing it answers: the singer or the riff has the first half, the
+        // second guitar gets the last two beats. Half a bar also puts a natural
+        // ceiling on the note count without capping it arbitrarily.
+        const int slotOffset = answering ? slotsPerBar / 2 : 0;
+        const int slots      = answering ? (slotsPerBar - slotOffset)
+                                         : bars * slotsPerBar;
 
         steps.clear();
 
@@ -508,18 +583,31 @@ static void generateSolo (const SectionPlan& s,
 
         for (const SoloStep& st : steps)
         {
+            // A fill may not spill into the next bar. LAND places its held note
+            // at start + approach, which can sit past the end of a short
+            // phrase - harmless across a whole bar, and in answering mode it
+            // put a stray note on the downbeat of the bar the fill was
+            // deliberately staying out of.
+            if (answering && slotOffset + st.slot >= bars * slotsPerBar)
+                continue;
+
             const int clamped = std::max (0, std::min (voice.top, st.degree));
             const int pitch   = voice.pitchFor (clamped);
             if (pitch < voice.lowest || pitch > voice.highest)
                 continue;
 
             LeadIntent n;
-            n.tick = barStart + st.slot * slotTicks
+            n.tick = barStart + (slotOffset + st.slot) * slotTicks
                    + static_cast<int> (rng.bipolar (humanize * 3.0));
             n.pitch         = pitch;
             n.durationTicks = std::max (1, st.length * slotTicks);
+            // A fill answers somebody; it does not compete with them. Backing
+            // off the accent is what keeps it behind the rhythm guitar without
+            // needing a mix move, and it is what a player does anyway - you do
+            // not dig in on a two-note answer the way you do on a solo.
             n.accent        = std::min (1.0, st.accent + s.intensity * 0.12
-                                                       + rng.bipolar (0.04));
+                                                       + rng.bipolar (0.04)
+                                                       - (answering ? 0.14 : 0.0));
             n.target        = st.target;
 
             out.lead.push_back (n);
@@ -532,7 +620,7 @@ static void generateSolo (const SectionPlan& s,
         // A whole bar off is rare now. It was one in five, and a silent bar in
         // the middle of a solo at this tempo is a long time to wait - the held
         // note at the end of a LAND is where the air is supposed to come from.
-        if (device != 4 && room > bars + 2 && rng.chance (0.08))
+        if (! answering && device != 4 && room > bars + 2 && rng.chance (0.08))
             ++bar;
     }
 
@@ -648,6 +736,12 @@ static PhraseFeel supportFeel (PhraseFeel wanted)
         case PhraseFeel::Silent: return PhraseFeel::Silent;
         case PhraseFeel::Busy:
         case PhraseFeel::Driving: return PhraseFeel::Sparse;
+
+        // Fills are already the supporting form of a lead line - answering in
+        // the gaps IS the quiet job. Turning it into held chords would take
+        // away the only thing it does.
+        case PhraseFeel::Fills:   return PhraseFeel::Fills;
+
         default:                  return PhraseFeel::Open;
     }
 }
@@ -687,7 +781,7 @@ static void generatePhrasePart (const SectionPlan& s,
     // A player either comps or solos. Doing both at once is not a thing a
     // guitarist can physically do, and layering a line over your own chords is
     // most of what makes generated music sound generated.
-    if (feel == PhraseFeel::Solo)
+    if (feel == PhraseFeel::Solo || feel == PhraseFeel::Fills)
     {
         // Its own stream, derived from the section seed.
         //
@@ -698,9 +792,16 @@ static void generatePhrasePart (const SectionPlan& s,
         // the drums in a later one, which is the exact promise per-section
         // rerolls make. Nothing else in this function touches the shared stream,
         // which is why nothing else broke it.
-        Rng soloRng (deriveSeed (sectionSeed, 0x50100u));
+        // Fills draw from a different salt than solos. A section that changes
+        // its mind between the two would otherwise reuse the same phrase
+        // choices, and the fill would be the opening of the solo it is not
+        // playing.
+        const bool fills = (feel == PhraseFeel::Fills);
+
+        Rng soloRng (deriveSeed (sectionSeed, fills ? 0x5F111u : 0x50100u));
         generateSolo (s, chords, sectionStartTick, barTicks, keyPc, mode, style,
-                      swing, profile, humanize, soloRng, out);
+                      swing, profile, humanize, soloRng, out,
+                      fills ? SoloShape::Answering : SoloShape::Continuous);
         return;
     }
 
