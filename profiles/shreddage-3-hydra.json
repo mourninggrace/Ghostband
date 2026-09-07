@@ -147,34 +147,31 @@
   //
   // "silent" is deliberately unmapped: there is no articulation for not
   // playing, and leaving the last one selected through a rest is correct.
-  // ---- WHAT THE WARNING TRIANGLES MEAN, worked out 2026-09-07 ----
+  // ---- WHAT THE WARNING TRIANGLES MEAN, settled 2026-09-07 ----
   //
-  // Shreddage flags an articulation whose trigger condition COLLIDES with
-  // another's. It has no tooltip, so this was read off the pattern instead.
+  // Shreddage compares articulation rules ONE DIMENSION AT A TIME, and flags an
+  // overlap in that dimension without noticing that another dimension already
+  // separates them. It is informational: "these could collide", not "these do".
   //
-  // The evidence, and it is clean. After six articulations were moved to the
-  // bands below, twelve of thirteen carried a triangle and one did not:
+  // Worked out from two states rather than from any tooltip - there is none.
   //
-  //   Sustain    0 -  20   overlaps nothing            NO WARNING
-  //   Rake      21 -  41   overlapped Mute 25-49       warned
-  //   Pinch     42 -  62   overlapped Mute, Staccato   warned
-  //   Harmonics 63 -  83   overlapped Staccato, PCS    warned
-  //   Tapping   84 - 104   overlapped PCS, Tremolo     warned
-  //   Choke    105 - 127   overlapped Tremolo          warned
+  // Twelve triangles, when six articulations moved to CC 40 bands while four
+  // others were left on an earlier five-band layout that ran across them.
+  // Sustain at 0-20 was the only band nothing reached into, and the only one
+  // clean. Overlap in the CC dimension.
   //
-  // The four in the way were Mute, Staccato, Power Chord Sustain and Tremolo,
-  // left on an earlier five-band layout that ran straight across the new six.
-  // Sustain was the one band nothing reached into, and the one control case.
+  // Three triangles, once those four went back to keyswitches - and on exactly
+  // the three still carrying a velocity rule: Sustain 1-119, Harmonics 1-127,
+  // Tremolo 1-127. Those ranges overlap each other, and Shreddage says so even
+  // though their CC bands and keyswitches make them mutually exclusive.
+  // Overlap in the velocity dimension.
   //
-  // Twelve of thirteen with an overlap and a warning, one without either. That
-  // is not a coincidence, and it also explains the earlier pattern that looked
-  // like it was about velocity rules: Sustain, Rake and Pinch shared keyswitch
-  // C-1 then, and moving Sustain off it left a hole in that key's velocity map.
-  // Same complaint, about the other kind of trigger.
+  // Same check, two dimensions, both explained. The owner spotted the second
+  // one: "bc their velocities overlap... could just be letting us know".
   //
-  // THE FIX is to leave a control's trigger uncontested. The four unused
-  // articulations went back to their own keyswitches, which is where the
-  // instrument had them and where nothing else is looking.
+  // NOTHING GHOSTBAND USES IS AMBIGUOUS. Every articulation it sends is
+  // selected by a CC 40 band that no other articulation claims, and the wire
+  // was measured: 64 messages on thrash, no repeats, every gesture restored.
 
   // ---- ONE CONTROLLER, FIVE VALUE BANDS ----
   //
