@@ -509,10 +509,38 @@ public:
     bool        needsVerification = false;
     std::string verificationNote;
 
+    // How an instrument is told which articulation to use.
+    //
+    // Two mechanisms, because instruments offer two. A KEYSWITCH is a note
+    // outside the playable range; a CC is a controller value. They are declared
+    // in the same "phrases" block, exactly as bass articulations already are:
+    //
+    //   "muted": 13                     a keyswitch on note 13
+    //   "muted": { "cc": 40, "value": 20 }   the same thing on a controller
+    //
+    // The CC form is the safer of the two and worth preferring wherever an
+    // instrument offers it. A controller nothing has learned does nothing at
+    // all; a note aimed at the wrong instrument gets PLAYED, which is how a
+    // guitar once received another guitar's articulation switches and treated
+    // them as music.
+    struct PhraseSwitch
+    {
+        int note  = -1;   // -1 when this feel is not mapped by note
+        int cc    = -1;   // -1 when this feel is not mapped by controller
+        int value = 0;    // the controller value that selects it
+
+        bool mapped()   const { return note >= 0 || cc >= 0; }
+        bool byControl() const { return cc >= 0; }
+    };
+
+    PhraseSwitch switchFor (PhraseFeel f) const;
+
     // -1 when this instrument has no key for that feel, in which case the
     // generator's choice is quietly ignored rather than triggering the wrong one.
+    // Notes only - a feel mapped to a controller reports -1 here, because there
+    // is no note to press and callers that want one are asking about notes.
     int keyFor (PhraseFeel f) const;
-    bool hasFeel (PhraseFeel f) const { return keyFor (f) >= 0; }
+    bool hasFeel (PhraseFeel f) const { return switchFor (f).mapped(); }
 
     static bool load (const std::string& path, PhraseProfile& out, std::string& error);
 
@@ -526,7 +554,7 @@ public:
     void setKeyFor (PhraseFeel f, int note);
 
 private:
-    std::vector<int> phraseKeys;   // indexed by PhraseFeel
+    std::vector<PhraseSwitch> phraseKeys;   // indexed by PhraseFeel
 };
 
 } // namespace gb

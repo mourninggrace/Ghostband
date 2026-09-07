@@ -4,7 +4,13 @@ Written 2026-09-06 at the end of session 12, checked against the code rather
 than copied out of NEXT.md — several things that file still listed as open are
 in fact done, and are noted at the bottom so nobody rediscovers them.
 
-## DECIDED: next session is A3, the lead guitar playing fills
+## A3, the lead guitar playing fills - DONE 2026-09-07
+
+Confirmed by ear across the presets. The second guitar answers through the
+verses and choruses of all eleven songs, there is a FILLS dial for how much,
+and where each song stays quiet is recorded in its plan.
+
+## DECIDED: next is B1, articulations over MIDI CC
 
 Chosen 2026-09-07, replacing an earlier decision to do B1 first.
 

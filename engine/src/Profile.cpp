@@ -409,7 +409,7 @@ bool BassProfile::load (const std::string& path, BassProfile& out, std::string& 
 }
 
 PhraseProfile::PhraseProfile()
-    : phraseKeys (kNumPhraseFeels, -1)
+    : phraseKeys (kNumPhraseFeels)   // every feel unmapped: no note, no controller
 {
     // The default is a plain pitched instrument, voicing chords in a middle
     // register. That is the safe fallback for an unknown target: pressing a
@@ -730,10 +730,35 @@ std::string PhraseProfile::toJson() const
 
         std::string ph;
         for (size_t i = 0; i < phraseKeys.size(); ++i)
-            if (phraseKeys[i] >= 0)
-                ph += (ph.empty() ? "" : ",\n") + std::string ("    ")
-                    + q (phraseFeelName (static_cast<PhraseFeel> (i))) + ": "
-                    + std::to_string (phraseKeys[i]);
+        {
+            const PhraseSwitch& sw = phraseKeys[i];
+            if (! sw.mapped())
+                continue;
+
+            std::string value;
+
+            if (sw.byControl())
+            {
+                value = "{ \"cc\": " + std::to_string (sw.cc)
+                      + ", \"value\": " + std::to_string (sw.value);
+
+                // The keyswitch is written back when the profile carries one,
+                // because it was measured off the instrument and is worth not
+                // having to find twice. It is a record, not an instruction -
+                // the cc is what gets sent.
+                if (sw.note >= 0)
+                    value += ", \"keyswitch\": " + std::to_string (sw.note);
+
+                value += " }";
+            }
+            else
+            {
+                value = std::to_string (sw.note);
+            }
+
+            ph += (ph.empty() ? "" : ",\n") + std::string ("    ")
+                + q (phraseFeelName (static_cast<PhraseFeel> (i))) + ": " + value;
+        }
         if (! ph.empty())
             j += "\n  \"phrases\": {\n" + ph + "\n  },\n";
     }
@@ -1113,22 +1138,35 @@ bool PhraseProfile::save (const std::string& path, std::string& error) const
 void PhraseProfile::setKeyFor (PhraseFeel f, int note)
 {
     const size_t i = static_cast<size_t> (f);
-    if (i < phraseKeys.size())
-        phraseKeys[i] = clampInt (note, -1, 127);
+    if (i >= phraseKeys.size())
+        return;
+
+    phraseKeys[i].note = clampInt (note, -1, 127);
+    phraseKeys[i].cc   = -1;   // setting a note replaces a controller mapping
+}
+
+PhraseProfile::PhraseSwitch PhraseProfile::switchFor (PhraseFeel f) const
+{
+    const size_t i = static_cast<size_t> (f);
+    return i < phraseKeys.size() ? phraseKeys[i] : PhraseSwitch();
 }
 
 int PhraseProfile::keyFor (PhraseFeel f) const
 {
     const size_t i = static_cast<size_t> (f);
-    return i < phraseKeys.size() ? phraseKeys[i] : -1;
+    return i < phraseKeys.size() ? phraseKeys[i].note : -1;
 }
 
 std::vector<std::pair<PhraseFeel, int>> PhraseProfile::allPhraseKeys() const
 {
+    // Notes only, because this feeds the Calibrate screen and calibration works
+    // by playing a note and listening for it. A feel selected by controller has
+    // no note to press - it is checked by watching the instrument's own display
+    // while the arrangement runs, not by auditioning it here.
     std::vector<std::pair<PhraseFeel, int>> out;
     for (size_t i = 0; i < phraseKeys.size(); ++i)
-        if (phraseKeys[i] >= 0)
-            out.emplace_back (static_cast<PhraseFeel> (i), phraseKeys[i]);
+        if (phraseKeys[i].note >= 0)
+            out.emplace_back (static_cast<PhraseFeel> (i), phraseKeys[i].note);
     return out;
 }
 
@@ -1223,9 +1261,30 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
                 return false;
             }
 
+            // Either a bare note, or an object naming a controller. The same
+            // two forms bass articulations have taken since they were written,
+            // so an instrument offering both is described the same way wherever
+            // it appears in this project.
             const Json& value = phrases[key];
-            out.phraseKeys[static_cast<size_t> (f)] =
-                value.isNull() ? -1 : clampInt (value.asInt (-1), -1, 127);
+            PhraseSwitch sw;
+
+            if (value.isObject())
+            {
+                sw.cc    = clampInt (value.intOr ("cc", -1), -1, 127);
+                sw.value = clampInt (value.intOr ("value", 0), 0, 127);
+
+                // A keyswitch may sit alongside a cc, and the cc wins. That
+                // lets a profile keep the note it used to use as a record
+                // without sending it - the numbers were measured off the
+                // instrument once and are worth not having to find again.
+                sw.note  = clampInt (value.intOr ("keyswitch", -1), -1, 127);
+            }
+            else if (! value.isNull())
+            {
+                sw.note = clampInt (value.asInt (-1), -1, 127);
+            }
+
+            out.phraseKeys[static_cast<size_t> (f)] = sw;
         }
     }
 
@@ -1286,17 +1345,41 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
     if (! phraseDriven && keyswitchesVerified && ! part.phrases.empty())
     {
         int lastKey = -1;
+        int lastCC = -1, lastValue = -1;
 
         for (const PhraseIntent& p : part.phrases)
         {
-            const int key = keyFor (p.feel);
-            if (key < 0 || key == lastKey)
-                continue;   // no such articulation here, or already selected
+            const PhraseSwitch sw = switchFor (p.feel);
+            if (! sw.mapped())
+                continue;   // no such articulation here; leave it as it is
 
             const int on = std::max (0, p.tick - phraseLeadTicks);
-            track.addNoteOn  (on, channel, key, phraseVelocity);
-            track.addNoteOff (on + std::max (1, phraseBlipTicks), channel, key);
-            lastKey = key;
+
+            // A controller where the instrument offers one. This is the safe
+            // mechanism and the reason the CC form exists: a controller nothing
+            // has learned does nothing, whereas a note aimed at the wrong
+            // instrument gets PLAYED. That is not theoretical here - a guitar
+            // once received another guitar's articulation switches and treated
+            // every one of them as music.
+            if (sw.byControl())
+            {
+                if (sw.cc == lastCC && sw.value == lastValue)
+                    continue;   // already selected
+
+                track.addCC (on, channel, sw.cc, sw.value);
+                lastCC = sw.cc;
+                lastValue = sw.value;
+                lastKey = -1;   // whatever note was last sent no longer applies
+                continue;
+            }
+
+            if (sw.note == lastKey)
+                continue;
+
+            track.addNoteOn  (on, channel, sw.note, phraseVelocity);
+            track.addNoteOff (on + std::max (1, phraseBlipTicks), channel, sw.note);
+            lastKey = sw.note;
+            lastCC = lastValue = -1;
         }
     }
 

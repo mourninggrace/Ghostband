@@ -906,6 +906,76 @@ int main (int argc, char** argv)
         }
     }
 
+    // ---- an articulation can be a controller instead of a note --------------
+    // A keyswitch is a note outside the playable range, and a note aimed at the
+    // wrong instrument gets PLAYED - which is exactly what happened when a
+    // guitar received another guitar's articulation switches and treated every
+    // one of them as music. A controller nothing has learned does nothing at
+    // all, so where an instrument offers both, the controller is the safe form.
+    //
+    // Both must work, and a profile written the old way must behave exactly as
+    // it did.
+    {
+        const juce::File src ("C:/Projects/Ghostband/profiles/shreddage-3-hydra.json");
+        const juce::File tmp = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                   .getChildFile ("gb-artic-test.json");
+
+        if (src.existsAsFile() && src.copyFileTo (tmp))
+        {
+            // The shipped profile: keyswitches as notes.
+            gb::PhraseProfile byNote;
+            std::string e;
+            const bool loadedNote = gb::PhraseProfile::load (tmp.getFullPathName().toStdString(),
+                                                            byNote, e);
+
+            check (loadedNote, "a profile with note keyswitches still loads", juce::String (e));
+            check (loadedNote && byNote.keyFor (gb::PhraseFeel::Muted) == 13,
+                   "and its keyswitches read back as notes",
+                   juce::String (byNote.keyFor (gb::PhraseFeel::Muted)));
+
+            // The same file with muted moved onto a controller.
+            juce::String text = tmp.loadFileAsString();
+            text = text.replace ("\"muted\":   13", "\"muted\": { \"cc\": 40, \"value\": 20 }");
+            tmp.replaceWithText (text);
+
+            gb::PhraseProfile byCC;
+            const bool loadedCC = gb::PhraseProfile::load (tmp.getFullPathName().toStdString(),
+                                                          byCC, e);
+
+            check (loadedCC, "and one with a controller loads too", juce::String (e));
+
+            const auto sw = byCC.switchFor (gb::PhraseFeel::Muted);
+            check (loadedCC && sw.byControl() && sw.cc == 40 && sw.value == 20,
+                   "and reads back as a controller, not a note",
+                   "cc " + juce::String (sw.cc) + " = " + juce::String (sw.value));
+
+            // The one that matters: no note is emitted for it.
+            check (byCC.keyFor (gb::PhraseFeel::Muted) < 0,
+                   "and asking for its note gives nothing, so none is played",
+                   juce::String (byCC.keyFor (gb::PhraseFeel::Muted)));
+
+            // Everything else in the file must be untouched by the change.
+            check (byCC.keyFor (gb::PhraseFeel::Driving) == 15,
+                   "while the feels still on notes keep their notes",
+                   juce::String (byCC.keyFor (gb::PhraseFeel::Driving)));
+
+            // And it survives being written back out.
+            std::string saveErr;
+            check (byCC.save (tmp.getFullPathName().toStdString(), saveErr),
+                   "a controller articulation saves", juce::String (saveErr));
+
+            gb::PhraseProfile reread;
+            const bool ok = gb::PhraseProfile::load (tmp.getFullPathName().toStdString(),
+                                                     reread, e);
+            const auto back = reread.switchFor (gb::PhraseFeel::Muted);
+            check (ok && back.byControl() && back.cc == 40 && back.value == 20,
+                   "and comes back as a controller after a round trip",
+                   juce::String (e));
+
+            tmp.deleteFile();
+        }
+    }
+
     // ---- naming a control suggests what it should follow --------------------
     // The names below are real ones off the instruments in this rig, and the
     // expectations are what a person who knows the instrument would say. The

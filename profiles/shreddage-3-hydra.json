@@ -29,11 +29,19 @@
   // without a hole" - reasoning about the whole from the part that was easy to
   // look at.
   //
-  // Which is why lowest_note is 40 below rather than the 28 that was measured
-  // once and has not been reproducible since. 40 is E2, and a lead guitar has
-  // no business below it: the generator loses nothing it needs, and stops
-  // writing notes that may not sound. Raise it back when the low end is
-  // understood, not before.
+  // lowest_note is 28 - the measured value - and that is the owner's decision,
+  // not an oversight.
+  //
+  // It was briefly clamped to 40 on the reasoning that a lead guitar has no
+  // business below E2 and the generator would lose nothing. The owner set it
+  // back: "the gtr 2 has been calibrated to the actual lowest note, not 40 -
+  // this is on purpose, but if solos play at 40 and above, it doesn't matter
+  // anyway." Which is right on both counts. The file should record what the
+  // instrument is, and the clamp was solving a problem the arrangement does not
+  // actually have.
+  //
+  // So if the silent low register ever becomes audible in a song, the fix is to
+  // find out why it is silent, not to narrow the number that describes it.
   //
   // THE RANGE. Hydra is an EIGHT string, tuned F#1 B1 E2 A2 D3 G3 B3 E4 at
   // concert pitch, so the reasoning went: F#1 is 30, therefore 30 is the
