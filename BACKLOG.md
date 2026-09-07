@@ -10,9 +10,11 @@ in fact done, and are noted at the bottom so nobody rediscovers them.
 
 ## Releases
 
-**v0.1.0 published 2026-09-07** — the first one. Until then there was nothing to
-download: `build/` is ignored, no binary is tracked, and there were no releases,
-so the only way in was cloning with submodules and owning Visual Studio.
+- **v0.1.0, 2026-09-07** — the first one. Until then there was nothing to
+  download: `build/` is ignored, no binary is tracked, so the only way in was
+  cloning with submodules and owning Visual Studio.
+- **v0.2.0, 2026-09-07** — takes, colour themes that actually work, one guitar
+  tone per song, songs saved outside Program Files.
 
 `Release.bat` cuts one. It refuses a dirty tree or a failing build, and stages
 the profiles and preset songs INTO the bundle - the build output has neither, and
@@ -22,6 +24,41 @@ a zip of it would install and then be unable to name an instrument or open a son
 substantial batch of changes, rather than per commit. Bump `project(Ghostband
 VERSION ...)` in `CMakeLists.txt`, commit, run `Release.bat`, then
 `gh release create`.
+
+## VERSION 2 is led by the AI PLANNER
+
+Decided 2026-09-07. The owner is keen on it and it is explicitly a v2 feature,
+not something to squeeze into 0.x. Written up for readers in the README under
+*Where this is going*; this is the engineering half.
+
+**What it is.** A model writes the CHART - chords, section shape, intensity
+curve, who leads where - and the existing engine renders it. Nothing downstream
+changes.
+
+**Why it is tractable.** The handoff already exists. A plan is a small, fully
+specified JSON file and every shipped song is one, so a plan a model wrote is
+indistinguishable from a plan a person wrote. That is the whole reason the plan
+format was made a real file format rather than an internal structure.
+
+**Three constraints, all already true of the architecture:**
+
+  - **Never a dependency.** Works today with no key, no account, no network.
+    `autoProgression` writes progressions locally. The planner raises the
+    ceiling; it is never the floor.
+  - **Never a subscription.** The user brings their own API key. Ghostband is
+    donation-ware and a per-song cost billed against no revenue is a business
+    model, not a feature.
+  - **Never in the audio path.** Background thread; playback never waits on a
+    network call. The processor's sequence swap was built for this and is
+    already safe for it.
+
+**The division of labour is the point.** The model does shape, feel and
+intention - what models are good at. Everything that must be exactly right every
+time stays in measured code: the kick/bass lock, the articulations, determinism,
+and the guarantee that one seed means one song forever.
+
+**Do not break.** The reference songs must still render 1231/629 and 996/423, and
+a build with no key configured must behave exactly as this one does.
 
 ## The TAKE LIBRARY - DONE 2026-09-07
 

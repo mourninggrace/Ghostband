@@ -4,7 +4,7 @@ One file, so none of it has to be remembered. Kept current — anything answered
 gets marked done and moved to the bottom rather than deleted, so the same
 question does not get asked twice.
 
-Last updated 2026-09-07, after the tone fix.
+Last updated 2026-09-07, at the end of session 13 and the v0.2.0 release.
 
 ---
 
@@ -23,8 +23,10 @@ Last updated 2026-09-07, after the tone fix.
   with them. One tone per take; two takes of one song still differ. **Needs the
   install.** If you liked the movement, it is one word per line to put back.
 
-- **The colour themes**, including the drop-down fix. All six screens have been
-  rendered on Paper and looked at; the menu was the only casualty.
+- **The colour themes**, including the drop-down fix — Paper is fixed and is in
+  the 0.2.0 build you are running. Its palette was never at fault; the menus took
+  their colours from a table that did not follow the theme. All six screens were
+  rendered on Paper afterwards and looked at.
 
 ## 2. One thing only you can diagnose
 
@@ -53,12 +55,8 @@ Last updated 2026-09-07, after the tone fix.
   as it was, and there is now a check that says so. It is a missing control, not
   corruption. Small to add; say the word.
 
-- **The AI planner** — explained in full in the answer of 2026-09-07; waiting on
-  a yes or no. It needs **your own API key** and must stay entirely optional.
-
 - **When to cut the next release.** Agreed: periodically, after a substantial
-  batch, not per commit. `Release.bat` does the work. Just say when. There is a
-  batch waiting now.
+  batch, not per commit. `Release.bat` does the work. Just say when.
 
 ## 4. Standing things, so they are written down once
 
@@ -73,6 +71,11 @@ Last updated 2026-09-07, after the tone fix.
 
 ## Answered
 
+- **The AI planner** — a version 2 feature, and the one leading it. Written up
+  for readers in the README under *Where this is going*. *(2026-09-07)*
+- **Does Ghostband need the host transport running?** Yes, and it now says so on
+  its own status line as well as in the README. *(2026-09-07)*
+- **Is Paper fixed?** Yes — in v0.2.0. *(2026-09-07)*
 - **Do the recalled takes sound identical?** Notes yes, tone no — and the tone
   was the profiles re-rolling effects every section, not the takes. Fixed.
   *(2026-09-07)*
