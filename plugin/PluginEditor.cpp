@@ -1882,7 +1882,13 @@ void GhostbandEditor::refreshFromProcessor()
         summaryLabel.setText ({}, juce::dontSendNotification);
     }
 
-    statusLabel.setText (s.message, juce::dontSendNotification);
+    // Never an empty caption. The status message is blank when there is nothing
+    // wrong, which left "STATUS" sitting on the footer with nothing beside it -
+    // reading as a value that failed to load rather than as good news. Now that
+    // every profile can actually be marked verified, blank is the common case.
+    statusLabel.setText (s.message.isNotEmpty() ? s.message
+                                                : juce::String ("all profiles verified"),
+                         juce::dontSendNotification);
     statusLabel.setColour (juce::Label::textColourId,
                            s.unverifiedProfiles || ! s.ok ? ghost::warn : ghost::dim);
 
@@ -2065,7 +2071,7 @@ void GhostbandEditor::paintAbout (juce::Graphics& g, juce::Rectangle<int> area)
     }
 
     block ("Ghostband makes no sound of its own. It writes an arrangement - drums, "
-           "bass, guitar and piano - and performs it through the instruments you "
+           "bass, two guitars and piano - and performs it through the instruments you "
            "already own, by sending them MIDI.",
            juce::Font (juce::FontOptions (17.5f)), ghost::colours::text, 12);
 
@@ -2496,7 +2502,14 @@ void GhostbandEditor::resized()
 
     for (int i = 0; i < 5; ++i)
     {
-        const bool reachable = processor.partVolumeReachable (partForKnob[i]);
+        // A knob only for a part this song actually has. partVolumeReachable
+        // answers "can anything move its volume", which is true of a piano
+        // that is not in the song at all - so preset-punk, which has no piano,
+        // drew a PIANO knob that reached nothing. A control for an instrument
+        // that is not playing is the same fault as a control that does nothing,
+        // and this project keeps rediscovering that one.
+        const bool reachable = processor.partIsInSong (partForKnob[i])
+                            && processor.partVolumeReachable (partForKnob[i]);
 
         // Only the song screen ever positions these, so only it may show them -
         // resized() runs last after a screen change and would otherwise unhide
