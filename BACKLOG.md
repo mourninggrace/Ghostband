@@ -4,6 +4,33 @@ Written 2026-09-06 at the end of session 12, checked against the code rather
 than copied out of NEXT.md — several things that file still listed as open are
 in fact done, and are noted at the bottom so nobody rediscovers them.
 
+## DECIDED: next session is the TAKE LIBRARY
+
+Asked for 2026-09-07. Saving a performance you liked and getting it back.
+
+**What it is not.** A preset is a SONG - chords, sections, tempo, structure.
+A take is one PERFORMANCE of that song. The owner was right that the two need
+different names, and right that there should be no factory takes: a factory
+take is just a preset, and shipping any would blur the only distinction that
+matters. Naming still open - "Takes" recommended over "Variations", because a
+variation implies the material changed and here only the playing does.
+
+**Save the whole set, not the seed.** The seed alone does not reproduce what
+you heard: the performance comes from seed AND complexity, humanize, fills,
+key, style, tempo and the plan. Seed 88345 with humanize at 0.5 is a different
+take from the same seed at 0.7. Storing just the number would recall something
+the owner did not mean, and it is the same effort to store all of it.
+
+**Size: small, and no engine work at all.** Every value is already an atomic on
+the processor. Storage follows the taught-controls store, which already writes
+JSON into %APPDATA%/Ghostband. The UI is a name box, a Save button and a list.
+Comparable to the theme picker rather than to the fills work.
+
+**Already done, and worth not rebuilding:** the plugin saves its CURRENT state
+with the host session - seed, all three dials, key, style, tempo, mix levels,
+channels and theme. Reopening the rackspace restores it. What is missing is
+only the library of named ones.
+
 ## A3, the lead guitar playing fills - DONE 2026-09-07
 
 Confirmed by ear across the presets. The second guitar answers through the
