@@ -26,15 +26,14 @@ rack is wired, not how the band played. Recall leaves both alone.
 **No factory takes.** A factory take is a preset under another name, and shipping
 any would blur the only distinction that matters.
 
-### The other half of the original ask, not built
+### The roll history - asked for, then dropped
 
-The request was "keep a running history of the seeds used ... so if the seeds are
-sitting at 88345 and I liked what I heard, I can save that seed setting". The
-library answers the second half. The first half - an automatic history of recent
-rolls, so the good one from two rolls ago is still reachable after you have
-rolled past it - is not built. It is small: a ring buffer of the last dozen
-(seed + dials + plan) captured on each Roll, listed under the takes with a button
-that promotes one into a named take. Worth doing, and the natural next thing.
+The original request was "keep a running history of the seeds used ... so if the
+seeds are sitting at 88345 and I liked what I heard, I can save that seed
+setting". The library answers the second half. The first half - an automatic
+history of recent rolls, so the good one from two rolls ago is reachable after
+you have rolled past it - was offered and declined on 2026-09-07: the named saves
+turned out to be the whole of what was wanted. Not building it.
 
 ## A3, the lead guitar playing fills - DONE 2026-09-07
 
