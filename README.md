@@ -3,19 +3,19 @@
 A MIDI brain that plays *your* instrument plugins to build full songs.
 
 Ghostband makes no sound of its own. It writes an arrangement and performs it
-through instruments you already own — sending MIDI to a drum sampler, a bass, a
-guitar, a piano — so the sounds are yours and the arranging is its job. It is a
+through instruments you already own — sending MIDI to a drum sampler, a bass, two
+guitars, a piano — so the sounds are yours and the arranging is its job. It is a
 VST3 that sits in a Gig Performer rackspace with its MIDI out wired to each
 instrument.
 
-**Status:** drums, bass, guitar and piano. Rock and metal. No live following yet.
+**Status:** drums, bass, two guitars and piano. Rock and metal. No live following yet.
 
 ![The Ghostband song screen](docs/screenshots/song.png)
 
 *The song screen. Every section shows its chords, its feel, and how many drum hits and bass notes it actually plays.*
 
-Ships with driver profiles for SSD5, MODO Bass 2, UJAM Virtual Guitarist IRON 2
-and UJAM Virtual Pianist, plus a General MIDI fallback that works with most drum
+Ships with driver profiles for SSD5, MODO Bass 2, UJAM Virtual Guitarist IRON 2,
+Shreddage 3 Hydra and UJAM Virtual Pianist, plus a General MIDI fallback that works with most drum
 plugins out of the box. Anything else is a small JSON file away, and the plugin
 can calibrate an unknown instrument by ear.
 
@@ -67,18 +67,63 @@ different part of the arranger under load.
 |------|-------|-----------------|
 | Terminal Velocity | thrash, 184 | Tightness. Humanize is deliberately low. |
 | Brass Hour | hard rock, 92 | The lead handover - piano leads the verses, guitar takes the choruses. |
-| Last Bus Home | punk, 178 | Restraint. No solo, no piano, under seventy seconds. |
+| Last Bus Home | punk, 178 | Restraint. No piano, the sparsest fills of the eight, under eighty seconds. |
 | The Long Way Round | progressive, 132 | Sections of 6, 10, 12 and 14 bars, and the lead passing four times. |
 | Glass and Wire | alt rock, 138 | Loud-quiet-loud. Verses at 0.30 against choruses at 0.90. |
 | Nothing Kept For Later | emo, 152 | Twelve bar choruses against eight bar verses. |
 | What the House Remembers | ballad, 68 | One five minute crescendo; instruments arrive one at a time. |
 | Slow Train Coming Back | blues, 86 | The shuffle. A real twelve bar, written out rather than cycled. |
 
+All eight have a lead guitar that solos once and answers through the verses and
+choruses. Where each one stays quiet is described under *Two guitars*.
+
 A song plays at its own tempo rather than the host's, because a VST3 cannot set
 the host tempo and matching it by hand for every song is a poor way to spend an
 evening. The host transport still starts and stops it. There is a **Tempo:
 song / Tempo: host** toggle in Settings; the cost of song tempo is that anything
 else in the rackspace synced to the host will not agree with the band.
+
+### Two guitars
+
+A band with one guitarist loses its harmony the moment that guitarist solos.
+Ghostband has a **rhythm guitar** and a **lead guitar**, on separate channels
+from their own profiles, and the rhythm player keeps the riff going underneath
+the solo.
+
+Which one is "the lead" is not baked into the engine. It is whichever the
+section puts out front, so the same pair can swap.
+
+The lead guitar has three things it can do in a section:
+
+| `guitar2` | what it plays |
+|-----------|---------------|
+| `solo` | a line of its own for the whole section, while the rhythm guitar holds the harmony |
+| `fills` | short answering phrases in the gaps, and nothing in between |
+| `silent` | nothing at all |
+
+**Fills are what a second guitarist does for most of a song.** Soloing is the
+exception; answering the vocal line, doubling a riff into a chorus, and playing
+a pickup into the next section is the job.
+
+They use the same generator as the solos — the same devices, the same phrasing,
+because a fill that phrases differently from the solos in the same song does not
+sound like the same player. What changes is placement:
+
+- only at the end of a four-bar group, where the singer stops, plus the last bar
+  of the section for the run-up into what follows
+- **not** every one of those. Filling all four openings is a second solo
+- the **back half** of the bar. The riff gets the first two beats; the answer
+  comes after
+- softer, because it answers somebody rather than competing
+
+The **Fills** dial sets how many of the offered openings get taken. 0 silences
+them across the whole song without editing a section.
+
+Where a song does *not* fill is as much the arrangement as where it does. None
+of the shipped presets fills its intro, its first verse, a bridge, a breakdown,
+or an ending — an intro is establishing something, the first verse should arrive
+before the answers do, a breakdown is made of space, and an ending on open
+chords wants to ring.
 
 ### Driving the instrument's own controls
 
@@ -122,6 +167,15 @@ And what should move it:
 | `fixed` | parked at a value you type |
 | `none` | never sent, leaving the instrument as you set it |
 
+**Ghostband suggests one when you name a control.** Choosing between eight of
+these asks you to already know how the engine thinks, so the name does the work:
+`volume` gets `level`, `tone` gets `lead`, `drive` gets `intensity`, `amp model`
+gets `random once`, and anything that reads like a setting — `tune`, `pitch bend
+range`, `invert MIDI channels` — gets `none`. The status line says which and why.
+
+It is a suggestion. It applies once, when the control is first named, and
+anything chosen by hand afterwards stands.
+
 `random` and `random once` are for controls with no right answer — which amp,
 which cabinet, which effect. They change the sound rather than the dynamics, so
 the useful thing is to choose one. Both are derived from the song seed, so the
@@ -154,8 +208,15 @@ Teach is deliberately too fast to read.
   **Ctrl-click sections first to reroll only those** — the rest of the song is
   provably untouched, because every section derives its own seed. The button says
   how many are selected.
-- **Complexity / Humanize** — regenerate on their own a moment after you stop
-  moving them. There is no Generate button to remember.
+- **Complexity / Humanize / Fills** — regenerate on their own a moment after you
+  stop moving them. There is no Generate button to remember.
+  **Fills** is how often the second guitar answers: 0 silences it across the
+  whole song without editing a section, 1 takes every opening it is offered.
+- **BPM** — the tempo the song is written at. See *Tempo, and whose it is*.
+- **Mix** — one knob per part. A knob is only drawn for a part whose volume
+  something can actually reach; SSD5's cannot be reached by any controller, so
+  there is no drums knob. A knob with no taught level control is dimmed and
+  labelled CC7, because a guess should not look identical to a connection.
 
 The section list lights up and a playhead line tracks the song as it plays, so
 you can see which section you are hearing.
@@ -195,13 +256,23 @@ Every sounding note is released by name at the seam. Relying on All Notes Off
 alone is not enough: it is a controller message and many instruments ignore it,
 which left a note hanging across the jump until the harness caught it.
 
-### Why there is no tempo control
+### Tempo, and whose it is
 
-The host owns the tempo. Ghostband reads it from the transport every block and
-displays it, but does not set it — set it in Gig Performer. A BPM knob here would
-be a dead control that looks live. Note that the plan's `bpm` field is only used
-by the CLI when writing a MIDI file; generation itself is tempo-independent,
-because everything is expressed in ticks.
+There is a **BPM** field, and a switch for whose clock the band follows.
+
+This section used to say the opposite — that a tempo control "would be a dead
+control that looks live" — because a VST3 cannot set its host's tempo; the
+format has no such call. That is still true, and it is not the whole story. A
+song written at 150 played at the host's 110 is not the same song, and setting
+the host by hand before every preset is not a workflow.
+
+So Ghostband keeps its own clock when told to. The host transport still starts
+and stops it; only the rate comes from the plan. The cost is real and worth
+knowing: anything else in the rackspace that syncs to the host — a tempo-locked
+delay, say — stays on the host's tempo and will not agree with the band.
+
+Tempo is not a playback speed here. The generators subdivide against it, so a
+faster song is *arranged* differently rather than played faster.
 
 ### Why there are audio pins
 
@@ -283,6 +354,7 @@ left on `auto` is what the engine decides (and later, what the AI planner decide
 | `play_style` | `pick`, `finger`, `slap` |
 | `complexity` | 0–1: fills, ghost notes, dead notes |
 | `humanize` | 0–1: timing and velocity looseness |
+| `fills` | 0–1: how often the second guitar takes an opening. 0 is silent |
 | `seed` | any integer — same seed always gives the same song |
 | `ending` | `hard_stop`, `ritard`, `cymbal_ring`, `fade` |
 
@@ -297,8 +369,14 @@ left on `auto` is what the engine decides (and later, what the AI planner decide
 | `chords` | `["Em","Em","C","D"]` — a shorter list repeats |
 | `bass` | `auto`, `lock_kick`, `lock_kick_octave`, `eighths`, `sixteenths`, `roots` |
 | `fill` | `auto`, `none`, `small`, `big` |
-| `plays` | `full`, `drums`, `bass`, `none` |
+| `plays` | `full`, `none`, or a list: `drums+bass+guitar+guitar2+piano` |
+| `guitar` / `guitar2` / `piano` | `auto`, `silent`, `sparse`, `muted`, `driving`, `open`, `busy`, `solo`, `fills` |
+| `lead` | `auto`, `guitar`, `guitar2`, `piano`, `both` — which chordal part is out front |
 | `vary` | `false` makes a repeated section bit-identical to its sibling |
+
+A part listed in `plays` and given no phrase is **present with no instruction**,
+and the engine will choose a chordal feel for it — which for the lead guitar
+means comping random chords behind the band. Say what each part should do.
 
 ## Architecture
 
