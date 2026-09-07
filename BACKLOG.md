@@ -4,15 +4,53 @@ Written 2026-09-06 at the end of session 12, checked against the code rather
 than copied out of NEXT.md — several things that file still listed as open are
 in fact done, and are noted at the bottom so nobody rediscovers them.
 
-## DECIDED: next session is B1, articulations over MIDI CC
+## DECIDED: next session is A3, the lead guitar playing fills
 
-Chosen 2026-09-06. Everything else here waits.
+Chosen 2026-09-07, replacing an earlier decision to do B1 first.
 
-Read B1 below for the why. In short: Ghostband currently picks Shreddage's
-articulations by **sending notes 12-23**, and a note aimed at the wrong
-instrument gets played as music - which is exactly what went wrong when IRON 2
-received Shreddage keyswitches. A CC that nothing has learned does nothing at
-all. This trades the most dangerous mechanism in the plugin for the safest one.
+**Why the change.** B1 was argued on risk: Ghostband picks articulations by
+sending notes, and a note aimed at the wrong instrument gets played as music.
+True, and measured across all eleven plans, Ghostband sends Shreddage exactly
+ONE keyswitch per song - note 12, Sustain, once. The danger is one note, sitting
+far below anything playable, and the damage that actually happened came from the
+channel bug, which is fixed and pinned. B1 remains correct engineering with a
+much smaller payoff than it was sold with.
+
+The reason it is one keyswitch is the interesting part: Shreddage only plays the
+solo section, so it only ever gets one feel, so it only ever needs one
+articulation. Fix that and B1 becomes worth doing.
+
+**What A3 is.** The second guitar currently either solos or is silent. A real
+second guitarist answers the vocal line in the gaps, doubles the riff through a
+chorus, and plays a pickup into the next section. Largest audible improvement
+left on this list.
+
+**Where the work is.** `Render.cpp`, in the chordal block that already decides
+which of guitar / guitar2 / piano leads and which supports — the guitar/piano
+handover is the model to copy. Today `guitar2Feel` comes from
+`chooseGuitarFeel`, and a section either names `"solo"` or it does not. What is
+missing is a third state between soloing and comping: sparse, answering, and
+out of the way of whichever part is leading.
+
+**Do not break.** Reference songs must still render 1231/629 and 996/423. RNG
+draws must stay where they are for sections that name no second guitar, or every
+existing song changes - the chordal block is already written to layer guitar2 on
+top without consuming from the shared stream when it is absent, and that
+property is what keeps the pins valid.
+
+**Then B1**, which will have several articulations per song to switch between
+and will finally be worth what it costs.
+
+---
+
+## B1, articulations over MIDI CC — deferred, not dropped
+
+Second in the queue, after the fills above give it something to do.
+
+Ghostband picks Shreddage's articulations by **sending notes 12–23**, and a note
+aimed at the wrong instrument gets played as music. A CC that nothing has
+learned does nothing at all — the safest mechanism available, replacing the
+least safe.
 
 **What it needs.** `PhraseProfile` holds `phraseKeys` — notes — and nothing
 else. `BassProfile` articulations already support both a keyswitch and a
@@ -112,16 +150,32 @@ samples".
 
 ## C. Things only you can settle
 
-### C1. Shreddage's pitch bend range
-In Shreddage: right-click **Pitch Bend Range → remove MIDI automation** (it
-wrongly learned CC 20), then set it to **2** by hand. Ghostband no longer touches
-this control, so once it is right it stays right.
+### C1. Shreddage's pitch bend range  [DONE 2026-09-07]
+The stray CC 20 automation was removed and the knob set permanently to 2.
+Ghostband does not touch this control, so it stays right.
 
-### C2. Walk Shreddage through Calibrate
-Now possible — the Calibrate screen could not reach the second guitar until
-today. Its range, 30 to 88, is reasoned from an eight-string's tuning and has
-never been confirmed. The solo plays 34 to 87 without a hole, which is evidence
-and not proof.
+### C2. Walk Shreddage through Calibrate  [DONE 2026-09-07]
+Done, along with IRON 2's top note (84 → 89) and Virtual Pianist's (72 → 95).
+
+Shreddage measured 28 at the bottom — two below the 30 that was reasoned from
+its tuning — but the low register has not sounded reliably since, so
+`lowest_note` is set to **40** rather than to the number that was measured once.
+See C5.
+
+### C5. Why Shreddage goes quiet below about 40
+**Unexplained, and clamped around rather than solved.**
+
+It sounded during calibration and has been silent since, with nothing changed.
+Performance Style is ruled out by test: it has been Mono Lead (Mid/High)
+throughout, and switching to Standard did not bring the notes back. The suspect
+left is the loaded patch's own string configuration or tuning — an eight string
+playing as six has no F#1 or B1, which is exactly this symptom.
+
+Six of the eleven presets used to write into that region — alt-rock to 30, punk
+35, ballad 36, prog 37, metal 38, emo 38 — so it was audible, whatever anyone
+said at the time. With `lowest_note` at 40 the lowest any plan now writes is
+prog at exactly 40, and nothing is lost: 40 is E2 and a lead guitar has no
+business below it.
 
 ### C3. Did the drums come up?
 Ghostband was sending a stale CC 7 to SSD5 on channel 10, frozen at whatever the

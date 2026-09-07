@@ -830,6 +830,47 @@ int main (int argc, char** argv)
                                            : " is never played - it cannot be calibrated"));
             }
 
+            // ---- and every step it offers can actually be saved -----------
+            // The second guitar was added to the step list and not to the save,
+            // so its steps played, showed a note, took a nudge, and were thrown
+            // away - while the screen said "saved". A calibration you cannot
+            // keep is worse than one you cannot run: you believe it worked.
+            //
+            // saveCalibration matches steps BY LABEL, so the labels are the
+            // contract. Checked here rather than trusting two lists written in
+            // different functions to agree.
+            {
+                std::set<juce::String> offered;
+                for (int i = 0; i < proc.getCalibrationStepCount(); ++i)
+                    offered.insert (proc.getCalibrationStep (i).label);
+
+                static const char* mustSave[] = {
+                    "bass lowest note", "bass highest note",
+                    "guitar lowest chord note",   "guitar highest chord note",
+                    "guitar 2 lowest chord note", "guitar 2 highest chord note",
+                    "piano lowest chord note",    "piano highest chord note",
+                };
+
+                // A label is only required when its part is in this song.
+                const auto partOf = [] (const juce::String& l)
+                {
+                    if (l.startsWith ("bass"))      return 1;
+                    if (l.startsWith ("guitar 2"))  return 4;
+                    if (l.startsWith ("guitar"))    return 2;
+                    return 3;
+                };
+
+                juce::StringArray missing;
+                for (const char* label : mustSave)
+                    if (proc.partIsInSong (partOf (label)) && offered.count (label) == 0)
+                        missing.add (label);
+
+                check (missing.isEmpty(),
+                       "every range the save knows how to write is offered as a step",
+                       missing.isEmpty() ? juce::String ("all present")
+                                         : "never offered: " + missing.joinIntoString (", "));
+            }
+
             proc.exitCalibration();
         }
 

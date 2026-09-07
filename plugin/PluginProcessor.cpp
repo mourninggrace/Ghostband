@@ -399,6 +399,18 @@ void GhostbandProcessor::enterCalibration()
             oct.channel = bassProfile.channel;
             oct.isDrum  = false;
             steps.push_back (oct);
+
+            // The top of the bass, which nothing could reach until now.
+            // BassProfile has carried a highest_note since it was written and
+            // calibration never offered it, so the number has never been
+            // checked against a real instrument by anyone.
+            CalibrationStep hi;
+            hi.label   = "bass highest note";
+            hi.hint    = "the highest note the bass can play";
+            hi.note    = bassProfile.highestNote;
+            hi.channel = bassProfile.channel;
+            hi.isDrum  = false;
+            steps.push_back (hi);
         }
 
         // Guitar and piano. A phrase instrument gets its phrase keys, since a
@@ -1499,14 +1511,34 @@ bool GhostbandProcessor::saveCalibration (juce::String& error)
             spliceInto (bassProfile.sourcePath, "bass range", "lowest_note", block);
         }
 
+        for (const CalibrationStep& st : steps)
+        {
+            if (st.label != "bass highest note") continue;
+
+            bassProfile.highestNote = st.note;
+            spliceInto (bassProfile.sourcePath, "bass range", "highest_note",
+                        "\"highest_note\": " + std::to_string (bassProfile.highestNote));
+        }
+
         // Guitar and piano: the range their chords are voiced into.
         struct Zone { const char* low; const char* high; gb::PhraseProfile* p;
                       const char* what; bool present; };
-        const Zone zones[2] = {
-            { "guitar lowest chord note", "guitar highest chord note", &guitarProfile,
-              "guitar range", haveGuitar },
-            { "piano lowest chord note",  "piano highest chord note",  &pianoProfile,
-              "piano range",  havePiano },
+        // THREE, not two. The second guitar was added to the step list yesterday
+        // and not to this, so its steps played, showed a note, took a nudge -
+        // and were thrown away on save. Silently: the screen said "saved".
+        //
+        // That is the fourth instance of one shape in two days, and this one was
+        // written by the same commit that fixed the third. Adding a part means
+        // walking every list that names parts by hand, and the way to stop
+        // paying for it is the harness check below, which now fails if a part
+        // can be calibrated but not saved.
+        const Zone zones[3] = {
+            { "guitar lowest chord note",   "guitar highest chord note",   &guitarProfile,
+              "guitar range",   haveGuitar },
+            { "guitar 2 lowest chord note", "guitar 2 highest chord note", &guitar2Profile,
+              "guitar 2 range", haveGuitar2 },
+            { "piano lowest chord note",    "piano highest chord note",    &pianoProfile,
+              "piano range",    havePiano },
         };
 
         for (const Zone& z : zones)
