@@ -24,6 +24,11 @@ is not the same as sounding or feeling right.
   Settings now. Switch a few — especially **Paper**, the light one, which is
   where anything left on the old palette shows up worst.
 
+  You already found one: on Paper the theme list itself became unreadable. Fixed
+  — a drop-down is a separate window and takes its colours from somewhere the
+  first fix could not reach. All six screens have since been rendered on Paper
+  and looked at; that menu was the only casualty. **Needs the install below.**
+
 - **Save as... now writes to `Documents\Ghostband\Songs`** instead of opening
   inside the installed bundle under Program Files. And **Save on a preset no
   longer tries to overwrite the preset** — it becomes Save as..., offering the
@@ -64,6 +69,16 @@ Neither is blocking. Both change what I would build.
   business below it, so no song loses anything today.
 
 ## 4. Decisions that steer what I build next
+
+- **Should the structure editor get a "guitar 2" toggle?** Found while sweeping
+  the light theme. The PLAYS row on the Edit screen has drums, bass, guitar and
+  piano and nothing for the second guitar, so the editor cannot turn it on or off
+  even though every preset uses it.
+
+  **Nothing is being lost** — editing a section leaves the second guitar exactly
+  as it was, and there is now a check that says so. It is a missing control, not
+  corruption. Small to add; say the word.
+
 
 - **More presets?** There are **34**. The target you parked was 50. Say whether
   to carry on, and whether any style is under-served or missing.
