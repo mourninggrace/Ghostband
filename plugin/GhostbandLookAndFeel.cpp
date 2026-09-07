@@ -2,6 +2,43 @@
 
 namespace ghost {
 
+namespace {
+    int activeTheme = 0;
+}
+
+void applyTheme (int index)
+{
+    // Ignored rather than clamped. A session naming a theme this build does not
+    // have should keep the default, not silently land on whichever one happens
+    // to sit at that index - the next release would then move it again.
+    if (index < 0 || index >= numThemes)
+        return;
+
+    const Theme& t = kThemes[index];
+    activeTheme = index;
+
+    colours::background = juce::Colour (t.background);
+    colours::card       = juce::Colour (t.card);
+    colours::cardRaised = juce::Colour (t.cardRaised);
+    colours::line       = juce::Colour (t.line);
+
+    colours::text       = juce::Colour (t.text);
+    colours::silver     = juce::Colour (t.silver);
+    colours::dim        = juce::Colour (t.dim);
+
+    colours::red        = juce::Colour (t.accentA);
+    colours::purple     = juce::Colour (t.accentB);
+    colours::accentDim  = juce::Colour (t.accentDim);
+    colours::warn       = juce::Colour (t.warn);
+}
+
+int currentTheme() { return activeTheme; }
+
+const char* themeName (int index)
+{
+    return (index >= 0 && index < numThemes) ? kThemes[index].name : "Ghost";
+}
+
 juce::ColourGradient accentGradient (juce::Rectangle<float> area)
 {
     return juce::ColourGradient (colours::red,    area.getX(),     area.getCentreY(),

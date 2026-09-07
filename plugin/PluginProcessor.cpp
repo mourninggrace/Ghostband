@@ -1598,6 +1598,18 @@ bool GhostbandProcessor::saveCalibration (juce::String& error)
                         "\"chord_zone\": { \"lowest_note\": "
                           + std::to_string (z.p->chordLowest)
                           + ", \"highest_note\": " + std::to_string (z.p->chordHighest) + " }");
+
+            // Walking this screen IS the verification the flag is asking for,
+            // so saving clears it. Without this an instrument stayed "unverified"
+            // after being calibrated, and the warning at the bottom of the song
+            // screen went on naming profiles that had just been checked by hand
+            // - which is how a warning stops being read.
+            if (z.p->needsVerification)
+            {
+                z.p->needsVerification = false;
+                spliceInto (z.p->sourcePath, z.what, "needs_verification",
+                            "\"needs_verification\": false");
+            }
         }
 
         calibrationEdited = false;
@@ -1960,10 +1972,15 @@ void GhostbandProcessor::regenerate()
         status.guitar2Profile = withGuitar2 ? juce::String (workingGuitar2.name) : juce::String();
         status.pianoProfile  = withPiano  ? juce::String (workingPiano.name)  : juce::String();
 
+        // The second guitar was missing from this list, so a song could warn
+        // about nothing or stay silent about a profile nobody had checked.
+        // Fifth place in this file where a list of parts was written before
+        // guitar 2 existed and never revisited.
         status.unverifiedProfiles = workingKit.needsVerification
                                  || workingBass.needsVerification
-                                 || (withGuitar && workingGuitar.needsVerification)
-                                 || (withPiano  && workingPiano.needsVerification);
+                                 || (withGuitar  && workingGuitar.needsVerification)
+                                 || (withGuitar2 && workingGuitar2.needsVerification)
+                                 || (withPiano   && workingPiano.needsVerification);
 
         status.headline = juce::String (working.key) + " " + juce::String (working.mode).replace ("_", " ")
                         + "   " + juce::String (working.bpm, 0) + " bpm   "
@@ -2444,6 +2461,7 @@ void GhostbandProcessor::getStateInformation (juce::MemoryBlock& destData)
     xml.setAttribute ("complexity", complexity.load());
     xml.setAttribute ("humanize",   humanize.load());
     xml.setAttribute ("fills",      fills.load());
+    xml.setAttribute ("theme",      theme.load());
     xml.setAttribute ("seed",       seed.load());
     xml.setAttribute ("editorW",    editorWidth.load());
     xml.setAttribute ("editorH",    editorHeight.load());
@@ -2476,6 +2494,12 @@ void GhostbandProcessor::setStateInformation (const void* data, int sizeInBytes)
     humanize.store   (xml->getDoubleAttribute ("humanize", 0.5));
     fills.store      (juce::jlimit (0.0, 1.0,
                           xml->getDoubleAttribute ("fills", 0.62)));
+
+    // applyTheme ignores an index it does not have, so a session saved by a
+    // later build naming a theme this one lacks keeps the default rather than
+    // landing on whichever happens to sit at that number.
+    theme.store (xml->getIntAttribute ("theme", 0));
+    ghost::applyTheme (theme.load());
     seed.store       (xml->getIntAttribute ("seed", 1));
     // The floor moved with the type: 560x690 was a size at which 11pt body text
     // just fitted, and nothing readable fits in it. The default matches the

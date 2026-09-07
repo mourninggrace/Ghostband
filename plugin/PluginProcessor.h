@@ -370,6 +370,11 @@ public:
     // How often the answering guitar takes an opening it is offered. Zero
     // silences fills across the whole song without editing a section, which is
     // the point: "turn it off" should be one control rather than nine edits.
+    // Which colour theme the interface draws in. Kept on the processor rather
+    // than in the editor, because the editor is destroyed every time the window
+    // closes and a theme that forgets itself on close is not a setting.
+    std::atomic<int> theme { 0 };
+
     std::atomic<double> fills { 0.62 };
 
     std::atomic<double> complexity { 0.5 };

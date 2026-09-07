@@ -932,6 +932,26 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 
     resetSizeButton.onClick = [this] { setSize (800, 960); };
 
+    styleCombo (themeBox);
+    addChildComponent (themeBox);
+    for (int i = 0; i < ghost::numThemes; ++i)
+        themeBox.addItem (ghost::themeName (i), i + 1);
+    themeBox.setSelectedId (processor.theme.load() + 1, juce::dontSendNotification);
+
+    themeBox.onChange = [this]
+    {
+        const int pick = themeBox.getSelectedId() - 1;
+        processor.theme.store (pick);
+        ghost::applyTheme (pick);
+
+        // Every component holds colours it was given when it was created, so a
+        // repaint alone leaves half the interface on the old palette. resized()
+        // runs the initLabel colours again on the way through.
+        lookAndFeelChanged();
+        resized();
+        repaint();
+    };
+
     reloadProfilesBtn.onClick = [this] { processor.reloadPlan(); };
 
     repoButton.onClick = []
@@ -1156,6 +1176,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     learnHelp.setJustificationType (juce::Justification::topLeft);
 
     initLabel (settingsHeading, "SETTINGS", 19.0f, ghost::text, juce::Justification::centredLeft);
+    initLabel (themeLabel,      "THEME",    14.0f, ghost::dim,  juce::Justification::centredLeft);
     initLabel (channelsHelp,
                "Each part is sent on its own MIDI channel. Set the matching channel on each "
                "instrument, or use a channel filter in your host.",
@@ -1357,6 +1378,7 @@ void GhostbandEditor::updateModeVisibility()
              &chDrumsName, &chBassName, &chGuitarName, &chGuitar2Name, &chPianoName,
              &learnPartName,
              &settingsHeading, &channelsHelp, &resetSizeButton, &reloadProfilesBtn,
+             &themeBox, &themeLabel,
              &tempoModeButton,
              &testDrums, &testBass, &testGuitar, &testPiano, &testGuitar2,
              &learnPart, &learnHeading, &learnHelp,
@@ -2274,6 +2296,11 @@ void GhostbandEditor::resized()
         resetSizeButton.setBounds (row.removeFromLeft (150));
         row.removeFromLeft (8);
         tempoModeButton.setBounds (row.removeFromLeft (140));
+
+        s.removeFromTop (10);
+        auto themeRow = s.removeFromTop (28);
+        themeLabel.setBounds (themeRow.removeFromLeft (60));
+        themeBox.setBounds (themeRow.removeFromLeft (150));
         return;
     }
 

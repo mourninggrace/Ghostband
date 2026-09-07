@@ -10,14 +10,19 @@ namespace ghost
 {
     // The palette lives in GhostbandLookAndFeel.h. These are the names the rest
     // of the editor already used, kept so the drawing code reads the same.
-    const juce::Colour background = colours::background;
-    const juce::Colour panel      = colours::panel;
-    const juce::Colour line       = colours::line;
-    const juce::Colour text       = colours::text;
-    const juce::Colour dim        = colours::dim;
-    const juce::Colour silver     = colours::silver;
-    const juce::Colour accent     = colours::accent;
-    const juce::Colour warn       = colours::warn;
+    //
+    // REFERENCES, not copies, and that distinction is the whole theme feature.
+    // These were const values initialised from the palette, so they took a
+    // snapshot at program start and every one of the hundred and forty-nine
+    // call sites below would have gone on drawing the first theme forever.
+    inline juce::Colour& background = colours::background;
+    inline juce::Colour& panel      = colours::panel;
+    inline juce::Colour& line       = colours::line;
+    inline juce::Colour& text       = colours::text;
+    inline juce::Colour& dim        = colours::dim;
+    inline juce::Colour& silver     = colours::silver;
+    inline juce::Colour& accent     = colours::accent;
+    inline juce::Colour& warn       = colours::warn;
 }
 
 // Read-only view of the arrangement, with the section currently sounding lit up.
@@ -202,6 +207,11 @@ private:
     // list you have to click. It was in the Roll button's tooltip and nowhere
     // else, so the feature read as broken rather than as undiscovered.
     juce::Label      rollHintLabel;
+
+    // The theme picker, on Settings beside the other things about how the
+    // plugin looks and behaves rather than about the song.
+    juce::ComboBox themeBox;
+    juce::Label    themeLabel;
 
     // True while rollHintLabel is reporting a reroll that just happened rather
     // than showing its standing hint, so the next selection change puts the

@@ -30,7 +30,12 @@
 
   "mode": "notes",
 
-  "needs_verification": true,
+  // Cleared 2026-09-07: the top of the range was walked on the Calibrate
+  // screen and corrected (). The flag survived that only because saving a
+  // calibration never cleared it - so the song screen went on warning about a
+  // profile that had just been checked by hand, which is how a warning stops
+  // being read.
+  "needs_verification": false,
   "verification_note": "Requires IRON 2 set to Instrument mode, not Player mode.",
 
   // TOP OF THE RANGE CALIBRATED BY EAR, 2026-09-07: 84 -> 89.

@@ -1037,6 +1037,112 @@ int main (int argc, char** argv)
         }
     }
 
+    // ---- every theme stays readable ----------------------------------------
+    // A theme is eleven numbers, and the easiest possible way to quietly undo
+    // the type and contrast work. "dim" carries the section detail, every field
+    // label and the whole footer - it was the colour behind "almost all writing
+    // is completely un-readable", and a new palette could put it right back
+    // there without anyone noticing until they were on a stage.
+    //
+    // Contrast ratio as the W3C defines it: (L1 + 0.05) / (L2 + 0.05) on
+    // relative luminance. 4.5 is their threshold for body text; 3.0 is the one
+    // for large text, and everything here is 13pt or above on a dark ground.
+    {
+        const auto luminance = [] (juce::Colour c)
+        {
+            const auto channel = [] (double v)
+            {
+                v /= 255.0;
+                return v <= 0.03928 ? v / 12.92 : std::pow ((v + 0.055) / 1.055, 2.4);
+            };
+
+            return 0.2126 * channel (c.getRed())
+                 + 0.7152 * channel (c.getGreen())
+                 + 0.0722 * channel (c.getBlue());
+        };
+
+        const auto contrast = [&luminance] (juce::Colour a, juce::Colour b)
+        {
+            const double la = luminance (a), lb = luminance (b);
+            const double hi = std::max (la, lb), lo = std::min (la, lb);
+            return (hi + 0.05) / (lo + 0.05);
+        };
+
+        int tooFaint = 0;
+        juce::String worst;
+        double worstRatio = 99.0;
+
+        for (int i = 0; i < ghost::numThemes; ++i)
+        {
+            const ghost::Theme& t = ghost::kThemes[i];
+            const juce::Colour bg (t.background);
+
+            struct Pair { const char* what; juce::uint32 c; double least; };
+            const Pair pairs[] = {
+                { "text",   t.text,   7.0 },   // headings: should be comfortable
+                { "silver", t.silver, 4.5 },   // values
+                { "dim",    t.dim,    4.5 },   // labels, captions, the footer
+                { "warn",   t.warn,   3.0 },   // a colour, so judged as large text
+            };
+
+            for (const Pair& pr : pairs)
+            {
+                const double r = contrast (bg, juce::Colour (pr.c));
+                if (r < pr.least)
+                {
+                    ++tooFaint;
+                    if (r < worstRatio)
+                    {
+                        worstRatio = r;
+                        worst = juce::String (t.name) + " " + pr.what + " at "
+                              + juce::String (r, 2) + ", wants " + juce::String (pr.least, 1);
+                    }
+                }
+            }
+        }
+
+        check (tooFaint == 0, "every theme keeps its text readable on its own background",
+               tooFaint == 0 ? juce::String (ghost::numThemes) + " themes"
+                             : juce::String (tooFaint) + " too faint, worst: " + worst);
+
+        // And the accent has to be visible ON a card, not only on the page -
+        // it is what "active" is drawn in, and cards are lighter than the page.
+        int accentFaint = 0;
+        for (int i = 0; i < ghost::numThemes; ++i)
+        {
+            const ghost::Theme& t = ghost::kThemes[i];
+            if (contrast (juce::Colour (t.card), juce::Colour (t.accentA)) < 2.5)
+                ++accentFaint;
+        }
+
+        check (accentFaint == 0, "and its accent shows against a card",
+               juce::String (accentFaint) + " themes where it does not");
+
+        // Switching must actually change what the drawing code reads. These are
+        // references into the palette rather than copies precisely so that a
+        // hundred and eighty call sites did not have to change - and a copy
+        // slipping back in would freeze every one of them on theme zero.
+        ghost::applyTheme (0);
+        const juce::Colour first = ghost::colours::background;
+        ghost::applyTheme (3);
+        const juce::Colour third = ghost::colours::background;
+        ghost::applyTheme (0);
+
+        check (first != third, "switching a theme changes the palette",
+               first.toDisplayString (false) + " -> " + third.toDisplayString (false));
+
+        check (ghost::colours::background == first,
+               "and switching back restores it");
+
+        // An index this build does not have is ignored, not clamped. A session
+        // saved by a later version should keep the default rather than land on
+        // whichever theme happens to sit at that number - which would move
+        // again on the next release.
+        ghost::applyTheme (999);
+        check (ghost::currentTheme() == 0, "an unknown theme index is ignored",
+               juce::String (ghost::currentTheme()));
+    }
+
     // ---- naming a control suggests what it should follow --------------------
     // The names below are real ones off the instruments in this rig, and the
     // expectations are what a person who knows the instrument would say. The
