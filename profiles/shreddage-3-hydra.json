@@ -147,6 +147,33 @@
   //
   // "silent" is deliberately unmapped: there is no articulation for not
   // playing, and leaving the last one selected through a rest is correct.
+  // ---- AN UNEXPLAINED WARNING, recorded 2026-09-07 ----
+  //
+  // After the move to controllers, Shreddage shows a warning triangle on five
+  // articulations - and on exactly the five that carry a velocity Rule 2:
+  //
+  //     Sustain 1-119    Harmonics 1-127    Pinch Harmonics 127
+  //     Tremolo 1-127    Rake 120-126
+  //
+  // The eight with no velocity rule are clean. Five of five, eight of eight, so
+  // it is not coincidence. There is no tooltip on the icon, so the meaning is
+  // unknown.
+  //
+  // The likeliest reading: Sustain, Rake and Pinch Harmonics all shared
+  // keyswitch C-1, carved up by velocity into 1-119, 120-126 and 127. Moving
+  // Sustain to a controller took its slice away, so C-1 now has a hole - press
+  // it below 120 and no articulation matches. That would explain a complaint
+  // about an incomplete velocity map. It does not obviously explain Harmonics.
+  //
+  // NOTHING GHOSTBAND USES IS AFFECTED, which is why this is a note rather than
+  // a fault. Ghostband sends CC 40 and notes 40-88 at velocity 119 or less. It
+  // never sends C-1, A-1 or F#-1, so Rake, Pinch Harmonics and Harmonics are
+  // unreachable anyway; Sustain and Tremolo need their controller band AND a
+  // velocity their rules already cover.
+  //
+  // Written down because a warning nobody understands is exactly what gets
+  // blamed later for something unrelated.
+
   // ---- ONE CONTROLLER, FIVE VALUE BANDS ----
   //
   // Shreddage's Articulations page takes a MIDI CC rule with a value RANGE, so
@@ -195,6 +222,47 @@
     // Sustain for the same reason the solo has it - an answer wants to ring,
     // and legato needs a sustained note to hammer from.
     "fills":   { "cc": 40, "value":  10, "keyswitch": 12 }
+  },
+
+  // ---- PER-NOTE GESTURES ----
+  //
+  // What a lead player does to ONE note, as opposed to how a whole section is
+  // played. Nobody plays a verse in pinch harmonics; you hit one note that way,
+  // for emphasis - and doing that or not is most of what separates a guitarist
+  // from a keyboard playing guitar samples.
+  //
+  // DECLARED EMPTY ON PURPOSE, which is the honest state of it.
+  //
+  // Shreddage holds one articulation at a time and selects it from a single
+  // control, so a gesture and a section style compete for the same CC. CC 40 is
+  // fully spoken for by the five bands above. Reaching these means re-banding
+  // that controller to carry ten rather than five, which is work in the
+  // instrument rather than in this file - see the table below.
+  //
+  // Meanwhile Ghostband asks for gestures and this declares none, so nothing is
+  // sent and the solos play exactly as they do today. That is the controller
+  // design paying for itself a second time: an unmapped gesture is silence
+  // rather than a wrong note.
+  //
+  // TO TURN THEM ON, re-band CC 40 in Shreddage to these ten and fill in the
+  // block below to match:
+  //
+  //     0 - 12    Sustain                65 -  77   Rake
+  //    13 - 25    Mute                   78 -  90   Pinch Harmonics
+  //    26 - 38    Staccato               91 - 103   Harmonics
+  //    39 - 51    Power Chord Sustain   104 - 116   Tapping
+  //    52 - 64    Tremolo               117 - 127   Choke
+  //
+  // The keyswitches are recorded because they are measured and certain:
+  //
+  //     rake      12 at key velocity 120-126     pinch  12 at key velocity 127
+  //     choke     19                             harmonic  21
+  //     tap       20
+  //
+  // Rake and pinch are unreachable by keyswitch now in any case. They share
+  // note 12 with Sustain and are told apart from it by the velocity the KEY is
+  // pressed at - and Sustain no longer uses note 12 at all.
+  "lead_articulations": {
   },
 
   "keyswitches_verified": true,

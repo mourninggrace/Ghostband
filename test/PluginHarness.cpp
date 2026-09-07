@@ -986,6 +986,53 @@ int main (int argc, char** argv)
             check (ok && reread.keyFor (gb::PhraseFeel::Open) == 12,
                    "including the ones that were notes to begin with");
 
+            
+            // ---- per-note gestures ----------------------------------
+            // A gesture on one note, not a style for a section. Declared the
+            // same way, because on this instrument they are selected the same
+            // way: one active articulation at a time, from one control.
+            //
+            // The important property is that an UNMAPPED gesture is silence.
+            // The generator asks for pinch harmonics from every lead profile;
+            // most instruments have none, and asking must cost nothing.
+            {
+                const juce::File g = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                         .getChildFile ("gb-gesture-test.json");
+
+                g.replaceWithText (
+                    "{ \"name\": \"gesture probe\", \"id\": \"gesture_probe\","
+                    "  \"channel\": 11, \"mode\": \"notes\","
+                    "  \"chord_zone\": { \"lowest_note\": 40, \"highest_note\": 88 },"
+                    "  \"phrases\": { \"solo\": { \"cc\": 40, \"value\": 10 } },"
+                    "  \"lead_articulations\": {"
+                    "    \"pinch\": { \"cc\": 40, \"value\": 84 },"
+                    "    \"rake\":  { \"cc\": 40, \"value\": 71 } } }");
+
+                gb::PhraseProfile gp;
+                std::string ge;
+                const bool ok = gb::PhraseProfile::load (g.getFullPathName().toStdString(),
+                                                        gp, ge);
+
+                check (ok, "a profile can declare per-note gestures", juce::String (ge));
+
+                const auto pinch = gp.switchFor (gb::LeadArtic::Pinch);
+                check (ok && pinch.byControl() && pinch.value == 84,
+                       "and a gesture reads back with its own value",
+                       "cc " + juce::String (pinch.cc) + " = " + juce::String (pinch.value));
+
+                // The one that has to be true of every other instrument in the
+                // rig: asking for a gesture nothing declares costs nothing.
+                check (ok && ! gp.hasLeadArtic (gb::LeadArtic::Choke),
+                       "and one it does not declare is simply absent");
+
+                gb::PhraseProfile none;
+                check (! none.hasLeadArtic (gb::LeadArtic::Pinch),
+                       "a profile that declares none has none",
+                       "so asking an instrument without them costs nothing");
+
+                g.deleteFile();
+            }
+
             tmp.deleteFile();
         }
     }

@@ -247,7 +247,8 @@ static void generateSolo (const SectionPlan& s,
                           Rng& rng,
                           PhrasePart& out,
                           SoloShape shape = SoloShape::Continuous,
-                          double fillAmount = 0.62)
+                          double fillAmount = 0.62,
+                          uint32_t articSeed = 0u)
 {
     if (chords.empty() || profile == nullptr || s.bars <= 0)
         return;
@@ -631,6 +632,76 @@ static void generateSolo (const SectionPlan& s,
             ++bar;
     }
 
+    // ---- the gestures, laid over the line rather than woven into it ----
+    //
+    // A SECOND PASS on its own stream, and both of those matter.
+    //
+    // Second pass, because the notes are already right. Choosing gestures while
+    // building the line would put the decision inside the phrase logic, where
+    // it would be one more thing to reason about per device. Here it reads what
+    // was played and marks it, which is also how a guitarist thinks: the line
+    // comes first and the hand decides how to hit it.
+    //
+    // Own stream, because every existing song must sound exactly as it does.
+    // Drawing from the solo's rng would move every note after the first draw,
+    // and the two reference songs are pinned to the note.
+    {
+        Rng ag (deriveSeed (articSeed, 0x6A211u));
+
+        // A gesture is emphasis, and emphasis stops meaning anything when it is
+        // everywhere. Roughly one phrase in three gets one at full intensity,
+        // and a quiet section gets almost none - a ballad verse does not want
+        // pinch harmonics in it.
+        const double appetite = 0.10 + s.intensity * 0.30;
+
+        int lastGesture = -999;   // index of the last note that got one
+
+        for (size_t i = 0; i < out.lead.size(); ++i)
+        {
+            LeadIntent& n = out.lead[i];
+
+            // Never two close together. Two squeals a beat apart is a fault,
+            // not a flourish.
+            if (static_cast<int> (i) - lastGesture < 6)
+                continue;
+
+            if (! ag.chance (appetite))
+                continue;
+
+            const bool first = (i == 0) || (n.tick - out.lead[i - 1].tick > barTicks / 2);
+            const bool last  = (i + 1 == out.lead.size())
+                            || (out.lead[i + 1].tick - n.tick > barTicks / 2);
+            const bool held  = n.durationTicks > barTicks / 4;
+
+            // WHERE EACH ONE BELONGS, which is the whole point of doing this
+            // rather than sprinkling them evenly.
+            if (n.target && ! first)
+            {
+                // The note the phrase leans on, already the hardest hit in the
+                // line. That is where a pinch harmonic goes and always has.
+                n.artic = LeadArtic::Pinch;
+            }
+            else if (first)
+            {
+                // A rake is a scrape INTO something, so it opens a phrase or it
+                // is nothing.
+                n.artic = LeadArtic::Rake;
+            }
+            else if (last && held)
+            {
+                // A ringing note cut dead, which is an ending. On a short note
+                // there is nothing to choke.
+                n.artic = LeadArtic::Choke;
+            }
+            else
+            {
+                continue;   // nothing about this note asks for a gesture
+            }
+
+            lastGesture = static_cast<int> (i);
+        }
+    }
+
     // One note at a time. The profile truncates overlaps on the way out as well,
     // but leaving them in the intents means anything reading those - the harness
     // included - sees a chord that is not being played.
@@ -810,7 +881,7 @@ static void generatePhrasePart (const SectionPlan& s,
         generateSolo (s, chords, sectionStartTick, barTicks, keyPc, mode, style,
                       swing, profile, humanize, soloRng, out,
                       fills ? SoloShape::Answering : SoloShape::Continuous,
-                      fillAmount);
+                      fillAmount, sectionSeed);
         return;
     }
 

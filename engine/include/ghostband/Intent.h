@@ -94,6 +94,28 @@ struct ChordIntent
 // phrases doing as much work as the notes. So it gets its own intent rather
 // than being faked with single-note chords, which would have lost the octave
 // the moment a profile folded it into a chord zone.
+// What a lead player does to ONE note.
+//
+// Distinct from PhraseFeel, which describes a whole section: you can play a
+// verse palm-muted, but nobody plays a verse in pinch harmonics. These are
+// gestures on a single note, and they are most of what separates a guitarist
+// from a keyboard playing guitar samples.
+//
+// The generator asks for them; whether an instrument can do any of them is the
+// profile's business, and one it cannot is silently ignored.
+enum class LeadArtic
+{
+    Normal,
+    Rake,        // a scrape across the strings INTO a note, opening a phrase
+    Pinch,       // a pinch harmonic - a squeal on the note a phrase leans on
+    Choke,       // a ringing note cut dead, ending a phrase
+    Harmonic,    // a natural harmonic, for colour high on the neck
+    Tap          // two-handed tapping, for a fast run
+};
+
+const char* leadArticName     (LeadArtic a);
+LeadArtic   leadArticFromName (const std::string& s, bool& ok);
+
 struct LeadIntent
 {
     int    tick          = 0;
@@ -104,6 +126,8 @@ struct LeadIntent
     // A note the player leans on: held longer, hit harder, and the one a phrase
     // is aiming at. Profiles that can bend or slide have something to hang it on.
     bool   target        = false;
+
+    LeadArtic artic      = LeadArtic::Normal;
 };
 
 // Switch the instrument to this phrase. Emitted at section and phrase changes,

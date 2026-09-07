@@ -71,6 +71,33 @@ PhraseFeel phraseFeelFromName (const std::string& s, bool& ok)
     return PhraseFeel::Driving;
 }
 
+static const char* kLeadArticNames[] =
+{
+    "normal", "rake", "pinch", "choke", "harmonic", "tap"
+};
+
+static const size_t kNumLeadArtics = sizeof (kLeadArticNames) / sizeof (kLeadArticNames[0]);
+
+const char* leadArticName (LeadArtic a)
+{
+    const size_t i = static_cast<size_t> (a);
+    return i < kNumLeadArtics ? kLeadArticNames[i] : "normal";
+}
+
+LeadArtic leadArticFromName (const std::string& s, bool& ok)
+{
+    for (size_t i = 0; i < kNumLeadArtics; ++i)
+    {
+        if (s == kLeadArticNames[i])
+        {
+            ok = true;
+            return static_cast<LeadArtic> (i);
+        }
+    }
+    ok = false;
+    return LeadArtic::Normal;
+}
+
 static const char* kBassArticNames[] =
 {
     "normal", "palm_mute", "dead", "slide", "hammer", "slap", "pop"
@@ -409,7 +436,8 @@ bool BassProfile::load (const std::string& path, BassProfile& out, std::string& 
 }
 
 PhraseProfile::PhraseProfile()
-    : phraseKeys (kNumPhraseFeels)   // every feel unmapped: no note, no controller
+    : phraseKeys (kNumPhraseFeels),  // every feel unmapped: no note, no controller
+      leadArtics (kNumLeadArtics)
 {
     // The default is a plain pitched instrument, voicing chords in a middle
     // register. That is the safe fallback for an unknown target: pressing a
@@ -1164,6 +1192,12 @@ PhraseProfile::PhraseSwitch PhraseProfile::switchFor (PhraseFeel f) const
     return i < phraseKeys.size() ? phraseKeys[i] : PhraseSwitch();
 }
 
+PhraseProfile::PhraseSwitch PhraseProfile::switchFor (LeadArtic a) const
+{
+    const size_t i = static_cast<size_t> (a);
+    return i < leadArtics.size() ? leadArtics[i] : PhraseSwitch();
+}
+
 int PhraseProfile::keyFor (PhraseFeel f) const
 {
     const size_t i = static_cast<size_t> (f);
@@ -1314,6 +1348,41 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
         }
     }
 
+    // The per-note gestures, in the same two forms. Same parsing, deliberately:
+    // on this instrument a gesture and a section style are selected by the same
+    // mechanism, so describing them differently would be a distinction the
+    // hardware does not make.
+    const Json& artics = j["lead_articulations"];
+    if (artics.isObject())
+    {
+        for (const std::string& key : artics.keys())
+        {
+            bool ok = false;
+            const LeadArtic a = leadArticFromName (key, ok);
+            if (! ok)
+            {
+                error = path + ": unknown lead articulation \"" + key + "\"";
+                return false;
+            }
+
+            const Json& value = artics[key];
+            PhraseSwitch sw;
+
+            if (value.isObject())
+            {
+                sw.cc    = clampInt (value.intOr ("cc", -1), -1, 127);
+                sw.value = clampInt (value.intOr ("value", 0), 0, 127);
+                sw.note  = clampInt (value.intOr ("keyswitch", -1), -1, 127);
+            }
+            else if (! value.isNull())
+            {
+                sw.note = clampInt (value.asInt (-1), -1, 127);
+            }
+
+            out.leadArtics[static_cast<size_t> (a)] = sw;
+        }
+    }
+
     return true;
 }
 
@@ -1449,6 +1518,34 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
         track.addCC (std::max (from + 1, to - 1), channel, vibratoCC, 0);
     };
 
+    // Whatever the SECTION is on, so a per-note gesture can hand it back.
+    //
+    // A gesture costs three messages, not one: select it, play the note, put
+    // the section's articulation back. The instrument holds one articulation at
+    // a time and these latch, so a pinch harmonic left selected turns every
+    // note after it into a squeal.
+    PhraseSwitch sectionArtic;
+    for (const PhraseIntent& p : part.phrases)
+    {
+        const PhraseSwitch sw = switchFor (p.feel);
+        if (sw.mapped()) { sectionArtic = sw; break; }
+    }
+
+    const auto selectArtic = [this, &track] (const PhraseSwitch& sw, int at)
+    {
+        if (! sw.mapped())
+            return;
+
+        if (sw.byControl())
+        {
+            track.addCC (at, channel, sw.cc, sw.value);
+            return;
+        }
+
+        track.addNoteOn  (at, channel, sw.note, phraseVelocity);
+        track.addNoteOff (at + std::max (1, phraseBlipTicks), channel, sw.note);
+    };
+
     for (size_t i = 0; i < part.lead.size(); ++i)
     {
         const LeadIntent& n = part.lead[i];
@@ -1468,9 +1565,26 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
 
         const int reach = static_cast<int> (bendSemitones + 0.5);
 
+        // ---- the gesture on this one note ----
+        //
+        // Selected a little ahead of the note, on the same lead the section
+        // switches use, and handed back straight after it so the next note is
+        // played normally. An instrument with no such gesture is left alone -
+        // the generator is allowed to ask for a pinch harmonic from something
+        // that has none.
+        const PhraseSwitch gesture = switchFor (n.artic);
+        const bool doGesture = n.artic != LeadArtic::Normal && gesture.mapped();
+
+        if (doGesture)
+            selectArtic (gesture, std::max (0, n.tick - phraseLeadTicks));
+
         // Only worth bending a note long enough to hear it arrive, and only if
         // the note it would start from is still on the instrument.
-        const bool bendThisOne = canBend && n.target && reach > 0
+        //
+        // Never on a gestured note. A pinch harmonic is a squeal at a fixed
+        // pitch and a rake is a scrape across strings; bending into either is
+        // two ideas fighting for the same note, and neither survives.
+        const bool bendThisOne = canBend && n.target && reach > 0 && ! doGesture
                               && end - n.tick > bendTicks + 20
                               && pitch - reach >= chordLowest;
 
@@ -1562,6 +1676,16 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
 
             track.addNoteOff (off, channel, pitch);
         }
+
+        // Hand the section's articulation back. These latch, so a pinch
+        // harmonic left selected turns every note after it into a squeal - and
+        // the gesture is over the moment its note is.
+        //
+        // After the note-off rather than with it, or an instrument that reads
+        // the switch first would apply the wrong articulation to the note
+        // being released.
+        if (doGesture && sectionArtic.mapped())
+            selectArtic (sectionArtic, end + 1);
     }
 
     const int zoneSpan = chordHighest - chordLowest;

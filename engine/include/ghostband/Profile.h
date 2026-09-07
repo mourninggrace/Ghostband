@@ -535,6 +535,18 @@ public:
 
     PhraseSwitch switchFor (PhraseFeel f) const;
 
+    // The per-note gestures, declared the same way as the section feels above
+    // and selected by the same mechanism - because on this instrument they ARE
+    // the same mechanism. Shreddage has one active articulation at a time,
+    // whether it is "palm muted for this verse" or "pinch harmonic on this one
+    // note", so both live on one selector.
+    //
+    // That is what makes a per-note gesture cost three messages rather than
+    // one: select it, play the note, put the section's own articulation back.
+    // See restoreAfterArtic.
+    PhraseSwitch switchFor (LeadArtic a) const;
+    bool hasLeadArtic (LeadArtic a) const { return switchFor (a).mapped(); }
+
     // -1 when this instrument has no key for that feel, in which case the
     // generator's choice is quietly ignored rather than triggering the wrong one.
     // Notes only - a feel mapped to a controller reports -1 here, because there
@@ -555,6 +567,7 @@ public:
 
 private:
     std::vector<PhraseSwitch> phraseKeys;   // indexed by PhraseFeel
+    std::vector<PhraseSwitch> leadArtics;   // indexed by LeadArtic
 };
 
 } // namespace gb
