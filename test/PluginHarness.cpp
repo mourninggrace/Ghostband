@@ -2077,6 +2077,67 @@ int main (int argc, char** argv)
                 // Back to a clean copy for the tests below.
                 src.copyFileTo (tmp);
 
+                // ---- splicing a SCALAR must not eat the next object -------
+                // findNamedBlock used to locate a value by finding the next
+                // "{" after the key, which is right for every block that is an
+                // object and catastrophic for one that is not. Writing
+                // "highest_note": 67 sent the search past the number and into
+                // the next object in the file - and the splice replaced
+                // everything from the key to the end of THAT.
+                //
+                // It ate MODO's whole articulations block: thirty-nine lines of
+                // keyswitches, controllers and the reasoning for each, none of
+                // it regenerable. The file stayed valid JSON, so nothing looked
+                // wrong.
+                {
+                    const juce::File bass ("C:/Projects/Ghostband/profiles/modo-bass-2.json");
+                    const juce::File bassTmp = juce::File::getSpecialLocation (
+                        juce::File::tempDirectory).getChildFile ("gb-scalar-test.json");
+
+                    if (bass.existsAsFile() && bass.copyFileTo (bassTmp))
+                    {
+                        const juce::String before = bassTmp.loadFileAsString();
+                        const int wasLines = juce::StringArray::fromLines (before).size();
+
+                        std::string spliceErr;
+                        const bool ok = gb::spliceProfileBlock (
+                            bassTmp.getFullPathName().toStdString(), "highest_note",
+                            "\"highest_note\": 71", spliceErr);
+
+                        const juce::String after = bassTmp.loadFileAsString();
+                        const int nowLines = juce::StringArray::fromLines (after).size();
+
+                        check (ok, "a scalar splices into a profile",
+                               juce::String (spliceErr));
+
+                        check (after.contains ("\"highest_note\": 71"),
+                               "and the new value is there");
+
+                        // The block that used to get eaten.
+                        check (after.contains ("\"articulations\""),
+                               "and the articulations block is still present");
+                        check (after.contains ("\"palm_mute\"") && after.contains ("\"slide\""),
+                               "with its measured keyswitches intact");
+                        check (after.contains ("keyswitch_lead_ticks"),
+                               "and the settings between them too");
+
+                        check (nowLines >= wasLines - 1,
+                               "and nothing else was swallowed",
+                               juce::String (wasLines) + " lines -> " + juce::String (nowLines));
+
+                        // Still parseable as the profile it was.
+                        gb::BassProfile reread;
+                        std::string rereadErr;
+                        const bool loaded = gb::BassProfile::load (
+                            bassTmp.getFullPathName().toStdString(), reread, rereadErr);
+                        check (loaded && reread.highestNote == 71,
+                               "and it reads back as a bass with the new top",
+                               juce::String (rereadErr));
+
+                        bassTmp.deleteFile();
+                    }
+                }
+
                 // ---- a failed save leaves the profile intact --------------
                 // Saving used to open the file with trunc, destroying it before
                 // knowing the write would succeed. Simulated by aiming a save

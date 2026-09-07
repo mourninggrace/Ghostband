@@ -105,7 +105,7 @@
   // plays across 34 to 87 without a hole, and that was offered as evidence the
   // range was correct. It was evidence about what Ghostband WROTE, not about
   // what Shreddage SOUNDED, and those are not the same claim.
-  "chord_zone": { "lowest_note": 40, "highest_note": 88 },
+  "chord_zone": { "lowest_note": 28, "highest_note": 88 },
 
   // 119, not 127, and this one matters.
   //

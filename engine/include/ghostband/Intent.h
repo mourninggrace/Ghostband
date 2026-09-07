@@ -57,7 +57,17 @@ enum class PhraseFeel
     Driving,     // steady rhythmic push
     Open,        // full sustained chords, the chorus lift
     Busy,        // the most active option the instrument has
-    Solo         // a single-note line rather than chords
+    Solo,        // a single-note line rather than chords
+
+    // A single-note line that plays in the GAPS rather than throughout: short
+    // answering phrases at the end of each four-bar group, leaving the bars in
+    // between to whoever is holding the harmony.
+    //
+    // This is what a second guitarist does for most of a song. Soloing is the
+    // exception; answering the line, doubling a riff into a chorus and playing
+    // a pickup into the next section is the job. Added last so every existing
+    // PhraseFeel keeps its value and no profile's phrase map shifts.
+    Fills
 };
 
 const char* phraseFeelName     (PhraseFeel f);

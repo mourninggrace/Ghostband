@@ -46,7 +46,7 @@ DrumVoice drumVoiceFromName (const std::string& s, bool& ok)
 
 static const char* kPhraseFeelNames[] =
 {
-    "silent", "sparse", "muted", "driving", "open", "busy", "solo"
+    "silent", "sparse", "muted", "driving", "open", "busy", "solo", "fills"
 };
 
 static const size_t kNumPhraseFeels = sizeof (kPhraseFeelNames) / sizeof (kPhraseFeelNames[0]);
@@ -715,29 +715,81 @@ static bool findNamedBlock (const std::string& text, const std::string& key,
 
     if (at == std::string::npos) return false;
 
-    const size_t open = text.find ('{', at);
-    if (open == std::string::npos) return false;
+    // Where the VALUE starts, which is after the key's colon - not "the next
+    // brace somewhere in the file".
+    //
+    // This used to be text.find('{', at), on the assumption that every block
+    // worth splicing is an object. Every one was, until a scalar needed
+    // writing: "highest_note": 67 has no brace of its own, so the search ran
+    // on and found the NEXT object in the file - and the splice then replaced
+    // everything from the key to the end of that object.
+    //
+    // It ate MODO's entire articulations block. Thirty-nine lines: every
+    // keyswitch, every controller, and the reasoning for each, none of which
+    // can be regenerated from anything. The file was still valid JSON
+    // afterwards, which is the worst part - nothing looked wrong.
+    size_t i = at + key.size();
+    while (i < text.size() && std::isspace (static_cast<unsigned char> (text[i]))) ++i;
+    if (i >= text.size() || text[i] != ':') return false;
+    ++i;
+    while (i < text.size() && std::isspace (static_cast<unsigned char> (text[i]))) ++i;
+    if (i >= text.size()) return false;
 
-    // Walk to the matching close brace. A control's name is user-typed, so a
-    // brace inside a string still has to be ignored.
-    int depth = 0;
-    bool inString = false;
+    const size_t open = i;
     close = std::string::npos;
 
-    for (size_t i = open; i < text.size(); ++i)
+    if (text[open] == '{' || text[open] == '[')
     {
-        const char ch = text[i];
+        // Walk to the matching close. A control's name is user-typed, so a
+        // brace inside a string still has to be ignored.
+        const char opener = text[open];
+        const char closer = (opener == '{') ? '}' : ']';
 
-        if (inString)
+        int depth = 0;
+        bool inString = false;
+
+        for (size_t k = open; k < text.size(); ++k)
         {
-            if (ch == '\\') { ++i; continue; }
-            if (ch == '"') inString = false;
-            continue;
+            const char ch = text[k];
+
+            if (inString)
+            {
+                if (ch == '\\') { ++k; continue; }
+                if (ch == '"') inString = false;
+                continue;
+            }
+
+            if (ch == '"') { inString = true; continue; }
+            if (ch == opener) ++depth;
+            else if (ch == closer && --depth == 0) { close = k; break; }
+        }
+    }
+    else if (text[open] == '"')
+    {
+        for (size_t k = open + 1; k < text.size(); ++k)
+        {
+            if (text[k] == '\\') { ++k; continue; }
+            if (text[k] == '"') { close = k; break; }
+        }
+    }
+    else
+    {
+        // A number, or true/false/null. It ends where the object it sits in
+        // says it does: the next comma or closing brace at this level.
+        for (size_t k = open; k < text.size(); ++k)
+        {
+            const char ch = text[k];
+            if (ch == ',' || ch == '}' || ch == ']' || ch == '\n')
+            {
+                close = k - 1;
+                break;
+            }
         }
 
-        if (ch == '"') { inString = true; continue; }
-        if (ch == '{') ++depth;
-        else if (ch == '}' && --depth == 0) { close = i; break; }
+        // Trim trailing space so the replacement does not inherit it.
+        while (close != std::string::npos && close > open
+               && std::isspace (static_cast<unsigned char> (text[close])))
+            --close;
     }
 
     return close != std::string::npos;
