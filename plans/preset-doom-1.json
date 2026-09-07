@@ -1,0 +1,81 @@
+{
+  // WEIGHT OF WATER - doom at 62, drop C, four chords in five minutes.
+  // 
+  // The first doom preset, and the slowest song here by a wide margin. A
+  // riff at this tempo has to be worth waiting through, so there is only
+  // one and everything else is arrangement around it.
+  // 
+  // Fills are held back: at 62bpm a busy answering guitar fills the space
+  // the song is made of.
+
+  "name": "Weight Of Water",
+  "bpm": 62,
+  "key": "C", "mode": "natural_minor",
+  "style": "doom",
+  "bass_tuning": "drop_c",
+  "seed": 7306,
+  "complexity": 0.38, "humanize": 0.66, "fills": 0.45,
+  "ending": "fade",
+
+  "drum_profile": "profiles/ssd5-terry-date.json",
+  "bass_profile": "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
+
+  "sections": [
+    {
+      "name": "intro", "bars": 8, "intensity": 0.22,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "none",
+      "chords": ["Cm"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "riff", "bars": 8, "intensity": 0.66,
+      "feel": "half_time", "plays": "drums+bass+guitar+guitar2", "fill": "small",
+      "chords": ["Cm", "Cm", "Ab", "Bb"],
+      "bass": "lock_kick", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "verse1", "bars": 8, "intensity": 0.52,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["Cm", "Cm", "Ab", "Bb"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "chorus1", "bars": 8, "intensity": 0.80,
+      "feel": "half_time", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["Ab", "Bb", "Cm", "Cm"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "verse2", "bars": 8, "intensity": 0.56,
+      "feel": "half_time", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["Cm", "Cm", "Ab", "Bb"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "breakdown", "bars": 8, "intensity": 0.16,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "none",
+      "chords": ["Cm"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "solo", "bars": 12, "intensity": 0.74,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["Cm", "Ab", "Bb", "Cm"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "lead": "guitar2"
+    },
+    {
+      "name": "chorus2", "bars": 8, "intensity": 0.88,
+      "feel": "half_time", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["Ab", "Bb", "Cm", "Cm"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "ending", "bars": 8, "intensity": 0.44,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "none",
+      "chords": ["Cm"],
+      "bass": "roots", "guitar": "open", "guitar2": "silent", "lead": "guitar"
+    }
+  ]
+}

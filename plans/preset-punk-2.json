@@ -1,0 +1,74 @@
+{
+  // NOTHING TO DECLARE - 204bpm, major key, ninety seconds, no solo.
+  // 
+  // The other punk preset is restraint at 178. This one is what happens
+  // when you take the brakes off entirely: three chords, no bridge, and a
+  // chorus that arrives twice as often as it should.
+  // 
+  // Complexity is deliberately low. Punk played cleverly is not punk.
+
+  "name": "Nothing To Declare",
+  "bpm": 204,
+  "key": "C", "mode": "major",
+  "style": "punk",
+  "bass_tuning": "standard",
+  "seed": 7305,
+  "complexity": 0.30, "humanize": 0.40, "fills": 0.35,
+  "ending": "hard_stop",
+
+  "drum_profile": "profiles/ssd5-terry-date.json",
+  "bass_profile": "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
+
+  "sections": [
+    {
+      "name": "intro", "bars": 2, "intensity": 0.60,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "small",
+      "chords": ["C"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "verse1", "bars": 8, "intensity": 0.78,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["C", "C", "F", "G"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "chorus1", "bars": 4, "intensity": 0.94,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "small",
+      "chords": ["F", "G", "C", "C"],
+      "bass": "eighths", "guitar": "busy", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "verse2", "bars": 8, "intensity": 0.82,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["C", "C", "F", "G"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "chorus2", "bars": 4, "intensity": 0.96,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "small",
+      "chords": ["F", "G", "C", "C"],
+      "bass": "eighths", "guitar": "busy", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "verse3", "bars": 8, "intensity": 0.86,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["C", "C", "F", "G"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "chorus3", "bars": 8, "intensity": 1.00,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["F", "G", "C", "C"],
+      "bass": "eighths", "guitar": "busy", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "ending", "bars": 2, "intensity": 0.90,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "none",
+      "chords": ["C"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "lead": "guitar"
+    }
+  ]
+}

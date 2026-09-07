@@ -1,0 +1,80 @@
+{
+  // PAPER CROWN - hard rock in mixolydian, which is the mode that makes a
+  // riff sound like a swagger rather than a threat.
+  // 
+  // Written to sit on the piano as much as the guitar: the piano leads
+  // both verses and the guitar takes every chorus, so the handover happens
+  // four times and you hear the song change hands.
+
+  "name": "Paper Crown",
+  "bpm": 118,
+  "key": "A", "mode": "mixolydian",
+  "style": "hard_rock",
+  "bass_tuning": "standard",
+  "seed": 7303,
+  "complexity": 0.48, "humanize": 0.58, "fills": 0.65,
+  "ending": "cymbal_ring",
+
+  "drum_profile": "profiles/ssd5-terry-date.json",
+  "bass_profile": "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
+  "piano_profile": "profiles/virtual-pianist.json",
+
+  "sections": [
+    {
+      "name": "intro", "bars": 4, "intensity": 0.35,
+      "feel": "straight", "plays": "drums+bass+guitar+piano", "fill": "auto",
+      "chords": ["A"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "piano": "sparse", "lead": "piano"
+    },
+    {
+      "name": "verse1", "bars": 8, "intensity": 0.52,
+      "feel": "straight", "plays": "drums+bass+guitar+piano", "fill": "auto",
+      "chords": ["A", "A", "G", "D"],
+      "bass": "eighths", "guitar": "muted", "guitar2": "silent", "piano": "driving", "lead": "piano"
+    },
+    {
+      "name": "prechorus1", "bars": 4, "intensity": 0.72,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "auto",
+      "chords": ["D", "D", "G", "G"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "piano": "sparse", "lead": "guitar"
+    },
+    {
+      "name": "chorus1", "bars": 8, "intensity": 0.90,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "big",
+      "chords": ["A", "G", "D", "A"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "piano": "open", "lead": "guitar"
+    },
+    {
+      "name": "verse2", "bars": 8, "intensity": 0.56,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "auto",
+      "chords": ["A", "A", "G", "D"],
+      "bass": "eighths", "guitar": "muted", "guitar2": "fills", "piano": "driving", "lead": "piano"
+    },
+    {
+      "name": "chorus2", "bars": 8, "intensity": 0.92,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "big",
+      "chords": ["A", "G", "D", "A"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "piano": "open", "lead": "guitar"
+    },
+    {
+      "name": "solo", "bars": 12, "intensity": 0.88,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "auto",
+      "chords": ["A", "G", "D", "A"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "piano": "sparse", "lead": "guitar2"
+    },
+    {
+      "name": "chorus3", "bars": 8, "intensity": 0.98,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "big",
+      "chords": ["A", "G", "D", "A"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "piano": "open", "lead": "both"
+    },
+    {
+      "name": "ending", "bars": 4, "intensity": 0.70,
+      "feel": "straight", "plays": "drums+bass+guitar+piano", "fill": "none",
+      "chords": ["A"],
+      "bass": "roots", "guitar": "open", "guitar2": "silent", "piano": "open", "lead": "both"
+    }
+  ]
+}

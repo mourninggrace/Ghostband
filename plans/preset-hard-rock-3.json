@@ -1,0 +1,80 @@
+{
+  // HOLLOW BELL - hard rock slowed to 84, which is where a riff stops
+  // being fast and starts being heavy.
+  // 
+  // Dorian, so the sixth is major and the whole thing hangs between sad
+  // and hopeful instead of committing. Drop D for the weight. Fills are
+  // high because at this tempo there is room between the chords and a
+  // second guitar has somewhere to be.
+
+  "name": "Hollow Bell",
+  "bpm": 84,
+  "key": "D", "mode": "dorian",
+  "style": "hard_rock",
+  "bass_tuning": "drop_d",
+  "seed": 7304,
+  "complexity": 0.44, "humanize": 0.62, "fills": 0.75,
+  "ending": "fade",
+
+  "drum_profile": "profiles/ssd5-terry-date.json",
+  "bass_profile": "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
+
+  "sections": [
+    {
+      "name": "intro", "bars": 8, "intensity": 0.28,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "small",
+      "chords": ["Dm"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "verse1", "bars": 8, "intensity": 0.48,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["Dm", "Dm", "C", "G"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "chorus1", "bars": 8, "intensity": 0.84,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["G", "C", "Dm", "Dm"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "verse2", "bars": 8, "intensity": 0.54,
+      "feel": "half_time", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["Dm", "Dm", "C", "G"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "chorus2", "bars": 8, "intensity": 0.88,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["G", "C", "Dm", "Dm"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "bridge", "bars": 8, "intensity": 0.40,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "small",
+      "chords": ["Bb", "C", "Dm", "Dm"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "solo", "bars": 12, "intensity": 0.86,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["Dm", "C", "Bb", "C"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "lead": "guitar2"
+    },
+    {
+      "name": "chorus3", "bars": 8, "intensity": 0.94,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["G", "C", "Dm", "Dm"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "ending", "bars": 8, "intensity": 0.50,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "none",
+      "chords": ["Dm"],
+      "bass": "roots", "guitar": "open", "guitar2": "silent", "lead": "guitar"
+    }
+  ]
+}

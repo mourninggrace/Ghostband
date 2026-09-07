@@ -1,0 +1,75 @@
+{
+  // COLD OPEN - thrash at 196, and no introduction.
+  // 
+  // Written against Terminal Velocity rather than beside it: that song
+  // builds, this one is already going when you arrive and stops without
+  // warning. Two bars of riff, then the whole song, then nothing.
+  // 
+  // Humanize is low on purpose. At this tempo any looseness reads as a
+  // band that cannot keep up.
+
+  "name": "Cold Open",
+  "bpm": 196,
+  "key": "E", "mode": "phrygian",
+  "style": "thrash",
+  "bass_tuning": "drop_d",
+  "seed": 7301,
+  "complexity": 0.72, "humanize": 0.28, "fills": 0.55,
+  "ending": "hard_stop",
+
+  "drum_profile": "profiles/ssd5-terry-date.json",
+  "bass_profile": "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
+
+  "sections": [
+    {
+      "name": "riff", "bars": 4, "intensity": 0.88,
+      "feel": "double_time", "plays": "drums+bass+guitar+guitar2", "fill": "none",
+      "chords": ["Em"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "verse1", "bars": 8, "intensity": 0.80,
+      "feel": "double_time", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["Em", "Em", "F", "Em"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "chorus1", "bars": 8, "intensity": 0.97,
+      "feel": "double_time", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["C", "D", "Em", "Em"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "verse2", "bars": 8, "intensity": 0.84,
+      "feel": "double_time", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["Em", "Em", "F", "G"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "chorus2", "bars": 8, "intensity": 1.00,
+      "feel": "double_time", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["C", "D", "Em", "Em"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "solo", "bars": 16, "intensity": 0.95,
+      "feel": "double_time", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["Em", "Em", "C", "D"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "lead": "guitar2"
+    },
+    {
+      "name": "chorus3", "bars": 8, "intensity": 1.00,
+      "feel": "double_time", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["C", "D", "Em", "Em"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "outro", "bars": 2, "intensity": 0.95,
+      "feel": "double_time", "plays": "drums+bass+guitar", "fill": "none",
+      "chords": ["Em"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "silent", "lead": "guitar"
+    }
+  ]
+}

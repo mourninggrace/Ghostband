@@ -1,0 +1,83 @@
+{
+  // SOUTHERN TEETH - groove metal at 96, drop D, and the preset that
+  // leans hardest on the second guitar.
+  // 
+  // Fills are set high and the style weights pinch harmonics up, which is
+  // the point: in this idiom the squeal at the end of a phrase is not a
+  // flourish, it is how the phrase ends. Written after the owner said so
+  // about Dimebag Darrell, and he was right.
+  // 
+  // The groove is in the space. Half-time verses against straight
+  // choruses, so the song lurches rather than accelerates.
+
+  "name": "Southern Teeth",
+  "bpm": 96,
+  "key": "D", "mode": "natural_minor",
+  "style": "groove_metal",
+  "bass_tuning": "drop_d",
+  "seed": 7307,
+  "complexity": 0.58, "humanize": 0.52, "fills": 0.80,
+  "ending": "hard_stop",
+
+  "drum_profile": "profiles/ssd5-terry-date.json",
+  "bass_profile": "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
+
+  "sections": [
+    {
+      "name": "intro", "bars": 4, "intensity": 0.50,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "small",
+      "chords": ["Dm"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "riff", "bars": 8, "intensity": 0.84,
+      "feel": "half_time", "plays": "drums+bass+guitar+guitar2", "fill": "none",
+      "chords": ["Dm", "Dm", "F", "C"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "verse1", "bars": 8, "intensity": 0.70,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["Dm", "Dm", "Bb", "C"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "chorus1", "bars": 8, "intensity": 0.92,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["Bb", "C", "Dm", "Dm"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "verse2", "bars": 8, "intensity": 0.74,
+      "feel": "half_time", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["Dm", "Dm", "Bb", "C"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "chorus2", "bars": 8, "intensity": 0.95,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["Bb", "C", "Dm", "Dm"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "solo", "bars": 12, "intensity": 0.90,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["Dm", "F", "C", "Dm"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "lead": "guitar2"
+    },
+    {
+      "name": "chorus3", "bars": 8, "intensity": 1.00,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["Bb", "C", "Dm", "Dm"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "ending", "bars": 4, "intensity": 0.80,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "none",
+      "chords": ["Dm"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "silent", "lead": "guitar"
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  // THE LONG SILENCE - thrash that stops dead in the middle.
+  // 
+  // Slower than thrash usually sits, in B standard, and built around a
+  // breakdown that runs eight bars at almost nothing. The whole song is
+  // there to make that silence land.
+  // 
+  // Phrygian dominant rather than plain phrygian: the major third against
+  // a flat second is what makes it sound eastern rather than merely dark.
+
+  "name": "The Long Silence",
+  "bpm": 150,
+  "key": "B", "mode": "phrygian_dominant",
+  "style": "thrash",
+  "bass_tuning": "b_standard",
+  "seed": 7302,
+  "complexity": 0.66, "humanize": 0.34, "fills": 0.70,
+  "ending": "ritard",
+
+  "drum_profile": "profiles/ssd5-terry-date.json",
+  "bass_profile": "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
+
+  "sections": [
+    {
+      "name": "intro", "bars": 4, "intensity": 0.30,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "small",
+      "chords": ["Bm"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "riff", "bars": 8, "intensity": 0.82,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "none",
+      "chords": ["Bm", "Bm", "C", "Bm"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "verse1", "bars": 8, "intensity": 0.70,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["Bm", "Bm", "G", "A"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "chorus1", "bars": 8, "intensity": 0.94,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["G", "A", "Bm", "Bm"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "breakdown", "bars": 8, "intensity": 0.18,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "none",
+      "chords": ["Bm"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "verse2", "bars": 8, "intensity": 0.76,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["Bm", "Bm", "G", "A"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "solo", "bars": 12, "intensity": 0.90,
+      "feel": "double_time", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["Bm", "G", "A", "Bm"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "lead": "guitar2"
+    },
+    {
+      "name": "chorus2", "bars": 8, "intensity": 1.00,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["G", "A", "Bm", "Bm"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "ending", "bars": 4, "intensity": 0.60,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "none",
+      "chords": ["Bm"],
+      "bass": "roots", "guitar": "open", "guitar2": "silent", "lead": "guitar"
+    }
+  ]
+}
