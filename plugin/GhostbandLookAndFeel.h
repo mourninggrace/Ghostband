@@ -143,6 +143,17 @@ class GhostbandLookAndFeel : public juce::LookAndFeel_V4
 public:
     GhostbandLookAndFeel();
 
+    // Re-reads the palette into this LookAndFeel's own colour table.
+    //
+    // These were set once in the constructor and never again, so applyTheme
+    // moved the palette out from under them and they kept theme zero's values
+    // forever. The popup menu is where that showed: its BACKGROUND is painted
+    // live from colours::cardRaised and followed the theme, while its TEXT came
+    // from this table and did not - which on the light theme meant near-white
+    // text on a near-white menu, and the theme list became unreadable the
+    // moment you picked the light theme from it.
+    void applyPalette();
+
     void drawRotarySlider (juce::Graphics&, int x, int y, int width, int height,
                            float sliderPos, float startAngle, float endAngle,
                            juce::Slider&) override;

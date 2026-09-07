@@ -1707,6 +1707,14 @@ void GhostbandEditor::applyThemeChoice (int index)
 {
     processor.theme.store (index);
     ghost::applyTheme (index);
+
+    // The LookAndFeel holds its OWN copy of the palette, and it is not only the
+    // editor's children that read it: a ComboBox's popup is a separate window
+    // that takes its colours from here rather than from the box that opened it,
+    // so without this the theme list itself became unreadable the moment the
+    // light theme was chosen from it.
+    lookAndFeel.applyPalette();
+
     recolour();
 
     // sendLookAndFeelChange, not lookAndFeelChanged: the second tells this one
@@ -2707,11 +2715,14 @@ void GhostbandEditor::resized()
 
         r.removeFromTop (6);
         row = r.removeFromTop (24);
+        // Wide enough for the words. A toggle draws a pill and then its label
+        // in what is left, and at 74 "drums" came out as "dru..." - which is
+        // not a theme problem, it read that way in every one of them.
         edPlaysLabel.setBounds (row.removeFromLeft (50));
-        edDrums.setBounds  (row.removeFromLeft (74));
-        edBass.setBounds   (row.removeFromLeft (66));
-        edGuitar.setBounds (row.removeFromLeft (76));
-        edPiano.setBounds  (row.removeFromLeft (70));
+        edDrums.setBounds  (row.removeFromLeft (100));
+        edBass.setBounds   (row.removeFromLeft (86));
+        edGuitar.setBounds (row.removeFromLeft (96));
+        edPiano.setBounds  (row.removeFromLeft (90));
 
         r.removeFromTop (10);
         row = r.removeFromTop (26);

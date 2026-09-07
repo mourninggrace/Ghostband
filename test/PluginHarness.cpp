@@ -20,6 +20,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <map>
 #include <set>
@@ -42,6 +43,31 @@ public:
         return info;
     }
 };
+
+// Contrast ratio as the W3C defines it: (L1 + 0.05) / (L2 + 0.05) on relative
+// luminance. 4.5 is their threshold for body text, 3.0 for large.
+//
+// A free function rather than a lambda inside one test, because the second
+// caller - the drop-down menus, which are separate windows and take their
+// colours from the LookAndFeel - is nowhere near the first.
+double contrastRatio (juce::Colour a, juce::Colour b)
+{
+    const auto luminance = [] (juce::Colour c)
+    {
+        const auto channel = [] (double v)
+        {
+            v /= 255.0;
+            return v <= 0.03928 ? v / 12.92 : std::pow ((v + 0.055) / 1.055, 2.4);
+        };
+
+        return 0.2126 * channel (c.getRed())
+             + 0.7152 * channel (c.getGreen())
+             + 0.0722 * channel (c.getBlue());
+    };
+
+    const double la = luminance (a), lb = luminance (b);
+    return (juce::jmax (la, lb) + 0.05) / (juce::jmin (la, lb) + 0.05);
+}
 
 int failures = 0;
 
@@ -1076,7 +1102,19 @@ int main (int argc, char** argv)
         for (int i = 0; i < ghost::numThemes; ++i)
         {
             const ghost::Theme& t = ghost::kThemes[i];
-            const juce::Colour bg (t.background);
+
+            // Every surface text is actually drawn on, not just the page.
+            //
+            // This used to check `background` alone, and that is how the light
+            // theme shipped with an unreadable menu: a popup is painted on
+            // cardRaised, which nothing here looked at. Rows sit on cards, and
+            // menus on raised ones, so all three have to hold.
+            struct Ground { const char* where; juce::uint32 c; };
+            const Ground grounds[] = {
+                { "on the page",   t.background },
+                { "on a card",     t.card       },
+                { "on a menu",     t.cardRaised },
+            };
 
             struct Pair { const char* what; juce::uint32 c; double least; };
             const Pair pairs[] = {
@@ -1086,20 +1124,22 @@ int main (int argc, char** argv)
                 { "warn",   t.warn,   3.0 },   // a colour, so judged as large text
             };
 
-            for (const Pair& pr : pairs)
-            {
-                const double r = contrast (bg, juce::Colour (pr.c));
-                if (r < pr.least)
+            for (const Ground& gr : grounds)
+                for (const Pair& pr : pairs)
                 {
-                    ++tooFaint;
-                    if (r < worstRatio)
+                    const double r = contrast (juce::Colour (gr.c), juce::Colour (pr.c));
+                    if (r < pr.least)
                     {
-                        worstRatio = r;
-                        worst = juce::String (t.name) + " " + pr.what + " at "
-                              + juce::String (r, 2) + ", wants " + juce::String (pr.least, 1);
+                        ++tooFaint;
+                        if (r < worstRatio)
+                        {
+                            worstRatio = r;
+                            worst = juce::String (t.name) + " " + pr.what + " "
+                                  + gr.where + " at " + juce::String (r, 2)
+                                  + ", wants " + juce::String (pr.least, 1);
+                        }
                     }
                 }
-            }
         }
 
         check (tooFaint == 0, "every theme keeps its text readable on its own background",
@@ -2842,6 +2882,52 @@ int main (int argc, char** argv)
                        "and every label still contrasts with the background it sits on",
                        "closest " + juce::String (worst, 2));
 
+                // ---- the drop-down menus follow too ----
+                // A ComboBox's popup is its own window and takes its colours
+                // from the LookAndFeel, not from the box that opened it, so
+                // nothing above can see it. The LookAndFeel set its table once
+                // in its constructor and never again: the popup's background is
+                // painted live and went light with the theme while its text
+                // stayed near-white, which is how picking the light theme made
+                // the theme list itself unreadable.
+                juce::ComboBox* anyBox = nullptr;
+                for (int i = 0; i < ed->getNumChildComponents() && anyBox == nullptr; ++i)
+                    anyBox = dynamic_cast<juce::ComboBox*> (ed->getChildComponent (i));
+
+                check (anyBox != nullptr, "there is a combo box to check");
+
+                if (anyBox != nullptr)
+                {
+                    juce::LookAndFeel& lf = anyBox->getLookAndFeel();
+                    const juce::Colour menuText = lf.findColour (juce::PopupMenu::textColourId);
+
+                    // Against what is PAINTED, not against the table's own idea
+                    // of the background. drawPopupMenuBackground fills with
+                    // colours::cardRaised live, so the two can disagree - and
+                    // when they did, the menu went light while its text stayed
+                    // near-white. Comparing the table against itself passed
+                    // happily through exactly that bug, because both halves
+                    // were stale together.
+                    const juce::Colour menuBack = ghost::colours::cardRaised;
+
+                    check (contrastRatio (menuBack, menuText) >= 4.5,
+                           "a drop-down menu is readable after a theme change",
+                           "text on the menu it is actually painted on, at "
+                               + juce::String (contrastRatio (menuBack, menuText), 2));
+
+                    // And the menu really did go light with everything else,
+                    // rather than passing by having stayed dark.
+                    check (menuBack.getPerceivedBrightness() > 0.5f,
+                           "and the menu itself followed the theme",
+                           juce::String (menuBack.getPerceivedBrightness(), 2));
+
+                    check (lf.findColour (juce::Label::textColourId)
+                               .getPerceivedBrightness() < 0.5f,
+                           "and so did the look-and-feel's default text colour",
+                           juce::String (lf.findColour (juce::Label::textColourId)
+                                             .getPerceivedBrightness(), 2));
+                }
+
                 gbEd->setThemeForTesting (0);
             }
 
@@ -3269,6 +3355,46 @@ int main (int argc, char** argv)
         proc.levelGuitar.store (1.0f);
         proc.levelPiano.store  (1.0f);
         proc.channelGuitar.store (2);
+    }
+
+    // ---- editing a section leaves the second guitar alone --------------------
+    // The structure editor has toggles for drums, bass, guitar and piano and
+    // none for guitar 2 - the same shape of gap that has now bitten five other
+    // lists written before the second guitar existed. The dangerous version of
+    // that would be applySectionEdit writing all five from four toggles and
+    // silently clearing the fifth, which would delete the solo from a song by
+    // opening the editor and changing its name.
+    //
+    // It does not: playsGuitar2 is not touched at all. This is what says so, so
+    // that adding the missing toggle later cannot quietly introduce the bad
+    // version of it.
+    {
+        proc.loadPlan (juce::File (planPath));
+
+        int target = -1;
+        const auto sections = proc.getSections();
+        for (size_t i = 0; i < sections.size(); ++i)
+            if (sections[i].guitar2Feel != "silent") { target = static_cast<int> (i); break; }
+
+        check (target >= 0, "the reference song has a section with a second guitar",
+               target >= 0 ? sections[static_cast<size_t> (target)].name
+                           : juce::String ("none found"));
+
+        if (target >= 0)
+        {
+            const juce::String was = sections[static_cast<size_t> (target)].guitar2Feel;
+
+            // Exactly what the editor sends: every field it knows about, which
+            // is every field except this one.
+            GhostbandProcessor::SectionEdit e = proc.getSectionEdit (target);
+            e.bars = juce::jmax (1, e.bars);
+            proc.applySectionEdit (target, e);
+
+            const auto after = proc.getSections();
+            check (after[static_cast<size_t> (target)].guitar2Feel == was,
+                   "and a round trip through the editor does not silence it",
+                   was + " -> " + after[static_cast<size_t> (target)].guitar2Feel);
+        }
     }
 
     // ---- your songs are kept apart from the ones that ship -------------------
@@ -3701,10 +3827,14 @@ int main (int argc, char** argv)
                 {
                     gbEd->setThemeForTesting (ghost::numThemes - 1);
 
-                    for (int screen : { 0, 3 })
+                    // Every screen, not two. "The theme list went unreadable"
+                    // came with "there are probably other parts you cannot read
+                    // either", which was the right instinct: a palette that
+                    // half-applies breaks wherever it was not looked at.
+                    for (int screen = 0; screen < GhostbandEditor::numScreens; ++screen)
                     {
                         gbEd->showScreenForSnapshot (screen);
-                        ed->setSize (1000, screen == 3 ? 1320 : 900);
+                        ed->setSize (1000, screen == 3 ? 1320 : (screen == 1 ? 1280 : 900));
 
                         const juce::Image img =
                             ed->createComponentSnapshot (ed->getLocalBounds(), true);

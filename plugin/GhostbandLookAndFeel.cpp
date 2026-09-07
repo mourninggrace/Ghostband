@@ -72,6 +72,11 @@ void drawLamp (juce::Graphics& g, juce::Rectangle<float> r, bool lit, juce::Colo
 
 GhostbandLookAndFeel::GhostbandLookAndFeel()
 {
+    applyPalette();
+}
+
+void GhostbandLookAndFeel::applyPalette()
+{
     setColour (juce::PopupMenu::backgroundColourId,            colours::cardRaised);
     setColour (juce::PopupMenu::textColourId,                  colours::text);
     setColour (juce::PopupMenu::highlightedBackgroundColourId, colours::red.withAlpha (0.28f));
