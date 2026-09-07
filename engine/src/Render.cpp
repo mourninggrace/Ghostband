@@ -607,7 +607,7 @@ static void generateSolo (const SectionPlan& s,
             // not dig in on a two-note answer the way you do on a solo.
             n.accent        = std::min (1.0, st.accent + s.intensity * 0.12
                                                        + rng.bipolar (0.04)
-                                                       - (answering ? 0.14 : 0.0));
+                                                       - (answering ? 0.22 : 0.0));
             n.target        = st.target;
 
             out.lead.push_back (n);

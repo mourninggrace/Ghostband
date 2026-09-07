@@ -302,12 +302,27 @@
   // is why right-clicking it did nothing.
   "controls": {
     "volume": { "cc": 20, "follows": "level", "type": "knob", "low": 0, "high": 1 },
-    "bite": { "cc": 21, "follows": "lead", "type": "knob", "low": 0, "high": 1 },
-    "signal": { "cc": 22, "follows": "random once", "type": "switch", "positions": 3, "low": 0, "high": 1 },
+    // Already the one control that told a fill from a solo - 19 against 108 -
+    // and now it has company rather than doing the whole job alone.
+    "bite": { "cc": 21, "follows": "lead", "type": "knob", "low": 0.1, "high": 0.9 },
+    // THE PICKUP, and the biggest tonal difference available here.
+    //
+    // "select" rather than "switch": it has three positions - neck,
+    // neck+bridge, bridge - and a switch only has two, so its positions were
+    // being ignored and it sat on 0 for entire songs.
+    //
+    // Following "lead" puts the NECK pickup on an answering part and the BRIDGE
+    // on a solo, which is what a guitarist does without thinking about it:
+    // round and vocal behind somebody, bright and cutting out front.
+    "signal": { "cc": 22, "follows": "lead", "type": "select", "positions": 3, "low": 0, "high": 1 },
     "xtra attack": { "cc": 23, "follows": "random", "type": "knob", "low": 0, "high": 1 },
     "pitch bend range": { "cc": 24, "follows": "none", "type": "knob", "low": 0, "high": 1 },
     "unison bend": { "cc": 25, "follows": "random", "type": "knob", "low": 0, "high": 1 },
-    "tone": { "cc": 26, "follows": "random", "type": "knob", "low": 0, "high": 1 },
+    // "lead" rather than "random". Random meant the tone wandered from section
+    // to section with no relation to what the guitar was doing - which is
+    // variety, but not a voice. Tied to the role it becomes one: darker behind
+    // the rhythm guitar, brighter when out front.
+    "tone": { "cc": 26, "follows": "lead", "type": "knob", "low": 0.2, "high": 0.85 },
     "strumming mode": { "cc": 27, "follows": "none", "type": "switch", "low": 0, "high": 1 },
     "MIDI guitar mode": { "cc": 28, "follows": "none", "type": "switch", "low": 0, "high": 1 },
     "invert MIDI channels": { "cc": 29, "follows": "none", "type": "switch", "low": 0, "high": 1 },
