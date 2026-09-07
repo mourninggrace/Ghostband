@@ -60,6 +60,23 @@
   "sections": [
     {
       // Alone, quiet, and in no hurry - so that what follows lands.
+  // ---- WHERE THE SECOND GUITAR ANSWERS, and where it stays out ----
+  //
+  // guitar2 no longer only solos. It fills - short answering phrases at the end
+  // of each four-bar group - through the verses, the choruses and the ending.
+  //
+  // It is deliberately SILENT in two places, and those choices are the whole
+  // arrangement:
+  //
+  //   riff        the first statement of the main riff. Decorating a riff the
+  //               listener has not heard yet leaves them nothing to recognise
+  //               later. State it clean; answer it afterwards.
+  //   breakdown   a breakdown is made of space. Filling the gaps in a section
+  //               whose gaps ARE the section is the one place this feature can
+  //               do real damage.
+  //
+  // The intro is piano and has no guitar2 in its "plays" at all.
+
       "name": "intro", "bars": 4, "intensity": 0.20,
       "feel": "straight", "plays": "piano", "fill": "none",
       "chords": ["Dm"], "piano": "sparse", "lead": "piano"
@@ -72,27 +89,27 @@
     },
     {
       "name": "verse1", "bars": 8, "intensity": 0.62,
-      "feel": "double_time", "plays": "drums+bass+guitar", "fill": "auto",
+      "feel": "double_time", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
       "chords": ["Dm", "Dm", "Bb", "C"],
-      "bass": "lock_kick", "guitar2": "silent", "guitar": "muted", "lead": "guitar"
+      "bass": "lock_kick", "guitar2": "fills", "guitar": "muted", "lead": "guitar"
     },
     {
       "name": "chorus1", "bars": 8, "intensity": 0.95,
-      "feel": "straight", "plays": "drums+bass+guitar", "fill": "big",
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
       "chords": ["Bb", "C", "Dm", "Dm"],
-      "bass": "eighths", "guitar2": "silent", "guitar": "driving", "lead": "guitar"
+      "bass": "eighths", "guitar2": "fills", "guitar": "driving", "lead": "guitar"
     },
     {
       "name": "verse2", "bars": 8, "intensity": 0.68,
-      "feel": "double_time", "plays": "drums+bass+guitar", "fill": "auto",
+      "feel": "double_time", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
       "chords": ["Dm", "Dm", "Bb", "C"],
-      "bass": "lock_kick", "guitar2": "silent", "guitar": "muted", "lead": "guitar"
+      "bass": "lock_kick", "guitar2": "fills", "guitar": "muted", "lead": "guitar"
     },
     {
       "name": "chorus2", "bars": 8, "intensity": 0.98,
-      "feel": "straight", "plays": "drums+bass+guitar", "fill": "big",
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
       "chords": ["Bb", "C", "Dm", "Dm"],
-      "bass": "eighths", "guitar2": "silent", "guitar": "driving", "lead": "guitar"
+      "bass": "eighths", "guitar2": "fills", "guitar": "driving", "lead": "guitar"
     },
     {
       // Half the speed and twice the weight. The piano comes back here, low
@@ -116,15 +133,15 @@
     },
     {
       "name": "chorus3", "bars": 8, "intensity": 1.0,
-      "feel": "straight", "plays": "drums+bass+guitar", "fill": "big",
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
       "chords": ["Bb", "C", "Dm", "Dm"],
-      "bass": "eighths", "guitar2": "silent", "guitar": "driving", "lead": "guitar"
+      "bass": "eighths", "guitar2": "fills", "guitar": "driving", "lead": "guitar"
     },
     {
       "name": "ending", "bars": 4, "intensity": 0.9,
-      "feel": "double_time", "plays": "drums+bass+guitar", "fill": "none",
+      "feel": "double_time", "plays": "drums+bass+guitar+guitar2", "fill": "none",
       "chords": ["Dm", "Eb", "Dm", "Dm"],
-      "bass": "lock_kick", "guitar2": "silent", "guitar": "muted", "lead": "guitar"
+      "bass": "lock_kick", "guitar2": "fills", "guitar": "muted", "lead": "guitar"
     }
   ]
 }
