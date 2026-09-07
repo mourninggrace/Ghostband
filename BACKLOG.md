@@ -4,6 +4,10 @@ Written 2026-09-06 at the end of session 12, checked against the code rather
 than copied out of NEXT.md — several things that file still listed as open are
 in fact done, and are noted at the bottom so nobody rediscovers them.
 
+> **Anything that needs YOU is in [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md).**
+> This file is the engineering backlog; that one is the short list of questions,
+> ear checks and decisions that cannot be settled from the code.
+
 ## Releases
 
 **v0.1.0 published 2026-09-07** — the first one. Until then there was nothing to
