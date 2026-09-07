@@ -147,32 +147,34 @@
   //
   // "silent" is deliberately unmapped: there is no articulation for not
   // playing, and leaving the last one selected through a rest is correct.
-  // ---- AN UNEXPLAINED WARNING, recorded 2026-09-07 ----
+  // ---- WHAT THE WARNING TRIANGLES MEAN, worked out 2026-09-07 ----
   //
-  // After the move to controllers, Shreddage shows a warning triangle on five
-  // articulations - and on exactly the five that carry a velocity Rule 2:
+  // Shreddage flags an articulation whose trigger condition COLLIDES with
+  // another's. It has no tooltip, so this was read off the pattern instead.
   //
-  //     Sustain 1-119    Harmonics 1-127    Pinch Harmonics 127
-  //     Tremolo 1-127    Rake 120-126
+  // The evidence, and it is clean. After six articulations were moved to the
+  // bands below, twelve of thirteen carried a triangle and one did not:
   //
-  // The eight with no velocity rule are clean. Five of five, eight of eight, so
-  // it is not coincidence. There is no tooltip on the icon, so the meaning is
-  // unknown.
+  //   Sustain    0 -  20   overlaps nothing            NO WARNING
+  //   Rake      21 -  41   overlapped Mute 25-49       warned
+  //   Pinch     42 -  62   overlapped Mute, Staccato   warned
+  //   Harmonics 63 -  83   overlapped Staccato, PCS    warned
+  //   Tapping   84 - 104   overlapped PCS, Tremolo     warned
+  //   Choke    105 - 127   overlapped Tremolo          warned
   //
-  // The likeliest reading: Sustain, Rake and Pinch Harmonics all shared
-  // keyswitch C-1, carved up by velocity into 1-119, 120-126 and 127. Moving
-  // Sustain to a controller took its slice away, so C-1 now has a hole - press
-  // it below 120 and no articulation matches. That would explain a complaint
-  // about an incomplete velocity map. It does not obviously explain Harmonics.
+  // The four in the way were Mute, Staccato, Power Chord Sustain and Tremolo,
+  // left on an earlier five-band layout that ran straight across the new six.
+  // Sustain was the one band nothing reached into, and the one control case.
   //
-  // NOTHING GHOSTBAND USES IS AFFECTED, which is why this is a note rather than
-  // a fault. Ghostband sends CC 40 and notes 40-88 at velocity 119 or less. It
-  // never sends C-1, A-1 or F#-1, so Rake, Pinch Harmonics and Harmonics are
-  // unreachable anyway; Sustain and Tremolo need their controller band AND a
-  // velocity their rules already cover.
+  // Twelve of thirteen with an overlap and a warning, one without either. That
+  // is not a coincidence, and it also explains the earlier pattern that looked
+  // like it was about velocity rules: Sustain, Rake and Pinch shared keyswitch
+  // C-1 then, and moving Sustain off it left a hole in that key's velocity map.
+  // Same complaint, about the other kind of trigger.
   //
-  // Written down because a warning nobody understands is exactly what gets
-  // blamed later for something unrelated.
+  // THE FIX is to leave a control's trigger uncontested. The four unused
+  // articulations went back to their own keyswitches, which is where the
+  // instrument had them and where nothing else is looking.
 
   // ---- ONE CONTROLLER, FIVE VALUE BANDS ----
   //
@@ -207,12 +209,12 @@
   // rather than an instruction - the cc is what gets sent - and those numbers
   // were read off the Articulations page once, which is work worth not redoing.
   "phrases": {
-    "open":    { "cc": 40, "value":  10, "keyswitch": 12 },
-    "sparse":  { "cc": 40, "value":  62, "keyswitch": 14 },
-    "muted":   { "cc": 40, "value":  37, "keyswitch": 13 },
-    "driving": { "cc": 40, "value":  87, "keyswitch": 15 },
-    "busy":    { "cc": 40, "value": 114, "keyswitch": 18 },
-    "solo":    { "cc": 40, "value":  10, "keyswitch": 12 },
+    "open":    { "cc": 40, "value": 10, "keyswitch": 12 },
+    "sparse":  14,
+    "muted":   13,
+    "driving": 15,
+    "busy":    18,
+    "solo":    { "cc": 40, "value": 10, "keyswitch": 12 },
 
     // Fills get Sustain too, and this one was missing until the wire was
     // measured: an unmapped feel selects NOTHING, so an answering phrase came
@@ -221,7 +223,7 @@
     //
     // Sustain for the same reason the solo has it - an answer wants to ring,
     // and legato needs a sustained note to hammer from.
-    "fills":   { "cc": 40, "value":  10, "keyswitch": 12 }
+    "fills":   { "cc": 40, "value": 10, "keyswitch": 12 }
   },
 
   // ---- PER-NOTE GESTURES ----
@@ -263,6 +265,11 @@
   // note 12 with Sustain and are told apart from it by the velocity the KEY is
   // pressed at - and Sustain no longer uses note 12 at all.
   "lead_articulations": {
+    "rake":     { "cc": 40, "value":  31, "keyswitch": 12 },
+    "pinch":    { "cc": 40, "value":  52, "keyswitch": 12 },
+    "harmonic": { "cc": 40, "value":  73, "keyswitch": 21 },
+    "tap":      { "cc": 40, "value":  94, "keyswitch": 20 },
+    "choke":    { "cc": 40, "value": 116, "keyswitch": 19 }
   },
 
   "keyswitches_verified": true,
@@ -479,3 +486,4 @@
     "anti-repetition": { "cc": 30, "follows": "none", "type": "switch", "low": 0, "high": 1 }
   }
 }
+

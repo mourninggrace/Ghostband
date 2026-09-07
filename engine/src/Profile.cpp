@@ -1531,10 +1531,24 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
         if (sw.mapped()) { sectionArtic = sw; break; }
     }
 
-    const auto selectArtic = [this, &track] (const PhraseSwitch& sw, int at)
+    // What the instrument was last told, so it is never told the same thing
+    // twice. Two gestures of the same kind in a row selected the same
+    // articulation twice - harmless in itself, and still worth not sending: a
+    // repeated controller is noise, and noise on this wire is what a knob
+    // sitting in MIDI Learn latches onto instead of the sweep meant for it.
+    PhraseSwitch lastSelected;
+    lastSelected.cc = -2;   // not -1, which an unmapped switch legitimately uses
+
+    const auto selectArtic = [this, &track, &lastSelected] (const PhraseSwitch& sw, int at)
     {
         if (! sw.mapped())
             return;
+
+        if (sw.cc == lastSelected.cc && sw.value == lastSelected.value
+            && sw.note == lastSelected.note)
+            return;
+
+        lastSelected = sw;
 
         if (sw.byControl())
         {
@@ -1684,8 +1698,35 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
         // After the note-off rather than with it, or an instrument that reads
         // the switch first would apply the wrong articulation to the note
         // being released.
+        //
+        // BUT NOT WHEN ANOTHER GESTURE IS ALREADY COMING. A gesture is selected
+        // a lead ahead of its note, and that lead reaches back past the end of
+        // the note before it - so on two gestures close together the wire came
+        // out as select, select, restore, restore, and the FIRST restore landed
+        // after the second select and cancelled it. Measured on thrash bar 28
+        // as 94, 94, 10, 10: two taps, and the second one silently undone.
+        //
+        // The next gesture's own select is the restore, so sending one here as
+        // well is not just redundant, it is wrong.
         if (doGesture && sectionArtic.mapped())
-            selectArtic (sectionArtic, end + 1);
+        {
+            const bool nextIsGestured =
+                haveNext && part.lead[i + 1].artic != LeadArtic::Normal
+                         && switchFor (part.lead[i + 1].artic).mapped();
+
+            if (! nextIsGestured)
+            {
+                // And never later than the next note needs it. Restoring at
+                // end + 1 is right when the next note is a way off and too late
+                // when it is not.
+                int at = end + 1;
+                if (haveNext)
+                    at = std::min (at, std::max (end,
+                             part.lead[i + 1].tick - phraseLeadTicks - 1));
+
+                selectArtic (sectionArtic, at);
+            }
+        }
     }
 
     const int zoneSpan = chordHighest - chordLowest;

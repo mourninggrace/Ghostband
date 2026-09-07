@@ -648,56 +648,115 @@ static void generateSolo (const SectionPlan& s,
     {
         Rng ag (deriveSeed (articSeed, 0x6A211u));
 
-        // A gesture is emphasis, and emphasis stops meaning anything when it is
-        // everywhere. Roughly one phrase in three gets one at full intensity,
-        // and a quiet section gets almost none - a ballad verse does not want
-        // pinch harmonics in it.
-        const double appetite = 0.10 + s.intensity * 0.30;
+        // ROLE FIRST, THEN THE DICE. The first version had it the other way
+        // round - pick a note at random, then ask what gesture might suit it -
+        // and measuring showed what that produces: rake and tap in every song,
+        // pinch in three of eleven, harmonic and choke never. A note only
+        // became a pinch if the dice happened to land on one of the handful
+        // that could be one.
+        //
+        // Which is backwards for a thing whose job is deciding. Find the notes
+        // that have earned a gesture, then decide how often to take them.
+        const double heat = 0.35 + s.intensity * 0.65;
 
-        int lastGesture = -999;   // index of the last note that got one
+        int lastGesture = -999;
 
         for (size_t i = 0; i < out.lead.size(); ++i)
         {
             LeadIntent& n = out.lead[i];
 
-            // Never two close together. Two squeals a beat apart is a fault,
-            // not a flourish.
-            if (static_cast<int> (i) - lastGesture < 6)
+            // Never two close together. Two squeals a beat apart is a fault
+            // rather than a flourish.
+            if (static_cast<int> (i) - lastGesture < 4)
                 continue;
 
-            if (! ag.chance (appetite))
-                continue;
+            const int gapBefore = (i == 0) ? 9999
+                                : n.tick - out.lead[i - 1].tick;
+            const int gapAfter  = (i + 1 < out.lead.size())
+                                ? out.lead[i + 1].tick - n.tick : 9999;
 
-            const bool first = (i == 0) || (n.tick - out.lead[i - 1].tick > barTicks / 2);
-            const bool last  = (i + 1 == out.lead.size())
-                            || (out.lead[i + 1].tick - n.tick > barTicks / 2);
-            const bool held  = n.durationTicks > barTicks / 4;
+            const bool opensPhrase = gapBefore >= barTicks / 4;
+            const bool endsPhrase  = gapAfter  >= barTicks / 4
+                                  && n.durationTicks >= barTicks / 6;
+            const bool inARun      = gapBefore <= slotTicks && gapAfter <= slotTicks;
+            const bool high        = n.pitch > voice.highest
+                                              - (voice.highest - voice.lowest) / 3;
 
-            // WHERE EACH ONE BELONGS, which is the whole point of doing this
-            // rather than sprinkling them evenly.
-            if (n.target && ! first)
+            LeadArtic want = LeadArtic::Normal;
+            double     rate = 0.0;
+
+            if (n.target && ! opensPhrase)
             {
-                // The note the phrase leans on, already the hardest hit in the
-                // line. That is where a pinch harmonic goes and always has.
-                n.artic = LeadArtic::Pinch;
+                // The note the phrase LANDS on, and all three ending gestures
+                // want it - which is correct rather than a collision. A player
+                // finishes a phrase by squealing the note, ringing a harmonic
+                // off it, or cutting it dead; they are alternatives, not
+                // different places.
+                //
+                // Measuring showed why this had to become a choice: pinch was
+                // tested first and simply took every landing note, so harmonic
+                // and choke never fired once across eleven songs.
+                //
+                // High on the neck leans toward the harmonic, because that is
+                // where they ring; lower down it leans toward the squeal.
+                // Weighted toward the squeal in the heavy styles, and not
+                // subtly. Dimebag Darrell built a voice out of these - in
+                // groove metal a pinch harmonic is not a garnish on a phrase,
+                // it IS the phrase's ending, and a solo that never squeals in
+                // that idiom sounds like somebody being careful.
+                const bool heavy = styleUsesPowerChords (style);
+
+                const int pinchW    = high ? (heavy ? 55 : 35) : (heavy ? 75 : 55);
+                const int harmonicW = high ? 45 : 12;
+                const int chokeW    = heavy ? 18 : 30;
+
+                int pick = ag.below (pinchW + harmonicW + chokeW);
+                want = (pick -= pinchW)    < 0 ? LeadArtic::Pinch
+                     : (pick -= harmonicW) < 0 ? LeadArtic::Harmonic
+                                               : LeadArtic::Choke;
+
+                // The highest rate here, because this is the one that makes a
+                // phrase sound finished. Measured at 0.55 it produced five
+                // pinches across eleven songs against forty rakes - the
+                // signature gesture as the rarest, which is backwards.
+                rate = 0.80;
             }
-            else if (first)
+            else if (opensPhrase)
             {
-                // A rake is a scrape INTO something, so it opens a phrase or it
-                // is nothing.
-                n.artic = LeadArtic::Rake;
+                // A scrape INTO something, so it opens a phrase or it is
+                // nothing at all.
+                want = LeadArtic::Rake;
+
+                // Cut hard. A rake opens a phrase and there are far more phrase
+                // openings than landings, so an even rate made this the gesture
+                // that swamped the others.
+                rate = 0.20;
             }
-            else if (last && held)
+            else if (endsPhrase)
             {
-                // A ringing note cut dead, which is an ending. On a short note
-                // there is nothing to choke.
-                n.artic = LeadArtic::Choke;
+                // A note left ringing that the phrase was NOT aiming at - a
+                // pedal held past its welcome, say. High on the neck it rings
+                // as a harmonic; lower down there is nothing to do but cut it.
+                want = high ? LeadArtic::Harmonic : LeadArtic::Choke;
+                rate = 0.35;
+            }
+            else if (inARun)
+            {
+                // Tapping is for speed, so only inside a run. The lowest rate:
+                // there are far more candidates here than anywhere else, and an
+                // even rate would make this the only gesture anyone hears.
+                want = LeadArtic::Tap;
+                rate = 0.09;
             }
             else
             {
                 continue;   // nothing about this note asks for a gesture
             }
 
+            if (! ag.chance (rate * heat))
+                continue;
+
+            n.artic = want;
             lastGesture = static_cast<int> (i);
         }
     }
