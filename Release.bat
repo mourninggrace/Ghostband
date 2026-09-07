@@ -94,4 +94,7 @@ echo Packaged %ZIP%
 powershell -NoProfile -Command "$f=Get-Item '%ZIP%'; '{0:N1} MB' -f ($f.Length/1MB); (Get-FileHash '%ZIP%' -Algorithm SHA256).Hash"
 echo.
 echo Contents:
-powershell -NoProfile -Command "Add-Type -A System.IO.Compression.FileSystem; $z=[IO.Compression.ZipFile]::OpenRead((Resolve-Path '%ZIP%')); '  {0} files, {1} profiles, {2} songs' -f $z.Entries.Count, ($z.Entries ^| ? {$_.FullName -like '*Resources/profiles/*'}).Count, ($z.Entries ^| ? {$_.FullName -like '*Resources/plans/*'}).Count; $z.Dispose()"
+rem No pipes in here. Inside a quoted powershell -Command a bare "|" is fine to
+rem cmd, but escaping it as "^|" - the reflex from an unquoted context - passes
+rem the caret through to PowerShell, which cannot parse it.
+powershell -NoProfile -Command "$n=(Get-ChildItem '%BUNDLE%' -Recurse -File); $p=@($n.Where({$_.FullName -like '*\Resources\profiles\*'})); $s=@($n.Where({$_.FullName -like '*\Resources\plans\*'})); '  {0} files, {1} profiles, {2} songs' -f $n.Count, $p.Count, $s.Count"
