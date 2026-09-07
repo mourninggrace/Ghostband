@@ -33,6 +33,13 @@
   "needs_verification": true,
   "verification_note": "Requires IRON 2 set to Instrument mode, not Player mode.",
 
+  // TOP OF THE RANGE CALIBRATED BY EAR, 2026-09-07: 84 -> 89.
+  //
+  // Walked on the Calibrate screen by the person who owns the rig, which is
+  // the only way this number can be found - the probe cannot reach a plugin
+  // that will not sound in a headless host. It arrived in a commit whose
+  // message described a different profile entirely, so it is written down
+  // here where it belongs.
   "chord_zone": { "lowest_note": 60, "highest_note": 89 },
 
   // Notes of a chord are struck a few milliseconds apart, alternating direction.
