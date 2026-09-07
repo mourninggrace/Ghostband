@@ -60,7 +60,7 @@
       "chords": ["C", "G", "D", "Em"],
       "bass": "eighths",
       "fill": "auto",
-      "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "guitar"
+      "guitar": "driving", "guitar2": "fills", "piano": "open", "lead": "guitar"
     },
     {
       // Same chords as verse 1, different instrument out front. This is the
@@ -72,7 +72,7 @@
       "chords": ["Em", "Em", "C", "D"],
       "bass": "auto",
       "fill": "auto",
-      "guitar": "muted", "guitar2": "silent", "piano": "driving", "lead": "piano"
+      "guitar": "muted", "guitar2": "fills", "piano": "driving", "lead": "piano"
     },
     {
       "name": "chorus2",
@@ -82,7 +82,7 @@
       "chords": ["C", "G", "D", "Em"],
       "bass": "eighths",
       "fill": "auto",
-      "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "guitar"
+      "guitar": "driving", "guitar2": "fills", "piano": "open", "lead": "guitar"
     },
     {
       "name": "bridge",

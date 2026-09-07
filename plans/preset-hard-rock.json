@@ -51,32 +51,32 @@
       "name": "prechorus1", "bars": 4, "intensity": 0.62,
       "feel": "straight", "plays": "full", "fill": "small",
       "chords": ["D", "D", "G", "G"],
-      "bass": "eighths", "guitar": "muted", "guitar2": "silent", "piano": "driving", "lead": "piano"
+      "bass": "eighths", "guitar": "muted", "guitar2": "fills", "piano": "driving", "lead": "piano"
     },
     {
       // And the guitar takes it.
       "name": "chorus1", "bars": 8, "intensity": 0.86,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["D", "A", "G", "D"],
-      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "guitar"
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "piano": "open", "lead": "guitar"
     },
     {
       "name": "verse2", "bars": 8, "intensity": 0.50,
       "feel": "straight", "plays": "full", "fill": "auto",
       "chords": ["A", "A", "G", "D"],
-      "bass": "roots", "guitar": "muted", "guitar2": "silent", "piano": "driving", "lead": "piano"
+      "bass": "roots", "guitar": "muted", "guitar2": "fills", "piano": "driving", "lead": "piano"
     },
     {
       "name": "prechorus2", "bars": 4, "intensity": 0.68,
       "feel": "straight", "plays": "full", "fill": "small",
       "chords": ["D", "D", "G", "G"],
-      "bass": "eighths", "guitar": "muted", "guitar2": "silent", "piano": "driving", "lead": "piano"
+      "bass": "eighths", "guitar": "muted", "guitar2": "fills", "piano": "driving", "lead": "piano"
     },
     {
       "name": "chorus2", "bars": 8, "intensity": 0.90,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["D", "A", "G", "D"],
-      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "guitar"
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "piano": "open", "lead": "guitar"
     },
     {
       // Everything drops but the rhythm section, which is the oldest trick
@@ -96,7 +96,7 @@
       "name": "chorus3", "bars": 8, "intensity": 0.95,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["D", "A", "G", "D"],
-      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "both"
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "piano": "open", "lead": "both"
     },
     {
       "name": "ending", "bars": 4, "intensity": 0.72,

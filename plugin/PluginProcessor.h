@@ -367,6 +367,11 @@ public:
     void refreshLevels();
     bool levelIsTaught (int part) const;
 
+    // How often the answering guitar takes an opening it is offered. Zero
+    // silences fills across the whole song without editing a section, which is
+    // the point: "turn it off" should be one control rather than nine edits.
+    std::atomic<double> fills { 0.62 };
+
     std::atomic<double> complexity { 0.5 };
     std::atomic<double> humanize   { 0.5 };
     std::atomic<int>    seed       { 1 };

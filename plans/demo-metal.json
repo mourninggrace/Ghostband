@@ -66,7 +66,7 @@
       "chords": ["Bb", "F", "C", "Dm"],
       "bass": "lock_kick",
       "fill": "auto",
-      "guitar": "driving", "guitar2": "silent", "piano": "silent", "lead": "guitar"
+      "guitar": "driving", "guitar2": "fills", "piano": "silent", "lead": "guitar"
     },
     {
       // vary:false makes this bit-identical to verse1. Set it true and the
@@ -79,7 +79,7 @@
       "bass": "lock_kick",
       "vary": true,
       "fill": "auto",
-      "guitar": "muted", "guitar2": "silent", "piano": "silent", "lead": "guitar"
+      "guitar": "muted", "guitar2": "fills", "piano": "silent", "lead": "guitar"
     },
     {
       "name": "chorus2",
@@ -89,7 +89,7 @@
       "chords": ["Bb", "F", "C", "Dm"],
       "bass": "lock_kick",
       "fill": "auto",
-      "guitar": "driving", "guitar2": "silent", "piano": "silent", "lead": "guitar"
+      "guitar": "driving", "guitar2": "fills", "piano": "silent", "lead": "guitar"
     },
     {
       // The one place the piano belongs. Half time, the guitar drops to open

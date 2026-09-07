@@ -547,7 +547,9 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 
     // The two feel dials become machined knobs; the editor's intensity field
     // stays a slider, because it sits in a form row of text fields.
-    for (juce::Slider* s : std::initializer_list<juce::Slider*> { &complexitySlider, &humanizeSlider })
+    for (juce::Slider* s : std::initializer_list<juce::Slider*> { &complexitySlider,
+                                                                  &humanizeSlider,
+                                                                  &fillsSlider })
     {
         s->setSliderStyle (juce::Slider::RotaryVerticalDrag);
         s->setRotaryParameters (juce::MathConstants<float>::pi * 1.2f,
@@ -568,6 +570,11 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     humanizeSlider.onValueChange = [this]
     {
         processor.humanize.store (humanizeSlider.getValue());
+        markDialsDirty();
+    };
+    fillsSlider.onValueChange = [this]
+    {
+        processor.fills.store (fillsSlider.getValue());
         markDialsDirty();
     };
 
@@ -630,6 +637,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     initLabel (tempoLabel,      "",           15.0f, ghost::dim,   juce::Justification::centredRight);
     initLabel (complexityLabel, "COMPLEXITY", 15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (humanizeLabel,   "HUMANIZE",   15.0f, ghost::dim,   juce::Justification::centredLeft);
+    initLabel (fillsLabel,      "FILLS",      15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (seedLabel,       "SEED",       15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (planLabel,       "",           17.0f, ghost::text,  juce::Justification::centredLeft);
     initLabel (headlineLabel,   "",           15.5f, ghost::accent, juce::Justification::centredLeft);
@@ -1389,7 +1397,8 @@ void GhostbandEditor::updateModeVisibility()
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &loadButton, &reloadButton, &rollButton, &calibrateButton, &editButton,
-             &complexitySlider, &humanizeSlider, &complexityLabel,
+             &complexitySlider, &humanizeSlider, &fillsSlider,
+             &fillsLabel, &complexityLabel,
              &humanizeLabel, &seedEditor, &seedLabel, &keyBox, &styleBox,
              &tuningBox, &keyLabel, &styleLabel, &tuningLabel,
              &modeBox, &modeLabel,
@@ -1876,6 +1885,7 @@ void GhostbandEditor::refreshFromProcessor()
 
     complexitySlider.setValue (processor.complexity.load(), juce::dontSendNotification);
     humanizeSlider.setValue (processor.humanize.load(), juce::dontSendNotification);
+    fillsSlider.setValue (processor.fills.load(), juce::dontSendNotification);
     seedEditor.setText (juce::String (processor.seed.load()), juce::dontSendNotification);
 
     // Not while it has focus, or the refresh overwrites what is being typed.
@@ -2399,6 +2409,11 @@ void GhostbandEditor::resized()
     auto k2 = knobRow.removeFromLeft (80);
     humanizeLabel.setBounds (k2.removeFromTop (12));
     humanizeSlider.setBounds (k2);
+
+    knobRow.removeFromLeft (8);
+    auto k3 = knobRow.removeFromLeft (80);
+    fillsLabel.setBounds (k3.removeFromTop (12));
+    fillsSlider.setBounds (k3);
 
     // Seed and Roll sit beside the knobs rather than under them, so the section
     // list keeps as much of the window as possible.

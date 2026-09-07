@@ -81,6 +81,18 @@ struct SongPlan
 
     double   complexity = 0.5;              // fills, ghost notes, busyness
     double   humanize   = 0.5;              // timing and velocity looseness
+
+    // How often the answering guitar takes an opening it is offered.
+    //
+    // A fill can only land at the end of a four-bar group; this decides how
+    // many of those it actually plays. 0 silences fills entirely without
+    // having to edit every section, which is the point - "turn it off" should
+    // be one control, not nine edits.
+    //
+    // 0.62 is what the feature was tuned and listened to at. It is a plan
+    // field rather than a constant so a song can be busier or barer than that
+    // without changing the engine.
+    double   fills      = 0.62;
     unsigned seed       = 1;
     std::string ending  = "hard_stop";      // hard_stop/ritard/cymbal_ring/fade
 

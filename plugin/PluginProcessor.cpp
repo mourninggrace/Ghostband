@@ -87,6 +87,7 @@ void GhostbandProcessor::loadBuiltInPlan()
         planFile = juce::File();
         complexity.store (plan.complexity);
         humanize.store   (plan.humanize);
+        fills.store      (plan.fills);
         seed.store       (static_cast<int> (plan.seed));
 
         // This was missing, and it is why the built-in song had no guitar or
@@ -344,6 +345,7 @@ void GhostbandProcessor::loadPlan (const juce::File& file)
         // loaded rather than whatever the sliders happened to be showing.
         complexity.store (plan.complexity);
         humanize.store   (plan.humanize);
+        fills.store      (plan.fills);
         seed.store       (static_cast<int> (plan.seed));
 
         juce::String profileError;
@@ -1889,6 +1891,7 @@ void GhostbandProcessor::regenerate()
 
     working.complexity = complexity.load();
     working.humanize   = humanize.load();
+    working.fills      = fills.load();
     working.seed       = static_cast<unsigned> (std::max (1, seed.load()));
 
     // Generation is pure arithmetic and completes in well under a millisecond
@@ -2402,6 +2405,7 @@ void GhostbandProcessor::getStateInformation (juce::MemoryBlock& destData)
     xml.setAttribute ("plan",       getPlanFile().getFullPathName());
     xml.setAttribute ("complexity", complexity.load());
     xml.setAttribute ("humanize",   humanize.load());
+    xml.setAttribute ("fills",      fills.load());
     xml.setAttribute ("seed",       seed.load());
     xml.setAttribute ("editorW",    editorWidth.load());
     xml.setAttribute ("editorH",    editorHeight.load());
@@ -2432,6 +2436,8 @@ void GhostbandProcessor::setStateInformation (const void* data, int sizeInBytes)
 
     complexity.store (xml->getDoubleAttribute ("complexity", 0.5));
     humanize.store   (xml->getDoubleAttribute ("humanize", 0.5));
+    fills.store      (juce::jlimit (0.0, 1.0,
+                          xml->getDoubleAttribute ("fills", 0.62)));
     seed.store       (xml->getIntAttribute ("seed", 1));
     // The floor moved with the type: 560x690 was a size at which 11pt body text
     // just fitted, and nothing readable fits in it. The default matches the

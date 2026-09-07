@@ -41,19 +41,19 @@
     },
     {
       "name": "heavy", "bars": 8, "intensity": 0.86,
-      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "big",
+      "feel": "half_time", "plays": "drums+bass+guitar+guitar2", "fill": "big",
       "chords": ["Em", "Em", "C", "A"],
-      "bass": "lock_kick", "guitar": "muted", "guitar2": "silent", "lead": "guitar"
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "fills", "lead": "guitar"
     },
     {
       "name": "chorus1", "bars": 8, "intensity": 0.82,
       "feel": "straight", "plays": "full", "fill": "auto",
       "chords": ["C", "G", "A", "Em"],
-      "bass": "eighths", "guitar": "open", "guitar2": "silent", "piano": "open", "lead": "both"
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "piano": "open", "lead": "both"
     },
     {
       "name": "verse2", "bars": 8, "intensity": 0.48,
-      "feel": "straight", "plays": "drums+bass+piano", "fill": "auto",
+      "feel": "straight", "plays": "drums+bass+piano+guitar2", "fill": "auto",
       "chords": ["Em", "Em", "C", "A"],
       "bass": "roots", "piano": "driving", "lead": "piano"
     },
@@ -61,7 +61,7 @@
       "name": "development", "bars": 14, "intensity": 0.7,
       "feel": "straight", "plays": "full", "fill": "auto",
       "chords": ["Em", "A", "C", "B", "Em", "A", "F#m", "B", "C", "G", "A", "Em", "C", "B"],
-      "bass": "lock_kick", "guitar": "busy", "guitar2": "silent", "piano": "sparse", "lead": "guitar"
+      "bass": "lock_kick", "guitar": "busy", "guitar2": "fills", "piano": "sparse", "lead": "guitar"
     },
     {
       "name": "quiet", "bars": 6, "intensity": 0.2,
@@ -79,7 +79,7 @@
       "name": "chorus2", "bars": 8, "intensity": 0.94,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["C", "G", "A", "Em"],
-      "bass": "eighths", "guitar": "open", "guitar2": "silent", "piano": "open", "lead": "both"
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "piano": "open", "lead": "both"
     },
     {
       "name": "ending", "bars": 6, "intensity": 0.62,

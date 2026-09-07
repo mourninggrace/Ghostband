@@ -124,6 +124,7 @@ static bool fromJson (const Json& j, const std::string& sourceName,
     out.transpose  = j.intOr ("transpose", 0);
     out.complexity = j.numberOr ("complexity", 0.5);
     out.humanize   = j.numberOr ("humanize", 0.5);
+    out.fills      = j.numberOr ("fills", 0.62);
     out.seed       = static_cast<unsigned> (j.intOr ("seed", 1));
     out.ending     = toLower (j.stringOr ("ending", "hard_stop"));
 
@@ -144,6 +145,8 @@ static bool fromJson (const Json& j, const std::string& sourceName,
     if (out.complexity > 1.0) out.complexity = 1.0;
     if (out.humanize   < 0.0) out.humanize   = 0.0;
     if (out.humanize   > 1.0) out.humanize   = 1.0;
+    if (out.fills      < 0.0) out.fills      = 0.0;
+    if (out.fills      > 1.0) out.fills      = 1.0;
     if (out.timeSigNumerator   < 1) out.timeSigNumerator   = 4;
     if (out.timeSigDenominator < 1) out.timeSigDenominator = 4;
 
@@ -270,6 +273,7 @@ std::string SongPlan::toJson() const
 
     j += "  \"complexity\": " + jsonNumber (complexity) + ",\n";
     j += "  \"humanize\":   " + jsonNumber (humanize) + ",\n";
+    j += "  \"fills\":      " + jsonNumber (fills) + ",\n";
     j += "  \"seed\":       " + std::to_string (seed) + ",\n";
     j += "  \"ending\":     " + jsonString (ending) + ",\n\n";
 

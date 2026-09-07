@@ -37,19 +37,19 @@
       "name": "chorus1", "bars": 12, "intensity": 0.86,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["Bb", "F", "C", "Dm", "Bb", "F", "C", "C", "Bb", "F", "C", "Dm"],
-      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "guitar"
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "piano": "open", "lead": "guitar"
     },
     {
       "name": "verse2", "bars": 8, "intensity": 0.5,
-      "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
       "chords": ["Dm", "Bb", "F", "C"],
-      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "lead": "guitar"
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
     },
     {
       "name": "chorus2", "bars": 12, "intensity": 0.9,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["Bb", "F", "C", "Dm", "Bb", "F", "C", "C", "Bb", "F", "C", "Dm"],
-      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "guitar"
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "piano": "open", "lead": "guitar"
     },
     {
       "name": "bridge", "bars": 8, "intensity": 0.28,
@@ -61,7 +61,7 @@
       "name": "build", "bars": 8, "intensity": 0.66,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["Bb", "F", "C", "Dm"],
-      "bass": "eighths", "guitar": "muted", "guitar2": "silent", "piano": "driving", "lead": "piano"
+      "bass": "eighths", "guitar": "muted", "guitar2": "fills", "piano": "driving", "lead": "piano"
     },
     {
       "name": "solo", "bars": 12, "intensity": 0.9,
@@ -73,7 +73,7 @@
       "name": "chorus3", "bars": 12, "intensity": 0.98,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["Bb", "F", "C", "Dm", "Bb", "F", "C", "C", "Bb", "F", "C", "Dm"],
-      "bass": "eighths", "guitar": "busy", "guitar2": "silent", "piano": "open", "lead": "both"
+      "bass": "eighths", "guitar": "busy", "guitar2": "fills", "piano": "open", "lead": "both"
     },
     {
       "name": "ending", "bars": 8, "intensity": 0.82,

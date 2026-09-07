@@ -52,32 +52,32 @@
       "name": "prechorus1", "bars": 4, "intensity": 0.58,
       "feel": "straight", "plays": "full", "fill": "small",
       "chords": ["D", "D", "E", "E"],
-      "bass": "eighths", "guitar": "muted", "guitar2": "silent", "piano": "sparse", "lead": "guitar"
+      "bass": "eighths", "guitar": "muted", "guitar2": "fills", "piano": "sparse", "lead": "guitar"
     },
     {
       "name": "chorus1", "bars": 8, "intensity": 0.90,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["D", "A", "E", "F#m"],
-      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "guitar"
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "piano": "open", "lead": "guitar"
     },
     {
       // Straight back down to almost nothing. No easing out of it.
       "name": "verse2", "bars": 8, "intensity": 0.32,
-      "feel": "straight", "plays": "drums+bass+guitar", "fill": "small",
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "small",
       "chords": ["F#m", "F#m", "D", "A"],
-      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "lead": "guitar"
+      "bass": "roots", "guitar": "sparse", "guitar2": "fills", "lead": "guitar"
     },
     {
       "name": "prechorus2", "bars": 4, "intensity": 0.62,
       "feel": "straight", "plays": "full", "fill": "small",
       "chords": ["D", "D", "E", "E"],
-      "bass": "eighths", "guitar": "muted", "guitar2": "silent", "piano": "sparse", "lead": "guitar"
+      "bass": "eighths", "guitar": "muted", "guitar2": "fills", "piano": "sparse", "lead": "guitar"
     },
     {
       "name": "chorus2", "bars": 8, "intensity": 0.92,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["D", "A", "E", "F#m"],
-      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "guitar"
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "piano": "open", "lead": "guitar"
     },
     {
       // The quietest thing in the song, right before the loudest.
@@ -104,7 +104,7 @@
       "name": "chorus3", "bars": 8, "intensity": 0.96,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["D", "A", "E", "F#m"],
-      "bass": "eighths", "guitar": "busy", "guitar2": "silent", "piano": "open", "lead": "both"
+      "bass": "eighths", "guitar": "busy", "guitar2": "fills", "piano": "open", "lead": "both"
     },
     {
       "name": "ending", "bars": 6, "intensity": 0.44,

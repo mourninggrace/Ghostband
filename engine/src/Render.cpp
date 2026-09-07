@@ -246,12 +246,19 @@ static void generateSolo (const SectionPlan& s,
                           double humanize,
                           Rng& rng,
                           PhrasePart& out,
-                          SoloShape shape = SoloShape::Continuous)
+                          SoloShape shape = SoloShape::Continuous,
+                          double fillAmount = 0.62)
 {
     if (chords.empty() || profile == nullptr || s.bars <= 0)
         return;
 
     const bool answering = (shape == SoloShape::Answering);
+
+    // Off is off. Without this the last bar of every section still filled,
+    // because it is deliberately exempt from the chance below - and a control
+    // labelled "none" that still plays once a section is not a control.
+    if (answering && fillAmount <= 0.0)
+        return;
 
     SoloVoice voice;
     voice.scale = &soloScale (mode, style);
@@ -323,7 +330,7 @@ static void generateSolo (const SectionPlan& s,
             // And not every one of them. A fill in all four openings is a
             // second solo; leaving some alone is what makes the ones that
             // land read as answers rather than as a part.
-            if (! lastBar && ! rng.chance (0.62))
+            if (! lastBar && ! rng.chance (fillAmount))
             {
                 ++bar;
                 continue;
@@ -762,7 +769,8 @@ static void generatePhrasePart (const SectionPlan& s,
                                 uint32_t sectionSeed,
                                 uint32_t songSeed,
                                 Rng& rng,
-                                PhrasePart& out)
+                                PhrasePart& out,
+                                double fillAmount)
 {
     PhraseIntent pi;
     pi.tick   = sectionStartTick;
@@ -801,7 +809,8 @@ static void generatePhrasePart (const SectionPlan& s,
         Rng soloRng (deriveSeed (sectionSeed, fills ? 0x5F111u : 0x50100u));
         generateSolo (s, chords, sectionStartTick, barTicks, keyPc, mode, style,
                       swing, profile, humanize, soloRng, out,
-                      fills ? SoloShape::Answering : SoloShape::Continuous);
+                      fills ? SoloShape::Answering : SoloShape::Continuous,
+                      fillAmount);
         return;
     }
 
@@ -1298,7 +1307,7 @@ RenderResult renderPerformance (const SongPlan& plan,
                                     plan.swing, profile,
                                     supports ? supportFeel (feel) : feel,
                                     plan.humanize, supports, throughSong,
-                                    sectionSeed, plan.seed, rng, out);
+                                    sectionSeed, plan.seed, rng, out, plan.fills);
                 count = static_cast<int> (out.chords.size() - before);
                 feelName = std::string (phraseFeelName (supports ? supportFeel (feel) : feel))
                          + (feel == PhraseFeel::Silent ? std::string() : role (supports));

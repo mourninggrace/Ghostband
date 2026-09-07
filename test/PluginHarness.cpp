@@ -823,6 +823,47 @@ int main (int argc, char** argv)
             check (! r.performance.guitar.chords.empty(),
                    "while the rhythm guitar keeps playing underneath",
                    juce::String ((int) r.performance.guitar.chords.size()) + " chords");
+
+            // ---- the FILLS dial, at both ends -------------------------
+            // Off has to be OFF. The last bar of a section is deliberately
+            // exempt from the "does it take this opening" roll, so without a
+            // check at zero the dial would still play one fill per section -
+            // and a control labelled none that plays anyway is not a control.
+            gb::SongPlan quiet = plan;
+            quiet.fills = 0.0;
+            const gb::RenderResult off =
+                gb::renderPerformance (quiet, kit, bass, &gtr, nullptr, &gtr2);
+
+            check (off.performance.guitar2.lead.empty(),
+                   "the fills dial at zero silences them completely",
+                   juce::String ((int) off.performance.guitar2.lead.size()) + " notes left");
+
+            gb::SongPlan busy = plan;
+            busy.fills = 1.0;
+            const gb::RenderResult full =
+                gb::renderPerformance (busy, kit, bass, &gtr, nullptr, &gtr2);
+
+            // Not "more notes than at 0.62" - this section is sixteen bars and
+            // offers exactly four openings, which 0.62 happened to take all of.
+            // The claim worth making is that at one, every opening is used.
+            std::set<int> filled;
+            for (const gb::LeadIntent& n : full.performance.guitar2.lead)
+                filled.insert (n.tick / barTicks + 1);
+
+            check (filled.size() == 4 && filled.count (4) && filled.count (8)
+                       && filled.count (12) && filled.count (16),
+                   "and at one it takes every opening it is offered",
+                   juce::String ((int) filled.size()) + " of 4 four-bar boundaries");
+
+            // Turning fills off must not disturb anything else. The answering
+            // guitar draws from its own derived stream precisely so that
+            // silencing it cannot move the drums.
+            check (off.sections.size() == r.sections.size()
+                       && off.sections[0].drumHits  == r.sections[0].drumHits
+                       && off.sections[0].bassNotes == r.sections[0].bassNotes,
+                   "and silencing them moves nothing else in the song",
+                   juce::String (r.sections[0].drumHits) + "/"
+                       + juce::String (r.sections[0].bassNotes) + " either way");
         }
     }
 

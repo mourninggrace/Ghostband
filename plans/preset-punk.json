@@ -48,21 +48,21 @@
     },
     {
       "name": "chorus1", "bars": 8, "intensity": 0.92,
-      "feel": "straight", "plays": "drums+bass+guitar", "fill": "small",
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "small",
       "chords": ["C", "D", "G", "G"],
-      "bass": "eighths", "guitar": "busy", "guitar2": "silent", "lead": "guitar"
+      "bass": "eighths", "guitar": "busy", "guitar2": "fills", "lead": "guitar"
     },
     {
       "name": "verse2", "bars": 8, "intensity": 0.74,
-      "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
       "chords": ["G", "G", "C", "D"],
-      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "lead": "guitar"
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
     },
     {
       "name": "chorus2", "bars": 8, "intensity": 0.94,
-      "feel": "straight", "plays": "drums+bass+guitar", "fill": "small",
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "small",
       "chords": ["C", "D", "G", "G"],
-      "bass": "eighths", "guitar": "busy", "guitar2": "silent", "lead": "guitar"
+      "bass": "eighths", "guitar": "busy", "guitar2": "fills", "lead": "guitar"
     },
     {
       // Eight bars of everything stopping except the rhythm section. The one
@@ -88,9 +88,9 @@
     },
     {
       "name": "chorus3", "bars": 8, "intensity": 1.0,
-      "feel": "straight", "plays": "drums+bass+guitar", "fill": "big",
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
       "chords": ["C", "D", "G", "G"],
-      "bass": "eighths", "guitar": "busy", "guitar2": "silent", "lead": "guitar"
+      "bass": "eighths", "guitar": "busy", "guitar2": "fills", "lead": "guitar"
     },
     {
       "name": "ending", "bars": 2, "intensity": 0.9,

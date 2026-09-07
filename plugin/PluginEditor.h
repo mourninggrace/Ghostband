@@ -170,8 +170,16 @@ private:
 
     juce::Slider complexitySlider;
     juce::Slider humanizeSlider;
+
+    // How much the second guitar answers. A dial rather than a per-section
+    // edit, because "less of that" and "none of that" are the two things
+    // anyone actually wants to say about a fill, and neither is worth nine
+    // section edits.
+    juce::Slider fillsSlider;
+
     juce::Label  complexityLabel;
     juce::Label  humanizeLabel;
+    juce::Label  fillsLabel;
 
     // Per-part level, sent as MIDI CC 7. Mixing normally belongs in the host,
     // but four knobs here saves wiring four gain blocks in the rackspace and is

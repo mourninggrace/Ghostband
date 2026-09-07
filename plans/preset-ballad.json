@@ -52,13 +52,13 @@
     {
       // Drums arrive, half time, brushes-quiet.
       "name": "verse2", "bars": 8, "intensity": 0.36,
-      "feel": "half_time", "plays": "drums+bass+piano", "fill": "small",
+      "feel": "half_time", "plays": "drums+bass+piano+guitar2", "fill": "small",
       "chords": ["C", "Am", "F", "G"],
       "bass": "roots", "piano": "driving", "lead": "piano"
     },
     {
       "name": "prechorus", "bars": 4, "intensity": 0.52,
-      "feel": "half_time", "plays": "drums+bass+piano", "fill": "small",
+      "feel": "half_time", "plays": "drums+bass+piano+guitar2", "fill": "small",
       "chords": ["F", "G", "Am", "Am"],
       "bass": "roots", "piano": "driving", "lead": "piano"
     },
@@ -67,12 +67,12 @@
       "name": "chorus1", "bars": 8, "intensity": 0.68,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["F", "C", "G", "Am"],
-      "bass": "eighths", "guitar": "open", "guitar2": "silent", "piano": "open", "lead": "both"
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "piano": "open", "lead": "both"
     },
     {
       // And back down, which is what makes the last one land.
       "name": "verse3", "bars": 8, "intensity": 0.34,
-      "feel": "half_time", "plays": "drums+bass+piano", "fill": "auto",
+      "feel": "half_time", "plays": "drums+bass+piano+guitar2", "fill": "auto",
       "chords": ["C", "Am", "F", "G"],
       "bass": "roots", "piano": "driving", "lead": "piano"
     },
@@ -80,7 +80,7 @@
       "name": "chorus2", "bars": 8, "intensity": 0.74,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["F", "C", "G", "Am"],
-      "bass": "eighths", "guitar": "open", "guitar2": "silent", "piano": "open", "lead": "both"
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "piano": "open", "lead": "both"
     },
     {
       "name": "bridge", "bars": 8, "intensity": 0.46,
@@ -99,7 +99,7 @@
       "name": "chorus3", "bars": 8, "intensity": 0.92,
       "feel": "straight", "plays": "full", "fill": "big",
       "chords": ["F", "C", "G", "Am"],
-      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "piano": "open", "lead": "both"
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "piano": "open", "lead": "both"
     },
     {
       // Everything leaves in the order it arrived, and the tempo gives out.
