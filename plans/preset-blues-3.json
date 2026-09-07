@@ -1,0 +1,59 @@
+{
+  // COLD IRON SUNDAY - a minor blues at 68, which is a different animal
+  // from the shuffle. Slow, heavy, and the twelve bar form stretched
+  // until it nearly comes apart.
+
+  "name": "Cold Iron Sunday",
+  "bpm": 68,
+  "key": "E", "mode": "natural_minor",
+  "style": "blues",
+  "bass_tuning": "standard",
+  "seed": 7412,
+  "complexity": 0.36, "humanize": 0.70, "fills": 0.72,
+  "ending": "fade",
+
+  "drum_profile": "profiles/ssd5-terry-date.json",
+  "bass_profile": "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
+  "piano_profile": "profiles/virtual-pianist.json",
+
+  "sections": [
+    {
+      "name": "intro", "bars": 4, "intensity": 0.20,
+      "feel": "half_time", "plays": "drums+bass+guitar+piano", "fill": "auto",
+      "chords": ["Em"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "piano": "sparse", "lead": "piano"
+    },
+    {
+      "name": "verse1", "bars": 12, "intensity": 0.40,
+      "feel": "half_time", "plays": "drums+bass+guitar+piano", "fill": "auto",
+      "chords": ["Em", "Em", "Em", "Em", "Am", "Am", "Em", "Em", "B7", "Am", "Em", "B7"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "piano": "driving", "lead": "piano"
+    },
+    {
+      "name": "verse2", "bars": 12, "intensity": 0.52,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "auto",
+      "chords": ["Em", "Em", "Em", "Em", "Am", "Am", "Em", "Em", "B7", "Am", "Em", "B7"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "piano": "driving", "lead": "piano"
+    },
+    {
+      "name": "solo", "bars": 12, "intensity": 0.74,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "auto",
+      "chords": ["Em", "Em", "Em", "Em", "Am", "Am", "Em", "Em", "B7", "Am", "Em", "B7"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "piano": "sparse", "lead": "guitar2"
+    },
+    {
+      "name": "verse3", "bars": 12, "intensity": 0.68,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "big",
+      "chords": ["Em", "Em", "Em", "Em", "Am", "Am", "Em", "Em", "B7", "Am", "Em", "B7"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "piano": "driving", "lead": "both"
+    },
+    {
+      "name": "ending", "bars": 8, "intensity": 0.30,
+      "feel": "half_time", "plays": "drums+bass+guitar+piano", "fill": "none",
+      "chords": ["Em"],
+      "bass": "roots", "guitar": "open", "guitar2": "silent", "piano": "open", "lead": "both"
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  // EVERY SECOND SUNDAY - a ballad in a major key, which the other one
+  // is not. Guitar led rather than piano led, so the piano answers
+  // instead of carrying it.
+
+  "name": "Every Second Sunday",
+  "bpm": 76,
+  "key": "G", "mode": "major",
+  "style": "ballad",
+  "bass_tuning": "standard",
+  "seed": 7409,
+  "complexity": 0.32, "humanize": 0.68, "fills": 0.70,
+  "ending": "fade",
+
+  "drum_profile": "profiles/ssd5-terry-date.json",
+  "bass_profile": "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
+  "piano_profile": "profiles/virtual-pianist.json",
+
+  "sections": [
+    {
+      "name": "intro", "bars": 8, "intensity": 0.18,
+      "feel": "straight", "plays": "drums+bass+guitar+piano", "fill": "auto",
+      "chords": ["G"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "piano": "sparse", "lead": "guitar"
+    },
+    {
+      "name": "verse1", "bars": 8, "intensity": 0.32,
+      "feel": "straight", "plays": "drums+bass+guitar+piano", "fill": "auto",
+      "chords": ["G", "Em", "C", "D"],
+      "bass": "roots", "guitar": "open", "guitar2": "silent", "piano": "sparse", "lead": "guitar"
+    },
+    {
+      "name": "verse2", "bars": 8, "intensity": 0.42,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "auto",
+      "chords": ["G", "Em", "C", "D"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "piano": "sparse", "lead": "guitar"
+    },
+    {
+      "name": "chorus1", "bars": 8, "intensity": 0.76,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "big",
+      "chords": ["C", "D", "G", "Em"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "piano": "open", "lead": "both"
+    },
+    {
+      "name": "verse3", "bars": 8, "intensity": 0.48,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "auto",
+      "chords": ["G", "Em", "C", "D"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "piano": "driving", "lead": "guitar"
+    },
+    {
+      "name": "chorus2", "bars": 8, "intensity": 0.82,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "big",
+      "chords": ["C", "D", "G", "Em"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "piano": "open", "lead": "both"
+    },
+    {
+      "name": "solo", "bars": 8, "intensity": 0.72,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "auto",
+      "chords": ["G", "Em", "C", "D"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "piano": "sparse", "lead": "guitar2"
+    },
+    {
+      "name": "chorus3", "bars": 8, "intensity": 0.90,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "big",
+      "chords": ["C", "D", "G", "Em"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "piano": "open", "lead": "both"
+    },
+    {
+      "name": "ending", "bars": 8, "intensity": 0.35,
+      "feel": "half_time", "plays": "drums+bass+guitar+piano", "fill": "none",
+      "chords": ["G"],
+      "bass": "roots", "guitar": "open", "guitar2": "silent", "piano": "open", "lead": "both"
+    }
+  ]
+}

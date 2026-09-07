@@ -1,0 +1,60 @@
+{
+  // NINE CENT RAIN - a fast shuffle in A, guitar led throughout.
+  // The other blues preset is a piano's song at 86; this one is the
+  // guitar's, and the piano only comps. Fills high, because in a blues
+  // the answer is half the tune.
+
+  "name": "Nine Cent Rain",
+  "bpm": 112,
+  "key": "A", "mode": "mixolydian",
+  "style": "blues",
+  "bass_tuning": "standard",
+  "seed": 7411,
+  "complexity": 0.44, "humanize": 0.60, "fills": 0.80,
+  "ending": "hard_stop",
+
+  "drum_profile": "profiles/ssd5-terry-date.json",
+  "bass_profile": "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
+  "piano_profile": "profiles/virtual-pianist.json",
+
+  "sections": [
+    {
+      "name": "intro", "bars": 4, "intensity": 0.42,
+      "feel": "straight", "plays": "drums+bass+guitar+piano", "fill": "small",
+      "chords": ["A7"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "piano": "sparse", "lead": "guitar"
+    },
+    {
+      "name": "verse1", "bars": 12, "intensity": 0.58,
+      "feel": "straight", "plays": "drums+bass+guitar+piano", "fill": "auto",
+      "chords": ["A7", "A7", "A7", "A7", "D7", "D7", "A7", "A7", "E7", "D7", "A7", "E7"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "silent", "piano": "sparse", "lead": "guitar"
+    },
+    {
+      "name": "verse2", "bars": 12, "intensity": 0.66,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "auto",
+      "chords": ["A7", "A7", "A7", "A7", "D7", "D7", "A7", "A7", "E7", "D7", "A7", "E7"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "piano": "sparse", "lead": "guitar"
+    },
+    {
+      "name": "solo", "bars": 12, "intensity": 0.86,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "auto",
+      "chords": ["A7", "A7", "A7", "A7", "D7", "D7", "A7", "A7", "E7", "D7", "A7", "E7"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "piano": "driving", "lead": "guitar2"
+    },
+    {
+      "name": "verse3", "bars": 12, "intensity": 0.76,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "big",
+      "chords": ["A7", "A7", "A7", "A7", "D7", "D7", "A7", "A7", "E7", "D7", "A7", "E7"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "piano": "driving", "lead": "guitar"
+    },
+    {
+      "name": "ending", "bars": 4, "intensity": 0.70,
+      "feel": "straight", "plays": "drums+bass+guitar+piano", "fill": "none",
+      "chords": ["A7"],
+      "bass": "eighths", "guitar": "open", "guitar2": "silent", "piano": "open", "lead": "both"
+    }
+  ]
+}

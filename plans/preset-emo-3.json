@@ -1,0 +1,72 @@
+{
+  // FOUR IN THE MORNING - emo slowed right down, with piano.
+  // Fills are the highest of any preset: at 92 there is room between
+  // everything, and a second guitar answering the line is most of what
+  // this arrangement is.
+
+  "name": "Four In The Morning",
+  "bpm": 92,
+  "key": "C", "mode": "natural_minor",
+  "style": "emo",
+  "bass_tuning": "standard",
+  "seed": 7408,
+  "complexity": 0.38, "humanize": 0.66, "fills": 0.78,
+  "ending": "fade",
+
+  "drum_profile": "profiles/ssd5-terry-date.json",
+  "bass_profile": "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
+  "piano_profile": "profiles/virtual-pianist.json",
+
+  "sections": [
+    {
+      "name": "intro", "bars": 8, "intensity": 0.20,
+      "feel": "straight", "plays": "drums+bass+guitar+piano", "fill": "auto",
+      "chords": ["Cm"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "piano": "sparse", "lead": "piano"
+    },
+    {
+      "name": "verse1", "bars": 8, "intensity": 0.36,
+      "feel": "straight", "plays": "drums+bass+guitar+piano", "fill": "auto",
+      "chords": ["Cm", "Ab", "Eb", "Bb"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "piano": "driving", "lead": "piano"
+    },
+    {
+      "name": "chorus1", "bars": 8, "intensity": 0.82,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "big",
+      "chords": ["Ab", "Eb", "Bb", "Cm"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "piano": "open", "lead": "guitar"
+    },
+    {
+      "name": "verse2", "bars": 8, "intensity": 0.42,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "auto",
+      "chords": ["Cm", "Ab", "Eb", "Bb"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "fills", "piano": "driving", "lead": "piano"
+    },
+    {
+      "name": "chorus2", "bars": 8, "intensity": 0.86,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "big",
+      "chords": ["Ab", "Eb", "Bb", "Cm"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "piano": "open", "lead": "guitar"
+    },
+    {
+      "name": "solo", "bars": 12, "intensity": 0.80,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "auto",
+      "chords": ["Cm", "Ab", "Eb", "Bb"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "piano": "sparse", "lead": "guitar2"
+    },
+    {
+      "name": "chorus3", "bars": 8, "intensity": 0.92,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "big",
+      "chords": ["Ab", "Eb", "Bb", "Cm"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "piano": "open", "lead": "both"
+    },
+    {
+      "name": "ending", "bars": 8, "intensity": 0.40,
+      "feel": "half_time", "plays": "drums+bass+guitar+piano", "fill": "none",
+      "chords": ["Cm"],
+      "bass": "roots", "guitar": "open", "guitar2": "silent", "piano": "open", "lead": "both"
+    }
+  ]
+}

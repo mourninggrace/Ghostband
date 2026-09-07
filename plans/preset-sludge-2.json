@@ -1,0 +1,70 @@
+{
+  // LOW TIDE - sludge at 88, faster than the form usually allows.
+  // Phrygian in F, so the flat second sits a semitone off the root and
+  // the riff never quite resolves.
+
+  "name": "Low Tide",
+  "bpm": 88,
+  "key": "F", "mode": "phrygian",
+  "style": "sludge",
+  "bass_tuning": "drop_d",
+  "seed": 7402,
+  "complexity": 0.50, "humanize": 0.64, "fills": 0.60,
+  "ending": "hard_stop",
+
+  "drum_profile": "profiles/ssd5-terry-date.json",
+  "bass_profile": "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
+
+  "sections": [
+    {
+      "name": "riff", "bars": 8, "intensity": 0.78,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "none",
+      "chords": ["Fm", "Fm", "Gb", "Fm"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "verse1", "bars": 8, "intensity": 0.62,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["Fm", "Fm", "Db", "Eb"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "chorus1", "bars": 8, "intensity": 0.90,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["Db", "Eb", "Fm", "Fm"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "verse2", "bars": 8, "intensity": 0.68,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["Fm", "Fm", "Db", "Eb"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "bridge", "bars": 8, "intensity": 0.34,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "small",
+      "chords": ["Db", "Db", "Eb", "Eb"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "solo", "bars": 12, "intensity": 0.86,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["Fm", "Db", "Eb", "Fm"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "lead": "guitar2"
+    },
+    {
+      "name": "chorus2", "bars": 8, "intensity": 0.96,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["Db", "Eb", "Fm", "Fm"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "ending", "bars": 4, "intensity": 0.80,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "none",
+      "chords": ["Fm"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "silent", "lead": "guitar"
+    }
+  ]
+}

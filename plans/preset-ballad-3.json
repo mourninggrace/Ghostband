@@ -1,0 +1,65 @@
+{
+  // THE QUIET PART - 58bpm, the slowest tempo in the set.
+  // No chorus at all: four verses that each arrive with one more
+  // instrument than the last, and a solo where the chorus would be.
+
+  "name": "The Quiet Part",
+  "bpm": 58,
+  "key": "E", "mode": "natural_minor",
+  "style": "ballad",
+  "bass_tuning": "standard",
+  "seed": 7410,
+  "complexity": 0.26, "humanize": 0.72, "fills": 0.55,
+  "ending": "ritard",
+
+  "drum_profile": "profiles/ssd5-terry-date.json",
+  "bass_profile": "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
+  "piano_profile": "profiles/virtual-pianist.json",
+
+  "sections": [
+    {
+      "name": "intro", "bars": 8, "intensity": 0.14,
+      "feel": "half_time", "plays": "drums+piano", "fill": "auto",
+      "chords": ["Em"],
+      "bass": "roots", "guitar": "silent", "guitar2": "silent", "piano": "sparse", "lead": "piano"
+    },
+    {
+      "name": "verse1", "bars": 8, "intensity": 0.24,
+      "feel": "half_time", "plays": "drums+bass+piano", "fill": "auto",
+      "chords": ["Em", "C", "G", "D"],
+      "bass": "roots", "guitar": "silent", "guitar2": "silent", "piano": "sparse", "lead": "piano"
+    },
+    {
+      "name": "verse2", "bars": 8, "intensity": 0.38,
+      "feel": "half_time", "plays": "drums+bass+guitar+guitar2+piano", "fill": "auto",
+      "chords": ["Em", "C", "G", "D"],
+      "bass": "roots", "guitar": "open", "guitar2": "fills", "piano": "sparse", "lead": "piano"
+    },
+    {
+      "name": "verse3", "bars": 8, "intensity": 0.52,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "auto",
+      "chords": ["Em", "C", "G", "D"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "piano": "driving", "lead": "both"
+    },
+    {
+      "name": "solo", "bars": 12, "intensity": 0.68,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "auto",
+      "chords": ["Em", "C", "G", "D"],
+      "bass": "eighths", "guitar": "open", "guitar2": "solo", "piano": "sparse", "lead": "guitar2"
+    },
+    {
+      "name": "verse4", "bars": 8, "intensity": 0.62,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "big",
+      "chords": ["Em", "C", "G", "D"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "piano": "open", "lead": "both"
+    },
+    {
+      "name": "ending", "bars": 8, "intensity": 0.28,
+      "feel": "half_time", "plays": "drums+bass+guitar+piano", "fill": "none",
+      "chords": ["Em"],
+      "bass": "roots", "guitar": "open", "guitar2": "silent", "piano": "open", "lead": "both"
+    }
+  ]
+}

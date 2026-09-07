@@ -1,0 +1,75 @@
+{
+  // IRON WEATHER - straight metal at 142, the tempo the style sits at
+  // when it is not trying to be thrash. Drop D, minor, no tricks.
+
+  "name": "Iron Weather",
+  "bpm": 142,
+  "key": "E", "mode": "natural_minor",
+  "style": "metal",
+  "bass_tuning": "drop_d",
+  "seed": 7403,
+  "complexity": 0.60, "humanize": 0.40, "fills": 0.65,
+  "ending": "hard_stop",
+
+  "drum_profile": "profiles/ssd5-terry-date.json",
+  "bass_profile": "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
+
+  "sections": [
+    {
+      "name": "intro", "bars": 4, "intensity": 0.45,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "small",
+      "chords": ["Em"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "riff", "bars": 8, "intensity": 0.82,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "none",
+      "chords": ["Em", "Em", "C", "D"],
+      "bass": "lock_kick", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "verse1", "bars": 8, "intensity": 0.66,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["Em", "Em", "G", "D"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "chorus1", "bars": 8, "intensity": 0.94,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["C", "D", "Em", "Em"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "verse2", "bars": 8, "intensity": 0.70,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["Em", "Em", "G", "D"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "chorus2", "bars": 8, "intensity": 0.96,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["C", "D", "Em", "Em"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "solo", "bars": 12, "intensity": 0.92,
+      "feel": "double_time", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["Em", "C", "D", "Em"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "lead": "guitar2"
+    },
+    {
+      "name": "chorus3", "bars": 8, "intensity": 1.00,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["C", "D", "Em", "Em"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "ending", "bars": 4, "intensity": 0.85,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "none",
+      "chords": ["Em"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "silent", "lead": "guitar"
+    }
+  ]
+}

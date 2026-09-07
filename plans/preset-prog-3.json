@@ -1,0 +1,78 @@
+{
+  // SLOW MACHINERY - prog at 88 in B standard, with piano.
+  // Written the opposite way to Seventeen Windows: even eight bar
+  // sections throughout, so all the complexity has to come from the
+  // playing rather than from the shape.
+
+  "name": "Slow Machinery",
+  "bpm": 88,
+  "key": "B", "mode": "dorian",
+  "style": "prog_metal",
+  "bass_tuning": "b_standard",
+  "seed": 7414,
+  "complexity": 0.70, "humanize": 0.44, "fills": 0.62,
+  "ending": "ritard",
+
+  "drum_profile": "profiles/ssd5-terry-date.json",
+  "bass_profile": "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
+  "piano_profile": "profiles/virtual-pianist.json",
+
+  "sections": [
+    {
+      "name": "intro", "bars": 8, "intensity": 0.26,
+      "feel": "half_time", "plays": "drums+bass+guitar+piano", "fill": "auto",
+      "chords": ["Bm"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "piano": "sparse", "lead": "piano"
+    },
+    {
+      "name": "theme", "bars": 8, "intensity": 0.74,
+      "feel": "straight", "plays": "drums+bass+guitar+piano", "fill": "none",
+      "chords": ["Bm", "Bm", "A", "E"],
+      "bass": "lock_kick", "guitar": "driving", "guitar2": "silent", "piano": "sparse", "lead": "guitar"
+    },
+    {
+      "name": "verse1", "bars": 8, "intensity": 0.56,
+      "feel": "straight", "plays": "drums+bass+guitar+piano", "fill": "auto",
+      "chords": ["Bm", "Bm", "G", "A"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "silent", "piano": "driving", "lead": "piano"
+    },
+    {
+      "name": "chorus1", "bars": 8, "intensity": 0.88,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "big",
+      "chords": ["G", "A", "Bm", "Bm"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "piano": "open", "lead": "guitar"
+    },
+    {
+      "name": "verse2", "bars": 8, "intensity": 0.60,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "auto",
+      "chords": ["Bm", "Bm", "G", "A"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "fills", "piano": "driving", "lead": "piano"
+    },
+    {
+      "name": "development", "bars": 8, "intensity": 0.78,
+      "feel": "double_time", "plays": "drums+bass+guitar+guitar2+piano", "fill": "auto",
+      "chords": ["Bm", "A", "G", "E"],
+      "bass": "eighths", "guitar": "busy", "guitar2": "fills", "piano": "sparse", "lead": "guitar"
+    },
+    {
+      "name": "solo", "bars": 12, "intensity": 0.90,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "auto",
+      "chords": ["Bm", "G", "A", "E"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "piano": "sparse", "lead": "guitar2"
+    },
+    {
+      "name": "chorus2", "bars": 8, "intensity": 0.96,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2+piano", "fill": "big",
+      "chords": ["G", "A", "Bm", "Bm"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "piano": "open", "lead": "both"
+    },
+    {
+      "name": "ending", "bars": 8, "intensity": 0.45,
+      "feel": "half_time", "plays": "drums+bass+guitar+piano", "fill": "none",
+      "chords": ["Bm"],
+      "bass": "roots", "guitar": "open", "guitar2": "silent", "piano": "open", "lead": "both"
+    }
+  ]
+}

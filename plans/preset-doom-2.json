@@ -1,0 +1,70 @@
+{
+  // THE UNDERTOW - 54bpm, slower even than Weight Of Water, and the
+  // slowest thing in the set. Two chords for six minutes. Fills are
+  // held low: the space IS the song.
+
+  "name": "The Undertow",
+  "bpm": 54,
+  "key": "D", "mode": "phrygian",
+  "style": "doom",
+  "bass_tuning": "drop_c",
+  "seed": 7415,
+  "complexity": 0.34, "humanize": 0.74, "fills": 0.40,
+  "ending": "fade",
+
+  "drum_profile": "profiles/ssd5-terry-date.json",
+  "bass_profile": "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
+
+  "sections": [
+    {
+      "name": "intro", "bars": 8, "intensity": 0.16,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "none",
+      "chords": ["Dm"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "riff", "bars": 8, "intensity": 0.64,
+      "feel": "half_time", "plays": "drums+bass+guitar+guitar2", "fill": "small",
+      "chords": ["Dm", "Dm", "Eb", "Dm"],
+      "bass": "lock_kick", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "verse1", "bars": 8, "intensity": 0.44,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["Dm", "Dm", "Eb", "Dm"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "chorus1", "bars": 8, "intensity": 0.78,
+      "feel": "half_time", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["Eb", "Dm", "Eb", "Dm"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "breakdown", "bars": 8, "intensity": 0.12,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "none",
+      "chords": ["Dm"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "verse2", "bars": 8, "intensity": 0.50,
+      "feel": "half_time", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["Dm", "Dm", "Eb", "Dm"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "solo", "bars": 12, "intensity": 0.70,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["Dm", "Eb", "Dm", "Eb"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "lead": "guitar2"
+    },
+    {
+      "name": "ending", "bars": 8, "intensity": 0.34,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "none",
+      "chords": ["Dm"],
+      "bass": "roots", "guitar": "open", "guitar2": "silent", "lead": "guitar"
+    }
+  ]
+}

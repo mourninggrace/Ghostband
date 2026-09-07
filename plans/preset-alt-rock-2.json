@@ -1,0 +1,82 @@
+{
+  // STATIC BLOOM - alt rock at 104 in a major key, which is rarer here
+  // than it should be. Quiet verses, enormous choruses, and a bridge
+  // that drops to almost nothing before the last one.
+
+  "name": "Static Bloom",
+  "bpm": 104,
+  "key": "F", "mode": "major",
+  "style": "alt_rock",
+  "bass_tuning": "standard",
+  "seed": 7405,
+  "complexity": 0.40, "humanize": 0.62, "fills": 0.72,
+  "ending": "cymbal_ring",
+
+  "drum_profile": "profiles/ssd5-terry-date.json",
+  "bass_profile": "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
+
+  "sections": [
+    {
+      "name": "intro", "bars": 4, "intensity": 0.24,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "small",
+      "chords": ["F"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "verse1", "bars": 8, "intensity": 0.34,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["F", "F", "Dm", "Bb"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "prechorus1", "bars": 4, "intensity": 0.62,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["Bb", "Bb", "C", "C"],
+      "bass": "eighths", "guitar": "muted", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "chorus1", "bars": 8, "intensity": 0.92,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["F", "C", "Dm", "Bb"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "verse2", "bars": 8, "intensity": 0.40,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["F", "F", "Dm", "Bb"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "chorus2", "bars": 8, "intensity": 0.94,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["F", "C", "Dm", "Bb"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "bridge", "bars": 8, "intensity": 0.20,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "none",
+      "chords": ["Dm", "Dm", "Bb", "Bb"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "solo", "bars": 12, "intensity": 0.84,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["F", "C", "Dm", "Bb"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "lead": "guitar2"
+    },
+    {
+      "name": "chorus3", "bars": 8, "intensity": 1.00,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["F", "C", "Dm", "Bb"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "ending", "bars": 4, "intensity": 0.60,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "none",
+      "chords": ["F"],
+      "bass": "roots", "guitar": "open", "guitar2": "silent", "lead": "guitar"
+    }
+  ]
+}

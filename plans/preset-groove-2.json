@@ -1,0 +1,70 @@
+{
+  // RUST BELT - groove metal at 124, faster than Southern Teeth and
+  // straighter. Phrygian dominant over a drop C riff: the major third
+  // against the flat second is what makes it swagger.
+
+  "name": "Rust Belt",
+  "bpm": 124,
+  "key": "C", "mode": "phrygian_dominant",
+  "style": "groove_metal",
+  "bass_tuning": "drop_c",
+  "seed": 7416,
+  "complexity": 0.62, "humanize": 0.46, "fills": 0.75,
+  "ending": "hard_stop",
+
+  "drum_profile": "profiles/ssd5-terry-date.json",
+  "bass_profile": "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
+
+  "sections": [
+    {
+      "name": "riff", "bars": 8, "intensity": 0.86,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "none",
+      "chords": ["C", "Db", "C", "Bb"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "verse1", "bars": 8, "intensity": 0.72,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["C", "C", "Ab", "Bb"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "chorus1", "bars": 8, "intensity": 0.94,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["Ab", "Bb", "C", "C"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "verse2", "bars": 8, "intensity": 0.76,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["C", "C", "Ab", "Bb"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "bridge", "bars": 8, "intensity": 0.44,
+      "feel": "half_time", "plays": "drums+bass+guitar", "fill": "small",
+      "chords": ["Ab", "Ab", "Bb", "Bb"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "solo", "bars": 12, "intensity": 0.92,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["C", "Ab", "Bb", "C"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "lead": "guitar2"
+    },
+    {
+      "name": "chorus2", "bars": 8, "intensity": 1.00,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["Ab", "Bb", "C", "C"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "ending", "bars": 4, "intensity": 0.88,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "none",
+      "chords": ["C"],
+      "bass": "lock_kick", "guitar": "muted", "guitar2": "silent", "lead": "guitar"
+    }
+  ]
+}

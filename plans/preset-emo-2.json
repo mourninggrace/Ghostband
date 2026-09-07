@@ -1,0 +1,77 @@
+{
+  // HALF A MILE OUT - emo at 168 in D major, fast and bright.
+  // The other emo preset gets its lift from twelve bar choruses against
+  // eight bar verses; this one is even throughout and lifts on
+  // intensity instead.
+
+  "name": "Half A Mile Out",
+  "bpm": 168,
+  "key": "D", "mode": "major",
+  "style": "emo",
+  "bass_tuning": "standard",
+  "seed": 7407,
+  "complexity": 0.46, "humanize": 0.56, "fills": 0.66,
+  "ending": "hard_stop",
+
+  "drum_profile": "profiles/ssd5-terry-date.json",
+  "bass_profile": "profiles/modo-bass-2.json",
+  "guitar_profile": "profiles/vg-iron2.json",
+  "guitar2_profile": "profiles/shreddage-3-hydra.json",
+
+  "sections": [
+    {
+      "name": "intro", "bars": 4, "intensity": 0.42,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "small",
+      "chords": ["D"],
+      "bass": "eighths", "guitar": "sparse", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "verse1", "bars": 8, "intensity": 0.54,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "auto",
+      "chords": ["D", "A", "Bm", "G"],
+      "bass": "eighths", "guitar": "muted", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "chorus1", "bars": 8, "intensity": 0.90,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["G", "D", "A", "Bm"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "verse2", "bars": 8, "intensity": 0.60,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["D", "A", "Bm", "G"],
+      "bass": "eighths", "guitar": "muted", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "chorus2", "bars": 8, "intensity": 0.94,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["G", "D", "A", "Bm"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "bridge", "bars": 8, "intensity": 0.36,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "small",
+      "chords": ["Bm", "Bm", "G", "G"],
+      "bass": "roots", "guitar": "sparse", "guitar2": "silent", "lead": "guitar"
+    },
+    {
+      "name": "solo", "bars": 12, "intensity": 0.88,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "auto",
+      "chords": ["D", "A", "Bm", "G"],
+      "bass": "eighths", "guitar": "driving", "guitar2": "solo", "lead": "guitar2"
+    },
+    {
+      "name": "chorus3", "bars": 8, "intensity": 1.00,
+      "feel": "straight", "plays": "drums+bass+guitar+guitar2", "fill": "big",
+      "chords": ["G", "D", "A", "Bm"],
+      "bass": "eighths", "guitar": "open", "guitar2": "fills", "lead": "guitar"
+    },
+    {
+      "name": "ending", "bars": 4, "intensity": 0.70,
+      "feel": "straight", "plays": "drums+bass+guitar", "fill": "none",
+      "chords": ["D"],
+      "bass": "eighths", "guitar": "open", "guitar2": "silent", "lead": "guitar"
+    }
+  ]
+}
