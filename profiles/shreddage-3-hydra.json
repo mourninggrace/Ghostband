@@ -315,14 +315,47 @@
     // on a solo, which is what a guitarist does without thinking about it:
     // round and vocal behind somebody, bright and cutting out front.
     "signal": { "cc": 22, "follows": "lead", "type": "select", "positions": 3, "low": 0, "high": 1 },
-    "xtra attack": { "cc": 23, "follows": "random", "type": "knob", "low": 0, "high": 1 },
+    // Pick definition, so it follows how hard the section is being played.
+    // "random" meant a quiet verse could get more attack than a full chorus,
+    // which is backwards - a player digs in as a song lifts. Never all the way
+    // off, because a guitar with no pick attack sounds like a pad.
+    "xtra attack": { "cc": 23, "follows": "intensity", "type": "knob", "low": 0.25, "high": 0.9 },
     "pitch bend range": { "cc": 24, "follows": "none", "type": "knob", "low": 0, "high": 1 },
-    "unison bend": { "cc": 25, "follows": "random", "type": "knob", "low": 0, "high": 1 },
+    // A soloist's gesture - two strings bent to the same note - so it belongs
+    // to whoever is out front and to nobody else. Zero behind the rhythm
+    // guitar, a moderate amount on a solo, capped well short of full: a unison
+    // bend on everything stops reading as a flourish and starts reading as
+    // tuning trouble.
+    "unison bend": { "cc": 25, "follows": "lead", "type": "knob", "low": 0.0, "high": 0.45 },
     // "lead" rather than "random". Random meant the tone wandered from section
     // to section with no relation to what the guitar was doing - which is
     // variety, but not a voice. Tied to the role it becomes one: darker behind
     // the rhythm guitar, brighter when out front.
     "tone": { "cc": 26, "follows": "lead", "type": "knob", "low": 0.2, "high": 0.85 },
+    // ---- the four below are SETTINGS, and stay on "none" ----
+    //
+    // "none" means Ghostband never sends them. Each has one correct value that
+    // does not change during a song, so there is nothing for an arrangement to
+    // express through them - and every controller this plugin transmits is one
+    // more thing a knob sitting in MIDI Learn can latch onto by mistake. That
+    // is not hypothetical: Shreddage's Pitch Bend Range learned the mix knob's
+    // CC in exactly that way.
+    //
+    // "fixed" would hold them actively rather than leave them alone. Wrong
+    // trade here: it buys protection against somebody nudging a knob, and pays
+    // in traffic on a wire that has already caused one wrong mapping. Set these
+    // by hand, once.
+    //
+    //   strumming mode        a lead line is one note at a time; there is
+    //                         nothing to strum. Leave it off.
+    //   MIDI guitar mode      for playing Shreddage FROM a guitar controller.
+    //                         Ghostband is not one.
+    //   invert MIDI channels  changes what arrives on which channel - the one
+    //                         control in this file that could silently send the
+    //                         whole part to the wrong instrument.
+    //   anti-repetition       stops the same sample firing twice in a row.
+    //                         Worth having ON permanently; set it once in
+    //                         Shreddage, it is not an arrangement decision.
     "strumming mode": { "cc": 27, "follows": "none", "type": "switch", "low": 0, "high": 1 },
     "MIDI guitar mode": { "cc": 28, "follows": "none", "type": "switch", "low": 0, "high": 1 },
     "invert MIDI channels": { "cc": 29, "follows": "none", "type": "switch", "low": 0, "high": 1 },
