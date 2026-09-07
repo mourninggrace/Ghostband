@@ -10,6 +10,15 @@ instrument.
 
 **Status:** drums, bass, two guitars and piano. Rock and metal. No live following yet.
 
+### Download
+
+**[Ghostband 0.1.0 for Windows](https://github.com/mourninggrace/Ghostband/releases/latest)**
+— unzip and drop the `Ghostband.vst3` folder into
+`C:\Program Files\Common Files\VST3\`, then rescan plugins in your host.
+
+There is no separate support folder. `Ghostband.vst3` is a bundle, and the preset
+songs and driver profiles are already inside it.
+
 ![The Ghostband song screen](docs/screenshots/song.png)
 
 *The song screen. Every section shows its chords, its feel, and how many drum hits and bass notes it actually plays.*
@@ -553,3 +562,30 @@ If you forget `--recursive`, run `git submodule update --init --recursive`. The
 build tells you so rather than failing obscurely. JUCE is pinned to 8.0.15; the
 C++ runtime is linked statically, so the resulting plugin has no dependencies
 beyond Windows itself.
+
+`Install.bat` copies the result into `C:\Program Files\Common Files\VST3\`,
+carrying across anything you have taught or calibrated rather than overwriting
+it, and removing presets that earlier versions shipped and this one does not.
+Close your host first — it holds the plugin open, and a copy that silently fails
+looks exactly like a fix that did not work.
+
+## Making a release
+
+```bash
+Release.bat
+```
+
+It reads the version from `CMakeLists.txt`, refuses a dirty tree or a build that
+fails its own tests, stages the bundle with the profiles and preset songs inside
+it — the build output alone has neither, and would install and then be unable to
+name a single instrument — and writes `out/Ghostband-<version>-win64.zip` with
+its SHA256.
+
+Then, with the version bumped and committed:
+
+```bash
+gh release create v<version> out/Ghostband-<version>-win64.zip --title "..." --notes-file <notes>
+```
+
+Releases are cut periodically, after a substantial batch of changes, rather than
+on every commit.
