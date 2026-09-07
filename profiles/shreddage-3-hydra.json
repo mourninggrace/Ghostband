@@ -6,14 +6,24 @@
   // headlessly gives an empty instance, the same wall as IRON 2 in Player mode -
   // so this was done by ear at the keyboard, which is the only way available.
   //
-  // ONE ODDITY, UNEXPLAINED. Partway through, the lower half of the range went
-  // silent and then came back on its own with nothing changed. The most likely
-  // benign cause is Kontakt still streaming its samples in. If it recurs, the
-  // two settings worth suspecting are Performance Style - Mono Lead (Mid/High)
-  // deliberately restricts the register, and this profile recommends it - and
-  // whichever articulation keyswitch was last latched. Written down because an
-  // intermittent nobody understands is exactly what gets misdiagnosed as
-  // something else later.
+  // THE LOW REGISTER DOES NOT RELIABLY SOUND, AND IT DOES NOT MATTER.
+  //
+  // Below roughly 40 the instrument is silent when played by hand. It sounded
+  // during calibration and went quiet again afterwards, with nothing changed.
+  // Performance Style was ruled out by test - it has been Mono Lead (Mid/High)
+  // throughout, and switching to Standard did not bring the notes back.
+  // Unexplained. If it is ever worth chasing, the thing left to suspect is the
+  // loaded patch's own string configuration or tuning: an eight string playing
+  // as six has no F#1 or B1, which is exactly this symptom.
+  //
+  // It does not matter because GHOSTBAND NEVER SENDS A NOTE THAT LOW. Measured
+  // across two songs: preset-thrash plays 58-87 on this channel, preset-blues
+  // 62-86, and neither writes a single note below 40. A lead line lives in the
+  // upper third of the neck, which is where the generator puts it.
+  //
+  // So chord_zone's lower bound is documentation rather than a working limit,
+  // and calibrating it was worth less than it was made to sound. Recorded so
+  // nobody spends an evening on a silence that nothing is listening to.
   //
   // THE RANGE. Hydra is an EIGHT string, tuned F#1 B1 E2 A2 D3 G3 B3 E4 at
   // concert pitch, so the reasoning went: F#1 is 30, therefore 30 is the
