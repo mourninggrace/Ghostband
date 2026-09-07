@@ -156,6 +156,11 @@ public:
     // the same channel sitting below the instrument's playable range. Counting
     // them together conflates the performance with the articulation.
     int getSequenceNoteOnCount (int channel, int minNote = 0) const;
+
+    // Every controller message on a channel, in order, as "cc=value" pairs.
+    // The performance and the TONE are different claims: two renders can place
+    // identical notes and still hand the guitar a different amp.
+    juce::String getSequenceControllers (int channel) const;
     int getSequencePitchSum   (int channel) const;
     int getBarTicks() const;
 

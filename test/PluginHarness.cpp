@@ -3501,6 +3501,8 @@ int main (int argc, char** argv)
         const juce::String wanted = fingerprint();
         check (wanted.isNotEmpty(), "the performance to be saved is not silent", wanted);
 
+        const juce::String wantedCC = proc.getSequenceControllers (proc.channelGuitar.load());
+
         check (saved ("chunky verse"), "a take saves", error);
         check (proc.getTakes().size() == 1, "and the library has one take",
                juce::String (static_cast<int> (proc.getTakes().size())));
@@ -3523,6 +3525,52 @@ int main (int argc, char** argv)
 
         check (fingerprint() == wanted, "and recalling the take brings it back note for note",
                fingerprint());
+
+        // The TONE, which is a different claim from the performance. Reported:
+        // a recalled take plays the same notes through different guitar
+        // effects. Ghostband picks an amp and an effect per song from the seed,
+        // so if the notes come back and the controls do not, the fault is in
+        // how they are sent rather than in how they are chosen.
+        check (proc.getSequenceControllers (proc.channelGuitar.load()) == wantedCC,
+               "and hands the guitar the same controls it did before",
+               proc.getSequenceControllers (proc.channelGuitar.load()));
+
+        // One tone per take, not one per section.
+        //
+        // A control that follows "random once" is chosen from the SONG seed and
+        // held; one that follows "random" is chosen from the SECTION seed and
+        // re-chosen at every boundary. The guitar's effect shaping was on the
+        // second, so which effect was picked once per song while how much of it
+        // moved every eight bars - the riff was identical and the tone was not,
+        // which is what made a recalled take sound wrong.
+        {
+            std::map<int, std::set<int>> valuesFor;
+            for (const juce::String& pair
+                     : juce::StringArray::fromTokens (
+                           proc.getSequenceControllers (proc.channelGuitar.load()), " ", ""))
+            {
+                if (! pair.contains ("=")) continue;
+                valuesFor[pair.upToFirstOccurrenceOf ("=", false, false).getIntValue()]
+                    .insert (pair.fromFirstOccurrenceOf ("=", false, false).getIntValue());
+            }
+
+            // The intensity-driven ones SHOULD move: drive and pickup follow how
+            // hard the section is played, which is the arrangement doing its job.
+            const std::set<int> mayMove { 22, 25 };
+
+            juce::StringArray drifting;
+            for (const auto& entry : valuesFor)
+                if (entry.second.size() > 1 && mayMove.count (entry.first) == 0)
+                    drifting.add ("CC " + juce::String (entry.first) + " took "
+                                  + juce::String (static_cast<int> (entry.second.size()))
+                                  + " values");
+
+            check (drifting.isEmpty(),
+                   "the guitar keeps one tone for the whole song",
+                   drifting.isEmpty() ? juce::String (static_cast<int> (valuesFor.size()))
+                                            + " controls, only drive and pickup move"
+                                      : drifting.joinIntoString ("; "));
+        }
         check (proc.seed.load() == 88345, "the seed came back",
                juce::String (proc.seed.load()));
         check (std::abs (proc.complexity.load() - 0.73) < 0.001

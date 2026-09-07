@@ -2714,6 +2714,17 @@ int GhostbandProcessor::getSequenceNoteOnCount (int channel, int minNote) const
     return n;
 }
 
+juce::String GhostbandProcessor::getSequenceControllers (int channel) const
+{
+    const juce::SpinLock::ScopedLockType lock (sequenceLock);
+    juce::String out;
+    for (const TimedMessage& m : sequence)
+        if (m.message.isController() && m.message.getChannel() == channel)
+            out << m.message.getControllerNumber() << "="
+                << m.message.getControllerValue() << " ";
+    return out.trim();
+}
+
 int GhostbandProcessor::getSequencePitchSum (int channel) const
 {
     const juce::SpinLock::ScopedLockType lock (sequenceLock);

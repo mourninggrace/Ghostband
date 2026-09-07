@@ -1145,20 +1145,19 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
             .launchInDefaultBrowser();
     };
 
-    manualButton.onClick = [this]
+    manualButton.onClick = []
     {
-        // Ships beside the plugin once it exists; until then, point at the
-        // written documentation rather than pretending the button is broken.
-        const juce::File pdf =
-            juce::File::getSpecialLocation (juce::File::currentExecutableFile)
-                .getParentDirectory().getParentDirectory()
-                .getChildFile ("Resources").getChildFile ("Ghostband-manual.pdf");
-
-        if (pdf.existsAsFile())
-            pdf.startAsProcess();
-        else
-            juce::URL ("https://github.com/mourninggrace/Ghostband#readme")
-                .launchInDefaultBrowser();
+        // The README IS the manual, decided 2026-09-07. It is long, current, and
+        // its screenshots regenerate themselves from the harness, so a second
+        // document could only duplicate it and then drift - which is exactly
+        // what NEXT.md did before it had to be split up.
+        //
+        // This used to look for a Ghostband-manual.pdf beside the plugin and
+        // fall back to the README when it was missing. That file was never
+        // going to exist, so the fallback was the whole behaviour, dressed up
+        // as a stopgap.
+        juce::URL ("https://github.com/mourninggrace/Ghostband#readme")
+            .launchInDefaultBrowser();
     };
 
     struct ChannelBox { juce::ComboBox* box; juce::Label* label; const char* name;

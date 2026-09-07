@@ -4,57 +4,29 @@ One file, so none of it has to be remembered. Kept current — anything answered
 gets marked done and moved to the bottom rather than deleted, so the same
 question does not get asked twice.
 
-Last updated 2026-09-07, after the take library and the v0.1.0 release.
+Last updated 2026-09-07, after the tone fix.
 
 ---
 
 ## 1. Try these and tell me if they are wrong
 
-All shipped and installed today. Every one of them passes its own checks, which
-is not the same as sounding or feeling right.
+- **The guitar keeps one tone for a whole song now.** You reported that a
+  recalled take played the same notes through different effects. It was not
+  randomness leaking in — the notes AND the controls come back byte-identical,
+  which is now pinned. The cause was the profiles: `finisher amount`, `width`,
+  `focus` and `latch` followed `random`, which re-chooses at **every section
+  boundary**, while `finisher` — which effect it actually is — followed
+  `random once` and was held for the song. So Ghostband picked the effect once
+  and then re-rolled how much of it every eight bars.
 
-- **The take library.** Roll until something is good, Takes, name it, Save. Then
-  move the seed and the dials, and Recall. **It should come back note for note.**
-  If your ear says otherwise that is a real finding and I want it — the checks
-  fingerprint every channel by note count and pitch sum, so a difference you can
-  hear would mean the fingerprint is measuring the wrong thing.
+  All four are `random once` now, and the piano's `tone` and `ambience amount`
+  with them. One tone per take; two takes of one song still differ. **Needs the
+  install.** If you liked the movement, it is one word per line to put back.
 
-- **The colour themes.** They were never reachable before today: the picker was
-  laid out at zero height and could not be clicked. It is at the bottom of
-  Settings now. Switch a few — especially **Paper**, the light one, which is
-  where anything left on the old palette shows up worst.
+- **The colour themes**, including the drop-down fix. All six screens have been
+  rendered on Paper and looked at; the menu was the only casualty.
 
-  You already found one: on Paper the theme list itself became unreadable. Fixed
-  — a drop-down is a separate window and takes its colours from somewhere the
-  first fix could not reach. All six screens have since been rendered on Paper
-  and looked at; that menu was the only casualty. **Needs the install below.**
-
-- **Save as... now writes to `Documents\Ghostband\Songs`** instead of opening
-  inside the installed bundle under Program Files. And **Save on a preset no
-  longer tries to overwrite the preset** — it becomes Save as..., offering the
-  same name in your own folder.
-
-- **Two presets vanished from Load plan, on purpose.** `calibrate-shreddage` and
-  `preset-twin-guitar` were deleted from the project sessions ago but were still
-  sitting in the installed bundle, because the installer only ever added files.
-  Say so if you actually wanted either of them; both are recoverable.
-
-## 2. Questions I asked and you have not answered
-
-Neither is blocking. Both change what I would build.
-
-- **AmpliTube 5 and Guitar Rig 7 — still needed?** You asked several sessions ago
-  whether they earn their place now that IRON 2 and Shreddage bring their own
-  amps and cabinets. I never answered you, and then it became a question only you
-  can answer. It affects how guitar tone gets shaped from here.
-
-- **Did the drums come up?** Ghostband used to send a stale CC 7 to SSD5 on
-  channel 10, frozen at whatever the drum mix knob was set to before that knob
-  was removed. It is no longer sent. **If the drums sound bigger now, that was
-  why. If they sound identical, SSD5 was ignoring it and nothing was ever wrong.**
-  Either answer is useful; the second one closes the question for good.
-
-## 3. One thing only you can diagnose
+## 2. One thing only you can diagnose
 
 - **Shreddage goes quiet below about note 40.** It sounded during calibration and
   has been silent since, with nothing changed. Performance Style is ruled out by
@@ -65,10 +37,12 @@ Neither is blocking. Both change what I would build.
   configured to play as a six has no F#1 or B1, which is exactly this symptom.
   Worth a look in Kontakt at which strings that patch thinks it has.
 
-  Not urgent: `lowest_note` is clamped to 40, and 40 is E2 — no lead guitar has
-  business below it, so no song loses anything today.
+  You have said you want this diagnosed and fixed rather than clamped around, so
+  it stays open until it is. `lowest_note` is pinned at 40 meanwhile, which is E2
+  — no song loses anything today, but the instrument is still lying about its
+  range and that is worth knowing.
 
-## 4. Decisions that steer what I build next
+## 3. Decisions that steer what I build next
 
 - **Should the structure editor get a "guitar 2" toggle?** Found while sweeping
   the light theme. The PLAYS row on the Edit screen has drums, bass, guitar and
@@ -79,23 +53,14 @@ Neither is blocking. Both change what I would build.
   as it was, and there is now a check that says so. It is a missing control, not
   corruption. Small to add; say the word.
 
-
-- **More presets?** There are **34**. The target you parked was 50. Say whether
-  to carry on, and whether any style is under-served or missing.
-
-- **The AI planner.** Still the last planned feature. It needs **your own API
-  key**, and it must stay entirely optional — Ghostband has to work exactly as it
-  does now without it. Worth doing, and large. Your call on when.
-
-- **A separate user manual?** The README is the manual now and is current, with
-  screenshots that regenerate themselves. The About screen has a button pointing
-  at a manual that does not exist yet. Either write one, or point that button at
-  the README and close the item.
+- **The AI planner** — explained in full in the answer of 2026-09-07; waiting on
+  a yes or no. It needs **your own API key** and must stay entirely optional.
 
 - **When to cut the next release.** Agreed: periodically, after a substantial
-  batch, not per commit. `Release.bat` does the work. Just say when.
+  batch, not per commit. `Release.bat` does the work. Just say when. There is a
+  batch waiting now.
 
-## 5. Standing things, so they are written down once
+## 4. Standing things, so they are written down once
 
 - **Close Gig Performer before I install.** It holds the plugin open, and a copy
   that silently fails looks exactly like a fix that did not work. The installer
@@ -104,15 +69,22 @@ Neither is blocking. Both change what I would build.
 - **Call time on the budget.** I cannot see the balance. You said stop at five
   dollars remaining; I will not know unless you tell me.
 
-- **MINDst's Kick One Shot toggle** is still untested, and only matters if MINDst
-  is ever revisited. Ghostband sends a note-off 30 ticks after each hit, and with
-  One Shot off that note-off *ends* the sample — so every MINDst drum may have
-  been truncated the whole time it was being judged against SSD5.
-
 ---
 
 ## Answered
 
+- **Do the recalled takes sound identical?** Notes yes, tone no — and the tone
+  was the profiles re-rolling effects every section, not the takes. Fixed.
+  *(2026-09-07)*
+- **The two removed presets** — stay gone. *(2026-09-07)*
+- **AmpliTube 5 and Guitar Rig 7** — not needed; dropped from the rig for now.
+  An idea involving them may come back in a later version. *(2026-09-07)*
+- **Did the drums come up?** Not noticeably. Closed either way: the stale CC 7 is
+  gone and is not coming back. *(2026-09-07)*
+- **More presets** — 34 is enough. More in version 2. *(2026-09-07)*
+- **A separate user manual** — no. The README is the manual, and the About
+  screen's button now opens it. *(2026-09-07)*
+- **MINDst** — dropped, not revisiting. *(2026-09-07)*
 - **Shreddage's pitch bend range** — set to 2, stray CC 20 automation removed.
   Ghostband does not touch the control. *(2026-09-07)*
 - **Calibration** — Shreddage walked through it, along with IRON 2's top note
