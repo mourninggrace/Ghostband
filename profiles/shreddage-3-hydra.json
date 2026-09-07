@@ -1,15 +1,23 @@
 {
   // Impact Soundworks Shreddage 3 Hydra, hosted in Kontakt Player.
   //
-  // NOTHING IN THIS FILE IS MEASURED YET. The probe cannot reach it: Shreddage
-  // is a Kontakt library rather than a plugin, so loading Kontakt headlessly
-  // gives an empty instance - the same wall as IRON 2 coming up in Player mode.
-  // It has to be calibrated from inside the host, where Kontakt already has the
-  // library loaded.
+  // CALIBRATED 2026-09-07, from inside the host. The probe still cannot reach
+  // it - Shreddage is a Kontakt library rather than a plugin, so loading Kontakt
+  // headlessly gives an empty instance, the same wall as IRON 2 in Player mode -
+  // so this was done by ear at the keyboard, which is the only way available.
+  //
+  // ONE ODDITY, UNEXPLAINED. Partway through, the lower half of the range went
+  // silent and then came back on its own with nothing changed. The most likely
+  // benign cause is Kontakt still streaming its samples in. If it recurs, the
+  // two settings worth suspecting are Performance Style - Mono Lead (Mid/High)
+  // deliberately restricts the register, and this profile recommends it - and
+  // whichever articulation keyswitch was last latched. Written down because an
+  // intermittent nobody understands is exactly what gets misdiagnosed as
+  // something else later.
   //
   // THE RANGE. Hydra is an EIGHT string, tuned F#1 B1 E2 A2 D3 G3 B3 E4 at
-  // concert pitch. Its lowest note is therefore around 30 and, with 24 frets on
-  // the top string, its highest around 88. That is what is set below.
+  // concert pitch, so the reasoning went: F#1 is 30, therefore 30 is the
+  // bottom. See chord_zone below for how that turned out.
   //
   // It has not been confirmed by ear, but it is bracketed by something that has:
   // Shreddage's own keyswitch block. Kontakt's keyboard is labelled -2 to 8, so
@@ -62,10 +70,22 @@
 
   "mode": "notes",
 
-  "needs_verification": true,
-  "verification_note": "Bends and legato confirmed by ear. The range is an eight-string guitar's, reasoned rather than measured - walk the Calibrate screen to confirm it.",
+  "needs_verification": false,
+  "verification_note": "Range, bends, legato and keyswitches all confirmed by ear at the keyboard, 2026-09-07.",
 
-  "chord_zone": { "lowest_note": 30, "highest_note": 88 },
+  // 28 to 88, MEASURED at the keyboard on 2026-09-07. This replaces 30, which
+  // was reasoned and wrong.
+  //
+  // The reasoning was: Hydra is an eight string tuned F#1 B1 E2 A2 D3 G3 B3 E4,
+  // F#1 is 30, therefore 30 is the bottom. Sound reasoning from a correct fact,
+  // and still two semitones out - the library samples below its own open low
+  // string, which no amount of thinking about the tuning would have revealed.
+  //
+  // Worth remembering how close the wrong number looked to right. The solo
+  // plays across 34 to 87 without a hole, and that was offered as evidence the
+  // range was correct. It was evidence about what Ghostband WROTE, not about
+  // what Shreddage SOUNDED, and those are not the same claim.
+  "chord_zone": { "lowest_note": 28, "highest_note": 88 },
 
   // 119, not 127, and this one matters.
   //
