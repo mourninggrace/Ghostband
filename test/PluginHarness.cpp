@@ -19,6 +19,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include <algorithm>
 #include <iostream>
 #include <map>
 #include <set>
@@ -3172,6 +3173,248 @@ int main (int argc, char** argv)
         proc.channelGuitar.store (2);
     }
 
+    // ---- the take library ----------------------------------------------------
+    // A take promises one thing: that what you heard comes back. Everything
+    // below is that promise taken apart - the performance is identical, the
+    // library holds more than one, a name used twice means one take, and the
+    // rig is left alone.
+    {
+        const juce::File takesStore = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                          .getChildFile ("ghostband-harness")
+                                          .getChildFile ("takes.json");
+        takesStore.deleteFile();
+        GhostbandProcessor::setTakesFileForTesting (takesStore);
+
+        check (proc.getTakes().empty(), "a fresh library is empty");
+
+        juce::String error;
+
+        // Cleared before each save, or a later success reports the message from
+        // an earlier failure and the run reads as though every take failed.
+        const auto saved = [&proc, &error] (const juce::String& name)
+        {
+            error.clear();
+            return proc.saveTake (name, error);
+        };
+
+        check (! saved ("   "), "a take with no name is refused", error);
+        check (proc.getTakes().empty(), "and nothing was written");
+
+        // A fingerprint of the whole performance, not of one part. Note counts
+        // alone would pass for a song playing the right number of wrong notes,
+        // so the pitch sums go in beside them - a transposed or re-rolled part
+        // moves the sum even when the count holds.
+        const auto fingerprint = [&proc]
+        {
+            juce::String f;
+            for (int ch = 1; ch <= 16; ++ch)
+            {
+                const int n = proc.getSequenceNoteOnCount (ch);
+                if (n > 0)
+                    f << ch << ":" << n << "/" << proc.getSequencePitchSum (ch) << " ";
+            }
+            return f.trim();
+        };
+
+        proc.loadPlan (juce::File (planPath));
+        proc.seed.store (88345);
+        proc.complexity.store (0.73);
+        proc.humanize.store   (0.31);
+        proc.fills.store      (0.90);
+        proc.regenerate();
+
+        const juce::String wanted = fingerprint();
+        check (wanted.isNotEmpty(), "the performance to be saved is not silent", wanted);
+
+        check (saved ("chunky verse"), "a take saves", error);
+        check (proc.getTakes().size() == 1, "and the library has one take",
+               juce::String (static_cast<int> (proc.getTakes().size())));
+
+        // Everything a take carries, moved somewhere else. If recall reads any
+        // of it from the live plugin rather than from the take, this is what
+        // catches it.
+        proc.seed.store (11);
+        proc.complexity.store (0.10);
+        proc.humanize.store   (0.90);
+        proc.fills.store      (0.00);
+        proc.setKeyPitchClass (7);
+        proc.setPlanBpm (171.0);
+        proc.regenerate();
+
+        check (fingerprint() != wanted, "moving the dials really does change the song",
+               "was " + wanted);
+
+        proc.recallTake (0);
+
+        check (fingerprint() == wanted, "and recalling the take brings it back note for note",
+               fingerprint());
+        check (proc.seed.load() == 88345, "the seed came back",
+               juce::String (proc.seed.load()));
+        check (std::abs (proc.complexity.load() - 0.73) < 0.001
+                   && std::abs (proc.humanize.load() - 0.31) < 0.001
+                   && std::abs (proc.fills.load() - 0.90) < 0.001,
+               "and so did all three dials",
+               juce::String (proc.complexity.load(), 2) + " "
+                   + juce::String (proc.humanize.load(), 2) + " "
+                   + juce::String (proc.fills.load(), 2));
+
+        // Tempo and key live in the plan, not in an atomic, and the Edit screen
+        // can change them without anything being saved to disk. A take that
+        // stored only a path to the song would have recalled them at 171bpm in
+        // G, which is a different song rather than a different take.
+        check (std::abs (proc.getPlanBpm() - 171.0) > 0.5,
+               "the tempo came back with the take, not from the live plugin",
+               juce::String (proc.getPlanBpm(), 1) + " bpm");
+
+        // ---- the rig is not part of a take ----
+        proc.levelGuitar.store (0.42f);
+        proc.channelGuitar.store (9);
+        proc.applyChannels();
+        proc.recallTake (0);
+        check (std::abs (proc.levelGuitar.load() - 0.42f) < 0.01f
+                   && proc.channelGuitar.load() == 9,
+               "recalling a take leaves the mix and the channels alone",
+               juce::String (proc.levelGuitar.load(), 2) + " on ch"
+                   + juce::String (proc.channelGuitar.load()));
+        proc.levelGuitar.store (1.0f);
+        proc.channelGuitar.store (2);
+        proc.applyChannels();
+
+        // ---- a second take, and a name used twice ----
+        proc.seed.store (4242);
+        proc.regenerate();
+        const juce::String second = fingerprint();
+        check (saved ("open chorus"), "a second take saves", error);
+        check (proc.getTakes().size() == 2, "the library holds both",
+               juce::String (static_cast<int> (proc.getTakes().size())));
+
+        proc.seed.store (777);
+        proc.regenerate();
+        check (saved ("CHUNKY VERSE"), "saving over a name succeeds", error);
+        check (proc.getTakes().size() == 2,
+               "and replaces that take rather than making a second of the same name",
+               juce::String (static_cast<int> (proc.getTakes().size())));
+
+        // The one that was overwritten must now recall the NEW performance, and
+        // the untouched one must be exactly where it was. Overwriting the wrong
+        // row is the failure this catches.
+        const auto indexOf = [&proc] (const juce::String& name)
+        {
+            const auto all = proc.getTakes();
+            for (size_t i = 0; i < all.size(); ++i)
+                if (all[i].name.equalsIgnoreCase (name)) return static_cast<int> (i);
+            return -1;
+        };
+
+        proc.seed.store (1);
+        proc.regenerate();
+        proc.recallTake (indexOf ("open chorus"));
+        check (fingerprint() == second, "the take that was not overwritten is untouched");
+
+        proc.recallTake (indexOf ("chunky verse"));
+        check (proc.seed.load() == 777, "and the overwritten one holds the newer performance",
+               juce::String (proc.seed.load()));
+
+        // ---- names people actually type ----
+        // A double quote in a control name destroyed a profile once, because it
+        // was spliced into JSON unescaped. Takes are written through
+        // JSON::toString, which escapes - and this is what says so.
+        const juce::String hostile = "Kyle's \"big\" take \\ 2am";
+        check (saved (hostile), "a take with quotes and a backslash saves", error);
+        {
+            const auto all = proc.getTakes();
+            const bool found = std::any_of (all.begin(), all.end(),
+                                            [&hostile] (const GhostbandProcessor::Take& t)
+                                            { return t.name == hostile; });
+            check (found, "and reads back with its name intact", hostile);
+            check (all.size() == 3, "without damaging the takes either side of it",
+                   juce::String (static_cast<int> (all.size())));
+        }
+
+        // ---- a take outlives the file it came from ----
+        // The song is stored in the take, so a preset that is moved, renamed or
+        // deleted does not take the saved performances with it.
+        {
+            const juce::File moved = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                         .getChildFile ("ghostband-harness")
+                                         .getChildFile ("temporary-song.json");
+            moved.getParentDirectory().createDirectory();
+            juce::File (planPath).copyFileTo (moved);
+
+            proc.loadPlan (moved);
+            proc.seed.store (5150);
+            proc.regenerate();
+            const juce::String orphan = fingerprint();
+            check (saved ("from a song since deleted"), "a take of it saves", error);
+
+            moved.deleteFile();
+            proc.loadPlan (juce::File (planPath));
+            proc.seed.store (2);
+            proc.regenerate();
+
+            proc.recallTake (indexOf ("from a song since deleted"));
+            check (fingerprint() == orphan,
+                   "a take still plays after its song file is deleted", fingerprint());
+            check (proc.getStatus().ok, "and the plugin is not left in an error state",
+                   proc.getStatus().message);
+        }
+
+        // ---- delete ----
+        {
+            const int before = static_cast<int> (proc.getTakes().size());
+            const int target = indexOf ("open chorus");
+            proc.deleteTake (target);
+            const auto after = proc.getTakes();
+            check (static_cast<int> (after.size()) == before - 1, "delete removes one take",
+                   juce::String (before) + " -> " + juce::String (static_cast<int> (after.size())));
+            check (indexOf ("open chorus") < 0, "and removes the one that was asked for");
+            check (indexOf ("chunky verse") >= 0, "leaving the others alone");
+
+            // Out of range must do nothing rather than take a neighbour with it.
+            const int n = static_cast<int> (proc.getTakes().size());
+            proc.deleteTake (-1);
+            proc.deleteTake (n + 5);
+            check (static_cast<int> (proc.getTakes().size()) == n,
+                   "deleting a take that is not there deletes nothing");
+            proc.recallTake (-1);
+            proc.recallTake (n + 5);
+            check (proc.getStatus().ok, "and recalling one that is not there does nothing",
+                   proc.getStatus().message);
+        }
+
+        // ---- the library is on disk, not in the plugin ----
+        // Two Ghostbands in one rackspace is normal. The takes are re-read on
+        // every call precisely so the second instance sees the first one's
+        // saves instead of each holding a private copy.
+        {
+            GhostbandProcessor other;
+            check (other.getTakes().size() == proc.getTakes().size()
+                       && ! other.getTakes().empty(),
+                   "a second plugin instance sees the same library",
+                   juce::String (static_cast<int> (other.getTakes().size())) + " takes");
+        }
+
+        // Left populated rather than cleared, so the snapshot below renders the
+        // list with rows in it. An empty state is worth one look and this
+        // screen is mostly its list; a screenshot of the placeholder text says
+        // nothing about whether a row fits or how it reads.
+        proc.loadPlan (juce::File (planPath));
+        proc.seed.store (88345);
+        proc.complexity.store (0.73);
+        proc.humanize.store (0.31);
+        proc.fills.store (0.90);
+        proc.regenerate();
+        saved ("chunky verse, take 3");
+
+        proc.seed.store (4242);
+        proc.complexity.store (0.40);
+        proc.fills.store (0.20);
+        proc.regenerate();
+        saved ("straighter, less answering");
+
+        proc.loadPlan (juce::File (planPath));
+    }
+
     // ---- editor snapshots --------------------------------------------------
     // A layout bug is invisible to every check above. Rendering the editor to a
     // PNG makes the one thing these tests cannot assert - what it actually looks
@@ -3271,6 +3514,7 @@ int main (int argc, char** argv)
                 shots.push_back ({ 2, 1000,  980, "-docs" });   // edit
                 shots.push_back ({ 3, 1000, 1320, "-docs" });   // settings
                 shots.push_back ({ 4, 1000,  760, "-docs" });   // about
+                shots.push_back ({ 5, 1000,  900, "-docs" });   // takes
 
                 // About at the size it is actually used at. It is the one
                 // screen painted straight onto the canvas rather than built

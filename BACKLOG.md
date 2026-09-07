@@ -4,32 +4,37 @@ Written 2026-09-06 at the end of session 12, checked against the code rather
 than copied out of NEXT.md — several things that file still listed as open are
 in fact done, and are noted at the bottom so nobody rediscovers them.
 
-## DECIDED: next session is the TAKE LIBRARY
+## The TAKE LIBRARY - DONE 2026-09-07
 
-Asked for 2026-09-07. Saving a performance you liked and getting it back.
+Built. A Takes button on the song screen, a name box, a Save, and a list with
+Recall and Delete. Thirty-two checks pin it, the strongest being that a take
+recalled after the dials, the key and the tempo have all been moved brings the
+song back note for note - fingerprinted across all sixteen channels by note
+count and pitch sum, not by note count alone.
 
-**What it is not.** A preset is a SONG - chords, sections, tempo, structure.
-A take is one PERFORMANCE of that song. The owner was right that the two need
-different names, and right that there should be no factory takes: a factory
-take is just a preset, and shipping any would blur the only distinction that
-matters. Naming still open - "Takes" recommended over "Variations", because a
-variation implies the material changed and here only the playing does.
+Three decisions worth not re-arguing:
 
-**Save the whole set, not the seed.** The seed alone does not reproduce what
-you heard: the performance comes from seed AND complexity, humanize, fills,
-key, style, tempo and the plan. Seed 88345 with humanize at 0.5 is a different
-take from the same seed at 0.7. Storing just the number would recall something
-the owner did not mean, and it is the same effort to store all of it.
+**The whole song is stored inside the take, not a path to it.** Key, style,
+tempo and the chords live in the plan, and the structure editor changes them
+without saving. A stored path would recall a song that had moved on, and would
+die with the file. A take of a since-deleted preset still plays; there is a check
+that says so.
 
-**Size: small, and no engine work at all.** Every value is already an atomic on
-the processor. Storage follows the taught-controls store, which already writes
-JSON into %APPDATA%/Ghostband. The UI is a name box, a Save button and a list.
-Comparable to the theme picker rather than to the fills work.
+**The rig is not part of a take.** Mix levels and channel assignments are how the
+rack is wired, not how the band played. Recall leaves both alone.
 
-**Already done, and worth not rebuilding:** the plugin saves its CURRENT state
-with the host session - seed, all three dials, key, style, tempo, mix levels,
-channels and theme. Reopening the rackspace restores it. What is missing is
-only the library of named ones.
+**No factory takes.** A factory take is a preset under another name, and shipping
+any would blur the only distinction that matters.
+
+### The other half of the original ask, not built
+
+The request was "keep a running history of the seeds used ... so if the seeds are
+sitting at 88345 and I liked what I heard, I can save that seed setting". The
+library answers the second half. The first half - an automatic history of recent
+rolls, so the good one from two rolls ago is still reachable after you have
+rolled past it - is not built. It is small: a ring buffer of the last dozen
+(seed + dials + plan) captured on each Roll, listed under the takes with a button
+that promotes one into a named take. Worth doing, and the natural next thing.
 
 ## A3, the lead guitar playing fills - DONE 2026-09-07
 

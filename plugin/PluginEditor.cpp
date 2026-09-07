@@ -375,6 +375,87 @@ void ControlList::paint (juce::Graphics& g)
 
 //==============================================================================
 
+void TakeList::setRows (std::vector<Row> r)
+{
+    rows = std::move (r);
+    setSize (getWidth(), juce::jmax (1, static_cast<int> (rows.size()) * rowHeight));
+    repaint();
+}
+
+void TakeList::setSelected (int index)
+{
+    if (index == selected) return;
+    selected = index;
+    repaint();
+}
+
+void TakeList::mouseDown (const juce::MouseEvent& e)
+{
+    const int row = e.getPosition().y / rowHeight;
+    if (row >= 0 && row < static_cast<int> (rows.size()) && onRowClicked)
+        onRowClicked (row);
+}
+
+void TakeList::mouseDoubleClick (const juce::MouseEvent& e)
+{
+    const int row = e.getPosition().y / rowHeight;
+    if (row >= 0 && row < static_cast<int> (rows.size()) && onRowDoubleClicked)
+        onRowDoubleClicked (row);
+}
+
+void TakeList::paint (juce::Graphics& g)
+{
+    g.fillAll (ghost::colours::card);
+
+    if (rows.empty())
+    {
+        g.setColour (ghost::dim);
+        g.setFont (juce::Font (juce::FontOptions (16.0f)));
+        g.drawFittedText ("No takes saved yet.\n\n"
+                          "When a roll gives you something worth keeping, name it "
+                          "above and press Save take.",
+                          getLocalBounds().reduced (16, 20),
+                          juce::Justification::centredTop, 4);
+        return;
+    }
+
+    for (size_t i = 0; i < rows.size(); ++i)
+    {
+        const auto r = juce::Rectangle<int> (0, static_cast<int> (i) * rowHeight,
+                                             getWidth(), rowHeight);
+        const bool active = static_cast<int> (i) == selected;
+
+        if (active)
+        {
+            g.setColour (ghost::accent.withAlpha (0.16f));
+            g.fillRect (r);
+            g.setColour (ghost::accent);
+            g.fillRect (r.withWidth (3));
+        }
+
+        auto inner = r.reduced (12, 6);
+        auto top   = inner.removeFromTop (20);
+
+        // The song sits on the right of the name rather than under it: two
+        // takes of one song differ in their numbers, and the numbers are the
+        // line worth reading straight down.
+        g.setColour (ghost::dim);
+        g.setFont (juce::Font (juce::FontOptions (14.0f)));
+        g.drawText (rows[i].song, top.removeFromRight (juce::jmin (220, top.getWidth() / 2)),
+                    juce::Justification::centredRight, true);
+
+        g.setColour (active ? ghost::accent : ghost::text);
+        g.setFont (juce::Font (juce::FontOptions (16.0f)));
+        g.drawText (rows[i].name, top, juce::Justification::centredLeft, true);
+
+        g.setColour (ghost::dim);
+        g.setFont (juce::Font (juce::FontOptions (14.0f)));
+        g.drawText (rows[i].detail, inner, juce::Justification::centredLeft, true);
+    }
+}
+
+//==============================================================================
+
 GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
 {
@@ -916,6 +997,92 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
                               });
     };
 
+    // ---- takes ----
+    for (juce::TextButton* b : std::initializer_list<juce::TextButton*> {
+             &takesButton, &tkDoneButton, &tkSaveButton, &tkRecall, &tkDelete })
+    {
+        styleButton (*b, b == &tkSaveButton);
+        addAndMakeVisible (*b);
+    }
+
+    tkName.setColour (juce::TextEditor::backgroundColourId, ghost::background);
+    tkName.setColour (juce::TextEditor::outlineColourId, ghost::line);
+    tkName.setColour (juce::TextEditor::focusedOutlineColourId, ghost::accent.withAlpha (0.6f));
+    tkName.setColour (juce::TextEditor::textColourId, ghost::text);
+    tkName.setFont (juce::Font (juce::FontOptions (17.0f)));
+    tkName.setTextToShowWhenEmpty ("name this take", ghost::dim.withAlpha (0.7f));
+
+    // Return saves. Naming a take and pressing enter is the gesture, and having
+    // to reach for a button after typing is the kind of small friction that
+    // stops a feature from being used at the moment it would help.
+    tkName.onReturnKey = [this] { saveTakeFromBox(); };
+    addChildComponent (tkName);
+
+    initLabel (tkHeading, "TAKES", 22.0f, ghost::text, juce::Justification::centredLeft);
+    initLabel (tkHelp,
+               "A take is one performance of the song that is loaded: its seed and its three "
+               "dials, with the song itself saved alongside so it comes back exactly as you "
+               "heard it. The mix and the channels are not part of a take - those are your rig.",
+               15.0f, ghost::dim, juce::Justification::topLeft);
+    tkHelp.setJustificationType (juce::Justification::topLeft);
+    initLabel (tkNameLabel, "NAME", 15.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (tkResult, "", 15.0f, ghost::accent, juce::Justification::centredLeft);
+
+    tkViewport.setViewedComponent (&tkList, false);
+    tkViewport.setScrollBarsShown (true, false);
+    tkViewport.setColour (juce::ScrollBar::thumbColourId, ghost::line.brighter (0.4f));
+    addChildComponent (tkViewport);
+
+    tkList.onRowClicked = [this] (int row)
+    {
+        tkSelected = row;
+        tkList.setSelected (row);
+
+        // Clicking a take puts its name in the box, so Save writes over the one
+        // you are looking at instead of quietly making a second copy of it.
+        if (row >= 0 && row < static_cast<int> (takes.size()))
+            tkName.setText (takes[static_cast<size_t> (row)].name,
+                            juce::dontSendNotification);
+    };
+
+    tkList.onRowDoubleClicked = [this] (int row) { tkSelected = row; tkRecall.onClick(); };
+
+    takesButton.onClick  = [this] { screen = Screen::Takes; tkResult.setText ({},
+                                        juce::dontSendNotification);
+                                    updateModeVisibility(); };
+    tkDoneButton.onClick = [this] { screen = Screen::Song; updateModeVisibility(); };
+
+    tkSaveButton.onClick = [this] { saveTakeFromBox(); };
+
+    tkRecall.onClick = [this]
+    {
+        if (tkSelected < 0 || tkSelected >= static_cast<int> (takes.size()))
+            return;
+
+        const juce::String name = takes[static_cast<size_t> (tkSelected)].name;
+        processor.recallTake (tkSelected);
+
+        // Straight back to the song. Recalling a take is something you do in
+        // order to listen to it, and leaving the library on screen hides the
+        // thing that just changed.
+        screen = Screen::Song;
+        updateModeVisibility();
+        statusLabel.setText ("Recalled take \"" + name + "\".",
+                             juce::dontSendNotification);
+    };
+
+    tkDelete.onClick = [this]
+    {
+        if (tkSelected < 0 || tkSelected >= static_cast<int> (takes.size()))
+            return;
+
+        const juce::String name = takes[static_cast<size_t> (tkSelected)].name;
+        processor.deleteTake (tkSelected);
+        tkSelected = 0;
+        refreshTakes();
+        tkResult.setText ("Deleted \"" + name + "\".", juce::dontSendNotification);
+    };
+
     // ---- header navigation, settings and about ----
     for (juce::TextButton* b : std::initializer_list<juce::TextButton*> {
              &settingsButton, &aboutButton, &backButton,
@@ -1371,6 +1538,7 @@ void GhostbandEditor::updateModeVisibility()
     const bool edit = (screen == Screen::Edit);
     const bool set  = (screen == Screen::Settings);
     const bool abt  = (screen == Screen::About);
+    const bool tks  = (screen == Screen::Takes);
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &chDrums, &chBass, &chGuitar, &chGuitar2, &chPiano,
@@ -1419,6 +1587,7 @@ void GhostbandEditor::updateModeVisibility()
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &loadButton, &reloadButton, &rollButton, &calibrateButton, &editButton,
+             &takesButton,
              &complexitySlider, &humanizeSlider, &fillsSlider,
              &fillsLabel, &complexityLabel,
              &humanizeLabel, &seedEditor, &seedLabel, &keyBox, &styleBox,
@@ -1437,6 +1606,11 @@ void GhostbandEditor::updateModeVisibility()
         c->setVisible (cal);
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
+             &tkDoneButton, &tkSaveButton, &tkRecall, &tkDelete, &tkName,
+             &tkHeading, &tkHelp, &tkNameLabel, &tkResult, &tkViewport })
+        c->setVisible (tks);
+
+    for (juce::Component* c : std::initializer_list<juce::Component*> {
              &edDoneButton, &edAddButton, &edDeleteButton, &edUpButton, &edDownButton,
              &edSaveButton, &edSaveAsButton, &edName, &edBars, &edChords,
              &edIntensity, &edFeel, &edFill, &edLead, &edDrums, &edBass, &edGuitar, &edPiano,
@@ -1448,6 +1622,7 @@ void GhostbandEditor::updateModeVisibility()
     // same list, selected for a different reason.
     viewport.setVisible (song || edit);
 
+    if (tks)  refreshTakes();
     if (cal)  refreshCalibration();
     if (edit) pullSectionEdit();
     if (song) sectionList.setSelection (rerollSelection);
@@ -1457,7 +1632,8 @@ void GhostbandEditor::updateModeVisibility()
 
 const char* GhostbandEditor::screenName (int index)
 {
-    static const char* names[numScreens] = { "song", "calibrate", "edit", "settings", "about" };
+    static const char* names[numScreens] = { "song", "calibrate", "edit", "settings",
+                                             "about", "takes" };
     return names[juce::jlimit (0, numScreens - 1, index)];
 }
 
@@ -1503,6 +1679,74 @@ int GhostbandEditor::rerollSelectionSizeForTesting() const
     return static_cast<int> (rerollSelection.size());
 }
 
+void GhostbandEditor::refreshTakes()
+{
+    takes = processor.getTakes();
+
+    std::vector<TakeList::Row> rows;
+    rows.reserve (takes.size());
+
+    for (const GhostbandProcessor::Take& t : takes)
+    {
+        TakeList::Row row;
+        row.name = t.name;
+        row.song = t.songName;
+
+        // Per cent, because that is how the same three dials are labelled on
+        // the song screen. A row reading 0.62 and a dial reading 62% are the
+        // same number twice and look like two different settings.
+        const auto pc = [] (double v)
+        {
+            return juce::String (juce::roundToInt (juce::jlimit (0.0, 1.0, v) * 100.0)) + "%";
+        };
+
+        row.detail = "seed " + juce::String (t.seed)
+                   + "     cplx " + pc (t.complexity)
+                   + "     hum "  + pc (t.humanize)
+                   + "     fills " + pc (t.fills);
+
+        if (t.savedAt.isNotEmpty())
+            row.detail += "     " + t.savedAt;
+
+        rows.push_back (row);
+    }
+
+    tkSelected = juce::jlimit (0, juce::jmax (0, static_cast<int> (takes.size()) - 1),
+                               tkSelected);
+    tkList.setRows (std::move (rows));
+    tkList.setSelected (tkSelected);
+    resized();
+}
+
+void GhostbandEditor::saveTakeFromBox()
+{
+    const juce::String name = tkName.getText().trim();
+    juce::String error;
+
+    if (! processor.saveTake (name, error))
+    {
+        tkResult.setColour (juce::Label::textColourId, ghost::warn);
+        tkResult.setText (error, juce::dontSendNotification);
+        return;
+    }
+
+    refreshTakes();
+
+    // Land the selection on what was just saved, so Recall and Delete point at
+    // it without another click. Found by name rather than assumed to be last,
+    // because saving over an existing take replaces it where it already sits.
+    for (size_t i = 0; i < takes.size(); ++i)
+        if (takes[i].name.equalsIgnoreCase (name))
+        {
+            tkSelected = static_cast<int> (i);
+            tkList.setSelected (tkSelected);
+            break;
+        }
+
+    tkResult.setColour (juce::Label::textColourId, ghost::accent);
+    tkResult.setText ("Saved \"" + name + "\".", juce::dontSendNotification);
+}
+
 void GhostbandEditor::showScreenForSnapshot (int index)
 {
     switch (juce::jlimit (0, numScreens - 1, index))
@@ -1511,6 +1755,7 @@ void GhostbandEditor::showScreenForSnapshot (int index)
         case 2:  screen = Screen::Edit;     break;
         case 3:  screen = Screen::Settings; break;
         case 4:  screen = Screen::About;    break;
+        case 5:  screen = Screen::Takes;    break;
         default: screen = Screen::Song;     processor.exitCalibration(); break;
     }
     updateModeVisibility();
@@ -2379,6 +2624,45 @@ void GhostbandEditor::resized()
         return;
     }
 
+    if (screen == Screen::Takes)
+    {
+        tkDoneButton.setBounds (planRow.removeFromLeft (72));
+        planRow.removeFromLeft (12);
+        tkHeading.setBounds (planRow);
+
+        r.removeFromTop (8);
+        tkHelp.setBounds (r.removeFromTop (56));
+
+        r.removeFromTop (10);
+        auto nameRow = r.removeFromTop (28);
+        tkNameLabel.setBounds (nameRow.removeFromLeft (52));
+        tkName.setBounds (nameRow.removeFromLeft (juce::jmin (300, nameRow.getWidth() - 8)));
+        nameRow.removeFromLeft (10);
+        tkSaveButton.setBounds (nameRow.removeFromLeft (juce::jmin (110, nameRow.getWidth())));
+
+        r.removeFromTop (10);
+        auto actionRow = r.removeFromTop (26);
+        tkRecall.setBounds (actionRow.removeFromLeft (86));
+        actionRow.removeFromLeft (6);
+        tkDelete.setBounds (actionRow.removeFromLeft (78));
+        actionRow.removeFromLeft (14);
+        tkResult.setBounds (actionRow);
+
+        r.removeFromTop (10);
+        layOutFooter (r.removeFromBottom (58));
+        r.removeFromBottom (8);
+
+        tkViewport.setBounds (r);
+
+        // At least as tall as the viewport, so the card the rows sit on reaches
+        // the bottom of the screen instead of stopping under the last row and
+        // leaving a slab of background that reads as the list having failed to
+        // draw. refreshTakes calls resized() after setRows, which is what keeps
+        // this true as the library grows.
+        tkList.setSize (r.getWidth() - 10, juce::jmax (r.getHeight(), tkList.getHeight()));
+        return;
+    }
+
     if (screen == Screen::Calibrate)
     {
         calDoneButton.setBounds (planRow.removeFromLeft (72));
@@ -2412,6 +2696,8 @@ void GhostbandEditor::resized()
     calibrateButton.setBounds (planRow.removeFromRight (86));
     planRow.removeFromRight (6);
     editButton.setBounds (planRow.removeFromRight (86));
+    planRow.removeFromRight (6);
+    takesButton.setBounds (planRow.removeFromRight (70));
     planRow.removeFromRight (10);
     loadButton.setBounds (planRow.removeFromLeft (104));
     planRow.removeFromLeft (6);

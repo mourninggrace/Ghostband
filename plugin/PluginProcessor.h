@@ -95,6 +95,53 @@ public:
     // taught controls of every instrument on the machine.
     static void setLearnedControlsFileForTesting (const juce::File& f);
 
+    //==========================================================================
+    // Takes: one performance of one song, saved by name.
+    //
+    // A preset is a SONG - its chords, its sections, its tempo. A take is a
+    // PERFORMANCE of that song, and the two need different words because they
+    // are recalled for different reasons: you load a preset to play a different
+    // song, and a take to hear the same song the way you heard it before.
+    //
+    // A take carries the whole plan, not a path to it. The seed alone does not
+    // reproduce what was heard - complexity, humanize and fills all feed the
+    // same RNG stream, and key, style, tempo and the chords live in the plan
+    // itself, which the Edit screen can change without saving. Storing a path
+    // would recall a song that had moved on. Storing the text costs a few
+    // kilobytes each and cannot go stale.
+    //
+    // The mix levels and the channels are deliberately NOT in a take. Those are
+    // how the rig is wired, not how the band played, and having a take reach
+    // over and rebalance the rack would be surprising in the way that gets a
+    // feature turned off.
+    struct Take
+    {
+        juce::String name;       // what the owner called it
+        juce::String songName;   // the plan's own name, so a list can say where it came from
+        juce::String planPath;   // where that song came from, so Reload keeps meaning something
+        juce::String planJson;   // the song itself, verbatim
+        juce::String savedAt;    // yyyy-mm-dd, for the list
+        int    seed       = 1;
+        double complexity = 0.5;
+        double humanize   = 0.5;
+        double fills      = 0.62;
+    };
+
+    std::vector<Take> getTakes() const;
+
+    // Saves the current performance under `name`. An existing take of the same
+    // name is replaced rather than duplicated - that is what pressing Save with
+    // a name already in the list means everywhere else.
+    bool saveTake (const juce::String& name, juce::String& error);
+
+    void recallTake (int index);
+    void deleteTake (int index);
+
+    // Same reason as the learned-controls override: a test run must not write
+    // over the owner's saved takes.
+    static void setTakesFileForTesting (const juce::File& f);
+    static juce::File takesFile();
+
     // Diagnostics for the harness: what the audio thread would actually play,
     // as opposed to what the engine says it generated.
     // `minNote` separates played notes from keyswitches, which are note-ons on
@@ -461,6 +508,12 @@ private:
     static juce::File   learnedControlsFile();
     void                loadLearnedControls();
     void                saveLearnedControls() const;
+
+    // The takes are read from disk on demand rather than cached, so two
+    // instances of the plugin in one rackspace see each other's saves instead
+    // of each holding a private copy and the last one to write winning.
+    std::vector<Take>   readTakes() const;
+    bool                writeTakes (const std::vector<Take>& takes) const;
 
     // Store wins where it has an entry; otherwise the profile's own block seeds
     // the store, which is how the mappings already taught are carried over

@@ -213,6 +213,8 @@ Teach is deliberately too fast to read.
   **Fills** is how often the second guitar answers: 0 silences it across the
   whole song without editing a section, 1 takes every opening it is offered.
 - **BPM** — the tempo the song is written at. See *Tempo, and whose it is*.
+- **Takes** — save the performance you are hearing under a name, and get it
+  back later. See *Keeping a performance you liked*.
 - **Mix** — one knob per part. A knob is only drawn for a part whose volume
   something can actually reach; SSD5's cannot be reached by any controller, so
   there is no drums knob. A knob with no taught level control is dimmed and
@@ -220,6 +222,43 @@ Teach is deliberately too fast to read.
 
 The section list lights up and a playhead line tracks the song as it plays, so
 you can see which section you are hearing.
+
+### Keeping a performance you liked
+
+![The take library](docs/screenshots/takes.png)
+
+*The take library. Five performances of one song, told apart by their numbers rather than by their names.*
+
+Roll enough times and one of them is the one. **Takes** saves it.
+
+A preset is a *song* — its chords, its sections, its tempo. A take is one
+*performance* of that song, and the two are separate because they are recalled
+for different reasons: you load a preset to play a different song, and a take to
+hear the same song the way you heard it before.
+
+Type a name, press **Save take** or hit return. **Recall** puts that performance
+back and returns you to the song screen; a double-click on a row does the same
+thing. Saving under a name already in the list replaces it.
+
+What a take carries:
+
+- the **seed**, and **complexity**, **humanize** and **fills** — the seed alone
+  does not reproduce what you heard, because all four feed the same random
+  stream. Seed 88345 at humanize 0.5 is a different take from the same seed at
+  0.7.
+- the **whole song**, stored inside the take rather than as a path to a file.
+  Key, style, tempo and the chords all live in the plan, and the structure editor
+  can change any of them without saving. A take that stored a path would recall a
+  song that had moved on — and would die with the file if you ever deleted it.
+
+What a take does not carry: the **mix** and the **channel assignments**. Those
+are how your rig is wired rather than how the band played, and a take that
+reached over and rebalanced the rack would be a surprise, not a feature.
+
+Takes are yours — none ship with the plugin, because a factory take is just a
+preset under another name. They live in
+`%APPDATA%\Ghostband\takes.json`, beside the taught controls, so they survive
+reinstalling and are shared by every instance in the rackspace.
 
 ### Building the song
 

@@ -115,6 +115,37 @@ private:
     int selected = 0;
 };
 
+// The saved takes. One row per performance: what it was called, which song it
+// was a performance of, and the four numbers that make it that performance
+// rather than another one.
+//
+// The numbers are on the row rather than behind a click because they are the
+// whole content of a take. A list of names alone would say nothing about why
+// any two of them differ, and "which of these was the busy one" is the question
+// a take library exists to answer.
+class TakeList : public juce::Component
+{
+public:
+    struct Row { juce::String name, song, detail; };
+
+    void setRows (std::vector<Row> r);
+    void setSelected (int index);
+
+    void paint (juce::Graphics& g) override;
+    void mouseDown (const juce::MouseEvent& e) override;
+    void mouseDoubleClick (const juce::MouseEvent& e) override;
+
+    std::function<void (int)> onRowClicked;
+    std::function<void (int)> onRowDoubleClicked;   // recall, without the round trip
+
+    // Two lines: a 16pt name over 14pt detail, same as a section row carries.
+    static constexpr int rowHeight = 46;
+
+private:
+    std::vector<Row> rows;
+    int selected = 0;
+};
+
 class GhostbandEditor : public juce::AudioProcessorEditor,
                         private juce::ChangeListener,
                         private juce::Timer
@@ -131,7 +162,7 @@ public:
     // where they hide.
     void showScreenForSnapshot (int screenIndex);
     static const char* screenName (int screenIndex);
-    static constexpr int numScreens = 5;
+    static constexpr int numScreens = 6;
 
     // The reroll path, reachable without a mouse.
     //
@@ -244,8 +275,27 @@ private:
 
     // Three screens share the window: the normal song view, the calibration
     // view, and the structure editor.
-    enum class Screen { Song, Calibrate, Edit, Settings, About };
+    enum class Screen { Song, Calibrate, Edit, Settings, About, Takes };
     Screen screen = Screen::Song;
+
+    // ---- takes ----
+    void refreshTakes();
+    void saveTakeFromBox();
+
+    juce::TextButton takesButton  { "Takes" };
+    juce::TextButton tkDoneButton { "Done" };
+    juce::TextButton tkSaveButton { "Save take" };
+    juce::TextButton tkRecall     { "Recall" };
+    juce::TextButton tkDelete     { "Delete" };
+    juce::TextEditor tkName;
+    juce::Label      tkHeading, tkHelp, tkNameLabel, tkResult;
+    juce::Viewport   tkViewport;
+    TakeList         tkList;
+    int              tkSelected = 0;
+
+    // What is in the list right now, so Recall and Delete act on the row that
+    // was drawn rather than re-reading the file and hoping the order held.
+    std::vector<GhostbandProcessor::Take> takes;
 
     void paintAbout (juce::Graphics& g, juce::Rectangle<int> area);
 

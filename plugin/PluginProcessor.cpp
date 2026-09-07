@@ -852,6 +852,240 @@ void GhostbandProcessor::saveLearnedControls() const
     f.replaceWithText (juce::JSON::toString (wrapper, false));
 }
 
+//==============================================================================
+// The take library.
+//
+// Same storage shape as the taught controls above - a JSON file beside them in
+// %APPDATA%/Ghostband - and read from disk on every call rather than cached.
+// Two Ghostbands in one rackspace is normal, and a cached list would mean each
+// held a private copy and the last one to save silently erased the other's.
+
+static juce::File& takesOverride()
+{
+    static juce::File f;
+    return f;
+}
+
+void GhostbandProcessor::setTakesFileForTesting (const juce::File& f)
+{
+    takesOverride() = f;
+}
+
+juce::File GhostbandProcessor::takesFile()
+{
+    if (takesOverride() != juce::File())
+        return takesOverride();
+
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+               .getChildFile ("Ghostband")
+               .getChildFile ("takes.json");
+}
+
+std::vector<GhostbandProcessor::Take> GhostbandProcessor::readTakes() const
+{
+    std::vector<Take> out;
+
+    const juce::File f = takesFile();
+    if (! f.existsAsFile())
+        return out;
+
+    const juce::var parsed = juce::JSON::parse (f.loadFileAsString());
+    const juce::Array<juce::var>* list = parsed.getArray();
+    if (list == nullptr)
+        return out;
+
+    // A missing property reads back as a void var, which converts to zero. Read
+    // through a default instead: a take written by an older build that had no
+    // fills dial should recall at the dial's own default, not at silence.
+    const auto number = [] (const juce::DynamicObject& o, const char* key, double fallback)
+    {
+        const juce::var v = o.getProperty (juce::Identifier (key));
+        return v.isVoid() ? fallback : static_cast<double> (v);
+    };
+
+    for (const juce::var& v : *list)
+    {
+        auto* o = v.getDynamicObject();
+        if (o == nullptr) continue;
+
+        Take t;
+        t.name     = o->getProperty ("name").toString();
+        t.songName = o->getProperty ("song").toString();
+        t.planPath = o->getProperty ("plan_path").toString();
+        t.planJson = o->getProperty ("plan").toString();
+        t.savedAt  = o->getProperty ("saved").toString();
+
+        t.seed       = static_cast<int> (number (*o, "seed", 1.0));
+        t.complexity = juce::jlimit (0.0, 1.0, number (*o, "complexity", 0.5));
+        t.humanize   = juce::jlimit (0.0, 1.0, number (*o, "humanize",   0.5));
+        t.fills      = juce::jlimit (0.0, 1.0, number (*o, "fills",      0.62));
+
+        // A take with no name cannot be picked out of a list, and one with no
+        // song cannot be played. Neither is worth carrying forward.
+        if (t.name.isNotEmpty() && t.planJson.isNotEmpty())
+            out.push_back (t);
+    }
+
+    return out;
+}
+
+bool GhostbandProcessor::writeTakes (const std::vector<Take>& takes) const
+{
+    const juce::File f = takesFile();
+    f.getParentDirectory().createDirectory();
+
+    juce::Array<juce::var> list;
+    for (const Take& t : takes)
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("name",       t.name);
+        o->setProperty ("song",       t.songName);
+        o->setProperty ("plan_path",  t.planPath);
+        o->setProperty ("saved",      t.savedAt);
+        o->setProperty ("seed",       t.seed);
+        o->setProperty ("complexity", t.complexity);
+        o->setProperty ("humanize",   t.humanize);
+        o->setProperty ("fills",      t.fills);
+
+        // Last, and last for a reason: it is by far the longest value, and a
+        // file anyone might open by hand reads better with the short fields at
+        // the top of each entry. JSON::toString does the escaping, which is the
+        // whole reason the plan is stored as a string rather than spliced in.
+        o->setProperty ("plan", t.planJson);
+
+        list.add (juce::var (o));
+    }
+
+    return f.replaceWithText (juce::JSON::toString (juce::var (list), true));
+}
+
+std::vector<GhostbandProcessor::Take> GhostbandProcessor::getTakes() const
+{
+    return readTakes();
+}
+
+bool GhostbandProcessor::saveTake (const juce::String& name, juce::String& error)
+{
+    const juce::String trimmed = name.trim();
+    if (trimmed.isEmpty())
+    {
+        error = "Name the take first.";
+        return false;
+    }
+
+    Take t;
+    t.name    = trimmed;
+    t.savedAt = juce::Time::getCurrentTime().formatted ("%Y-%m-%d");
+
+    t.seed       = seed.load();
+    t.complexity = complexity.load();
+    t.humanize   = humanize.load();
+    t.fills      = fills.load();
+
+    {
+        const juce::ScopedLock sl (stateLock);
+
+        // The dials are written into the stored song as well as beside it. They
+        // are read back from the fields beside it, so this changes nothing on
+        // recall - but it means the stored text is the song AS PLAYED, and a
+        // take lifted out of this file by hand is a working plan rather than
+        // one carrying the dial positions of whatever it was saved from.
+        gb::SongPlan asPlayed = plan;
+        asPlayed.complexity = t.complexity;
+        asPlayed.humanize   = t.humanize;
+        asPlayed.fills      = t.fills;
+        asPlayed.seed       = static_cast<unsigned> (t.seed);
+
+        t.songName = juce::String (asPlayed.title);
+        t.planJson = juce::String (asPlayed.toJson());
+        t.planPath = planFile.existsAsFile() ? planFile.getFullPathName() : juce::String();
+    }
+
+    std::vector<Take> takes = readTakes();
+
+    // Saving over a name already in the list replaces it. Pressing Save twice
+    // with one name means one take everywhere else, and a library that answers
+    // it with two rows called the same thing is a library you stop trusting.
+    const auto same = std::find_if (takes.begin(), takes.end(),
+                                    [&trimmed] (const Take& e)
+                                    { return e.name.equalsIgnoreCase (trimmed); });
+
+    if (same != takes.end())
+        *same = t;
+    else
+        takes.push_back (t);
+
+    if (! writeTakes (takes))
+    {
+        error = "Could not write " + takesFile().getFullPathName();
+        return false;
+    }
+
+    return true;
+}
+
+void GhostbandProcessor::recallTake (int index)
+{
+    const std::vector<Take> takes = readTakes();
+    if (index < 0 || index >= static_cast<int> (takes.size()))
+        return;
+
+    const Take& t = takes[static_cast<size_t> (index)];
+
+    gb::SongPlan loaded;
+    std::string error;
+
+    if (! gb::SongPlan::parse (t.planJson.toStdString(),
+                               ("take \"" + t.name + "\"").toStdString(),
+                               loaded, error))
+    {
+        const juce::ScopedLock sl (stateLock);
+        status.ok      = false;
+        status.message = juce::String (error);
+        stateChanged.sendChangeMessage();
+        return;
+    }
+
+    // Same handover as loadPlan: the audio thread has to let go of the song
+    // under the playhead, and the new one starts at its own beginning.
+    flushPending.store (true);
+    rewindPending.store (true);
+
+    {
+        const juce::ScopedLock sl (stateLock);
+        plan = loaded;
+
+        // The song still came from a file, and saying so is what keeps Reload
+        // meaning "back to what is on disk" and keeps the host session able to
+        // find the song again. If that file has since moved, the plan is still
+        // whole - it is stored in the take - and the label falls back to the
+        // song's own title, which is true rather than merely tidy.
+        const juce::File source (t.planPath);
+        planFile = source.existsAsFile() ? source : juce::File();
+
+        complexity.store (t.complexity);
+        humanize.store   (t.humanize);
+        fills.store      (t.fills);
+        seed.store       (t.seed);
+
+        juce::String profileError;
+        resolveProfiles (profileError);
+        status.message = profileError;
+    }
+
+    regenerate();
+}
+
+void GhostbandProcessor::deleteTake (int index)
+{
+    std::vector<Take> takes = readTakes();
+    if (index < 0 || index >= static_cast<int> (takes.size()))
+        return;
+
+    takes.erase (takes.begin() + index);
+    writeTakes (takes);
+}
+
 // A part has one mix knob, so it reaches one control.
 //
 // "level" is the only follow that is answered by a fader rather than by the
