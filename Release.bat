@@ -91,7 +91,14 @@ if errorlevel 1 (
 
 echo.
 echo Packaged %ZIP%
-powershell -NoProfile -Command "$f=Get-Item '%ZIP%'; '{0:N1} MB' -f ($f.Length/1MB); (Get-FileHash '%ZIP%' -Algorithm SHA256).Hash"
+rem certutil rather than Get-FileHash: whichever powershell.exe is first on PATH
+rem here is old enough not to have Get-FileHash, and certutil ships with Windows
+rem itself. A checksum that only prints on some machines is not a checksum.
+powershell -NoProfile -Command "$f=Get-Item '%ZIP%'; '  {0:N1} MB' -f ($f.Length/1MB)"
+for /f "skip=1 delims=" %%H in ('certutil -hashfile "%ZIP%" SHA256') do (
+    if not "%%H"=="" if "!SHA!"=="" set "SHA=%%H"
+)
+echo   SHA256 !SHA!
 echo.
 echo Contents:
 rem No pipes in here. Inside a quoted powershell -Command a bare "|" is fine to
