@@ -55,7 +55,7 @@
       "name": "verse2", "bars": 8, "intensity": 0.48,
       "feel": "straight", "plays": "drums+bass+piano+guitar2", "fill": "auto",
       "chords": ["Em", "Em", "C", "A"],
-      "bass": "roots", "piano": "driving", "lead": "piano"
+      "bass": "roots", "guitar2": "fills", "piano": "driving", "lead": "piano"
     },
     {
       "name": "development", "bars": 14, "intensity": 0.7,

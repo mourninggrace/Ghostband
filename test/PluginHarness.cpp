@@ -689,6 +689,45 @@ int main (int argc, char** argv)
             if (bad) ++mismatched;
         }
 
+        // ---- nobody plays without being told what to play ----------------
+        // A section can list a part in "plays" and never say what it should
+        // do. The part is then present with no instruction, so the engine
+        // chooses a chordal feel for it - which for the LEAD guitar means
+        // comping random chords behind the band, the one thing a second
+        // guitarist is there not to do.
+        //
+        // Four sections were in that state, all created by a script that
+        // widened "plays" and then failed to add the phrase because it looked
+        // for a "guitar" key those sections did not have. Silent failure, and
+        // the result was audible.
+        {
+            int unbriefed = 0;
+            juce::String firstBad;
+
+            for (const juce::File& f : plans)
+            {
+                gb::SongPlan pl;
+                std::string e;
+                if (! gb::SongPlan::load (f.getFullPathName().toStdString(), pl, e))
+                    continue;
+
+                for (const gb::SectionPlan& sec : pl.sections)
+                {
+                    if (! sec.playsGuitar2) continue;
+                    if (sec.guitar2Phrase != "auto") continue;
+
+                    ++unbriefed;
+                    if (firstBad.isEmpty())
+                        firstBad = f.getFileName() + " / " + juce::String (sec.name);
+                }
+            }
+
+            check (unbriefed == 0,
+                   "no section leaves the lead guitar playing without an instruction",
+                   unbriefed == 0 ? juce::String ("all briefed")
+                                  : juce::String (unbriefed) + " unbriefed, first: " + firstBad);
+        }
+
         check (checked > 5, "there are plans to round-trip",
                juce::String (checked) + " parsed");
         check (mismatched == 0, "every plan survives being saved and read back",

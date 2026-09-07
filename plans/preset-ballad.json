@@ -54,13 +54,13 @@
       "name": "verse2", "bars": 8, "intensity": 0.36,
       "feel": "half_time", "plays": "drums+bass+piano+guitar2", "fill": "small",
       "chords": ["C", "Am", "F", "G"],
-      "bass": "roots", "piano": "driving", "lead": "piano"
+      "bass": "roots", "guitar2": "fills", "piano": "driving", "lead": "piano"
     },
     {
       "name": "prechorus", "bars": 4, "intensity": 0.52,
       "feel": "half_time", "plays": "drums+bass+piano+guitar2", "fill": "small",
       "chords": ["F", "G", "Am", "Am"],
-      "bass": "roots", "piano": "driving", "lead": "piano"
+      "bass": "roots", "guitar2": "fills", "piano": "driving", "lead": "piano"
     },
     {
       // First time the whole band is in the room.
@@ -74,7 +74,7 @@
       "name": "verse3", "bars": 8, "intensity": 0.34,
       "feel": "half_time", "plays": "drums+bass+piano+guitar2", "fill": "auto",
       "chords": ["C", "Am", "F", "G"],
-      "bass": "roots", "piano": "driving", "lead": "piano"
+      "bass": "roots", "guitar2": "fills", "piano": "driving", "lead": "piano"
     },
     {
       "name": "chorus2", "bars": 8, "intensity": 0.74,
