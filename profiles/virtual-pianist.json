@@ -10,7 +10,7 @@
   "needs_verification": true,
   "verification_note": "Requires Virtual Pianist set to Instrument mode, not Player mode.",
 
-  "chord_zone": { "lowest_note": 48, "highest_note": 72 },
+  "chord_zone": { "lowest_note": 48, "highest_note": 95 },
 
   "velocity_min": 55,
   "velocity_max": 110,

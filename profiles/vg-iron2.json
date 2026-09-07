@@ -33,7 +33,7 @@
   "needs_verification": true,
   "verification_note": "Requires IRON 2 set to Instrument mode, not Player mode.",
 
-  "chord_zone": { "lowest_note": 60, "highest_note": 84 },
+  "chord_zone": { "lowest_note": 60, "highest_note": 89 },
 
   // Notes of a chord are struck a few milliseconds apart, alternating direction.
   // A real guitarist never sounds them together, and simultaneous notes are most
