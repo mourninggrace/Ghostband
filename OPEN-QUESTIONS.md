@@ -35,77 +35,27 @@ Last updated 2026-09-11.
 
 ## 2. One thing only you can diagnose
 
-- **Shreddage goes quiet below about note 40.** It sounded during calibration and
-  has been silent since, with nothing changed. Performance Style is ruled out by
-  test — Mono Lead and Standard both behave the same.
+- **Shreddage silent in the low register — FOUND, one checkbox away.**
 
-  The suspect left is **the loaded patch's own string configuration or tuning**.
-  Hydra is an eight string tuned F#1 B1 E2 A2 D3 G3 B3 E4; an eight string
-  configured to play as a six has no F#1 or B1, which is exactly this symptom.
-  Worth a look in Kontakt at which strings that patch thinks it has.
+  Kontakt instrument options → **DFD** tab → **Background Loading** →
+  **"Allow instant playback for samples which are not loaded yet"** is
+  **unchecked**. With it off, Kontakt refuses to sound a sample that is not
+  resident — silence rather than streaming it from disk. The low strings are the
+  least-used zones, so they are the ones absent on a cold instance.
 
-  **Correction, 2026-09-11.** This file said `lowest_note` was pinned at 40 and
-  that no song was losing anything. Both were wrong — the profile says **28**,
-  with your own note saying you set it back deliberately, and a MIDI parse of
-  every preset shows **166 of 5,884 second-guitar notes across 19 of 34 presets
-  fall below 40** and are therefore being sent and silently dropped. 2.8%, inside
-  solos and fills.
+  **Tick it**, then without playing anything inside Shreddage, Calibrate →
+  "guitar 2 lowest chord note" → Play. If 27 sounds cold, it is closed.
 
-  **Two theories are dead.** It is not a 6-string *library* — you confirmed the
-  instrument is an 8-string. And it is not a keyswitch collision: Shreddage's
-  switches sit at 12–23 and 108/114, nowhere near 30–39.
+  The DFD preload buffer is a different setting and cannot fix it — that governs
+  how much of an *already loaded* sample stays in RAM, and an absent zone is not
+  partly resident. But changing it explains the maddening intermittency: Kontakt
+  reloads every sample whenever that value changes, so the low register worked
+  for a while after each adjustment and then went quiet again.
 
-  **What the numbers say.** The floor sits at exactly 40, which is E2, the low E
-  of a standard 6-string. Hydra as an 8-string bottoms at 30 (F#1). The profile
-  claims 28, which matches neither and is below even the 8-string's lowest
-  string — so that calibration measurement was simply wrong, separately from
-  whatever the patch is doing.
-
-  **2026-09-11, measured.** Calibrate plays notes at 27 and 28 and they SOUND, so
-  the range is genuinely there and the profile now records 27. Note that 27 is
-  lower than the 28 it replaced, so Ghostband will write slightly MORE into the
-  suspect region, not less.
-
-  **Three theories dead, each by measurement:** not a 6-string library (you
-  confirmed 8 strings); not a keyswitch collision (Shreddage's switches sit at
-  12–23 and 108/114, nowhere near 30–39); not an articulation (154 of the 166
-  sub-40 notes fire under plain Sustain, all at velocity 99–119, inside the
-  1–119 sustain band).
-
-  **Theory four, and the current lead.** 78% of sub-40 notes arrive while another
-  note is still sounding, against 54% for everything above 40. Overlapped means a
-  legato transition on the CURRENT string — and under Mono Lead (Mid/High) that
-  string is a mid or high one, which cannot reach down there. Played alone it
-  sounds; arriving legato it has nowhere to go.
-
-  **Theory four is dead too.** Calibrate can hold a note and play another under
-  it now, one click; both notes sounded clearly. Legato is not it.
-
-  **THE ACTUAL LEAD, and the first one that fits every observation.** Reported
-  2026-09-11: on a fresh open, note 27 was silent. Opening Shreddage's interface
-  and trying again — still silent. Playing a note **directly in Shreddage's own
-  UI** — sound. Trying note 27 from Ghostband again — sound.
-
-  The variable is not the note. It is whether Shreddage has been touched yet.
-  That is **Kontakt sample purging / on-demand loading**: rarely-used zones are
-  not held in RAM, the first note into one triggers a load from disk and produces
-  no sound, and everything after it works.
-
-  It explains all of it, including the contradictions that killed the other four
-  theories: silent below 40 by hand (bottom strings are the least-used zones, so
-  purged first); sounded during calibration and went quiet later (loaded, then
-  purged); 27 and 28 playing when tested but silent on a cold open; Performance
-  Style, articulation and string count making no difference (none were ever
-  involved).
-
-  **The one click that confirms it.** With Shreddage cold, play the *highest*
-  chord note (88) as the very first thing. Silent first time and fine the second
-  means it is purging and has nothing to do with the low register at all.
-
-  **If confirmed, the fix is in Kontakt, not in Ghostband:** Purge → Reload All
-  Samples, and Preferences → Memory to raise the preload buffer so zones do not
-  go cold. Ghostband could also warm the range on load if it ever proves
-  necessary.
+  Five theories died getting here, each by measurement: a 6-string library, a
+  keyswitch collision, an articulation, legato reach, and Ghostband auditioning
+  the wrong note. All five asked *which note*, because the report was phrased as
+  a range. The answer was about *when*.
 
 ## 3. Decisions that steer what I build next
 

@@ -6,7 +6,56 @@
   // headlessly gives an empty instance, the same wall as IRON 2 in Player mode -
   // so this was done by ear at the keyboard, which is the only way available.
   //
-  // THE LOW REGISTER DOES NOT RELIABLY SOUND, AND IT DOES NOT MATTER.
+  // THE SILENT LOW REGISTER: FOUND, 2026-09-11. It was never Ghostband, and it
+  // was never the range.
+  //
+  // Kontakt's instrument options, DFD tab, "Background Loading": the box marked
+  // "Allow instant playback for samples which are not loaded yet" was UNCHECKED.
+  // With it off Kontakt refuses to sound a sample that is not resident yet - it
+  // gives SILENCE rather than streaming it from disk. The low strings are the
+  // least-used zones, so they are the ones not resident on a cold instance.
+  //
+  // Every observation collected over five sessions falls out of that one box:
+  // silent below 40 when played by hand; audible during calibration and quiet
+  // afterwards; 27 and 28 sounding when tested but silent on a cold open; note
+  // 88 playing cold while 27 did not (the high zone was resident, the low one
+  // was not); and working immediately after any note was played inside
+  // Shreddage's own interface, which is what forced the load.
+  //
+  // Five theories died on the way, each by measurement: a six-string library
+  // (the owner confirmed eight), a keyswitch collision (Shreddage's switches sit
+  // at 12-23 and 108/114), an articulation (154 of 166 sub-40 notes fire under
+  // plain Sustain), legato reach (Calibrate can hold a note under another now,
+  // and both sound), and Ghostband auditioning the wrong note (all 29 steps
+  // send exactly what they display - pinned).
+  //
+  // The lesson is that all five were about WHICH NOTE, because the report was
+  // phrased as a range. The evidence that cracked it was about WHEN, and it
+  // surfaced only when the owner described what he DID rather than what he
+  // concluded.
+  //
+  // The DFD PRELOAD BUFFER is a different setting and does not fix this. It
+  // governs how much of an already-loaded sample is held in RAM; a purged zone
+  // is not partly resident, it is absent, and no buffer size reaches it. But
+  // changing that buffer explains the intermittency that made this so hard to
+  // pin down: Kontakt's own note says every change to it forces a full reload of
+  // the instrument's samples, so each time it was adjusted the low register
+  // worked for a while and then went quiet again.
+  //
+  // ---- two settings confirmed from the same screenshots ----
+  //
+  // Controller tab, "Accept standard controllers for Volume (#7) and Pan (#10)"
+  // is UNCHECKED. Shreddage genuinely ignores CC 7, which is why a stale CC 7
+  // once muted it and why volume has to go through a learned controller.
+  //
+  // Controller tab, "Accept All Notes Off (#123) and All Sounds Off (#120)" is
+  // UNCHECKED. Ghostband releases every note by name at a section jump rather
+  // than trusting All Notes Off; on this rig that is not caution, it is the only
+  // thing standing between a jump and a permanently hanging note.
+  //
+  // Voice Handling shows a 32-voice limit with "Oldest" stealing. Nothing has
+  // hit it, but it is the first place to look if notes ever cut out in a dense
+  // passage with long release tails.
   //
   // Below roughly 40 the instrument is silent when played by hand. It sounded
   // during calibration and went quiet again afterwards, with nothing changed.
