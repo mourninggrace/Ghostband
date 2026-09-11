@@ -1437,6 +1437,53 @@ int main (int argc, char** argv)
         }
         check (heard, "auditioning sounds a note with the transport stopped");
 
+        // ---- every step auditions the note it displays ----------------------
+        // Reported: clicking the highest note played it, then clicking the
+        // LOWEST note sounded the same high pitch again. Two explanations fit -
+        // Ghostband sent the wrong note, or the low note was silent and what
+        // was heard was the previous note still ringing. Only the first is a
+        // bug here, and only measuring the wire can tell them apart.
+        {
+            juce::StringArray wrong;
+
+            for (int i = 0; i < proc.getCalibrationStepCount(); ++i)
+            {
+                const auto st = proc.getCalibrationStep (i);
+                if (st.note < 0) continue;
+
+                proc.auditionStep (i);
+
+                std::set<int> sent;
+                for (int b = 0; b < 400; ++b)
+                {
+                    buffer.clear();
+                    midi.clear();
+                    proc.processBlock (buffer, midi);
+                    for (const juce::MidiMessageMetadata m : midi)
+                        if (m.getMessage().isNoteOn()
+                                && m.getMessage().getChannel() == st.channel)
+                            sent.insert (m.getMessage().getNoteNumber());
+                }
+
+                // The step's own note must be among what went out, and nothing
+                // may go out that the step did not ask for.
+                std::set<int> allowed { st.note };
+                if (st.under >= 0) allowed.insert (st.under);
+
+                if (sent.count (st.note) == 0)
+                    wrong.add (st.label + " sent nothing");
+                else
+                    for (int n : sent)
+                        if (allowed.count (n) == 0)
+                            wrong.add (st.label + " also sent " + juce::String (n));
+            }
+
+            check (wrong.isEmpty(),
+                   "every calibration step auditions exactly the note it shows",
+                   wrong.isEmpty() ? juce::String (proc.getCalibrationStepCount()) + " steps"
+                                   : wrong.joinIntoString ("; "));
+        }
+
         // ---- the legato probe really overlaps -------------------------------
         // A step that carries an "under" note exists to answer one question:
         // does this instrument sound a low note that arrives while another is
