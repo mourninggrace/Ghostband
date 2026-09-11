@@ -61,9 +61,28 @@ Last updated 2026-09-11.
   string — so that calibration measurement was simply wrong, separately from
   whatever the patch is doing.
 
-  **Next step:** measure it with Calibrate rather than infer it. Open Calibrate,
-  select "guitar 2 lowest chord note", press Play, and nudge up with `>` until it
-  sounds. The number it lands on decides the fix.
+  **2026-09-11, measured.** Calibrate plays notes at 27 and 28 and they SOUND, so
+  the range is genuinely there and the profile now records 27. Note that 27 is
+  lower than the 28 it replaced, so Ghostband will write slightly MORE into the
+  suspect region, not less.
+
+  **Three theories dead, each by measurement:** not a 6-string library (you
+  confirmed 8 strings); not a keyswitch collision (Shreddage's switches sit at
+  12–23 and 108/114, nowhere near 30–39); not an articulation (154 of the 166
+  sub-40 notes fire under plain Sustain, all at velocity 99–119, inside the
+  1–119 sustain band).
+
+  **Theory four, and the current lead.** 78% of sub-40 notes arrive while another
+  note is still sounding, against 54% for everything above 40. Overlapped means a
+  legato transition on the CURRENT string — and under Mono Lead (Mid/High) that
+  string is a mid or high one, which cannot reach down there. Played alone it
+  sounds; arriving legato it has nowhere to go.
+
+  **The test that settles it**, at the keyboard with no Ghostband involved: play
+  note 30 alone (expect: sounds), then hold note 52 and play 30 while still
+  holding it (if silent, that is the answer). If it is, the fault is Ghostband
+  overlapping low notes and the fix is mine — release the previous note so a low
+  one arrives as a fresh pick rather than a slide.
 
 ## 3. Decisions that steer what I build next
 
