@@ -2822,6 +2822,91 @@ int main (int argc, char** argv)
                        collisions.joinIntoString ("; "));
             }
 
+            // ---- the guitar 2 toggle, driven through the form ----------------
+            // applySectionEdit WRITES playsGuitar2 now. It used to leave the
+            // flag alone, and that was the only thing protecting the second
+            // guitar from a form with no control for it - four toggles writing
+            // five flags would have cleared the fifth, so renaming a section
+            // would have deleted its solo.
+            //
+            // That protection is gone by design, replaced by the toggle being
+            // filled in. Which means the test has to go through the FORM: the
+            // existing round-trip check reads getSectionEdit straight into
+            // applySectionEdit and never goes near the control that would be
+            // wrong.
+            if (gbEd != nullptr)
+            {
+                proc.loadPlan (juce::File (planPath));
+
+                int target = -1;
+                const auto before = proc.getSections();
+                for (size_t i = 0; i < before.size(); ++i)
+                    if (before[i].guitar2Feel != "silent") { target = static_cast<int> (i); break; }
+
+                check (target >= 0, "a section plays the second guitar to begin with",
+                       target >= 0 ? before[static_cast<size_t> (target)].name
+                                   : juce::String ("none"));
+
+                if (target >= 0)
+                {
+                    const juce::String was = before[static_cast<size_t> (target)].guitar2Feel;
+                    const int ch = proc.channelGuitar2.load();
+
+                    // Counted on the WIRE, per part, rather than read off the
+                    // section report. Two earlier versions of this check were
+                    // wrong about the report and passed or failed for reasons
+                    // that had nothing to do with the toggle: a part that is
+                    // switched off never reaches the code that names a feel, so
+                    // its feel is empty rather than "silent"; and a part
+                    // playing FILLS contributes a lead line, so its chord count
+                    // is legitimately zero either way. Note-ons are neither.
+                    const int notesOn = proc.getSequenceNoteOnCount (ch);
+                    check (notesOn > 0, "the second guitar is playing to begin with",
+                           juce::String (notesOn) + " note-ons on ch" + juce::String (ch));
+
+                    gbEd->editSectionForTesting (target);
+                    check (gbEd->sectionGuitar2ForTesting(),
+                           "opening it in the editor shows the toggle ON");
+
+                    // Touch the form the way changing any other field does.
+                    gbEd->commitSectionEditForTesting();
+                    check (proc.getSections()[static_cast<size_t> (target)].guitar2Feel == was
+                               && proc.getSequenceNoteOnCount (ch) == notesOn,
+                           "and committing the form does not silence it",
+                           juce::String (proc.getSequenceNoteOnCount (ch)) + " note-ons");
+
+                    gbEd->setSectionGuitar2ForTesting (false);
+                    const int notesOff = proc.getSequenceNoteOnCount (ch);
+                    check (notesOff < notesOn,
+                           "switching the toggle off takes that section away",
+                           juce::String (notesOn) + " -> " + juce::String (notesOff)
+                               + " note-ons");
+
+                    gbEd->setSectionGuitar2ForTesting (true);
+                    check (proc.getSequenceNoteOnCount (ch) == notesOn
+                               && juce::String (proc.getSections()[static_cast<size_t> (target)]
+                                                    .guitar2Feel) == was,
+                           "and switching it back on brings it in, playing exactly as before",
+                           juce::String (proc.getSequenceNoteOnCount (ch)) + " note-ons, "
+                               + was);
+
+                    // Every other part must be where it was. A toggle that also
+                    // moved its neighbours would pass every check above.
+                    const auto after = proc.getSections();
+                    bool othersHeld = true;
+                    for (size_t i = 0; i < before.size() && i < after.size(); ++i)
+                        if (before[i].guitarFeel != after[i].guitarFeel
+                                || before[i].pianoFeel != after[i].pianoFeel
+                                || before[i].drumHits != after[i].drumHits
+                                || before[i].bassNotes != after[i].bassNotes)
+                            othersHeld = false;
+
+                    check (othersHeld, "and leaves every other part exactly as it was");
+                }
+
+                gbEd->showScreenForSnapshot (0);
+            }
+
             // ---- switching theme with the window open ------------------------
             // Starting on a theme and switching to one are different paths, and
             // only the first was ever exercised: the picker sat in a rectangle

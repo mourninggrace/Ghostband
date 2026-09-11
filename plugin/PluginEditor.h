@@ -177,6 +177,18 @@ public:
     // starting on one, and only the second was ever exercised - the picker
     // itself was laid out at zero height and could not be clicked.
     void setThemeForTesting (int index);
+    // The structure editor's form, driven the way a person drives it.
+    //
+    // applySectionEdit writes playsGuitar2 now, where it used to leave the flag
+    // untouched - so the second guitar's survival depends on the FORM being
+    // filled in correctly, not on the processor refusing to write. Testing
+    // getSectionEdit straight into applySectionEdit cannot see that: it never
+    // goes near the toggle that would be wrong.
+    void editSectionForTesting (int index);      // open that section in the form
+    void commitSectionEditForTesting();          // as if a field lost focus
+    void setSectionGuitar2ForTesting (bool on);  // click the guitar 2 toggle
+    bool sectionGuitar2ForTesting() const;
+
     void pressRollForTesting();
     int  rerollSelectionSizeForTesting() const;
 
@@ -426,7 +438,8 @@ private:
     juce::ComboBox   edFeel, edFill, edLead;
     juce::Label      edLeadLabel;
     juce::ToggleButton edDrums { "drums" }, edBass { "bass" },
-                       edGuitar { "guitar" }, edPiano { "piano" };
+                       edGuitar { "guitar" }, edGuitar2 { "guitar 2" },
+                       edPiano { "piano" };
     juce::Label      edNameLabel, edBarsLabel, edIntensityLabel,
                      edFeelLabel, edFillLabel, edChordsLabel, edPlaysLabel;
 

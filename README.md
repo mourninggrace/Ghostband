@@ -299,7 +299,7 @@ reinstalling and are shared by every instance in the rackspace.
   genuinely makes it behave like a chorus.
 - **Bars**, **Intensity**, **Feel**, **Fill**
 - **Chords** — typed as text, e.g. `Em Em C D`. A shorter list repeats.
-- **Plays** — which of drums, bass, guitar and piano appear at all.
+- **Plays** — which of drums, bass, guitar, guitar 2 and piano appear at all.
 
 **+ Add** copies the selected section, since a new section is nearly always a
 variation of the one before it. **Up** / **Down** reorder. The last section cannot

@@ -934,7 +934,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     edLead.onChange = [this] { pushSectionEdit(); };
 
     for (juce::ToggleButton* t : std::initializer_list<juce::ToggleButton*> {
-             &edDrums, &edBass, &edGuitar, &edPiano })
+             &edDrums, &edBass, &edGuitar, &edGuitar2, &edPiano })
     {
         t->setColour (juce::ToggleButton::textColourId, ghost::text);
         t->setColour (juce::ToggleButton::tickColourId, ghost::accent);
@@ -1643,7 +1643,8 @@ void GhostbandEditor::updateModeVisibility()
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &edDoneButton, &edAddButton, &edDeleteButton, &edUpButton, &edDownButton,
              &edSaveButton, &edSaveAsButton, &edName, &edBars, &edChords,
-             &edIntensity, &edFeel, &edFill, &edLead, &edDrums, &edBass, &edGuitar, &edPiano,
+             &edIntensity, &edFeel, &edFill, &edLead,
+             &edDrums, &edBass, &edGuitar, &edGuitar2, &edPiano,
              &edNameLabel, &edBarsLabel, &edIntensityLabel, &edFeelLabel,
              &edFillLabel, &edChordsLabel, &edPlaysLabel, &edLeadLabel })
         c->setVisible (edit);
@@ -1696,6 +1697,29 @@ void GhostbandEditor::ctrlClickSectionForTesting (int index)
 {
     if (sectionList.onSectionToggled)
         sectionList.onSectionToggled (index);
+}
+
+void GhostbandEditor::editSectionForTesting (int index)
+{
+    screen = Screen::Edit;
+    editSelected = index;
+    updateModeVisibility();
+}
+
+void GhostbandEditor::commitSectionEditForTesting()
+{
+    pushSectionEdit();
+}
+
+void GhostbandEditor::setSectionGuitar2ForTesting (bool on)
+{
+    edGuitar2.setToggleState (on, juce::dontSendNotification);
+    pushSectionEdit();
+}
+
+bool GhostbandEditor::sectionGuitar2ForTesting() const
+{
+    return edGuitar2.getToggleState();
 }
 
 void GhostbandEditor::pressRollForTesting()
@@ -2159,10 +2183,19 @@ void GhostbandEditor::pullSectionEdit()
         if (edLead.getItemText (i - 1) == e.lead)
             edLead.setSelectedId (i, juce::dontSendNotification);
 
-    edDrums.setToggleState  (e.drums,  juce::dontSendNotification);
-    edBass.setToggleState   (e.bass,   juce::dontSendNotification);
-    edGuitar.setToggleState (e.guitar, juce::dontSendNotification);
-    edPiano.setToggleState  (e.piano,  juce::dontSendNotification);
+    edDrums.setToggleState   (e.drums,   juce::dontSendNotification);
+    edBass.setToggleState    (e.bass,    juce::dontSendNotification);
+    edGuitar.setToggleState  (e.guitar,  juce::dontSendNotification);
+
+    // Load-bearing, not symmetry. applySectionEdit now WRITES playsGuitar2,
+    // where before it left the flag alone - so a toggle that was never filled in
+    // here would read false and switch the second guitar off the first time any
+    // other field on this form was touched. Renaming a section would delete its
+    // solo, which is precisely the failure the old code avoided by not writing
+    // the flag at all.
+    edGuitar2.setToggleState (e.guitar2, juce::dontSendNotification);
+
+    edPiano.setToggleState   (e.piano,   juce::dontSendNotification);
     suppressEditCallbacks = false;
 
     sectionList.setSelection ({ editSelected });
@@ -2187,6 +2220,7 @@ void GhostbandEditor::pushSectionEdit()
     e.drums     = edDrums.getToggleState();
     e.bass      = edBass.getToggleState();
     e.guitar    = edGuitar.getToggleState();
+    e.guitar2   = edGuitar2.getToggleState();
     e.piano     = edPiano.getToggleState();
 
     processor.applySectionEdit (editSelected, e);
@@ -2732,11 +2766,12 @@ void GhostbandEditor::resized()
         // Wide enough for the words. A toggle draws a pill and then its label
         // in what is left, and at 74 "drums" came out as "dru..." - which is
         // not a theme problem, it read that way in every one of them.
-        edPlaysLabel.setBounds (row.removeFromLeft (50));
-        edDrums.setBounds  (row.removeFromLeft (100));
-        edBass.setBounds   (row.removeFromLeft (86));
-        edGuitar.setBounds (row.removeFromLeft (96));
-        edPiano.setBounds  (row.removeFromLeft (90));
+        edPlaysLabel.setBounds  (row.removeFromLeft (50));
+        edDrums.setBounds   (row.removeFromLeft (100));
+        edBass.setBounds    (row.removeFromLeft (86));
+        edGuitar.setBounds  (row.removeFromLeft (96));
+        edGuitar2.setBounds (row.removeFromLeft (110));
+        edPiano.setBounds   (row.removeFromLeft (90));
 
         r.removeFromTop (10);
         row = r.removeFromTop (26);

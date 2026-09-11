@@ -1932,6 +1932,7 @@ GhostbandProcessor::SectionEdit GhostbandProcessor::getSectionEdit (int index) c
     e.drums     = s.playsDrums;
     e.bass      = s.playsBass;
     e.guitar    = s.playsGuitar;
+    e.guitar2   = s.playsGuitar2;
     e.piano     = s.playsPiano;
 
     juce::StringArray chords;
@@ -1956,10 +1957,17 @@ void GhostbandProcessor::applySectionEdit (int index, const SectionEdit& edit)
         s.fill      = edit.fill.toStdString();
         s.lead      = edit.lead.toStdString();
 
-        s.playsDrums  = edit.drums;
-        s.playsBass   = edit.bass;
-        s.playsGuitar = edit.guitar;
-        s.playsPiano  = edit.piano;
+        s.playsDrums   = edit.drums;
+        s.playsBass    = edit.bass;
+        s.playsGuitar  = edit.guitar;
+        s.playsGuitar2 = edit.guitar2;
+        s.playsPiano   = edit.piano;
+
+        // Note what this line now does that it did not before. Until the editor
+        // had a toggle for it, playsGuitar2 was deliberately NOT written here -
+        // four toggles writing five flags would have cleared the fifth, and
+        // renaming a section would have deleted its solo. It is written now
+        // because there is finally a control that means it.
 
         // The role drives which progression families and phrases get drawn, and
         // it is inferred from the name - so renaming a section to "chorus"

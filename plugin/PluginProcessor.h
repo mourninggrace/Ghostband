@@ -279,6 +279,15 @@ public:
         juce::String fill      = "auto";
         juce::String lead      = "auto";      // auto / guitar / piano / both
         bool drums = true, bass = true, guitar = true, piano = true;
+
+        // The second guitar was missing from this struct, so the structure
+        // editor could not turn it on or off - the sixth list in this codebase
+        // written before guitar2 existed. It defaults to FALSE rather than true
+        // like the others, and that is deliberate: every other flag here is
+        // overwritten by getSectionEdit before anybody reads it, but a default
+        // that silently switched on a second guitar for a caller that forgot to
+        // set it would add a part to a song rather than drop one.
+        bool guitar2 = false;
     };
 
     int         getSectionCount() const;

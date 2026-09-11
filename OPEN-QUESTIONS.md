@@ -4,11 +4,16 @@ One file, so none of it has to be remembered. Kept current — anything answered
 gets marked done and moved to the bottom rather than deleted, so the same
 question does not get asked twice.
 
-Last updated 2026-09-07, at the end of session 13 and the v0.2.0 release.
+Last updated 2026-09-11.
 
 ---
 
 ## 1. Try these and tell me if they are wrong
+
+- **The structure editor has a "guitar 2" toggle now**, on the PLAYS row beside
+  the other four. Built 2026-09-11 because it was the only thing left that did
+  not need you. **Not yet installed** — say when Gig Performer is closed. If you
+  would rather not have it, it comes out as cleanly as it went in.
 
 - **The guitar keeps one tone for a whole song now.** You reported that a
   recalled take played the same notes through different effects. It was not
@@ -45,15 +50,6 @@ Last updated 2026-09-07, at the end of session 13 and the v0.2.0 release.
   range and that is worth knowing.
 
 ## 3. Decisions that steer what I build next
-
-- **Should the structure editor get a "guitar 2" toggle?** Found while sweeping
-  the light theme. The PLAYS row on the Edit screen has drums, bass, guitar and
-  piano and nothing for the second guitar, so the editor cannot turn it on or off
-  even though every preset uses it.
-
-  **Nothing is being lost** — editing a section leaves the second guitar exactly
-  as it was, and there is now a check that says so. It is a missing control, not
-  corruption. Small to add; say the word.
 
 - **When to cut the next release.** Agreed: periodically, after a substantial
   batch, not per commit. `Release.bat` does the work. Just say when.
