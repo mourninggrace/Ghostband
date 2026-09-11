@@ -78,11 +78,34 @@ Last updated 2026-09-11.
   string is a mid or high one, which cannot reach down there. Played alone it
   sounds; arriving legato it has nowhere to go.
 
-  **The test that settles it**, at the keyboard with no Ghostband involved: play
-  note 30 alone (expect: sounds), then hold note 52 and play 30 while still
-  holding it (if silent, that is the answer). If it is, the fault is Ghostband
-  overlapping low notes and the fix is mine — release the previous note so a low
-  one arrives as a fresh pick rather than a slide.
+  **Theory four is dead too.** Calibrate can hold a note and play another under
+  it now, one click; both notes sounded clearly. Legato is not it.
+
+  **THE ACTUAL LEAD, and the first one that fits every observation.** Reported
+  2026-09-11: on a fresh open, note 27 was silent. Opening Shreddage's interface
+  and trying again — still silent. Playing a note **directly in Shreddage's own
+  UI** — sound. Trying note 27 from Ghostband again — sound.
+
+  The variable is not the note. It is whether Shreddage has been touched yet.
+  That is **Kontakt sample purging / on-demand loading**: rarely-used zones are
+  not held in RAM, the first note into one triggers a load from disk and produces
+  no sound, and everything after it works.
+
+  It explains all of it, including the contradictions that killed the other four
+  theories: silent below 40 by hand (bottom strings are the least-used zones, so
+  purged first); sounded during calibration and went quiet later (loaded, then
+  purged); 27 and 28 playing when tested but silent on a cold open; Performance
+  Style, articulation and string count making no difference (none were ever
+  involved).
+
+  **The one click that confirms it.** With Shreddage cold, play the *highest*
+  chord note (88) as the very first thing. Silent first time and fine the second
+  means it is purging and has nothing to do with the low register at all.
+
+  **If confirmed, the fix is in Kontakt, not in Ghostband:** Purge → Reload All
+  Samples, and Preferences → Memory to raise the preload buffer so zones do not
+  go cold. Ghostband could also warm the range on load if it ever proves
+  necessary.
 
 ## 3. Decisions that steer what I build next
 
