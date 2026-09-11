@@ -164,6 +164,13 @@
   // plays across 34 to 87 without a hole, and that was offered as evidence the
   // range was correct. It was evidence about what Ghostband WROTE, not about
   // what Shreddage SOUNDED, and those are not the same claim.
+  // Opt in to the wake pass. Ghostband sends a velocity-1 note every three
+  // semitones across the bottom of the range when a song loads and when
+  // Calibrate opens, so the low zone is resident before a note anybody is meant
+  // to hear arrives. A workaround for the unexplained silence above, not a fix
+  // for it - if the cause is ever found, this comes out.
+  "wake_on_load": true,
+
   "chord_zone": { "lowest_note": 27, "highest_note": 88 },
 
   // 119, not 127, and this one matters.

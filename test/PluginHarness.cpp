@@ -3643,6 +3643,89 @@ int main (int argc, char** argv)
         proc.loadPlan (juce::File (planPath));
     }
 
+    // ---- the wake pass ---------------------------------------------------------
+    // Shreddage is silent on its lowest note from a cold instance and sounds it
+    // the moment anything has been played inside Kontakt. Six explanations were
+    // tested and none held, so Ghostband wakes the low register itself.
+    //
+    // It sends NOTES, at an instrument, outside the song. That is the single
+    // most dangerous thing this codebase does - a stray note aimed at the wrong
+    // instrument gets played as music - so every property that makes it safe is
+    // pinned here.
+    {
+        head.playing = false;
+        proc.setPlayHead (&head);
+        proc.loadPlan (juce::File (planPath));
+
+        std::map<int, std::vector<juce::MidiMessage>> byChannel;
+        for (int b = 0; b < 600; ++b)
+        {
+            buffer.clear();
+            midi.clear();
+            proc.processBlock (buffer, midi);
+            for (const juce::MidiMessageMetadata m : midi)
+            {
+                const auto msg = m.getMessage();
+                if (msg.isNoteOnOrOff())
+                    byChannel[msg.getChannel()].push_back (msg);
+            }
+        }
+
+        const int g2 = proc.channelGuitar2.load();
+
+        check (! byChannel[g2].empty(), "loading a song wakes the instrument that asks for it",
+               juce::String (static_cast<int> (byChannel[g2].size()))
+                   + " messages on ch" + juce::String (g2));
+
+        // Opt-in, and nothing else may be touched. Every other profile leaves
+        // wake_on_load at its default of false.
+        juce::StringArray uninvited;
+        for (const auto& entry : byChannel)
+            if (entry.first != g2 && ! entry.second.empty())
+                uninvited.add ("ch" + juce::String (entry.first) + " got "
+                               + juce::String (static_cast<int> (entry.second.size())));
+
+        check (uninvited.isEmpty(),
+               "and wakes nothing that did not ask",
+               uninvited.isEmpty() ? juce::String ("only ch") + juce::String (g2)
+                                   : uninvited.joinIntoString ("; "));
+
+        // As quiet as a note can be, low, and every one of them released.
+        int loudest = 0, highest = 0, lowest = 127, hanging = 0;
+        std::set<int> sounding;
+        for (const juce::MidiMessage& m : byChannel[g2])
+        {
+            if (m.isNoteOn())
+            {
+                loudest = juce::jmax (loudest, static_cast<int> (m.getVelocity()));
+                highest = juce::jmax (highest, m.getNoteNumber());
+                lowest  = juce::jmin (lowest,  m.getNoteNumber());
+                sounding.insert (m.getNoteNumber());
+            }
+            else sounding.erase (m.getNoteNumber());
+        }
+        hanging = static_cast<int> (sounding.size());
+
+        check (loudest <= 1, "at the quietest velocity there is",
+               "loudest " + juce::String (loudest));
+        check (hanging == 0, "and every woken note is released",
+               juce::String (hanging) + " left sounding");
+        check (highest <= lowest + 18,
+               "only the low register, not the whole range",
+               juce::String (lowest) + " to " + juce::String (highest));
+
+        // And it must not become part of the song. The reference counts are
+        // checked elsewhere; this says the sequence the audio thread plays is
+        // untouched by the wake pass.
+        const int before = proc.getSequenceNoteOnCount (g2);
+        proc.sendWakeNotes();
+        check (proc.getSequenceNoteOnCount (g2) == before,
+               "waking does not add a note to the song itself",
+               juce::String (proc.getSequenceNoteOnCount (g2)));
+
+        for (int b = 0; b < 600; ++b) { buffer.clear(); midi.clear(); proc.processBlock (buffer, midi); }
+    }
+
     // ---- the take library ----------------------------------------------------
     // A take promises one thing: that what you heard comes back. Everything
     // below is that promise taken apart - the performance is identical, the

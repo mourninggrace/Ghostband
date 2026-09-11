@@ -262,6 +262,11 @@ public:
         int  under   = -1;
     };
 
+    // Sends a near-silent note across the low register of any phrase instrument
+    // whose profile declares "wake_on_load", so the samples are ready before a
+    // note anybody is meant to hear arrives. See PhraseProfile::wakeOnLoad.
+    void sendWakeNotes();
+
     void enterCalibration();
     void exitCalibration();
     bool isCalibrating() const { return calibrating.load(); }
