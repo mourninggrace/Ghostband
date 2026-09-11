@@ -44,9 +44,15 @@ struct Theme
 // it by accident.
 inline const Theme kThemes[] =
 {
-    // The original, and the default. Near-black with a red-into-purple accent.
-    { "Ghost",   0xff0a0a0c, 0xff141419, 0xff1c1c23, 0xff2a2a33,
-                 0xfff2f3f5, 0xffd2d6de, 0xffa9aeba,
+    // The default. Charcoal rather than near-black, which is the single biggest
+    // thing separating "a tool somebody wrote" from an instrument plugin - a
+    // near-black ground has no room to put a surface ON, so every panel has to
+    // announce itself with a border instead of simply catching light.
+    //
+    // Keeps the red-into-purple accent: that is Ghostband's signature and the
+    // request was about how it is BUILT, not what colour it is.
+    { "Ghost",   0xff212429, 0xff343941, 0xff40464f, 0xff4e555f,
+                 0xfff4f5f7, 0xffd9dee4, 0xffaeb6c0,
                  0xffe23b54, 0xff8b5cf6, 0xff5c1f2a, 0xffe2a03b },
 
     // Neutral grey, white accent. The one with no opinion, for anyone who finds
@@ -128,6 +134,24 @@ const char* themeName (int index);
 // The signature gradient: red into purple, left to right or around an arc. Used
 // for anything active, and nowhere else, so "lit up" always means the same thing.
 juce::ColourGradient accentGradient (juce::Rectangle<float> area);
+
+// The two that give the interface depth, and the reason it stopped looking flat.
+//
+// Every surface used to be a single fillAll. That reads as a utility - a tool
+// somebody wrote to do a job - where a finished instrument plugin reads as an
+// OBJECT: a panel with a top edge catching light and falling away below it. The
+// whole difference is a gradient of a few per cent and one pale hairline, and
+// neither costs anything.
+//
+// Both derive their tones from the palette rather than adding entries to it, so
+// all eight themes get the same treatment and the light one inverts correctly
+// without a special case.
+void fillBackground (juce::Graphics& g, juce::Rectangle<float> area);
+
+// A raised surface: a soft vertical gradient, a lighter line along its top edge
+// where light would catch, and a hairline border.
+void drawSurface (juce::Graphics& g, juce::Rectangle<float> r,
+                  float corner = 6.0f, bool raised = false);
 
 // A flat surface with an optional hairline. No bevels - the whole point of this
 // look is that depth is implied by spacing and contrast rather than drawn.

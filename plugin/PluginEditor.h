@@ -284,6 +284,14 @@ private:
     // Where to draw that hairline. Set during layout, because only layout knows
     // where the footer ended up on each screen.
     juce::Rectangle<int> footerRule;
+
+    // The panel the song controls sit on, likewise measured during layout.
+    //
+    // Everything above the section list used to float directly on the
+    // background - key, mode, style, the three dials, the mix, the seed - which
+    // is what made the window read as a form rather than as an instrument. A
+    // ground with panels ON it is most of what separates the two.
+    juce::Rectangle<int> controlsPanel;
     juce::Label summaryLabel;
     juce::Label transportLabel;
 

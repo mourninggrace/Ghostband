@@ -45,6 +45,50 @@ juce::ColourGradient accentGradient (juce::Rectangle<float> area)
                                  colours::purple, area.getRight(), area.getCentreY(), false);
 }
 
+// How far a surface lifts at its top edge. Small on purpose: FabFilter's depth
+// is a few per cent of brightness, not a bevel, and anything stronger reads as
+// a 2005 skin rather than as a modern instrument.
+static juce::Colour lift (juce::Colour c, float amount)
+{
+    return c.getPerceivedBrightness() > 0.5f ? c.darker (amount * 0.6f)
+                                             : c.brighter (amount);
+}
+
+void fillBackground (juce::Graphics& g, juce::Rectangle<float> area)
+{
+    g.setGradientFill ({ lift (colours::background, 0.16f), area.getX(), area.getY(),
+                         colours::background,              area.getX(), area.getBottom(),
+                         false });
+    g.fillRect (area);
+}
+
+void drawSurface (juce::Graphics& g, juce::Rectangle<float> r, float corner, bool raised)
+{
+    const juce::Colour face = raised ? colours::cardRaised : colours::card;
+
+    g.setGradientFill ({ lift (face, 0.10f), r.getX(), r.getY(),
+                         face,               r.getX(), r.getBottom(), false });
+    g.fillRoundedRectangle (r, corner);
+
+    // The top edge, where light would catch. One pixel, and it is most of what
+    // separates a panel from a painted rectangle.
+    //
+    // Scoped, because reduceClipRegion has to be undone: an unmatched
+    // restoreState is not a no-op, it pops somebody else's state.
+    {
+        const juce::Graphics::ScopedSaveState saved (g);
+        juce::Path top;
+        top.addRoundedRectangle (r.getX(), r.getY(), r.getWidth(), corner * 2.0f,
+                                 corner, corner, true, true, false, false);
+        g.reduceClipRegion (top);
+        g.setColour (lift (face, 0.34f));
+        g.fillRect (r.withHeight (1.0f));
+    }
+
+    g.setColour (colours::line.withAlpha (0.55f));
+    g.drawRoundedRectangle (r.reduced (0.5f), corner, 1.0f);
+}
+
 void drawPanel (juce::Graphics& g, juce::Rectangle<float> r, bool raised,
                 float corner, juce::Colour face)
 {

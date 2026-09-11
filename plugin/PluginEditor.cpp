@@ -131,7 +131,7 @@ int SectionList::tickToY (int tick) const
 
 void SectionList::paint (juce::Graphics& g)
 {
-    g.fillAll (ghost::panel);
+    ghost::drawSurface (g, getLocalBounds().toFloat(), 10.0f);
 
     if (sections.empty())
     {
@@ -273,7 +273,7 @@ void CalibrationList::mouseDown (const juce::MouseEvent& e)
 
 void CalibrationList::paint (juce::Graphics& g)
 {
-    g.fillAll (ghost::panel);
+    ghost::drawSurface (g, getLocalBounds().toFloat(), 10.0f);
 
     for (size_t i = 0; i < rows.size(); ++i)
     {
@@ -327,7 +327,7 @@ void ControlList::mouseDown (const juce::MouseEvent& e)
 
 void ControlList::paint (juce::Graphics& g)
 {
-    g.fillAll (ghost::colours::card);
+    ghost::drawSurface (g, getLocalBounds().toFloat(), 10.0f);
 
     if (rows.empty())
     {
@@ -405,7 +405,7 @@ void TakeList::mouseDoubleClick (const juce::MouseEvent& e)
 
 void TakeList::paint (juce::Graphics& g)
 {
-    g.fillAll (ghost::colours::card);
+    ghost::drawSurface (g, getLocalBounds().toFloat(), 10.0f);
 
     if (rows.empty())
     {
@@ -1656,6 +1656,7 @@ void GhostbandEditor::updateModeVisibility()
     if (tks)  refreshTakes();
     if (cal)  refreshCalibration();
     if (edit) pullSectionEdit();
+    if (! song) controlsPanel = {};
     if (song) sectionList.setSelection (rerollSelection);
 
     resized();
@@ -2359,7 +2360,8 @@ void GhostbandEditor::refreshFromProcessor()
 
 void GhostbandEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (ghost::colours::background);
+    // A gradient rather than a flat fill. See ghost::fillBackground.
+    ghost::fillBackground (g, getLocalBounds().toFloat());
 
     // ---- header ----
     // Flat, generous, and separated by a single gradient hairline rather than a
@@ -2393,6 +2395,11 @@ void GhostbandEditor::paint (juce::Graphics& g)
                                       static_cast<int> (header.getCentreY()) - 6, 76, 12),
                 juce::Justification::centredRight);
 
+    // The panel the song controls sit on. Painted here rather than by a child
+    // component so it lands BEHIND them - paint() runs before children do.
+    if (screen == Screen::Song && ! controlsPanel.isEmpty())
+        ghost::drawSurface (g, controlsPanel.toFloat(), 10.0f);
+
     // The footer's own separator. Without it the two lines down there read as
     // more page rather than as a distinct block - which was the complaint: no
     // obvious separation other than the colour.
@@ -2402,10 +2409,18 @@ void GhostbandEditor::paint (juce::Graphics& g)
         g.fillRect (footerRule);
     }
 
-    const auto rule = juce::Rectangle<float> (header.getX(), header.getBottom() - 1.5f,
-                                              header.getWidth(), 1.5f);
+    // The header's edge. It used to be a 1.5px bar of full-strength accent
+    // gradient across the whole window, which is the loudest thing on the
+    // screen and the first thing that reads as homemade. A hairline of the same
+    // gradient at a third of its strength keeps the signature and stops it
+    // shouting - the accent should appear where something is ACTIVE, not as
+    // trim.
+    const auto rule = juce::Rectangle<float> (header.getX(), header.getBottom() - 1.0f,
+                                              header.getWidth(), 1.0f);
     g.setGradientFill (ghost::accentGradient (rule));
+    g.setOpacity (0.38f);
     g.fillRect (rule);
+    g.setOpacity (1.0f);
 
     // ---- footer ----
     auto footer = getLocalBounds().removeFromBottom (38).toFloat();
@@ -2880,6 +2895,10 @@ void GhostbandEditor::resized()
 
     r.removeFromTop (12);
 
+    // Everything from here to the transport line sits on one panel. Measured
+    // now, painted in paint() behind the controls.
+    const int panelTop = r.getY() - 8;
+
     auto songRow = r.removeFromTop (26);
     keyLabel.setBounds (songRow.removeFromLeft (32));
     keyBox.setBounds (songRow.removeFromLeft (84));
@@ -2992,6 +3011,13 @@ void GhostbandEditor::resized()
         levelSliders[i]->setBounds (cell.reduced (3, 0));
         mixRow.removeFromLeft (3);
     }
+
+    // Exactly the list's edges. They were inset by ten pixels more than it,
+    // which is the kind of thing nobody consciously notices and everybody reads
+    // as sloppy - two panels that nearly line up look worse than two that
+    // obviously do not.
+    controlsPanel = juce::Rectangle<int> (r.getX(), panelTop,
+                                          r.getWidth(), r.getY() - panelTop + 8);
 
     r.removeFromTop (8);
     {
