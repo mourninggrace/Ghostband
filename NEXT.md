@@ -6,13 +6,13 @@ useless for the one job it has: telling whoever picks this up next what is true
 right now. The history is in `docs/archive/NEXT-through-session-13.md`, and
 nobody has to read it.
 
-**Last touched 2026-09-07, end of session 13.**
+**Last touched 2026-09-11, end of session 14.**
 
 ## State
 
-- **v0.2.0 released.** Tagged, published, and the asset's checksum verified by
+- **v0.2.2 released.** Tagged, published, and the asset's checksum verified by
   downloading it back from GitHub.
-- **291 checks** pass on every build.
+- **301 checks** pass on every build.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
@@ -42,19 +42,32 @@ features shipped invisible because nobody opened the images.
 To cut a release: `Release.bat`, then `gh release create`. It refuses a dirty
 tree or a failing build.
 
+## Session 14, in one paragraph
+
+Shreddage's silent low register is SOLVED after five sessions and six wrong
+theories: its profile claimed a floor of 28, the guitar is drop-tuned to low E so
+its real floor is 40, and MIDI 27 is the *thrash* keyswitch, which re-triggers the
+last-played note. That one keyswitch explains every contradiction the fault ever
+produced. 166 notes across 19 presets stop being thrown into a dead region. The
+answer was in the manual, which is session 10's lesson word for word. Also
+shipped: the structure editor's guitar 2 toggle, and an installer that tests
+whether the plugin file is actually locked instead of scanning for a process name.
+Built and then deleted in the same session: a wake note and a held-note
+calibration step, both of which were solving a problem that turned out not to
+exist.
+
 ## What is next
 
 **Version 2, led by the AI planner.** Described for readers in the README under
 *Where this is going*; the engineering notes are in BACKLOG.md. Nothing is
 started.
 
-Two things are open and neither is scheduled:
+One decision is open and nothing is scheduled:
 
-- **Shreddage is silent below note 40** and the owner wants it diagnosed rather
-  than clamped around. `lowest_note` is pinned at 40 meanwhile.
-- **The structure editor has no guitar 2 toggle.** Nothing is lost — a section
-  edit leaves the second guitar untouched, and there is a check that says so —
-  but the editor cannot turn it on or off.
+- **Should the second guitar play chords?** It never writes more than two
+  simultaneous notes today - overlapping pairs, which is what makes Shreddage
+  play legato and is why the solos sound right. Real chords would be engine work:
+  three- and four-note voicings. The owner has been asked.
 
 ## The one lesson worth carrying
 
