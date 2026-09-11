@@ -396,70 +396,13 @@ void GhostbandProcessor::loadPlan (const juce::File& file)
     }
 
     regenerate();
-
-    // A song has just arrived, and nothing has played yet. This is the one
-    // moment where a near-silent note across the low register costs nothing and
-    // buys an instrument that is ready when the first real note lands.
-    sendWakeNotes();
 }
 
 //==============================================================================
 // Calibration
 
-void GhostbandProcessor::sendWakeNotes()
-{
-    struct Waking { const gb::PhraseProfile* p; };
-    std::vector<Waking> waking;
-
-    {
-        const juce::ScopedLock sl (stateLock);
-        for (const gb::PhraseProfile* p : { &guitarProfile, &guitar2Profile, &pianoProfile })
-            if (p->wakeOnLoad && p->chordHighest > p->chordLowest)
-                waking.push_back ({ p });
-    }
-
-    if (waking.empty())
-        return;
-
-    const double rate = juce::jmax (8000.0, getSampleRate());
-    const juce::SpinLock::ScopedLockType lock (auditionLock);
-
-    for (const Waking& w : waking)
-    {
-        // Only the LOW region, and only every few semitones. Waking the whole
-        // range would be a lot of notes for no reason - the top of a guitar's
-        // range has never failed to sound - and a sampler loads a ZONE rather
-        // than a single pitch, so a note every three semitones covers it.
-        const int from = w.p->chordLowest;
-        const int to   = juce::jmin (w.p->chordHighest, w.p->chordLowest + 18);
-
-        int at = 0;
-        for (int n = from; n <= to; n += 3)
-        {
-            // Velocity 1 and released almost immediately. A sampler decides
-            // which sample to LOAD from the note, not from how hard it is hit,
-            // so the quietest possible layer is enough to make it resident.
-            pendingAuditions.push_back ({ at,
-                juce::MidiMessage::noteOn (w.p->channel, n, (juce::uint8) 1) });
-            pendingAuditions.push_back ({ at + static_cast<int> (0.02 * rate),
-                juce::MidiMessage::noteOff (w.p->channel, n) });
-
-            // Spread out rather than fired at once: a pile of simultaneous
-            // note-ons is exactly what a voice limit cuts short, and a stolen
-            // voice may never load the sample it was sent to load.
-            at += static_cast<int> (0.05 * rate);
-        }
-    }
-}
-
 void GhostbandProcessor::enterCalibration()
 {
-    // Before anything is offered to be auditioned. Calibrate is where a cold
-    // low note gets judged and written down as the instrument's range, so an
-    // instrument that is not awake here produces a measurement that is wrong in
-    // the one file that is supposed to record what is true.
-    sendWakeNotes();
-
     std::vector<CalibrationStep> steps;
 
     {
@@ -1316,6 +1259,24 @@ bool GhostbandProcessor::partIsInSong (int part) const
         case 4:  return haveGuitar2;
         default: return true;      // drums and bass are always present
     }
+}
+
+juce::Range<int> GhostbandProcessor::getPlayableRange (int part) const
+{
+    const juce::ScopedLock sl (stateLock);
+    const gb::PhraseProfile* p = nullptr;
+    switch (part)
+    {
+        case 2:  p = &guitarProfile;  break;
+        case 3:  p = &pianoProfile;   break;
+        case 4:  p = &guitar2Profile; break;
+        default: return {};
+    }
+
+    if (p == nullptr || p->chordHighest <= p->chordLowest)
+        return {};
+
+    return { p->chordLowest, p->chordHighest };
 }
 
 bool GhostbandProcessor::partVolumeReachable (int part) const
@@ -2822,6 +2783,26 @@ juce::String GhostbandProcessor::getSequenceControllers (int channel) const
             out << m.message.getControllerNumber() << "="
                 << m.message.getControllerValue() << " ";
     return out.trim();
+}
+
+int GhostbandProcessor::getSequenceLowestNote (int channel) const
+{
+    const juce::SpinLock::ScopedLockType lock (sequenceLock);
+    int lowest = 128;
+    for (const TimedMessage& m : sequence)
+        if (m.message.isNoteOn() && m.message.getChannel() == channel)
+            lowest = juce::jmin (lowest, m.message.getNoteNumber());
+    return lowest;
+}
+
+int GhostbandProcessor::getSequenceHighestNote (int channel) const
+{
+    const juce::SpinLock::ScopedLockType lock (sequenceLock);
+    int highest = -1;
+    for (const TimedMessage& m : sequence)
+        if (m.message.isNoteOn() && m.message.getChannel() == channel)
+            highest = juce::jmax (highest, m.message.getNoteNumber());
+    return highest;
 }
 
 int GhostbandProcessor::getSequencePitchSum (int channel) const

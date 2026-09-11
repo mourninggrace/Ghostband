@@ -6,6 +6,44 @@
   // headlessly gives an empty instance, the same wall as IRON 2 in Player mode -
   // so this was done by ear at the keyboard, which is the only way available.
   //
+  // SOLVED 2026-09-11, FROM THE MANUAL. The owner's very first report was
+  // right and every number this file has carried since was wrong.
+  //
+  // KONTAKT COUNTS FROM C-2 = 0 (manual p19: "C-2 is the lowest MIDI note"),
+  // so C0 = 24 and C1 = 36. Reading the manual's note names any other way is
+  // how this file came to claim the instrument bottoms out at 28.
+  //
+  // HYDRA IS DROP-TUNED TO LOW E. Eight strings, but not concert F#1 B1 E2:
+  // Impact Soundworks sampled an Ibanez Iron Label 8-string DROP-TUNED TO LOW
+  // E, so the lowest string is E1 = MIDI 40. There is nothing below it. Not
+  // unreliable, not purged - not sampled, because the guitar has no string
+  // that low. "Silent below 40 when played by hand" was simply true.
+  //
+  // AND 27 IS A KEYSWITCH. Manual p34, FX keyswitches:
+  //     C0  24  slide      C#0 25  fret noise
+  //     D0  26  slide note D#0 27  THRASH - re-triggers the last-played note
+  //
+  // That one line explains every contradiction gathered over five sessions.
+  // 27 "sounded like the highest note" because it RE-TRIGGERED the highest
+  // note. It was silent on a cold instance because there was no last note to
+  // re-trigger. It started working the moment anything had been played inside
+  // Kontakt. And it "measured" as the lowest playable note during calibration
+  // because it made a sound - just not its own.
+  //
+  // THE KEYSWITCH MAP, so nothing has to be re-derived:
+  //     0-11     behavioural (force string, force hand position)
+  //     12-23    articulation keyswitches (TACT)
+  //     24-27    FX: slide, fret noise, slide note, thrash
+  //     40-88    THE PLAYABLE RANGE
+  //     90-94    strumming        100-107  picking, one per string
+  //     108-117  picking/fretting mode     126-127  legato on/off
+  // 28-39 is neither keyswitch nor sample. It is below the guitar.
+  //
+  // THE LESSON, and it is session 10's lesson again: three instrument-side
+  // theories were wrong then and the answer was in a PDF; six were wrong now
+  // and the answer was in the same PDF. Every theory asked WHICH NOTE or WHEN.
+  // None asked WHAT THE INSTRUMENT SAYS IT IS. Read the manual first.
+  //
   // THE SILENT LOW REGISTER: still open after six theories. 2026-09-11.
   //
   // NOT "Allow instant playback for samples which are not loaded yet". That was
@@ -164,14 +202,8 @@
   // plays across 34 to 87 without a hole, and that was offered as evidence the
   // range was correct. It was evidence about what Ghostband WROTE, not about
   // what Shreddage SOUNDED, and those are not the same claim.
-  // Opt in to the wake pass. Ghostband sends a velocity-1 note every three
-  // semitones across the bottom of the range when a song loads and when
-  // Calibrate opens, so the low zone is resident before a note anybody is meant
-  // to hear arrives. A workaround for the unexplained silence above, not a fix
-  // for it - if the cause is ever found, this comes out.
-  "wake_on_load": true,
 
-  "chord_zone": { "lowest_note": 27, "highest_note": 88 },
+  "chord_zone": { "lowest_note": 40, "highest_note": 88 },
 
   // 119, not 127, and this one matters.
   //

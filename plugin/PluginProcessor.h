@@ -161,6 +161,12 @@ public:
     // The performance and the TONE are different claims: two renders can place
     // identical notes and still hand the guitar a different amp.
     juce::String getSequenceControllers (int channel) const;
+
+    // The extremes actually written on a channel, or an inverted pair when the
+    // channel is silent. Used to assert that nothing lands outside what the
+    // instrument's profile says it can play.
+    int getSequenceLowestNote  (int channel) const;
+    int getSequenceHighestNote (int channel) const;
     int getSequencePitchSum   (int channel) const;
     int getBarTicks() const;
 
@@ -261,11 +267,6 @@ public:
         // on-screen keys with a mouse - so the plugin holds the note itself.
         int  under   = -1;
     };
-
-    // Sends a near-silent note across the low register of any phrase instrument
-    // whose profile declares "wake_on_load", so the samples are ready before a
-    // note anybody is meant to hear arrives. See PhraseProfile::wakeOnLoad.
-    void sendWakeNotes();
 
     void enterCalibration();
     void exitCalibration();
@@ -433,6 +434,16 @@ public:
     // False when this part's instrument has no volume anything outside it can
     // reach. The mix knob is hidden rather than offered and left inert.
     bool        partVolumeReachable (int part) const;
+
+    // The note range a phrase instrument's profile says it can actually play.
+    // Empty for a part that is not a phrase instrument or is not in the song.
+    //
+    // Exists so the harness can assert that Ghostband never writes outside it.
+    // Shreddage's chord zone said 28 for weeks while the guitar's lowest string
+    // is 40 - so 166 notes across 19 presets were written into a region with no
+    // samples in it, and three of the notes just below that region are FX
+    // keyswitches that would have changed how everything after them played.
+    juce::Range<int> getPlayableRange (int part) const;
 
     // The last thing Test or a mix knob actually put on the wire, in words.
     //

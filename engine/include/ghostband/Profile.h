@@ -394,19 +394,6 @@ public:
     int  chordLowest  = 24;
     int  chordHighest = 47;
 
-    // Whether this instrument needs waking before it will sound its low notes.
-    //
-    // Shreddage 3 Hydra in Kontakt is silent on note 27 from a cold instance and
-    // sounds it the moment ANY note has been played inside Kontakt's own
-    // interface. Six explanations were tested and none held; what survives is
-    // that the low zone is not ready until something touches it. Sending a
-    // near-silent note across that region when a song loads gets it ready before
-    // any note anybody is meant to hear arrives.
-    //
-    // OPT-IN, and it has to be. "Never send an unverified note" is the rule this
-    // whole file exists to enforce - a stray note aimed at the wrong instrument
-    // gets PLAYED. So no profile does this unless it says so.
-    bool wakeOnLoad = false;
 
     // Phrase keys are momentary: a short blip switches the active phrase, and
     // it must land before the chord it applies to.

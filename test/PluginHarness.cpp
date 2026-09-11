@@ -3643,87 +3643,74 @@ int main (int argc, char** argv)
         proc.loadPlan (juce::File (planPath));
     }
 
-    // ---- the wake pass ---------------------------------------------------------
-    // Shreddage is silent on its lowest note from a cold instance and sounds it
-    // the moment anything has been played inside Kontakt. Six explanations were
-    // tested and none held, so Ghostband wakes the low register itself.
+    // ---- nothing is written outside what the instrument can play ---------------
+    // Shreddage's profile said its chord zone bottomed out at 28 for weeks. The
+    // guitar's lowest string is E1 = 40, drop-tuned; there is nothing below it.
+    // So 166 notes across 19 presets were written into a region with no samples
+    // in it, and the notes immediately below that region are not empty either -
+    // 24 to 27 are FX keyswitches, and 27 is "thrash", which RE-TRIGGERS THE
+    // LAST-PLAYED NOTE. A generator that wanders down there does not merely go
+    // quiet, it changes what the instrument does next.
     //
-    // It sends NOTES, at an instrument, outside the song. That is the single
-    // most dangerous thing this codebase does - a stray note aimed at the wrong
-    // instrument gets played as music - so every property that makes it safe is
-    // pinned here.
+    // Swept across every shipped plan rather than the loaded one, because that
+    // is where the 166 were hiding.
+    //
+    // WHAT THIS DOES NOT CATCH, said plainly so nobody trusts it further than it
+    // goes: it asserts the generator stays inside the range the PROFILE
+    // declares. It cannot tell you the profile is right. Dropping the declared
+    // floor back to 28 makes this pass again, because the notes are then inside
+    // a zone that is itself wrong. Only the manual, or an ear, settles that -
+    // which is exactly how this went unnoticed for five sessions.
     {
-        head.playing = false;
-        proc.setPlayHead (&head);
+        struct Part { int index; const char* what; };
+        const Part parts[] = { { 2, "guitar" }, { 3, "piano" }, { 4, "guitar 2" } };
+
+        juce::StringArray strays;
+        int checkedPlans = 0, notesChecked = 0;
+
+        const juce::File plansDir = juce::File (planPath).getParentDirectory();
+        for (const juce::File& f : plansDir.findChildFiles (juce::File::findFiles, false, "*.json"))
+        {
+            if (f.getFileName().contains ("previous")) continue;
+
+            proc.loadPlan (f);
+            if (! proc.getStatus().ok) continue;
+            ++checkedPlans;
+
+            for (const Part& part : parts)
+            {
+                const auto range = proc.getPlayableRange (part.index);
+                if (range.isEmpty()) continue;
+
+                const int ch = part.index == 2 ? proc.channelGuitar.load()
+                             : part.index == 3 ? proc.channelPiano.load()
+                                               : proc.channelGuitar2.load();
+                if (ch < 1) continue;
+
+                const int lowest  = proc.getSequenceLowestNote (ch);
+                const int highest = proc.getSequenceHighestNote (ch);
+                if (lowest > highest) continue;   // part silent in this song
+
+                notesChecked += proc.getSequenceNoteOnCount (ch);
+
+                if (lowest < range.getStart() || highest > range.getEnd())
+                    strays.add (f.getFileNameWithoutExtension() + " " + part.what + " wrote "
+                                + juce::String (lowest) + ".." + juce::String (highest)
+                                + " into " + juce::String (range.getStart()) + ".."
+                                + juce::String (range.getEnd()));
+            }
+        }
+
+        check (checkedPlans > 20, "every shipped plan was swept",
+               juce::String (checkedPlans) + " plans, "
+                   + juce::String (notesChecked) + " notes");
+
+        check (strays.isEmpty(),
+               "no plan writes a note the instrument cannot play",
+               strays.isEmpty() ? juce::String ("all inside their chord zones")
+                                : strays.joinIntoString ("; "));
+
         proc.loadPlan (juce::File (planPath));
-
-        std::map<int, std::vector<juce::MidiMessage>> byChannel;
-        for (int b = 0; b < 600; ++b)
-        {
-            buffer.clear();
-            midi.clear();
-            proc.processBlock (buffer, midi);
-            for (const juce::MidiMessageMetadata m : midi)
-            {
-                const auto msg = m.getMessage();
-                if (msg.isNoteOnOrOff())
-                    byChannel[msg.getChannel()].push_back (msg);
-            }
-        }
-
-        const int g2 = proc.channelGuitar2.load();
-
-        check (! byChannel[g2].empty(), "loading a song wakes the instrument that asks for it",
-               juce::String (static_cast<int> (byChannel[g2].size()))
-                   + " messages on ch" + juce::String (g2));
-
-        // Opt-in, and nothing else may be touched. Every other profile leaves
-        // wake_on_load at its default of false.
-        juce::StringArray uninvited;
-        for (const auto& entry : byChannel)
-            if (entry.first != g2 && ! entry.second.empty())
-                uninvited.add ("ch" + juce::String (entry.first) + " got "
-                               + juce::String (static_cast<int> (entry.second.size())));
-
-        check (uninvited.isEmpty(),
-               "and wakes nothing that did not ask",
-               uninvited.isEmpty() ? juce::String ("only ch") + juce::String (g2)
-                                   : uninvited.joinIntoString ("; "));
-
-        // As quiet as a note can be, low, and every one of them released.
-        int loudest = 0, highest = 0, lowest = 127, hanging = 0;
-        std::set<int> sounding;
-        for (const juce::MidiMessage& m : byChannel[g2])
-        {
-            if (m.isNoteOn())
-            {
-                loudest = juce::jmax (loudest, static_cast<int> (m.getVelocity()));
-                highest = juce::jmax (highest, m.getNoteNumber());
-                lowest  = juce::jmin (lowest,  m.getNoteNumber());
-                sounding.insert (m.getNoteNumber());
-            }
-            else sounding.erase (m.getNoteNumber());
-        }
-        hanging = static_cast<int> (sounding.size());
-
-        check (loudest <= 1, "at the quietest velocity there is",
-               "loudest " + juce::String (loudest));
-        check (hanging == 0, "and every woken note is released",
-               juce::String (hanging) + " left sounding");
-        check (highest <= lowest + 18,
-               "only the low register, not the whole range",
-               juce::String (lowest) + " to " + juce::String (highest));
-
-        // And it must not become part of the song. The reference counts are
-        // checked elsewhere; this says the sequence the audio thread plays is
-        // untouched by the wake pass.
-        const int before = proc.getSequenceNoteOnCount (g2);
-        proc.sendWakeNotes();
-        check (proc.getSequenceNoteOnCount (g2) == before,
-               "waking does not add a note to the song itself",
-               juce::String (proc.getSequenceNoteOnCount (g2)));
-
-        for (int b = 0; b < 600; ++b) { buffer.clear(); midi.clear(); proc.processBlock (buffer, midi); }
     }
 
     // ---- the take library ----------------------------------------------------
