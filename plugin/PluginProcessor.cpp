@@ -495,6 +495,19 @@ void GhostbandProcessor::enterCalibration()
             hi.channel = p.channel;
             hi.isDrum  = false;
             steps.push_back (hi);
+
+            // The same lowest note, but arriving while something else is
+            // already sounding. Directly above it in the list so the two are
+            // one click apart: play them back to back and the answer is
+            // whether the second one is quieter, different, or simply absent.
+            CalibrationStep leg;
+            leg.label   = what + " lowest note, under a held note";
+            leg.hint    = "the same note again, with a higher one already ringing";
+            leg.note    = p.chordLowest;
+            leg.under   = juce::jmin (127, p.chordLowest + 24);
+            leg.channel = p.channel;
+            leg.isDrum  = false;
+            steps.push_back (leg);
         };
 
         addPhraseSteps (guitarProfile, "guitar", haveGuitar);
@@ -1693,9 +1706,30 @@ void GhostbandProcessor::auditionStep (int index)
     // A drum is a one-shot, so a short note is plenty. A pitched note needs to
     // ring long enough to judge its pitch.
     const double holdSeconds = s.isDrum ? 0.12 : 0.9;
-    const int holdSamples = static_cast<int> (holdSeconds * juce::jmax (8000.0, getSampleRate()));
+    const double rate = juce::jmax (8000.0, getSampleRate());
+    const int holdSamples = static_cast<int> (holdSeconds * rate);
 
     const juce::SpinLock::ScopedLockType lock (auditionLock);
+
+    if (s.under >= 0)
+    {
+        // The held note starts first and outlasts the one being judged, so the
+        // note under test genuinely arrives mid-phrase rather than merely close
+        // behind. A quarter of a second of daylight first, so the ear can tell
+        // the two apart and hear which of them stopped.
+        const int lead = static_cast<int> (0.25 * rate);
+
+        pendingAuditions.push_back ({ 0,
+            juce::MidiMessage::noteOn (s.channel, s.under, (juce::uint8) 100) });
+        pendingAuditions.push_back ({ lead,
+            juce::MidiMessage::noteOn (s.channel, s.note, (juce::uint8) 100) });
+        pendingAuditions.push_back ({ lead + holdSamples,
+            juce::MidiMessage::noteOff (s.channel, s.note) });
+        pendingAuditions.push_back ({ lead + holdSamples + static_cast<int> (0.15 * rate),
+            juce::MidiMessage::noteOff (s.channel, s.under) });
+        return;
+    }
+
     pendingAuditions.push_back ({ 0, juce::MidiMessage::noteOn (s.channel, s.note, (juce::uint8) 100) });
     pendingAuditions.push_back ({ holdSamples, juce::MidiMessage::noteOff (s.channel, s.note) });
 }
