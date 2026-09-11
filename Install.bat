@@ -12,30 +12,39 @@ if not exist "%SRC%" (
 
 rem A host keeps the plugin DLL open while it is loaded, and the copy then
 rem silently leaves the old build in place - which looks exactly like the fix
-rem not working. Refuse rather than mislead.
+rem not working. So this refuses rather than misleads.
 rem
-rem WAIT rather than refuse outright. Gig Performer takes several seconds to
-rem actually exit - it unloads every plugin and saves its state on the way out -
-rem so "closed" and "gone from the process list" are not the same moment. This
-rem refused twice on a host that had been closed, which sends you back to check
-rem something you had already done. Fifteen seconds of patience costs nothing
-rem and covers the gap.
+rem IT ASKS THE FILE, NOT THE PROCESS LIST. The old version waited for
+rem GigPerformer5.exe to leave tasklist, which is the wrong question twice over.
+rem A host that is running but has not loaded Ghostband holds nothing, and is
+rem blocked for no reason. And a process that has already EXITED can sit in
+rem tasklist indefinitely as a zombie entry while another process holds a handle
+rem to it - three of them did, all reporting HasExited=True, while the DLL
+rem itself was perfectly free. Opening the file for exclusive write answers the
+rem only question that actually matters.
+set "TARGETDLL=%DST%\Contents\x86_64-win\Ghostband.vst3"
 set "WAITED=0"
-:waitforhost
-tasklist /fi "imagename eq GigPerformer5.exe" 2>nul | find /i "GigPerformer5.exe" >nul
-if errorlevel 1 goto hostclosed
+
+:waitforlock
+if not exist "%TARGETDLL%" goto hostclosed
+
+powershell -NoProfile -Command "try{$f=[IO.File]::Open($env:TARGETDLL,'Open','ReadWrite','None');$f.Close();exit 0}catch{exit 1}"
+if not errorlevel 1 goto hostclosed
 
 if %WAITED% GEQ 15 (
     echo.
-    echo Gig Performer 5 is still running after 15 seconds and is holding the
-    echo plugin open. Close it, then run this again.
+    echo Something still has the plugin open, so installing would silently leave
+    echo the old build in place. Close your host and run this again.
+    echo.
+    echo   If your host is already closed, check Task Manager for a leftover
+    echo   process still holding it.
     exit /b 1
 )
 
-if %WAITED%==0 echo Waiting for Gig Performer 5 to finish closing...
+if %WAITED%==0 echo Waiting for the plugin to be released...
 ping -n 2 127.0.0.1 >nul
 set /a WAITED+=1
-goto waitforhost
+goto waitforlock
 
 :hostclosed
 
