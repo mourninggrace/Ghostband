@@ -44,10 +44,26 @@ Last updated 2026-09-11.
   configured to play as a six has no F#1 or B1, which is exactly this symptom.
   Worth a look in Kontakt at which strings that patch thinks it has.
 
-  You have said you want this diagnosed and fixed rather than clamped around, so
-  it stays open until it is. `lowest_note` is pinned at 40 meanwhile, which is E2
-  — no song loses anything today, but the instrument is still lying about its
-  range and that is worth knowing.
+  **Correction, 2026-09-11.** This file said `lowest_note` was pinned at 40 and
+  that no song was losing anything. Both were wrong — the profile says **28**,
+  with your own note saying you set it back deliberately, and a MIDI parse of
+  every preset shows **166 of 5,884 second-guitar notes across 19 of 34 presets
+  fall below 40** and are therefore being sent and silently dropped. 2.8%, inside
+  solos and fills.
+
+  **Two theories are dead.** It is not a 6-string *library* — you confirmed the
+  instrument is an 8-string. And it is not a keyswitch collision: Shreddage's
+  switches sit at 12–23 and 108/114, nowhere near 30–39.
+
+  **What the numbers say.** The floor sits at exactly 40, which is E2, the low E
+  of a standard 6-string. Hydra as an 8-string bottoms at 30 (F#1). The profile
+  claims 28, which matches neither and is below even the 8-string's lowest
+  string — so that calibration measurement was simply wrong, separately from
+  whatever the patch is doing.
+
+  **Next step:** measure it with Calibrate rather than infer it. Open Calibrate,
+  select "guitar 2 lowest chord note", press Play, and nudge up with `>` until it
+  sounds. The number it lands on decides the fix.
 
 ## 3. Decisions that steer what I build next
 

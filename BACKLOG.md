@@ -264,11 +264,21 @@ throughout, and switching to Standard did not bring the notes back. The suspect
 left is the loaded patch's own string configuration or tuning — an eight string
 playing as six has no F#1 or B1, which is exactly this symptom.
 
-Six of the eleven presets used to write into that region — alt-rock to 30, punk
-35, ballad 36, prog 37, metal 38, emo 38 — so it was audible, whatever anyone
-said at the time. With `lowest_note` at 40 the lowest any plan now writes is
-prog at exactly 40, and nothing is lost: 40 is E2 and a lead guitar has no
-business below it.
+**Measured 2026-09-11, and the earlier note here was wrong.** It claimed
+`lowest_note` was clamped to 40 and nothing was lost. The profile actually says
+28 - the owner set it back on purpose - and parsing every rendered preset shows
+**166 of 5,884 second-guitar notes across 19 of 34 presets fall below 40**, sent
+and silently dropped. preset-sludge-2 loses 26, preset-metal-1 loses 20.
+
+Two theories are dead. Not a 6-string library: the owner confirms an 8-string.
+Not a keyswitch collision: Shreddage's switches sit at 12-23 and 108/114.
+
+The floor is at exactly 40 = E2 = a standard 6-string's low E, which is not a
+coincidence worth ignoring. An 8-string Hydra bottoms at 30 (F#1). The profile's
+28 matches neither and sits below even the lowest string, so that measurement was
+wrong independently of whatever the patch is doing.
+
+Waiting on one Calibrate run to turn the inference into a measurement.
 
 ### C3. Did the drums come up?
 Ghostband was sending a stale CC 7 to SSD5 on channel 10, frozen at whatever the
