@@ -12,7 +12,7 @@ instrument.
 
 ### Download
 
-**[Ghostband 0.2.0 for Windows](https://github.com/mourninggrace/Ghostband/releases/latest)**
+**[Ghostband 0.2.1 for Windows](https://github.com/mourninggrace/Ghostband/releases/latest)**
 — unzip and drop the `Ghostband.vst3` folder into
 `C:\Program Files\Common Files\VST3\`, then rescan plugins in your host.
 
