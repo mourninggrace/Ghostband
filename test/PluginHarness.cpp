@@ -1467,8 +1467,7 @@ int main (int argc, char** argv)
 
                 // The step's own note must be among what went out, and nothing
                 // may go out that the step did not ask for.
-                std::set<int> allowed { st.note };
-                if (st.under >= 0) allowed.insert (st.under);
+                const std::set<int> allowed { st.note };
 
                 if (sent.count (st.note) == 0)
                     wrong.add (st.label + " sent nothing");
@@ -1482,69 +1481,6 @@ int main (int argc, char** argv)
                    "every calibration step auditions exactly the note it shows",
                    wrong.isEmpty() ? juce::String (proc.getCalibrationStepCount()) + " steps"
                                    : wrong.joinIntoString ("; "));
-        }
-
-        // ---- the legato probe really overlaps -------------------------------
-        // A step that carries an "under" note exists to answer one question:
-        // does this instrument sound a low note that arrives while another is
-        // still ringing? If the two did not actually overlap on the wire, the
-        // owner would hear a clean note, report "it works", and the answer
-        // would be worthless. So the overlap itself is pinned.
-        {
-            int probe = -1;
-            for (int i = 0; i < proc.getCalibrationStepCount(); ++i)
-                if (proc.getCalibrationStep (i).under >= 0) { probe = i; break; }
-
-            check (probe >= 0, "calibration offers a note-under-a-held-note step",
-                   probe >= 0 ? proc.getCalibrationStep (probe).label
-                              : juce::String ("none"));
-
-            if (probe >= 0)
-            {
-                const auto st = proc.getCalibrationStep (probe);
-                check (st.under > st.note,
-                       "and the held note sits above the one being judged",
-                       juce::String (st.note) + " under " + juce::String (st.under));
-
-                proc.auditionStep (probe);
-
-                // Walk far enough to cover the lead-in, the hold and both
-                // releases, tracking how many notes are sounding at once.
-                std::set<int> sounding;
-                int mostAtOnce = 0;
-                bool probeArrivedWhileHeld = false;
-
-                for (int b = 0; b < 400; ++b)
-                {
-                    buffer.clear();
-                    midi.clear();
-                    proc.processBlock (buffer, midi);
-                    for (const juce::MidiMessageMetadata m : midi)
-                    {
-                        const auto msg = m.getMessage();
-                        if (msg.isNoteOn())
-                        {
-                            if (msg.getNoteNumber() == st.note
-                                    && sounding.count (st.under) > 0)
-                                probeArrivedWhileHeld = true;
-                            sounding.insert (msg.getNoteNumber());
-                        }
-                        else if (msg.isNoteOff())
-                        {
-                            sounding.erase (msg.getNoteNumber());
-                        }
-                        mostAtOnce = juce::jmax (mostAtOnce,
-                                                 static_cast<int> (sounding.size()));
-                    }
-                }
-
-                check (probeArrivedWhileHeld,
-                       "the low note really does arrive while the held one is sounding",
-                       juce::String (mostAtOnce) + " sounding at once");
-
-                check (sounding.empty(), "and both are released afterwards",
-                       juce::String (static_cast<int> (sounding.size())) + " left hanging");
-            }
         }
 
         // Put it back, and never call saveCalibration here - it would overwrite

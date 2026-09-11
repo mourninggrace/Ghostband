@@ -253,19 +253,6 @@ public:
         int  channel = 10;
         bool isDrum  = true;     // drums are one-shots; pitched notes are held
 
-        // A note to hold while `note` sounds, or -1 for none.
-        //
-        // Whether an instrument can reach a note is two questions, not one. A
-        // sampled guitar picks a STRING per note, and a note that arrives while
-        // another is still sounding is a legato transition on the string
-        // already in use rather than a fresh pick - so it can be perfectly
-        // audible alone and silent underneath something else.
-        //
-        // Ghostband writes 78% of its low second-guitar notes overlapped, so
-        // that is not a hypothetical. Testing it by hand needs two hands at a
-        // keyboard, which is not available to somebody clicking Kontakt's
-        // on-screen keys with a mouse - so the plugin holds the note itself.
-        int  under   = -1;
     };
 
     void enterCalibration();
