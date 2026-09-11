@@ -35,27 +35,28 @@ Last updated 2026-09-11.
 
 ## 2. One thing only you can diagnose
 
-- **Shreddage silent in the low register — FOUND, one checkbox away.**
+- **Shreddage silent in the low register — six theories dead, still open.**
 
-  Kontakt instrument options → **DFD** tab → **Background Loading** →
-  **"Allow instant playback for samples which are not loaded yet"** is
-  **unchecked**. With it off, Kontakt refuses to sound a sample that is not
-  resident — silence rather than streaming it from disk. The low strings are the
-  least-used zones, so they are the ones absent on a cold instance.
+  **My last answer was wrong.** I read "Allow instant playback for samples which
+  are not loaded yet" as unchecked; it was already on. Kontakt draws a checked
+  box light and I read it as empty.
 
-  **Tick it**, then without playing anything inside Shreddage, Calibrate →
-  "guitar 2 lowest chord note" → Play. If 27 sounds cold, it is closed.
+  **What is actually established:** note 88 sounds on a cold instance and note 27
+  does not; after any note is played inside Shreddage's own interface, 27 works;
+  Ghostband sends exactly the note each step displays, on the right channel
+  (pinned across all 29 steps); preload buffer is at maximum and instant playback
+  is on. So MIDI reaches the instrument, Ghostband is correct, and the low zone
+  specifically is not ready until something inside Kontakt touches it.
 
-  The DFD preload buffer is a different setting and cannot fix it — that governs
-  how much of an *already loaded* sample stays in RAM, and an absent zone is not
-  partly resident. But changing it explains the maddening intermittency: Kontakt
-  reloads every sample whenever that value changes, so the low register worked
-  for a while after each adjustment and then went quiet again.
+  **Next suspect: Kontakt's PURGE state**, which is a different mechanism from
+  background loading. A purged sample has been deliberately dropped rather than
+  merely not loaded yet, and instant playback does not cover it — the first note
+  into a purged zone reloads it and makes no sound.
 
-  Five theories died getting here, each by measurement: a 6-string library, a
-  keyswitch collision, an articulation, legato reach, and Ghostband auditioning
-  the wrong note. All five asked *which note*, because the report was phrased as
-  a range. The answer was about *when*.
+  **To check:** in Kontakt, the instrument header has a purge control (often a
+  small icon near the instrument name, or under the wrench). Look at whether it
+  offers **"Reload All Samples"** — and if so, use it, then try note 27 cold
+  without touching Shreddage's keyboard.
 
 ## 3. Decisions that steer what I build next
 
