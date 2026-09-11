@@ -2974,11 +2974,18 @@ int main (int argc, char** argv)
 
                 // Paper: the light one, so anything left behind is left behind
                 // in the most visible way there is.
-                const int paper = ghost::numThemes - 1;
+                //
+                // Found BY NAME. This used to be "the last theme", which was
+                // true until a theme was added after it - and then the check
+                // quietly started testing a different palette than the one it
+                // names, which is worse than failing.
+                int paper = ghost::numThemes - 1;
+                for (int i = 0; i < ghost::numThemes; ++i)
+                    if (juce::String (ghost::themeName (i)) == "Paper") paper = i;
                 gbEd->setThemeForTesting (paper);
 
                 check (juce::String (ghost::themeName (paper)) == "Paper",
-                       "the last theme is the light one", ghost::themeName (paper));
+                       "there is a light theme to switch to", ghost::themeName (paper));
 
                 juce::Array<juce::Colour> after;
                 for (int i = 0; i < ed->getNumChildComponents(); ++i)
@@ -3059,7 +3066,11 @@ int main (int argc, char** argv)
                                              .getPerceivedBrightness(), 2));
                 }
 
-                gbEd->setThemeForTesting (0);
+                // Back to the DEFAULT, not to theme zero. Leaving it on zero
+                // meant every screenshot after this point rendered in a palette
+                // nobody ships with - which is how a whole redesign came back
+                // looking like the thing it replaced.
+                gbEd->setThemeForTesting (ghost::numThemes - 1);
             }
 
             // ---- nothing visible has been squeezed out of existence ---------

@@ -93,6 +93,18 @@ inline const Theme kThemes[] =
     { "Paper",   0xfff4f2ee, 0xffffffff, 0xfffaf8f5, 0xffd8d4cc,
                  0xff1a1a1e, 0xff3d3d45, 0xff5e5e6a,
                  0xffc02a41, 0xff6d3fd4, 0xffe8c9cf, 0xffb87a12 },
+
+    // Blueprint, and the default as of session 15. A drafted page rather than a
+    // dark rack unit: cool paper, slate ink, one blue accent.
+    //
+    // Added at the END rather than at index 0, which matters. A saved session
+    // stores the theme as a NUMBER, so inserting a theme at the front would
+    // silently repaint every existing rackspace in somebody else's colours. New
+    // instances start here because the processor's default says so; anything
+    // already saved keeps exactly the theme it was set to.
+    { "Blueprint", 0xffe9eef1, 0xfff6f8fa, 0xffffffff, 0xffb3c2cc,
+                   0xff1b2a34, 0xff3a505c, 0xff4d6470,
+                   0xff2f6f96, 0xff3f8fb8, 0xffcfe0ea, 0xffb2560f },
 };
 
 inline constexpr int numThemes = sizeof (kThemes) / sizeof (kThemes[0]);

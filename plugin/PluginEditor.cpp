@@ -455,6 +455,323 @@ void TakeList::paint (juce::Graphics& g)
 }
 
 //==============================================================================
+// The arrangement, drafted.
+
+void ArrangementView::setSections (std::vector<gb::SectionReport> s)
+{
+    sections = std::move (s);
+    repaint();
+}
+
+void ArrangementView::setPlayhead (int tick)
+{
+    if (tick == playheadTick) return;
+    playheadTick = tick;
+    repaint();
+}
+
+void ArrangementView::setQueued (int index)
+{
+    if (index == queuedIndex) return;
+    queuedIndex = index;
+    repaint();
+}
+
+void ArrangementView::setSelection (const std::vector<int>& indices)
+{
+    if (indices == selection) return;
+    selection = indices;
+    repaint();
+}
+
+int ArrangementView::laneH() const
+{
+    const int spare = getHeight() - 24 - curveHeight - nameHeight - 18;
+    return juce::jlimit (laneHeight, 46, spare / numLanes);
+}
+
+int ArrangementView::totalBars() const
+{
+    int n = 0;
+    for (const gb::SectionReport& s : sections) n += juce::jmax (1, s.bars);
+    return juce::jmax (1, n);
+}
+
+// A section is as wide as it is LONG. A four bar intro next to an eight bar
+// chorus has to look half its size, or the picture lies about the song.
+juce::Rectangle<int> ArrangementView::columnFor (size_t index) const
+{
+    if (index >= sections.size()) return {};
+
+    auto area = getLocalBounds().reduced (14, 12);
+    area.removeFromLeft (gutter);          // the lane labels live here
+    const int total = totalBars();
+
+    int barsBefore = 0;
+    for (size_t i = 0; i < index; ++i) barsBefore += juce::jmax (1, sections[i].bars);
+
+    const int x0 = area.getX() + juce::roundToInt (area.getWidth() * (barsBefore / double (total)));
+    const int x1 = area.getX() + juce::roundToInt (area.getWidth()
+                        * ((barsBefore + juce::jmax (1, sections[index].bars)) / double (total)));
+
+    return { x0, area.getY() + curveHeight, juce::jmax (2, x1 - x0),
+             nameHeight + numLanes * laneH() };
+}
+
+int ArrangementView::sectionAt (juce::Point<int> p) const
+{
+    for (size_t i = 0; i < sections.size(); ++i)
+        if (columnFor (i).contains (p)) return static_cast<int> (i);
+    return -1;
+}
+
+void ArrangementView::mouseDown (const juce::MouseEvent& e)
+{
+    const int i = sectionAt (e.getPosition());
+    if (i < 0) return;
+
+    if (e.mods.isCtrlDown() || e.mods.isCommandDown())
+    {
+        if (onSectionToggled) onSectionToggled (i);
+    }
+    else if (onSectionClicked)
+    {
+        onSectionClicked (i);
+    }
+}
+
+void ArrangementView::mouseMove (const juce::MouseEvent& e)
+{
+    const int i = sectionAt (e.getPosition());
+    if (i == hoverIndex) return;
+    hoverIndex = i;
+    repaint();
+}
+
+void ArrangementView::mouseExit (const juce::MouseEvent&)
+{
+    if (hoverIndex < 0) return;
+    hoverIndex = -1;
+    repaint();
+}
+
+void ArrangementView::paint (juce::Graphics& g)
+{
+    const auto full = getLocalBounds().toFloat();
+
+    // ---- the page ----
+    g.setColour (ghost::colours::card);
+    g.fillRoundedRectangle (full, 3.0f);
+
+    // Graph paper. Faint enough to read as texture rather than as content -
+    // it is there to say "drawn", not to be counted.
+    {
+        const juce::Graphics::ScopedSaveState saved (g);
+        juce::Path clip;
+        clip.addRoundedRectangle (full, 3.0f);
+        g.reduceClipRegion (clip);
+
+        g.setColour (ghost::colours::line.withAlpha (0.30f));
+        for (float x = full.getX(); x < full.getRight(); x += 16.0f)
+            g.fillRect (x, full.getY(), 0.5f, full.getHeight());
+        for (float y = full.getY(); y < full.getBottom(); y += 16.0f)
+            g.fillRect (full.getX(), y, full.getWidth(), 0.5f);
+    }
+
+    g.setColour (ghost::colours::line);
+    g.drawRoundedRectangle (full.reduced (0.5f), 3.0f, 1.0f);
+
+    if (sections.empty())
+        return;
+
+    const auto area  = getLocalBounds().reduced (14, 12);
+    const auto ink   = ghost::colours::text;
+    const auto faint = ghost::colours::dim;
+
+    const juce::Font mono (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(),
+                                              10.0f, juce::Font::plain));
+
+    // ---- intensity, as a drawn curve across the whole song ----
+    {
+        const float top    = (float) area.getY() + 12.0f;
+        const float bottom = (float) area.getY() + curveHeight - 8.0f;
+
+        juce::Path curve;
+        bool started = false;
+        for (size_t i = 0; i < sections.size(); ++i)
+        {
+            const auto col = columnFor (i);
+            const float y = juce::jmap ((float) juce::jlimit (0.0, 1.0, sections[i].intensity),
+                                        bottom, top);
+            if (! started) { curve.startNewSubPath ((float) col.getX(), y); started = true; }
+            else             curve.lineTo ((float) col.getX(), y);
+            curve.lineTo ((float) col.getRight(), y);
+        }
+
+        g.setColour (ghost::colours::red);
+        g.strokePath (curve, juce::PathStrokeType (1.4f));
+
+        g.setColour (faint);
+        g.setFont (mono);
+        g.drawText ("INT", area.getX(), area.getY(), gutter - 8, 10,
+                    juce::Justification::centredRight);
+    }
+
+    // ---- the lanes ----
+    struct Lane { const char* label; };
+    const Lane lanes[numLanes] = { { "DRUMS" }, { "BASS" }, { "GTR" }, { "GTR 2" }, { "PIANO" } };
+
+    // Busiest cell anywhere sets the scale, per lane. An absolute scale would
+    // make the piano look silent next to the drums simply because a drummer
+    // hits more things than a pianist does.
+    int peak[numLanes] = { 1, 1, 1, 1, 1 };
+    for (const gb::SectionReport& s : sections)
+    {
+        // Chords PLUS lead notes. A part playing fills or a solo writes a lead
+        // line and no chords at all, so counting chords alone drew the second
+        // guitar as silent through the sections it is loudest in.
+        const int v[numLanes] = { s.drumHits, s.bassNotes,
+                                  s.guitarChords  + s.guitarNotes,
+                                  s.guitar2Chords + s.guitar2Notes,
+                                  s.pianoChords };
+        for (int l = 0; l < numLanes; ++l) peak[l] = juce::jmax (peak[l], v[l]);
+    }
+
+    for (size_t i = 0; i < sections.size(); ++i)
+    {
+        const gb::SectionReport& s = sections[i];
+        const auto col = columnFor (i);
+
+        const bool selected = std::find (selection.begin(), selection.end(),
+                                         static_cast<int> (i)) != selection.end();
+        const bool queued   = static_cast<int> (i) == queuedIndex;
+        const bool hovered  = static_cast<int> (i) == hoverIndex;
+
+        // Section name box. Choruses and solos are inked darker so the shape of
+        // the song reads before any word does.
+        auto nameBox = col.withHeight (nameHeight);
+
+        g.setColour (selected ? ghost::colours::red.withAlpha (0.16f)
+                              : ghost::colours::cardRaised
+                                    .darker (float (s.intensity) * 0.14f));
+        g.fillRect (nameBox);
+
+        g.setColour (hovered ? ghost::colours::red : ghost::colours::line);
+        g.drawRect (nameBox, hovered ? 1.4f : 0.8f);
+
+        g.setColour (ink);
+        g.setFont (mono.withHeight (10.5f));
+        g.drawText (juce::String (s.name).toUpperCase(), nameBox.reduced (5, 0),
+                    juce::Justification::centredLeft, true);
+
+        g.setColour (faint);
+        g.drawText (juce::String (s.bars), nameBox.reduced (5, 0),
+                    juce::Justification::centredRight, false);
+
+        // The lanes under it.
+        const int v[numLanes] = { s.drumHits, s.bassNotes,
+                                  s.guitarChords  + s.guitarNotes,
+                                  s.guitar2Chords + s.guitar2Notes,
+                                  s.pianoChords };
+
+        for (int l = 0; l < numLanes; ++l)
+        {
+            auto cell = juce::Rectangle<int> (col.getX(), nameBox.getBottom() + l * laneH(),
+                                              col.getWidth(), laneH());
+
+            g.setColour (ghost::colours::line.withAlpha (0.45f));
+            g.drawRect (cell, 0.5f);
+
+            if (v[l] <= 0)
+                continue;
+
+            // Height carries the density, so a quiet part is a thin seam and a
+            // busy one nearly fills its lane. Reading down a column tells you
+            // who is playing and how hard, at a glance.
+            // Gamma, not a straight ratio. A chord COUNT is a poor proxy for
+            // how present a part is - four long open chords and forty strummed
+            // ones are both "the guitar is playing" - so a linear scale drew
+            // every part but the busiest as a hairline. The curve lifts the
+            // quiet end without reordering anything.
+            const double ratio  = juce::jlimit (0.0, 1.0, v[l] / double (peak[l]));
+            const double amount = juce::jlimit (0.16, 1.0, std::pow (ratio, 0.55));
+            const int h = juce::jmax (2, juce::roundToInt ((laneH() - 8) * amount));
+
+            auto bar = cell.reduced (2, 0).withHeight (h)
+                           .withY (cell.getBottom() - 4 - h);
+
+            g.setColour (ink.withAlpha (0.30f + 0.55f * (float) amount));
+            g.fillRect (bar);
+        }
+
+        if (queued)
+        {
+            g.setColour (ghost::colours::red);
+            g.drawRect (col, 1.6f);
+            g.setFont (mono.withHeight (9.0f));
+            g.drawText ("NEXT", nameBox.reduced (5, 0), juce::Justification::centred, false);
+        }
+    }
+
+    // ---- lane labels, down the left, over the drawing ----
+    {
+        const auto first = columnFor (0);
+        g.setFont (mono.withHeight (9.0f));
+        for (int l = 0; l < numLanes; ++l)
+        {
+            auto row = juce::Rectangle<int> (area.getX(),
+                                             first.getY() + nameHeight + l * laneH(),
+                                             gutter - 8, laneH());
+            g.setColour (faint);
+            g.drawText (lanes[l].label, row, juce::Justification::centredRight, false);
+        }
+    }
+
+    // ---- the dimension line, as a drawing would carry ----
+    {
+        const int y = area.getBottom() - 10;
+        const int x0 = area.getX() + gutter, x1 = area.getRight();
+
+        g.setColour (faint);
+        g.fillRect (x0, y, x1 - x0, 1);
+        g.fillRect (x0, y - 3, 1, 7);
+        g.fillRect (x1 - 1, y - 3, 1, 7);
+
+        int bars = 0;
+        for (const gb::SectionReport& s : sections) bars += juce::jmax (1, s.bars);
+
+        g.setColour (ghost::colours::card);
+        const juce::String text = juce::String (bars) + " BARS";
+        g.setFont (mono.withHeight (9.0f));
+        const int w = juce::GlyphArrangement::getStringWidthInt (g.getCurrentFont(), text) + 12;
+        g.fillRect (juce::Rectangle<int> ((x0 + x1) / 2 - w / 2, y - 5, w, 11));
+
+        g.setColour (faint);
+        g.drawText (text, juce::Rectangle<int> (x0, y - 6, x1 - x0, 13),
+                    juce::Justification::centred, false);
+    }
+
+    // ---- playhead ----
+    if (playheadTick >= 0 && ! sections.empty())
+    {
+        const int last = sections.back().endTick;
+        if (last > 0)
+        {
+            const auto area2 = getLocalBounds().reduced (14, 12);
+            const int x = area2.getX() + gutter
+                        + juce::roundToInt ((area2.getWidth() - gutter)
+                              * juce::jlimit (0.0, 1.0, playheadTick / double (last)));
+
+            g.setColour (ghost::colours::red);
+            g.fillRect (x, area2.getY() + curveHeight - 6,
+                        1, nameHeight + numLanes * laneH() + 8);
+            g.fillEllipse ((float) x - 3.0f, (float) (area2.getY() + curveHeight - 10),
+                           6.0f, 6.0f);
+        }
+    }
+}
+
+//==============================================================================
 
 GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
@@ -557,6 +874,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 
         std::sort (rerollSelection.begin(), rerollSelection.end());
         sectionList.setSelection (rerollSelection);
+        arrangement.setSelection (rerollSelection);
         updateRollButtonText();
 
         if (rollHintDirty)
@@ -808,7 +1126,15 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 
         processor.queueSection (index);
         sectionList.setQueued (index);
+        arrangement.setQueued (index);
     };
+
+    // The arrangement answers the same two gestures as the list it replaces on
+    // the song screen, so everything downstream - reroll selection, section
+    // jumping, the test hooks - is untouched by the change.
+    arrangement.onSectionToggled = sectionList.onSectionToggled;
+    arrangement.onSectionClicked = sectionList.onSectionClicked;
+    addChildComponent (arrangement);
 
     viewport.setViewedComponent (&sectionList, false);
     viewport.setScrollBarsShown (true, false);
@@ -1442,6 +1768,7 @@ void GhostbandEditor::timerCallback()
     {
         lastPlayheadTick = tick;
         sectionList.setPlayhead (tick);
+        arrangement.setPlayhead (tick);
 
         // "stopped" alone is a status; this is an instruction. Ghostband
         // follows the host transport, so with it stopped nothing is sent and a
@@ -1481,6 +1808,7 @@ void GhostbandEditor::timerCallback()
     {
         lastQueued = queued;
         sectionList.setQueued (queued);
+        arrangement.setQueued (queued);
     }
 
     // Host tempo, because Ghostband does not own it - the host does, and a BPM
@@ -1651,13 +1979,17 @@ void GhostbandEditor::updateModeVisibility()
 
     // The section list is shared between the song view and the editor - the
     // same list, selected for a different reason.
-    viewport.setVisible (song || edit);
+    // The list is the edit screen's, where picking one row IS the job. The song
+    // screen shows the arrangement instead.
+    viewport.setVisible (edit);
+    arrangement.setVisible (song);
 
     if (tks)  refreshTakes();
     if (cal)  refreshCalibration();
     if (edit) pullSectionEdit();
     if (! song) controlsPanel = {};
-    if (song) sectionList.setSelection (rerollSelection);
+    if (song) { sectionList.setSelection (rerollSelection);
+                arrangement.setSelection (rerollSelection); }
 
     resized();
 }
@@ -1696,8 +2028,8 @@ void GhostbandEditor::layOutFooter (juce::Rectangle<int> area)
 
 void GhostbandEditor::ctrlClickSectionForTesting (int index)
 {
-    if (sectionList.onSectionToggled)
-        sectionList.onSectionToggled (index);
+    if (arrangement.onSectionToggled)
+        arrangement.onSectionToggled (index);
 }
 
 void GhostbandEditor::editSectionForTesting (int index)
@@ -2341,6 +2673,7 @@ void GhostbandEditor::refreshFromProcessor()
             modeBox.setSelectedId (i, juce::dontSendNotification);
 
     sectionList.setSections (processor.getSections());
+    arrangement.setSections (processor.getSections());
     sectionList.setSize (viewport.getWidth() > 0 ? viewport.getWidth() - 10 : 500,
                          sectionList.getHeight());
 
@@ -3030,6 +3363,5 @@ void GhostbandEditor::resized()
     layOutFooter (r.removeFromBottom (58));
 
     r.removeFromBottom (8);
-    viewport.setBounds (r);
-    sectionList.setSize (r.getWidth() - 10, sectionList.getHeight());
+    arrangement.setBounds (r);
 }

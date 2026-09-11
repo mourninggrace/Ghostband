@@ -25,6 +25,14 @@ struct SectionReport
     int         guitarChords  = 0;
     int         guitar2Chords = 0;
     int         pianoChords   = 0;
+
+    // Chords are not the whole of what a guitar plays. A part set to "fills" or
+    // "solo" writes a LEAD LINE, whose notes land in a different list entirely -
+    // so counting only chords reports the second guitar as silent through
+    // exactly the sections it is most audible in. Both numbers, and a UI that
+    // wants "how much does this part play here" should add them.
+    int         guitarNotes   = 0;
+    int         guitar2Notes  = 0;
     std::string guitarFeel;      // empty when the part is not in this song
     std::string guitar2Feel;
     std::string pianoFeel;

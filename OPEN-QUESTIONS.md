@@ -9,6 +9,22 @@ with a date rather than being deleted, so the same question is never asked twice
 
 ## YOUR LIST
 
+### 0. The interface overhaul — look at it and steer
+
+Not released, and not finished. Only the **song screen** has actually been
+redesigned; Calibrate, Edit, Settings, Takes and About still use the old form
+layout and simply inherit the new palette.
+
+What changed: the section list is gone from the song screen, replaced by an
+**arrangement grid** - sections left to right, each as wide as it is long, five
+player lanes down, inked by how much each part plays there, with the intensity
+curve above and the playhead sweeping across. The **Blueprint** theme is the new
+default.
+
+**Tell me which way to go:** keep pushing (the other five screens, the wordmark,
+the knobs, the buttons), change direction, or stop here. The old look is one
+theme away - every other palette still works.
+
 ### 1. Listen to the low end
 
 **v0.2.2 is installed.** Shreddage's profile claimed a floor of 28; the real one
@@ -18,9 +34,7 @@ below the guitar's lowest string and silently dropped. They play now.
 Worst affected, so the best places to hear it: **preset-sludge-2** (26 notes),
 **preset-metal-1** (20), **preset-blues-2** (16), **preset-thrash-2** (13).
 
-### 2. Do you want the second guitar playing chords?
-
-Not a bug — a decision, and it needs you.
+### 2. Second guitar chords — ANSWERED, no.
 
 Ghostband currently never writes more than **two** simultaneous notes on guitar 2.
 It writes overlapping *pairs*, which is what makes Shreddage play legato, and that

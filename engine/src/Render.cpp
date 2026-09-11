@@ -1430,26 +1430,30 @@ RenderResult renderPerformance (const SongPlan& plan,
 
             const auto play = [&] (const PhraseProfile* profile, PhraseFeel feel,
                                    bool supports, PhrasePart& out,
-                                   int& count, std::string& feelName)
+                                   int& count, std::string& feelName,
+                                   int* leadCount = nullptr)
             {
-                const size_t before = out.chords.size();
+                const size_t before     = out.chords.size();
+                const size_t leadBefore = out.lead.size();
                 generatePhrasePart (s, chords, tick, barTicks, keyPc, mode, plan.style,
                                     plan.swing, profile,
                                     supports ? supportFeel (feel) : feel,
                                     plan.humanize, supports, throughSong,
                                     sectionSeed, plan.seed, rng, out, plan.fills);
                 count = static_cast<int> (out.chords.size() - before);
+                if (leadCount != nullptr)
+                    *leadCount = static_cast<int> (out.lead.size() - leadBefore);
                 feelName = std::string (phraseFeelName (supports ? supportFeel (feel) : feel))
                          + (feel == PhraseFeel::Silent ? std::string() : role (supports));
             };
 
             if (playGuitar)
                 play (guitar, guitarFeel, guitarSupports, result.performance.guitar,
-                      report.guitarChords, report.guitarFeel);
+                      report.guitarChords, report.guitarFeel, &report.guitarNotes);
 
             if (playGuitar2)
                 play (guitar2, guitar2Feel, guitar2Supports, result.performance.guitar2,
-                      report.guitar2Chords, report.guitar2Feel);
+                      report.guitar2Chords, report.guitar2Feel, &report.guitar2Notes);
 
             if (playPiano)
                 play (piano, pianoFeel, pianoSupports, result.performance.piano,

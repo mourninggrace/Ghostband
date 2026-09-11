@@ -146,6 +146,67 @@ private:
     int selected = 0;
 };
 
+// The song laid out in time, which is what a song IS.
+//
+// The section list this replaces on the song screen was a form: eight rows of
+// text, one per section, read top to bottom. It could tell you the bridge had
+// ten bass notes; it could not show you that the bridge is where both guitars
+// drop out, or that the solo is the only place guitar 2 is loud. That shape is
+// the whole content of an arrangement and it was invisible.
+//
+// Sections run left to right, each as wide as it is long in bars. Five lanes run
+// down, one per player, and a lane is inked in proportion to how much that part
+// plays there. The intensity curve rides above it all and the playhead sweeps
+// across. Everything is where it happens.
+class ArrangementView : public juce::Component
+{
+public:
+    void setSections (std::vector<gb::SectionReport> s);
+    void setPlayhead (int tick);          // -1 when the transport is stopped
+    void setQueued   (int index);         // -1 when nothing is waiting
+    void setSelection (const std::vector<int>& indices);
+
+    void paint (juce::Graphics& g) override;
+    void mouseDown (const juce::MouseEvent& e) override;
+    void mouseMove (const juce::MouseEvent& e) override;
+    void mouseExit (const juce::MouseEvent&) override;
+
+    std::function<void (int)> onSectionClicked;   // plain click: jump there
+    std::function<void (int)> onSectionToggled;   // ctrl-click: select for reroll
+
+    // Header band, section name row, then one lane per player.
+    static constexpr int curveHeight = 40;
+    static constexpr int nameHeight  = 26;
+    static constexpr int laneHeight  = 24;
+    static constexpr int numLanes    = 5;
+
+    // Reserved down the left for the lane labels. Without it they were drawn
+    // over the first section's bars, which is exactly the kind of thing that
+    // makes a custom component look homemade.
+    static constexpr int gutter      = 52;
+    static constexpr int wanted = curveHeight + nameHeight + numLanes * laneHeight + 34;
+
+private:
+    // Lanes stretch to whatever height the window gives them, down to the
+    // constant above. A fixed height left a band of empty page under the
+    // drawing on any window taller than the minimum, which reads as the
+    // component having failed to fill its space rather than as margin.
+    int laneH() const;
+
+public:
+
+private:
+    int  sectionAt (juce::Point<int> p) const;
+    juce::Rectangle<int> columnFor (size_t index) const;
+    int  totalBars() const;
+
+    std::vector<gb::SectionReport> sections;
+    std::vector<int> selection;
+    int playheadTick = -1;
+    int queuedIndex  = -1;
+    int hoverIndex   = -1;
+};
+
 class GhostbandEditor : public juce::AudioProcessorEditor,
                         private juce::ChangeListener,
                         private juce::Timer
@@ -295,8 +356,9 @@ private:
     juce::Label summaryLabel;
     juce::Label transportLabel;
 
-    juce::Viewport viewport;
-    SectionList    sectionList;
+    juce::Viewport   viewport;
+    SectionList      sectionList;   // the edit screen, where picking one row is the job
+    ArrangementView  arrangement;   // the song screen
 
     // Three screens share the window: the normal song view, the calibration
     // view, and the structure editor.

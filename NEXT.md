@@ -6,7 +6,7 @@ useless for the one job it has: telling whoever picks this up next what is true
 right now. The history is in `docs/archive/NEXT-through-session-13.md`, and
 nobody has to read it.
 
-**Last touched 2026-09-11, end of session 14.**
+**Last touched 2026-09-11, end of session 15.**
 
 ## State
 
@@ -41,6 +41,37 @@ features shipped invisible because nobody opened the images.
 
 To cut a release: `Release.bat`, then `gh release create`. It refuses a dirty
 tree or a failing build.
+
+## Session 15: the interface was overhauled, and is not finished
+
+The owner's words: "every app we create together has the same general look...
+i'm looking for something fresh and flashy, something that's maybe never been
+done before". Fair, and a fair hit on my defaults - dark panels, hairline
+borders, label-on-the-left rows, every time. An earlier attempt the same day was
+a palette change wearing a structural change's clothes, and he said so.
+
+Three directions were mocked up before any code was written, and he chose the
+arrangement grid drawn in a blueprint aesthetic.
+
+**What exists now.** A new `ArrangementView` replaces the section list on the
+song screen: sections run left to right, each as wide as it is long in bars; five
+lanes run down, one per player, inked in proportion to how much that part plays
+there; the intensity curve rides above and the playhead sweeps across. A
+`Blueprint` theme - cool paper, slate ink, one blue accent - is the new default.
+It was added at the END of kThemes on purpose: a saved session stores the theme
+as a NUMBER, so inserting one at the front would repaint every existing rackspace
+in somebody else's colours.
+
+**What is NOT done.** Only the song screen has been reconsidered. Calibrate,
+Edit, Settings, Takes and About all still use the old form layout and merely
+inherit the new palette. The wordmark, the knobs and the buttons are untouched.
+This is a first cut of a redesign, not a finished one.
+
+**One engine change came out of it.** `SectionReport` now carries `guitarNotes`
+and `guitar2Notes` beside the chord counts. A part playing fills or a solo writes
+a LEAD LINE and no chords at all, so the second guitar was drawn as silent
+through exactly the sections it is loudest in. Anything asking "how much does
+this part play here" wants chords PLUS notes.
 
 ## Session 14, in one paragraph
 

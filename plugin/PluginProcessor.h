@@ -6,6 +6,8 @@
 #include "ghostband/Render.h"
 #include "ghostband/SongPlan.h"
 
+#include "GhostbandLookAndFeel.h"
+
 #include <atomic>
 #include <map>
 #include <vector>
@@ -459,7 +461,9 @@ public:
     // Which colour theme the interface draws in. Kept on the processor rather
     // than in the editor, because the editor is destroyed every time the window
     // closes and a theme that forgets itself on close is not a setting.
-    std::atomic<int> theme { 0 };
+    // Blueprint, the last entry in kThemes. A number rather than a name because
+    // that is what a saved session stores; see the note beside the palette.
+    std::atomic<int> theme { ghost::numThemes - 1 };
 
     std::atomic<double> fills { 0.62 };
 
