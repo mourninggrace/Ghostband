@@ -79,6 +79,68 @@ void check (bool condition, const juce::String& what, const juce::String& detail
     if (! condition) ++failures;
 }
 
+// Dumps what each screen actually lays out, so a control that is present in the
+// source and absent on screen can be seen rather than reasoned about. Run with
+// "--audit [plan]". Not a test: a look.
+void layoutAudit (GhostbandProcessor& proc, const juce::String& planPath)
+{
+    if (planPath.isNotEmpty())
+        proc.loadPlan (juce::File (planPath));
+
+    auto* ed = proc.createEditorIfNeeded();
+    if (ed == nullptr) { std::cout << "no editor\n"; return; }
+
+    auto* gbEd = dynamic_cast<GhostbandEditor*> (ed);
+    ed->setSize (proc.editorWidth.load(), proc.editorHeight.load());
+
+    const auto describe = [] (juce::Component* c) -> juce::String
+    {
+        if (auto* l = dynamic_cast<juce::Label*> (c))
+            return "label \"" + l->getText().substring (0, 34) + "\"";
+        if (auto* b = dynamic_cast<juce::TextButton*> (c))
+            return "button \"" + b->getButtonText() + "\"";
+        if (dynamic_cast<juce::ComboBox*> (c))    return "combo";
+        if (dynamic_cast<juce::TextEditor*> (c))  return "text box";
+        if (dynamic_cast<juce::Slider*> (c))      return "slider";
+        if (dynamic_cast<juce::Viewport*> (c))    return "viewport";
+        return "component";
+    };
+
+    std::cout << "window " << ed->getWidth() << "x" << ed->getHeight() << "\n";
+
+    for (int screen = 0; screen < GhostbandEditor::numScreens; ++screen)
+    {
+        if (gbEd != nullptr) gbEd->showScreenForSnapshot (screen);
+        ed->resized();
+
+        std::cout << "\n--- " << GhostbandEditor::screenName (screen) << " ---\n";
+
+        int hiddenCount = 0, bottom = 0, right = 0;
+        for (int i = 0; i < ed->getNumChildComponents(); ++i)
+        {
+            juce::Component* c = ed->getChildComponent (i);
+            if (c == nullptr) continue;
+
+            const auto b = c->getBounds();
+            if (! c->isVisible()) { ++hiddenCount; continue; }
+
+            bottom = juce::jmax (bottom, b.getBottom());
+            right  = juce::jmax (right,  b.getRight());
+
+            std::cout << "  " << juce::String (b.getX()).paddedLeft (' ', 5)
+                      << juce::String (b.getY()).paddedLeft (' ', 5)
+                      << juce::String (b.getWidth()).paddedLeft (' ', 6)
+                      << juce::String (b.getHeight()).paddedLeft (' ', 5)
+                      << "  " << describe (c) << "\n";
+        }
+        std::cout << "  [" << hiddenCount << " hidden; content reaches "
+                  << right << "x" << bottom << "]\n";
+    }
+
+    proc.editorBeingDeleted (ed);
+    delete ed;
+}
+
 } // namespace
 
 int main (int argc, char** argv)
@@ -101,6 +163,12 @@ int main (int argc, char** argv)
     GhostbandProcessor::setLearnedControlsFileForTesting (testStore);
 
     GhostbandProcessor proc;
+
+    if (argc > 1 && juce::String (argv[1]) == "--audit")
+    {
+        layoutAudit (proc, argc > 2 ? juce::String (argv[2]) : juce::String());
+        return 0;
+    }
 
     check (proc.producesMidi(), "plugin declares MIDI output");
     check (! proc.isMidiEffect(), "plugin is a normal effect, not a MIDI-effect category");
@@ -2884,10 +2952,29 @@ int main (int argc, char** argv)
             {
                 proc.loadPlan (juce::File (planPath));
 
+                // EMPTY IS NOT THE SAME AS "silent", and this loop got that
+                // wrong for as long as it existed. The comment forty lines
+                // below has said since it was written that a part switched off
+                // never reaches the code that names a feel, so its feel comes
+                // back empty - and `feel != "silent"` is true of an empty
+                // string. On demo-metal the first section happens to play the
+                // second guitar and the bug is invisible; on demo-rock it does
+                // not, so this picked a section with the toggle already off and
+                // then failed three checks for asking it to be on.
+                //
+                // The suite only ever ran demo-metal by default, which is why a
+                // reference song exists in the plural.
                 int target = -1;
                 const auto before = proc.getSections();
                 for (size_t i = 0; i < before.size(); ++i)
-                    if (before[i].guitar2Feel != "silent") { target = static_cast<int> (i); break; }
+                {
+                    const juce::String feel (before[i].guitar2Feel);
+                    if (feel.isNotEmpty() && feel != "silent")
+                    {
+                        target = static_cast<int> (i);
+                        break;
+                    }
+                }
 
                 check (target >= 0, "a section plays the second guitar to begin with",
                        target >= 0 ? before[static_cast<size_t> (target)].name
@@ -3157,6 +3244,137 @@ int main (int argc, char** argv)
             proc.editorBeingDeleted (ed);
             delete ed;
         }
+    }
+
+    // ---- no control disappears without saying why ---------------------------
+    // The zero-size check above cannot see this, and neither can the overlap
+    // check or the snapshots: all three skip components that are not visible,
+    // which is exactly the state being tested for. A control that is simply
+    // absent looks identical to a control that was never built, and the report
+    // that found this was "the piano mix knob is missing... which means there
+    // could be other dials missing as well and I just don't realize it yet" -
+    // one silent absence is enough to make every other control suspect.
+    //
+    // Run on a song with NO piano and a drum kit whose volume nothing outside
+    // it can reach, because that is the case where two of the five knobs can do
+    // nothing at all. Both must still be on screen, both must say why.
+    {
+        const juce::File noPiano ("C:/Projects/Ghostband/plans/preset-punk.json");
+        if (noPiano.existsAsFile())
+        {
+            proc.loadPlan (noPiano);
+
+            if (auto* ed = proc.createEditorIfNeeded())
+            {
+                auto* gbEd = dynamic_cast<GhostbandEditor*> (ed);
+                if (gbEd != nullptr) gbEd->showScreenForSnapshot (0);   // song
+                ed->setSize (800, 960);
+
+                juce::StringArray seen;
+                for (int i = 0; i < ed->getNumChildComponents(); ++i)
+                {
+                    auto* l = dynamic_cast<juce::Label*> (ed->getChildComponent (i));
+                    if (l == nullptr || ! l->isVisible() || l->getWidth() < 4)
+                        continue;
+                    seen.add (l->getText());
+                }
+
+                const auto shown = [&seen] (const juce::String& part) -> juce::String
+                {
+                    for (const juce::String& s : seen)
+                        if (s == part || s.startsWith (part + " "))
+                            return s;
+                    return {};
+                };
+
+                juce::StringArray missing;
+                for (const char* part : { "DRUMS", "BASS", "GTR", "GTR 2", "PIANO" })
+                    if (shown (part).isEmpty())
+                        missing.add (part);
+
+                check (missing.isEmpty(),
+                       "every mix knob is on screen even when it can do nothing",
+                       missing.isEmpty() ? juce::String ("all five")
+                                         : "absent: " + missing.joinIntoString (", "));
+
+                // And the two that cannot work say so, rather than looking
+                // exactly like the three that can.
+                check (shown ("PIANO").contains ("not in song"),
+                       "a part the song does not have says so on its knob",
+                       shown ("PIANO"));
+                check (shown ("DRUMS").contains ("no reach"),
+                       "a part whose volume cannot be addressed says so on its knob",
+                       shown ("DRUMS"));
+
+                proc.editorBeingDeleted (ed);
+                delete ed;
+            }
+
+            // Back to the plan the run was started on. Leaving a different song
+            // loaded would make every check after this one depend on the order
+            // they happen to run in, which is how a suite starts passing for
+            // the wrong reason.
+            proc.loadPlan (juce::File (planPath));
+        }
+    }
+
+    // ---- one row of the tracker is as much music as you asked for -----------
+    // Four zooms, and the only one that was ever exercised was the middle one.
+    // The arithmetic that places a note in a row is the same at every zoom and
+    // the arithmetic that labels the row is not, so a bad label is the likely
+    // failure and it is invisible unless the counts are compared.
+    {
+        const int beat = proc.getBeatTicks();
+        const int bar  = proc.getBarTicks();
+
+        const std::vector<int> channels {
+            proc.channelDrums.load(), proc.channelBass.load(),
+            proc.channelGuitar.load(), proc.channelGuitar2.load(),
+            proc.channelPiano.load() };
+
+        check (bar > beat && beat > 4,
+               "a bar is more than a beat and a beat has room to divide",
+               juce::String (beat) + " / " + juce::String (bar));
+
+        // The same eight bars, read at four resolutions. However finely it is
+        // sliced, the same notes must be accounted for - a zoom that loses a
+        // hit is worse than no zoom at all.
+        const int spanTicks = 8 * bar;
+        int totals[4] = { 0, 0, 0, 0 };
+        const int perRow[4] = { bar, beat, juce::jmax (1, beat / 2), juce::jmax (1, beat / 4) };
+
+        for (int z = 0; z < 4; ++z)
+        {
+            const int rows = spanTicks / perRow[z];
+            const auto cells = proc.getTrackerCells (0, rows, channels, perRow[z]);
+            for (const auto& c : cells)
+                totals[z] += c.hits;
+        }
+
+        check (totals[0] == totals[1] && totals[1] == totals[2] && totals[2] == totals[3],
+               "every zoom accounts for exactly the same notes",
+               juce::String (totals[0]) + " / " + juce::String (totals[1]) + " / "
+                   + juce::String (totals[2]) + " / " + juce::String (totals[3]));
+
+        check (totals[0] > 0, "and there were notes there to account for",
+               juce::String (totals[0]));
+
+        // A coarser row holds more per cell. If this ever came out equal, the
+        // resolution would be having no effect and the selector would be a
+        // control that does nothing - the exact fault this session started on.
+        const auto busiest = [&] (int ticksPerRow)
+        {
+            const int rows = spanTicks / ticksPerRow;
+            const auto cells = proc.getTrackerCells (0, rows, channels, ticksPerRow);
+            int most = 0;
+            for (const auto& c : cells) most = juce::jmax (most, c.hits);
+            return most;
+        };
+
+        check (busiest (bar) > busiest (juce::jmax (1, beat / 4)),
+               "a bar per row packs more into a cell than a sixteenth per row",
+               juce::String (busiest (bar)) + " vs "
+                   + juce::String (busiest (juce::jmax (1, beat / 4))));
     }
 
     // ---- a level control actually leaves the plugin --------------------------

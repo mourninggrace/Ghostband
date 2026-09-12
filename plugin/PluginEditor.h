@@ -229,7 +229,7 @@ public:
     // Filled by the editor's timer from the processor, because the view must
     // not reach into the audio thread's sequence itself.
     void setCells (std::vector<GhostbandProcessor::TrackerCell> c, int firstTick,
-                   int beat, int barTicks);
+                   int rowTicks, int beatTicks, int barTicks);
 
     int  visibleRows() const;
     int  firstTickWanted() const { return firstRowTick; }
@@ -258,6 +258,11 @@ private:
     std::vector<int> selection;
 
     int firstRowTick = 0;
+    // How much music one row covers. Equal to beatTicks at the default zoom,
+    // a whole bar at the coarsest and a sixteenth at the finest - so every
+    // row-to-tick sum uses rowTicks and every "which beat is this" sum uses
+    // beatTicks, and the two must not be confused again.
+    int rowTicks     = 96;
     int beatTicks    = 96;
     int barTicks     = 384;
     int playheadTick = -1;
@@ -335,6 +340,13 @@ private:
     juce::ComboBox modeBox;
     juce::ComboBox styleBox;
     juce::ComboBox tuningBox;
+
+    // How much music one tracker row covers. Lives on the song screen next to
+    // the thing it changes, not in Settings, because it is something you reach
+    // for while looking at the grid.
+    juce::ComboBox zoomBox;
+    juce::Label    zoomLabel;
+
     juce::Label    modeLabel;
     juce::Label    keyLabel;
     juce::Label    styleLabel;
@@ -450,8 +462,10 @@ private:
     void recolour();
 
     void refreshTracker();
-    int  lastTrackerTick = -1;
-    int  lastTrackerRows = -1;
+    int  trackerRowTicks (int beatTicks, int barTicks) const;
+    int  lastTrackerTick  = -1;
+    int  lastTrackerRows  = -1;
+    int  lastTrackerPerRow = -1;
 
     void refreshTakes();
     void saveTakeFromBox();

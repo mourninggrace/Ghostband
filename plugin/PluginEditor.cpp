@@ -801,10 +801,12 @@ void TrackerView::setSections (std::vector<gb::SectionReport> s)
 
 void TrackerView::setPlayhead (int tick)
 {
-    // A row is a beat, so only redraw when the BEAT changes. The playhead moves
-    // every processed block; repainting a dense grid at that rate would spend
-    // the whole CPU budget drawing text nobody could read changing.
-    const int row = beatTicks > 0 ? tick / beatTicks : 0;
+    // Only redraw when the ROW changes. The playhead moves every processed
+    // block; repainting a dense grid at that rate would spend the whole CPU
+    // budget drawing text nobody could read changing. At one row per bar that
+    // is four times fewer repaints than before, and at one row per sixteenth
+    // four times more - which is the honest cost of the finer view.
+    const int row = rowTicks > 0 ? tick / rowTicks : 0;
     if (row == playheadRow && (tick < 0) == (playheadTick < 0))
         return;
 
@@ -828,10 +830,11 @@ void TrackerView::setSelection (const std::vector<int>& indices)
 }
 
 void TrackerView::setCells (std::vector<GhostbandProcessor::TrackerCell> c, int firstTick,
-                            int beat, int barTicksIn)
+                            int rowTicksIn, int beat, int barTicksIn)
 {
     cells     = std::move (c);
     firstRowTick = firstTick;
+    rowTicks  = juce::jmax (1, rowTicksIn);
     beatTicks = juce::jmax (1, beat);
     barTicks  = juce::jmax (1, barTicksIn);
     repaint();
@@ -976,9 +979,16 @@ void TrackerView::paint (juce::Graphics& g)
     for (int r = 0; r < rows; ++r)
     {
         const int y = headerHeight + r * rowHeight;
-        const int tick = firstRowTick + r * beatTicks;
-        const int beatInBar = beatTicks > 0 ? (tick / beatTicks) % juce::jmax (1, barTicks / beatTicks) : 0;
-        const bool downbeat = beatInBar == 0;
+        const int tick = firstRowTick + r * rowTicks;
+
+        // Where this row sits in the bar, worked out in ticks rather than in
+        // rows, so it stays right at every zoom. beatsPerBar can be five or
+        // seven; nothing here assumes four.
+        const int inBar     = ((tick % barTicks) + barTicks) % barTicks;
+        const int beatInBar = inBar / beatTicks;
+        const int subInBeat = inBar % beatTicks;
+        const bool downbeat = inBar == 0;
+        const bool onBeat   = subInBeat == 0;
         const bool isNow = playheadTick >= 0 && r == cur;
 
         if (isNow)
@@ -1001,14 +1011,32 @@ void TrackerView::paint (juce::Graphics& g)
             g.setColour (ghost::colours::cardRaised.withAlpha (0.55f));
             g.fillRect (12, y, getWidth() - 24, rowHeight);
         }
+        else if (onBeat && rowTicks < beatTicks)
+        {
+            // Below one row per beat the grid needs a second tier of banding,
+            // or sixteen identical rows to the bar is a wall with no landmarks
+            // in it and you cannot tell the downbeat from the "and" of three.
+            g.setColour (ghost::colours::cardRaised.withAlpha (0.22f));
+            g.fillRect (12, y, getWidth() - 24, rowHeight);
+        }
 
-        // Bar.beat, and only on the downbeat so the column stays quiet.
+        // The position, at whatever precision this zoom can actually resolve:
+        // bar alone when a row is a bar, bar.beat at a beat, bar.beat.sub
+        // below that. Only on landmarks, so the column stays quiet.
         g.setFont (small);
         g.setColour (isNow ? ghost::colours::text : ghost::colours::dim.withAlpha (0.75f));
-        if (downbeat || isNow)
-            g.drawText (juce::String (1 + tick / juce::jmax (1, barTicks))
-                            + "." + juce::String (beatInBar + 1),
-                        12, y, barColumn, rowHeight, juce::Justification::centredLeft, false);
+        if (downbeat || isNow || (onBeat && rowTicks < beatTicks))
+        {
+            juce::String where (1 + tick / juce::jmax (1, barTicks));
+            if (rowTicks < barTicks)
+            {
+                where += "." + juce::String (beatInBar + 1);
+                if (rowTicks < beatTicks)
+                    where += "." + juce::String (1 + subInBeat / rowTicks);
+            }
+            g.drawText (where, 12, y, barColumn, rowHeight,
+                        juce::Justification::centredLeft, false);
+        }
 
         for (int c = 0; c < numParts; ++c)
         {
@@ -1042,16 +1070,30 @@ void TrackerView::paint (juce::Graphics& g)
                 g.setColour ((isNow ? hue : hue.withAlpha (dark ? 0.42f : 0.55f))
                                  .withMultipliedSaturation (0.6f));
                 g.setFont (small);
-                g.drawText (juce::String (cell.velocity), x + 44, y, 30, rowHeight,
+                g.drawText (juce::String (cell.velocity), x + 44, y, 26, rowHeight,
                             juce::Justification::centredLeft, false);
+
+                // One row can cover more than one note - always at a bar per
+                // row, sometimes at a beat. Showing the loudest and no sign of
+                // the rest would read as "one hit here", which is a lie the
+                // coarse zooms would tell on nearly every row.
+                if (cell.hits > 1)
+                {
+                    g.setColour ((isNow ? hue : hue.withAlpha (dark ? 0.42f : 0.55f))
+                                     .withMultipliedSaturation (0.35f));
+                    g.drawText (juce::String::fromUTF8 ("\xc3\x97") + juce::String (cell.hits),
+                                x + 70, y, 26, rowHeight,
+                                juce::Justification::centredLeft, false);
+                }
             }
 
             if (cell.cc >= 0)
             {
                 g.setColour (ghost::colours::warn.withAlpha (isNow ? 1.0f : 0.6f));
                 g.setFont (small);
-                g.drawText ("cc" + juce::String (cell.cc), x + 76, y, colW - 76, rowHeight,
-                            juce::Justification::centredLeft, false);
+                g.drawText ("cc" + juce::String (cell.cc),
+                            x + 96, y, colW - 100, rowHeight,
+                            juce::Justification::centredRight, false);
             }
         }
     }
@@ -1231,6 +1273,29 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         if (id > 0) processor.setBassTuning (tuningIdToName (id));
     };
 
+    // ---- how much music one tracker row covers ----
+    styleCombo (zoomBox);
+    addAndMakeVisible (zoomBox);
+    zoomBox.addItem ("bar",       1);
+    zoomBox.addItem ("beat",      2);
+    zoomBox.addItem ("8th",       3);
+    zoomBox.addItem ("16th",      4);
+    zoomBox.setSelectedId (1 + juce::jlimit (0, GhostbandProcessor::numTrackerZooms - 1,
+                                             processor.trackerZoom.load()),
+                           juce::dontSendNotification);
+    zoomBox.onChange = [this]
+    {
+        const int id = zoomBox.getSelectedId();
+        if (id <= 0) return;
+        processor.trackerZoom.store (id - 1);
+
+        // Force the next refresh through: the cache key is (tick, rows, perRow)
+        // and the first two have not moved, so without this the grid would keep
+        // the old resolution until the playhead happened to cross a row.
+        lastTrackerTick = -1;
+        refreshTracker();
+    };
+
     // The two feel dials become machined knobs; the editor's intensity field
     // stays a slider, because it sits in a form row of text fields.
     for (juce::Slider* s : std::initializer_list<juce::Slider*> { &complexitySlider,
@@ -1326,6 +1391,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     initLabel (modeLabel,       "MODE",       15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (styleLabel,      "STYLE",      15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (tuningLabel,     "BASS TUNING",15.0f, ghost::dim,   juce::Justification::centredLeft);
+    initLabel (zoomLabel,       "ROWS",       15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (tempoLabel,      "",           15.0f, ghost::dim,   juce::Justification::centredRight);
     initLabel (complexityLabel, "COMPLEXITY", 15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (humanizeLabel,   "HUMANIZE",   15.0f, ghost::dim,   juce::Justification::centredLeft);
@@ -2038,6 +2104,15 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         tip (styleBox, "How the band plays: which grooves, how the bass moves, whether the guitars "
                        "use power chords, how busy the drums get. It changes the playing, not the "
                        "chords.");
+        tip (zoomBox,  "How much music one row of the grid below covers, which is the single "
+                       "biggest change you can make to what it tells you. bar is the shape of the "
+                       "arrangement - one line per bar, with x7 meaning seven hits landed in it. "
+                       "beat is the default and reads like a chart. 8th shows off-beat placement, "
+                       "the pushes and the swing. 16th is a real tracker: every hi-hat where it "
+                       "actually sits, at the cost of showing about a bar and a half at a time. "
+                       "Nothing about the music changes - only how closely you are looking at it.");
+        tip (zoomLabel,"How much music one row of the grid covers. Finer rows show placement; "
+                       "coarser rows show shape.");
         tip (tuningBox,"What the bass is tuned to, which sets how low it can go. drop_d, drop_c "
                        "and b_standard each lower the bottom string further.");
 
@@ -2073,11 +2148,14 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         tip (levelGuitar,  "Rhythm guitar level.");
         tip (levelGuitar2, "Second guitar level.");
         tip (levelPiano,   "Piano level.");
-        tip (mixLabel,     "One knob per part. A knob only appears for a part whose volume "
-                           "something can actually reach - SSD5's cannot be reached by any "
-                           "controller, so it has no knob. A dimmed knob labelled CC7 is a guess "
-                           "most instruments ignore; teach that instrument a volume control in "
-                           "Settings to fix it.");
+        tip (mixLabel,     "One knob per part, always all five, always in the same places - so a "
+                           "knob you cannot use is never confused with a knob that has gone "
+                           "missing. Each says why it is greyed: \"not in song\" means this song "
+                           "has no such part; \"no reach\" means the instrument's volume cannot be "
+                           "addressed from outside at all, so use a gain plugin after it instead; "
+                           "\"CC7\" means the knob is guessing with a controller most instruments "
+                           "ignore - teach that instrument its volume control in Settings and the "
+                           "knob becomes real.");
 
         // ---- structure editor ----
         tip (edName,   "The section's name, and it is load-bearing: the ROLE is inferred from it, "
@@ -2441,6 +2519,7 @@ void GhostbandEditor::updateModeVisibility()
              &fillsLabel, &complexityLabel,
              &humanizeLabel, &seedEditor, &seedLabel, &keyBox, &styleBox,
              &tuningBox, &keyLabel, &styleLabel, &tuningLabel,
+             &zoomBox, &zoomLabel,
              &modeBox, &modeLabel,
              &tempoLabel, &transportLabel, &summaryLabel, &playPauseButton,
              &bpmLabel, &bpmEditor, &rollHintLabel,
@@ -2654,34 +2733,54 @@ void GhostbandEditor::setThemeForTesting (int index)
 // thread, and a component reaching into it during a repaint is how you get a
 // dropout. The editor's timer pulls a window of cells across and hands them
 // over, and only when the window has actually moved.
+// How many ticks one tracker row covers, at the zoom currently chosen.
+//
+// A bar rather than "four beats", because a plan can be in 5/4 or 7/8 and a row
+// that claimed to be a bar but covered four beats would drift a beat per bar -
+// the sort of error that looks like a rendering bug and is arithmetic.
+int GhostbandEditor::trackerRowTicks (int beatTicks, int barTicks) const
+{
+    switch (juce::jlimit (0, GhostbandProcessor::numTrackerZooms - 1,
+                          processor.trackerZoom.load()))
+    {
+        case 0:  return juce::jmax (1, barTicks);
+        case 2:  return juce::jmax (1, beatTicks / 2);
+        case 3:  return juce::jmax (1, beatTicks / 4);
+        default: return juce::jmax (1, beatTicks);
+    }
+}
+
 void GhostbandEditor::refreshTracker()
 {
     if (screen != Screen::Song || tracker.getHeight() <= 0)
         return;
 
     const int beat = juce::jmax (1, processor.getBeatTicks());
+    const int bar  = juce::jmax (1, processor.getBarTicks());
+    const int perRow = trackerRowTicks (beat, bar);
     const int rows = tracker.visibleRows();
     const int now  = processor.transportRunning.load() ? processor.playbackTick.load() : 0;
 
-    // The current beat sits a third of the way down, so you can see what just
-    // happened as well as what is coming. Snapped to a beat, or the whole grid
+    // The current row sits a third of the way down, so you can see what just
+    // happened as well as what is coming. Snapped to a row, or the whole grid
     // would slide continuously and be unreadable.
-    const int lead  = (rows / 3) * beat;
-    const int first = juce::jmax (0, ((now / beat) * beat) - lead);
+    const int lead  = (rows / 3) * perRow;
+    const int first = juce::jmax (0, ((now / perRow) * perRow) - lead);
 
-    if (first == lastTrackerTick && rows == lastTrackerRows)
+    if (first == lastTrackerTick && rows == lastTrackerRows && perRow == lastTrackerPerRow)
         return;
 
-    lastTrackerTick = first;
-    lastTrackerRows = rows;
+    lastTrackerTick  = first;
+    lastTrackerRows  = rows;
+    lastTrackerPerRow = perRow;
 
     const std::vector<int> channels {
         processor.channelDrums.load(), processor.channelBass.load(),
         processor.channelGuitar.load(), processor.channelGuitar2.load(),
         processor.channelPiano.load() };
 
-    tracker.setCells (processor.getTrackerCells (first, rows, channels),
-                      first, beat, processor.getBarTicks());
+    tracker.setCells (processor.getTrackerCells (first, rows, channels, perRow),
+                      first, perRow, beat, bar);
 }
 
 void GhostbandEditor::refreshTakes()
@@ -3793,6 +3892,10 @@ void GhostbandEditor::resized()
     songRow.removeFromLeft (12);
     tuningLabel.setBounds (songRow.removeFromLeft (80));
     tuningBox.setBounds (songRow.removeFromLeft (106));
+    songRow.removeFromLeft (12);
+    zoomLabel.setBounds (songRow.removeFromLeft (44));
+    zoomBox.setBounds (songRow.removeFromLeft (84));
+    songRow.removeFromLeft (12);
     tempoLabel.setBounds (songRow);
 
     r.removeFromTop (12);
@@ -3853,42 +3956,92 @@ void GhostbandEditor::resized()
     // indexes guitar 2 as 4, so the lookup is not the loop counter.
     static const int partForKnob[5] = { 0, 1, 2, 4, 3 };
 
+    // ALL FIVE, ALWAYS, IN THE SAME PLACES.
+    //
+    // These used to be laid out only for a part that could actually be reached,
+    // on the reasoning that a control which does nothing is worse than no
+    // control at all. That reasoning is half right and the half it gets wrong
+    // costs more: a knob that is simply absent is indistinguishable from a knob
+    // that is broken. Loading a song with no piano and finding the PIANO knob
+    // gone reads as a bug, and worse, it makes every other control suspect -
+    // "what else is missing that I have not noticed?" is not a question a
+    // person should have to ask about their own mixer.
+    //
+    // So nothing vanishes. A knob that cannot do anything is drawn disabled
+    // with the reason in its own label, which is a statement rather than a
+    // silence. The row also stops reflowing: PIANO is in the same place in
+    // every song, whether or not this one has a piano.
     for (int i = 0; i < 5; ++i)
     {
-        // A knob only for a part this song actually has. partVolumeReachable
-        // answers "can anything move its volume", which is true of a piano
-        // that is not in the song at all - so preset-punk, which has no piano,
-        // drew a PIANO knob that reached nothing. A control for an instrument
-        // that is not playing is the same fault as a control that does nothing,
-        // and this project keeps rediscovering that one.
-        const bool reachable = processor.partIsInSong (partForKnob[i])
-                            && processor.partVolumeReachable (partForKnob[i]);
+        const int part = partForKnob[i];
 
-        // Only the song screen ever positions these, so only it may show them -
+        // Only the song screen positions these, so only it may show them -
         // resized() runs last after a screen change and would otherwise unhide
         // them over whatever the new screen has drawn there.
-        const bool show = reachable && screen == Screen::Song;
-        levelSliders[i]->setVisible (show);
-        levelLabels[i]->setVisible (show);
-        if (! reachable)
-            continue;
+        levelSliders[i]->setVisible (screen == Screen::Song);
+        levelLabels[i]->setVisible  (screen == Screen::Song);
+
+        const bool inSong    = processor.partIsInSong (part);
+        const bool reachable = inSong && processor.partVolumeReachable (part);
 
         // A knob with no control following "level" still sends CC 7, which some
         // plugins answer and most ignore. That is a guess, not a connection, so
         // it is drawn as one - dimmed, with the label saying CC 7 outright.
         // Shreddage sat in exactly this state and looked identical to a knob
         // that worked, which is how it went unnoticed through two sessions.
-        const bool taught = processor.levelIsTaught (partForKnob[i]);
-        levelLabels[i]->setColour (juce::Label::textColourId,
-                                   taught ? ghost::dim : ghost::warn);
-        levelLabels[i]->setText (taught ? kLevelNames[i]
-                                        : juce::String (kLevelNames[i]) + " \xc2\xb7 CC7",
-                                 juce::dontSendNotification);
-        levelSliders[i]->setAlpha (taught ? 1.0f : 0.55f);
+        const bool taught = reachable && processor.levelIsTaught (part);
 
-        auto cell = mixRow.removeFromLeft (52);
+        juce::String suffix;
+        juce::Colour colour = ghost::dim;
+        float alpha = 1.0f;
+
+        if (! inSong)
+        {
+            suffix = " \xc2\xb7 not in song";
+            colour = ghost::dim.withMultipliedAlpha (0.6f);
+            alpha  = 0.3f;
+        }
+        else if (! reachable)
+        {
+            // The instrument's own volume cannot be addressed from outside at
+            // all - SSD5 is the case this exists for. Not a fault to fix here;
+            // put a gain plugin after it in the host.
+            suffix = " \xc2\xb7 no reach";
+            colour = ghost::dim.withMultipliedAlpha (0.6f);
+            alpha  = 0.3f;
+        }
+        else if (! taught)
+        {
+            suffix = " \xc2\xb7 CC7";
+            colour = ghost::warn;
+            alpha  = 0.55f;
+        }
+
+        levelSliders[i]->setEnabled (reachable);
+        levelSliders[i]->setAlpha (alpha);
+        levelLabels[i]->setColour (juce::Label::textColourId, colour);
+        levelLabels[i]->setText (juce::String (kLevelNames[i]) + suffix,
+                                 juce::dontSendNotification);
+
+        // Why this one looks the way it does, on the knob itself, because the
+        // label has room for three words and a reason needs more.
+        levelSliders[i]->setTooltip (
+            ! inSong    ? juce::String (kLevelNames[i]).toLowerCase()
+                              + " is not in this song, so there is nothing to set a level for. "
+                                "Load a song that has one, or add the part in Edit song."
+          : ! reachable ? "This instrument has no volume Ghostband can reach - nothing outside "
+                          "it can address its level. Put a gain plugin after it in your host "
+                          "instead."
+          : ! taught    ? juce::String (kLevelNames[i])
+                              + " level. Nothing is taught for this part, so the knob is guessing "
+                                "with CC 7, which most instruments ignore. Teach its volume "
+                                "control in Settings and this knob becomes real."
+                        : juce::String (kLevelNames[i])
+                              + " level, sent to the instrument's own volume control.");
+
+        auto cell = mixRow.removeFromLeft (76);
         levelLabels[i]->setBounds (cell.removeFromTop (11));
-        levelSliders[i]->setBounds (cell.reduced (3, 0));
+        levelSliders[i]->setBounds (cell.reduced (12, 0));
         mixRow.removeFromLeft (3);
     }
 

@@ -186,14 +186,24 @@ public:
         int velocity = 0;
         int cc       = -1;   // an articulation or control change landing on this beat
         int ccValue  = 0;
+
+        // How many note-ons landed in this cell, not just the one being shown.
+        // At one row per beat this is nearly always 0 or 1 and says nothing; at
+        // one row per BAR a cell can cover sixteen hi-hats, and a view that
+        // showed one of them and no sign of the other fifteen would be lying.
+        int hits     = 0;
     };
 
-    // `rows` beats starting at `firstTick`, for each channel given, row-major:
+    // `rows` rows starting at `firstTick`, for each channel given, row-major:
     // row 0's cells first, then row 1's. One pass under one lock, because the
     // view needs eighty of these per repaint and eighty walks of the sequence
     // would be eighty times the work for the same answer.
+    //
+    // ticksPerRow of 0 means one row per beat. Anything else is the row height
+    // in ticks, so the same call serves one row per bar and one row per 16th.
     std::vector<TrackerCell> getTrackerCells (int firstTick, int rows,
-                                              const std::vector<int>& channels) const;
+                                              const std::vector<int>& channels,
+                                              int ticksPerRow = 0) const;
 
     struct Diagnostics
     {
@@ -215,6 +225,15 @@ public:
     // 11pt body text; readable type needs somewhere to sit or it just clips.
     std::atomic<int> editorWidth  { 800 };
     std::atomic<int> editorHeight { 960 };
+
+    // How much music one tracker row covers: 0 bar, 1 beat, 2 eighth, 3
+    // sixteenth. One row per beat is the middle of the range and the default,
+    // but which one is right depends entirely on what you are looking for -
+    // a bar per row to read the shape of an arrangement, a sixteenth per row to
+    // see where a hat actually sits. That is not a decision to make on someone
+    // else's behalf, so it is a control rather than a constant.
+    std::atomic<int> trackerZoom { 1 };
+    static constexpr int numTrackerZooms = 4;
 
     // Play at the song's own tempo rather than the host's.
     //

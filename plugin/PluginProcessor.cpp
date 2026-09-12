@@ -2842,9 +2842,10 @@ int GhostbandProcessor::getBeatTicks() const
 
 std::vector<GhostbandProcessor::TrackerCell>
 GhostbandProcessor::getTrackerCells (int firstTick, int rows,
-                                     const std::vector<int>& channels) const
+                                     const std::vector<int>& channels,
+                                     int ticksPerRow) const
 {
-    const int perRow = getBeatTicks();
+    const int perRow = ticksPerRow > 0 ? ticksPerRow : getBeatTicks();
     const int n = static_cast<int> (channels.size());
 
     std::vector<TrackerCell> out (static_cast<size_t> (juce::jmax (0, rows) * n));
@@ -2885,6 +2886,8 @@ GhostbandProcessor::getTrackerCells (int firstTick, int rows,
 
         if (m.message.isNoteOn())
         {
+            ++cell.hits;
+
             // The LOUDEST note on the beat wins the cell. A beat can carry a
             // chord or a flam, and a tracker row has one line - showing the
             // hardest-hit note is the one choice that never hides the thing you
@@ -2923,6 +2926,7 @@ void GhostbandProcessor::getStateInformation (juce::MemoryBlock& destData)
     xml.setAttribute ("editorW",    editorWidth.load());
     xml.setAttribute ("editorH",    editorHeight.load());
     xml.setAttribute ("planTempo",  usePlanTempo.load());
+    xml.setAttribute ("trackerZoom", trackerZoom.load());
 
     // The mix and the channel assignments are part of how a rig is set up, not
     // scratch values. Leaving them out meant every knob sprang back to full and
@@ -2965,6 +2969,8 @@ void GhostbandProcessor::setStateInformation (const void* data, int sizeInBytes)
     editorWidth.store  (juce::jlimit (700, 2400, xml->getIntAttribute ("editorW", 800)));
     editorHeight.store (juce::jlimit (820, 2200, xml->getIntAttribute ("editorH", 960)));
     usePlanTempo.store (xml->getBoolAttribute ("planTempo", true));
+    trackerZoom.store (juce::jlimit (0, numTrackerZooms - 1,
+                                     xml->getIntAttribute ("trackerZoom", 1)));
 
     const auto level = [&xml] (const char* key)
     {
