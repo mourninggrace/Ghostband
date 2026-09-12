@@ -15,6 +15,11 @@ in fact done, and are noted at the bottom so nobody rediscovers them.
   cloning with submodules and owning Visual Studio.
 - **v0.2.0, 2026-09-07** — takes, colour themes that actually work, one guitar
   tone per song, songs saved outside Program Files.
+- **v0.2.1, 2026-09-11** — the structure editor's guitar 2 toggle.
+- **v0.2.2, 2026-09-11** — the second guitar plays in its actual range; 166 notes
+  across 19 presets recovered from a dead region.
+- **v0.3.0, 2026-09-12** — the tracker song screen, tooltips on all 92 controls,
+  the Neon theme, and a deadlock that could freeze the host.
 
 `Release.bat` cuts one. It refuses a dirty tree or a failing build, and stages
 the profiles and preset songs INTO the bundle - the build output has neither, and

@@ -10,13 +10,13 @@ nobody has to read it.
 
 ## State
 
-- **v0.2.2 released.** Tagged, published, and the asset's checksum verified by
+- **v0.3.0 released.** Tagged, published, and the asset's checksum verified by
   downloading it back from GitHub.
 - **315 checks** pass on every build.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
-- 34 preset songs, 14 driver profiles, 8 colour themes.
+- 34 preset songs, 14 driver profiles, 10 colour themes.
 - Working tree clean, `main` pushed.
 
 ## The three files that matter
