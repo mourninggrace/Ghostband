@@ -2783,6 +2783,63 @@ int GhostbandProcessor::getSequencePitchSum (int channel) const
     return sum;
 }
 
+int GhostbandProcessor::getBeatTicks() const
+{
+    const juce::ScopedLock sl (stateLock);
+    const int n = juce::jmax (1, plan.timeSigNumerator);
+    const juce::SpinLock::ScopedLockType lock (sequenceLock);
+    return juce::jmax (1, barTicks / n);
+}
+
+std::vector<GhostbandProcessor::TrackerCell>
+GhostbandProcessor::getTrackerCells (int firstTick, int rows,
+                                     const std::vector<int>& channels) const
+{
+    const int perRow = getBeatTicks();
+    const int n = static_cast<int> (channels.size());
+
+    std::vector<TrackerCell> out (static_cast<size_t> (juce::jmax (0, rows) * n));
+    if (rows <= 0 || n == 0)
+        return out;
+
+    const juce::SpinLock::ScopedLockType lock (sequenceLock);
+
+    for (const TimedMessage& m : sequence)
+    {
+        const int row = (m.tick - firstTick) / perRow;
+        if (m.tick < firstTick || row < 0 || row >= rows)
+            continue;
+
+        int col = -1;
+        for (int c = 0; c < n; ++c)
+            if (channels[static_cast<size_t> (c)] == m.message.getChannel()) { col = c; break; }
+        if (col < 0)
+            continue;
+
+        TrackerCell& cell = out[static_cast<size_t> (row * n + col)];
+
+        if (m.message.isNoteOn())
+        {
+            // The LOUDEST note on the beat wins the cell. A beat can carry a
+            // chord or a flam, and a tracker row has one line - showing the
+            // hardest-hit note is the one choice that never hides the thing you
+            // were listening for.
+            if (m.message.getVelocity() > cell.velocity)
+            {
+                cell.note     = m.message.getNoteNumber();
+                cell.velocity = m.message.getVelocity();
+            }
+        }
+        else if (m.message.isController() && cell.cc < 0)
+        {
+            cell.cc      = m.message.getControllerNumber();
+            cell.ccValue = m.message.getControllerValue();
+        }
+    }
+
+    return out;
+}
+
 int GhostbandProcessor::getBarTicks() const
 {
     const juce::SpinLock::ScopedLockType lock (sequenceLock);

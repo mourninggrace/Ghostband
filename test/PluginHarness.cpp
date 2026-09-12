@@ -3073,6 +3073,52 @@ int main (int argc, char** argv)
                 gbEd->setThemeForTesting (ghost::numThemes - 1);
             }
 
+            // ---- every control explains itself ------------------------------
+            // Asked for in those words: hover anything and be told what it is,
+            // what it does, and what the choices mean. The vocabulary this
+            // plugin invented - follows, feels, fills, takes - is not guessable
+            // and was documented only in the README.
+            //
+            // Pinned because a tooltip is invisible until somebody hovers: a
+            // control added next year with no tooltip looks exactly like one
+            // with a tooltip until the day it matters.
+            for (int screen = 0; screen < GhostbandEditor::numScreens; ++screen)
+            {
+                if (gbEd != nullptr) gbEd->showScreenForSnapshot (screen);
+                ed->setSize (800, 960);
+
+                juce::StringArray silent;
+                int explained = 0;
+
+                for (int i = 0; i < ed->getNumChildComponents(); ++i)
+                {
+                    juce::Component* c = ed->getChildComponent (i);
+                    if (c == nullptr || ! c->isVisible())
+                        continue;
+
+                    // Controls only. A label is a caption; it has nothing to
+                    // explain that it is not already saying.
+                    const bool isControl = dynamic_cast<juce::Button*> (c)      != nullptr
+                                        || dynamic_cast<juce::ComboBox*> (c)    != nullptr
+                                        || dynamic_cast<juce::Slider*> (c)      != nullptr
+                                        || dynamic_cast<juce::TextEditor*> (c)  != nullptr;
+                    if (! isControl)
+                        continue;
+
+                    auto* t = dynamic_cast<juce::SettableTooltipClient*> (c);
+                    if (t == nullptr || t->getTooltip().isEmpty())
+                        silent.add (describe (c));
+                    else
+                        ++explained;
+                }
+
+                check (silent.isEmpty(),
+                       juce::String ("every control on the ")
+                           + GhostbandEditor::screenName (screen) + " screen explains itself",
+                       silent.isEmpty() ? juce::String (explained) + " controls"
+                                        : silent.joinIntoString ("; "));
+            }
+
             // ---- nothing visible has been squeezed out of existence ---------
             // The loop above SKIPS components with empty bounds - it has to, or
             // every unlaid-out label counts as sitting on top of every other
@@ -4085,7 +4131,15 @@ int main (int argc, char** argv)
                 // which on Paper means text the exact colour of the page.
                 if (gbEd != nullptr)
                 {
-                    gbEd->setThemeForTesting (ghost::numThemes - 1);
+                    // BY NAME. This said numThemes - 1 and meant Paper, until a
+                    // theme was added after Paper - and then the light-theme
+                    // screenshot quietly began rendering a dark one. Second time
+                    // this exact assumption has broken in this file.
+                    int paperShot = 0;
+                    for (int i = 0; i < ghost::numThemes; ++i)
+                        if (juce::String (ghost::themeName (i)) == "Paper") paperShot = i;
+
+                    gbEd->setThemeForTesting (paperShot);
 
                     // Every screen, not two. "The theme list went unreadable"
                     // came with "there are probably other parts you cannot read

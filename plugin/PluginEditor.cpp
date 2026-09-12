@@ -772,6 +772,292 @@ void ArrangementView::paint (juce::Graphics& g)
 }
 
 //==============================================================================
+// The tracker: what is actually on the wire, one row per beat.
+
+// Each part keeps its own HUE across every theme, and takes its saturation and
+// brightness from the theme it is in. That is what lets one component be neon on
+// a dark ground and ink on a light one without two implementations: the drums
+// are always the red-pink column, whether that reads as a glowing tube or as a
+// printed one.
+juce::Colour TrackerView::partColour (int part) const
+{
+    static const float hues[5] = { 0.972f, 0.097f, 0.555f, 0.777f, 0.430f };
+    const float h = hues[juce::jlimit (0, 4, part)];
+
+    return onDarkGround() ? juce::Colour::fromHSV (h, 0.72f, 1.00f, 1.0f)
+                          : juce::Colour::fromHSV (h, 0.95f, 0.52f, 1.0f);
+}
+
+bool TrackerView::onDarkGround() const
+{
+    return ghost::colours::card.getPerceivedBrightness() < 0.5f;
+}
+
+void TrackerView::setSections (std::vector<gb::SectionReport> s)
+{
+    sections = std::move (s);
+    repaint();
+}
+
+void TrackerView::setPlayhead (int tick)
+{
+    // A row is a beat, so only redraw when the BEAT changes. The playhead moves
+    // every processed block; repainting a dense grid at that rate would spend
+    // the whole CPU budget drawing text nobody could read changing.
+    const int row = beatTicks > 0 ? tick / beatTicks : 0;
+    if (row == playheadRow && (tick < 0) == (playheadTick < 0))
+        return;
+
+    playheadTick = tick;
+    playheadRow  = row;
+    repaint();
+}
+
+void TrackerView::setQueued (int index)
+{
+    if (index == queuedIndex) return;
+    queuedIndex = index;
+    repaint();
+}
+
+void TrackerView::setSelection (const std::vector<int>& indices)
+{
+    if (indices == selection) return;
+    selection = indices;
+    repaint();
+}
+
+void TrackerView::setCells (std::vector<GhostbandProcessor::TrackerCell> c, int firstTick,
+                            int beat, int barTicksIn)
+{
+    cells     = std::move (c);
+    firstRowTick = firstTick;
+    beatTicks = juce::jmax (1, beat);
+    barTicks  = juce::jmax (1, barTicksIn);
+    repaint();
+}
+
+int TrackerView::visibleRows() const
+{
+    return juce::jmax (1, (getHeight() - headerHeight - 10) / rowHeight);
+}
+
+juce::Rectangle<int> TrackerView::ribbonFor (size_t index) const
+{
+    if (index >= sections.size()) return {};
+
+    int total = 0;
+    for (const gb::SectionReport& s : sections) total += juce::jmax (1, s.bars);
+    total = juce::jmax (1, total);
+
+    auto strip = getLocalBounds().reduced (12, 0).withY (8).withHeight (18);
+
+    int before = 0;
+    for (size_t i = 0; i < index; ++i) before += juce::jmax (1, sections[i].bars);
+
+    const int x0 = strip.getX() + juce::roundToInt (strip.getWidth() * (before / double (total)));
+    const int x1 = strip.getX() + juce::roundToInt (strip.getWidth()
+                        * ((before + juce::jmax (1, sections[index].bars)) / double (total)));
+
+    return { x0 + 1, strip.getY(), juce::jmax (2, x1 - x0 - 2), strip.getHeight() };
+}
+
+int TrackerView::sectionAt (juce::Point<int> p) const
+{
+    for (size_t i = 0; i < sections.size(); ++i)
+        if (ribbonFor (i).expanded (0, 4).contains (p)) return static_cast<int> (i);
+    return -1;
+}
+
+void TrackerView::mouseDown (const juce::MouseEvent& e)
+{
+    const int i = sectionAt (e.getPosition());
+    if (i < 0) return;
+
+    if (e.mods.isCtrlDown() || e.mods.isCommandDown())
+    {
+        if (onSectionToggled) onSectionToggled (i);
+    }
+    else if (onSectionClicked)
+    {
+        onSectionClicked (i);
+    }
+}
+
+void TrackerView::mouseMove (const juce::MouseEvent& e)
+{
+    const int i = sectionAt (e.getPosition());
+    if (i == hoverIndex) return;
+    hoverIndex = i;
+
+    setTooltip (i >= 0 ? "Section \"" + juce::String (sections[(size_t) i].name)
+                             + "\" - " + juce::String (sections[(size_t) i].bars)
+                             + " bars. Click to jump here on the next bar line. "
+                               "Ctrl-click to add it to the reroll selection."
+                       : juce::String ("What Ghostband is actually sending: one row per beat, "
+                                       "one column per player. The note, how hard it is played, "
+                                       "and any articulation that lands on that beat."));
+    repaint();
+}
+
+void TrackerView::mouseExit (const juce::MouseEvent&)
+{
+    if (hoverIndex < 0) return;
+    hoverIndex = -1;
+    repaint();
+}
+
+void TrackerView::paint (juce::Graphics& g)
+{
+    const bool dark = onDarkGround();
+    const auto full = getLocalBounds().toFloat();
+
+    g.setColour (ghost::colours::card);
+    g.fillRoundedRectangle (full, 4.0f);
+    g.setColour (ghost::colours::line.withAlpha (0.7f));
+    g.drawRoundedRectangle (full.reduced (0.5f), 4.0f, 1.0f);
+
+    const juce::Font mono (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(),
+                                              12.0f, juce::Font::plain));
+    const juce::Font small (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(),
+                                               9.5f, juce::Font::plain));
+
+    // ---- section ribbon ----
+    for (size_t i = 0; i < sections.size(); ++i)
+    {
+        const auto box = ribbonFor (i);
+        const bool playing  = playheadTick >= 0
+                           && playheadTick >= sections[i].startTick
+                           && playheadTick <  sections[i].endTick;
+        const bool selected = std::find (selection.begin(), selection.end(),
+                                         static_cast<int> (i)) != selection.end();
+        const bool hovered  = static_cast<int> (i) == hoverIndex;
+
+        const juce::Colour lit = selected ? ghost::colours::warn
+                                          : (playing ? partColour (0) : ghost::colours::dim);
+
+        g.setColour ((playing || selected) ? lit.withAlpha (dark ? 0.16f : 0.14f)
+                                           : ghost::colours::cardRaised);
+        g.fillRect (box);
+
+        g.setColour ((playing || selected || hovered) ? lit
+                                                      : ghost::colours::line);
+        g.drawRect (box, (playing || selected) ? 1.4f : 0.7f);
+
+        g.setColour ((playing || selected) ? lit : ghost::colours::dim);
+        g.setFont (small);
+        g.drawText (juce::String (sections[i].name).toUpperCase(), box.reduced (4, 0),
+                    juce::Justification::centredLeft, false);
+    }
+
+    // ---- column headers ----
+    const char* names[numParts] = { "DRUMS", "BASS", "GTR", "GTR 2", "PIANO" };
+    const int colW = (getWidth() - 24 - barColumn) / numParts;
+
+    g.setFont (small);
+    g.setColour (ghost::colours::dim);
+    g.drawText ("BAR", 12, headerHeight - 18, barColumn, 12,
+                juce::Justification::centredLeft, false);
+
+    for (int c = 0; c < numParts; ++c)
+    {
+        g.setColour (partColour (c));
+        g.drawText (names[c], 12 + barColumn + c * colW, headerHeight - 18, colW, 12,
+                    juce::Justification::centredLeft, false);
+    }
+
+    g.setColour (ghost::colours::line);
+    g.fillRect (12, headerHeight - 4, getWidth() - 24, 1);
+
+    // ---- rows ----
+    const int rows = visibleRows();
+    const int cur  = juce::jlimit (0, rows - 1, rows / 3);
+
+    for (int r = 0; r < rows; ++r)
+    {
+        const int y = headerHeight + r * rowHeight;
+        const int tick = firstRowTick + r * beatTicks;
+        const int beatInBar = beatTicks > 0 ? (tick / beatTicks) % juce::jmax (1, barTicks / beatTicks) : 0;
+        const bool downbeat = beatInBar == 0;
+        const bool isNow = playheadTick >= 0 && r == cur;
+
+        if (isNow)
+        {
+            // The lit row. A gradient across it rather than a flat fill, which
+            // is the whole of the neon idea applied to the one thing that
+            // matters most: where you are.
+            juce::ColourGradient lit (partColour (0).withAlpha (dark ? 0.28f : 0.16f),
+                                      (float) 12, 0.0f,
+                                      partColour (3).withAlpha (dark ? 0.28f : 0.16f),
+                                      (float) getWidth() - 12, 0.0f, false);
+            g.setGradientFill (lit);
+            g.fillRect (12, y, getWidth() - 24, rowHeight);
+
+            g.setColour (partColour (0).withAlpha (dark ? 0.85f : 0.55f));
+            g.fillRect (12, y, getWidth() - 24, 1);
+        }
+        else if (downbeat)
+        {
+            g.setColour (ghost::colours::cardRaised.withAlpha (0.55f));
+            g.fillRect (12, y, getWidth() - 24, rowHeight);
+        }
+
+        // Bar.beat, and only on the downbeat so the column stays quiet.
+        g.setFont (small);
+        g.setColour (isNow ? ghost::colours::text : ghost::colours::dim.withAlpha (0.75f));
+        if (downbeat || isNow)
+            g.drawText (juce::String (1 + tick / juce::jmax (1, barTicks))
+                            + "." + juce::String (beatInBar + 1),
+                        12, y, barColumn, rowHeight, juce::Justification::centredLeft, false);
+
+        for (int c = 0; c < numParts; ++c)
+        {
+            const size_t idx = static_cast<size_t> (r * numParts + c);
+            if (idx >= cells.size()) continue;
+
+            const auto& cell = cells[idx];
+            const int x = 12 + barColumn + c * colW;
+
+            if (cell.note < 0 && cell.cc < 0)
+            {
+                g.setFont (mono);
+                g.setColour (ghost::colours::dim.withAlpha (0.22f));
+                g.drawText ("---", x, y, colW, rowHeight,
+                            juce::Justification::centredLeft, false);
+                continue;
+            }
+
+            const juce::Colour hue = partColour (c);
+
+            if (cell.note >= 0)
+            {
+                // Bright when it is the current row, dimmer behind. The colour
+                // never changes, only how lit it is - which is what makes a
+                // column read as one instrument.
+                g.setColour (isNow ? hue : hue.withAlpha (dark ? 0.55f : 0.72f));
+                g.setFont (mono);
+                g.drawText (juce::MidiMessage::getMidiNoteName (cell.note, true, true, 3),
+                            x, y, 44, rowHeight, juce::Justification::centredLeft, false);
+
+                g.setColour ((isNow ? hue : hue.withAlpha (dark ? 0.42f : 0.55f))
+                                 .withMultipliedSaturation (0.6f));
+                g.setFont (small);
+                g.drawText (juce::String (cell.velocity), x + 44, y, 30, rowHeight,
+                            juce::Justification::centredLeft, false);
+            }
+
+            if (cell.cc >= 0)
+            {
+                g.setColour (ghost::colours::warn.withAlpha (isNow ? 1.0f : 0.6f));
+                g.setFont (small);
+                g.drawText ("cc" + juce::String (cell.cc), x + 76, y, colW - 76, rowHeight,
+                            juce::Justification::centredLeft, false);
+            }
+        }
+    }
+}
+
+//==============================================================================
 
 GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
@@ -875,6 +1161,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         std::sort (rerollSelection.begin(), rerollSelection.end());
         sectionList.setSelection (rerollSelection);
         arrangement.setSelection (rerollSelection);
+        tracker.setSelection (rerollSelection);
         updateRollButtonText();
 
         if (rollHintDirty)
@@ -1127,6 +1414,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         processor.queueSection (index);
         sectionList.setQueued (index);
         arrangement.setQueued (index);
+        tracker.setQueued (index);
     };
 
     // The arrangement answers the same two gestures as the list it replaces on
@@ -1135,6 +1423,10 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     arrangement.onSectionToggled = sectionList.onSectionToggled;
     arrangement.onSectionClicked = sectionList.onSectionClicked;
     addChildComponent (arrangement);
+
+    tracker.onSectionToggled = sectionList.onSectionToggled;
+    tracker.onSectionClicked = sectionList.onSectionClicked;
+    addChildComponent (tracker);
 
     viewport.setViewedComponent (&sectionList, false);
     viewport.setScrollBarsShown (true, false);
@@ -1712,6 +2004,191 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
              juce::jmax (690, processor.editorHeight.load()));
     sizeInitialised = true;
 
+    // ---- tooltips ----
+    //
+    // On everything, and they explain the CHOICES rather than just naming the
+    // control. "Feel" is useless; "half time - the backbeat moves to beat 3, so
+    // the section feels half as fast without changing tempo" is the thing
+    // somebody actually wants to know. A vocabulary this plugin invented -
+    // follows, feels, fills, takes - is not guessable, and until now it was
+    // documented only in the README.
+    {
+        const auto tip = [] (juce::Component& c, const juce::String& text)
+        {
+            if (auto* t = dynamic_cast<juce::SettableTooltipClient*> (&c))
+                t->setTooltip (text);
+        };
+
+        // ---- transport and the song ----
+        tip (loadButton,  "Open a different song. Presets live inside the plugin; your own are in "
+                          "Documents\\Ghostband\\Songs.");
+        tip (reloadButton,"Re-read this song from disk, throwing away unsaved edits. Useful if you "
+                          "have been editing the JSON in a text editor.");
+        tip (rollButton,  "A different performance of the SAME song - same chords, same structure, "
+                          "different playing. Ctrl-click sections first to reroll only those; "
+                          "every other section is provably untouched.");
+        tip (playPauseButton, "Stops the band without stopping your host. Ghostband follows the "
+                              "host transport, so it cannot start one that is not running.");
+
+        tip (keyBox,   "Transposes the whole song, including chords written into the plan - not "
+                       "just generated ones.");
+        tip (modeBox,  "The scale the song is built from. natural minor is the default rock and "
+                       "metal choice; harmonic minor raises the 7th for a darker, more classical "
+                       "pull; dorian is minor with a brighter 6th; major is major.");
+        tip (styleBox, "How the band plays: which grooves, how the bass moves, whether the guitars "
+                       "use power chords, how busy the drums get. It changes the playing, not the "
+                       "chords.");
+        tip (tuningBox,"What the bass is tuned to, which sets how low it can go. drop_d, drop_c "
+                       "and b_standard each lower the bottom string further.");
+
+        tip (complexitySlider, "How busy the playing is: ghost notes, extra kicks, fills, how much "
+                               "the parts subdivide. Low is simple and solid; high is a busy "
+                               "player. It does not change what the song IS.");
+        tip (humanizeSlider,   "How loose the timing and velocity are. 0 is a machine, dead on the "
+                               "grid; high is a human having a good night. Too high starts to "
+                               "sound drunk.");
+        tip (fillsSlider,      "How often the second guitar answers in the gaps. 0 silences the "
+                               "answering across the whole song without editing a single section; "
+                               "1 takes every opening it is offered.");
+
+        tip (seedEditor, "The number the whole performance is generated from. The same seed and "
+                         "the same dials always produce exactly the same song - that is what "
+                         "makes a take recallable. Type one you liked to get it back.");
+        tip (bpmEditor,  "The tempo the song is WRITTEN at, not a playback speed: the generators "
+                         "subdivide against it, so a faster song is arranged differently rather "
+                         "than just played faster.");
+
+        tip (takesButton,     "Save the performance you are hearing under a name, and get it back "
+                              "exactly. A preset is a song; a take is one performance of it.");
+        tip (editButton,      "Change the song itself: sections, chords, bars, who plays where.");
+        tip (calibrateButton, "Play one note at a time and tell Ghostband what it heard, so a "
+                              "driver profile stops being a guess.");
+        tip (settingsButton,  "MIDI channels, teaching Ghostband your instruments' own knobs, and "
+                              "the colour theme.");
+        tip (aboutButton,     "What this is, who wrote it, and the licence.");
+        tip (backButton,      "Back to the song.");
+
+        tip (levelDrums,   "Drum level, sent to the instrument's own volume control.");
+        tip (levelBass,    "Bass level, sent to the instrument's own volume control.");
+        tip (levelGuitar,  "Rhythm guitar level.");
+        tip (levelGuitar2, "Second guitar level.");
+        tip (levelPiano,   "Piano level.");
+        tip (mixLabel,     "One knob per part. A knob only appears for a part whose volume "
+                           "something can actually reach - SSD5's cannot be reached by any "
+                           "controller, so it has no knob. A dimmed knob labelled CC7 is a guess "
+                           "most instruments ignore; teach that instrument a volume control in "
+                           "Settings to fix it.");
+
+        // ---- structure editor ----
+        tip (edName,   "The section's name, and it is load-bearing: the ROLE is inferred from it, "
+                       "so renaming a section to chorus2 genuinely makes it behave like a chorus.");
+        tip (edBars,   "How many bars this section lasts.");
+        tip (edChords, "Chords as text, e.g. Em Em C D. A shorter list repeats to fill the bars. "
+                       "Leave it empty to have Ghostband choose a progression for the role.");
+        tip (edIntensity, "How hard this section is played. It drives the drums, the dynamics and "
+                          "which parts lead.");
+        tip (edFeel,   "straight is normal. half time moves the backbeat to beat 3, so the section "
+                       "feels half as fast without changing tempo. double time is the opposite. "
+                       "blast is a blast beat.");
+        tip (edFill,   "Drum fills into the next section. auto decides from the role, none never "
+                       "fills, big always does a full-bar one.");
+        tip (edLead,   "Which part leads this section; the others thin out and drop an octave "
+                       "clear so they support rather than compete. auto decides from the style "
+                       "and intensity.");
+        tip (edDrums,  "Whether the drums play in this section at all.");
+        tip (edBass,   "Whether the bass plays in this section at all.");
+        tip (edGuitar, "Whether the rhythm guitar plays in this section at all.");
+        tip (edGuitar2,"Whether the second guitar plays in this section - the part that solos and "
+                       "answers in the gaps.");
+        tip (edPiano,  "Whether the piano plays in this section at all.");
+        tip (edAddButton,    "Add a section after this one, copying it - a new section is nearly "
+                             "always a variation of the one before.");
+        tip (edDeleteButton, "Delete this section. The last one cannot be deleted; a song with no "
+                             "sections cannot render.");
+        tip (edUpButton,     "Move this section earlier in the song.");
+        tip (edDownButton,   "Move this section later in the song.");
+        tip (edSaveButton,   "Save the song, keeping the previous version in a backups folder. "
+                             "Editing a shipped preset saves a copy into your own songs folder "
+                             "instead of overwriting the preset.");
+        tip (edSaveAsButton, "Save as a new song in Documents\\Ghostband\\Songs.");
+        tip (edDoneButton,   "Back to the song.");
+
+        // ---- settings ----
+        tip (chDrums,  "The MIDI channel the drums are sent on. Set the same channel on the "
+                       "instrument, or use a channel filter in your host.");
+        tip (chBass,   "The MIDI channel the bass is sent on.");
+        tip (chGuitar, "The MIDI channel the rhythm guitar is sent on.");
+        tip (chGuitar2,"The MIDI channel the second guitar is sent on.");
+        tip (chPiano,  "The MIDI channel the piano is sent on.");
+        tip (testDrums,  "Play a few obvious notes on this channel right now, with the transport "
+                         "stopped. Turns 'nothing is playing' into 'this part is not routed'.");
+        tip (testBass,   "Play a few obvious notes on this channel right now.");
+        tip (testGuitar, "Play a few obvious notes on this channel right now.");
+        tip (testGuitar2,"Play a few obvious notes on this channel right now.");
+        tip (testPiano,  "Play a few obvious notes on this channel right now.");
+
+        tip (learnPart, "Which instrument's controls you are editing. Mappings are remembered "
+                        "against the INSTRUMENT, so teaching SSD5 once covers every song that "
+                        "uses it.");
+        tip (ctlAdd,    "Add a control. Name it whatever the knob is called on the instrument.");
+        tip (ctlRemove, "Remove this control. Ghostband stops sending it entirely.");
+        tip (ctlTeach,  "Sweep this CC so the instrument's MIDI Learn can latch onto it. Put the "
+                        "instrument's control into MIDI Learn FIRST, then press this.");
+        tip (ctlSend,   "Send this control once at its parked value, so you can see which knob "
+                        "moves.");
+        tip (ctlWalk,   "Step slowly through every position of a selector so you can count them.");
+        tip (ctlSave,   "Write these mappings to disk. They are remembered per instrument.");
+        tip (ctlName,   "What this knob is called on the instrument. Only for your own reading - "
+                        "Ghostband matches on the CC number.");
+        tip (ctlFollows,"What the arrangement does with this control. intensity tracks how hard "
+                        "the section is played. lead is up when this part leads and down when it "
+                        "supports. peaks is on for choruses and solos only. rising climbs across "
+                        "the whole song. random re-chooses every section; random once chooses "
+                        "per song and holds - use that for anything that is a TONE, or the sound "
+                        "shifts under the same riff. level hands the control to the mix knob. "
+                        "fixed parks it. none leaves it alone entirely.");
+        tip (ctlType,   "knob sweeps continuously. switch is on or off. select holds one of a "
+                        "fixed number of choices, like an amp model list.");
+        tip (ctlPositions, "How many choices a selector has. Use Walk the list to count them.");
+        tip (ctlValue,  "Where a fixed control is parked.");
+        tip (ctlFrom,   "The low end of the range this control travels. Put the HIGHER number "
+                        "first to invert a control that reads backwards.");
+        tip (ctlTo,     "The high end of the range this control travels.");
+
+        tip (themeBox,  "The colour scheme. Neon and the dark themes light the tracker; Paper and "
+                        "Blueprint draw it as ink on a page. Saved with the rest of your settings.");
+        tip (resetSizeButton,   "Put the window back to its default size.");
+        tip (reloadProfilesBtn, "Re-read the driver profiles from disk, for when you have edited "
+                                "one by hand.");
+        tip (tempoModeButton,   "Whether the song plays at the tempo it was written at, or "
+                                "follows your host. A VST3 cannot set the host's tempo, so this "
+                                "is the only way a song plays at its own.");
+
+        // ---- calibrate ----
+        tip (calPlayButton,   "Play the selected note. If it does not sound like its label, nudge "
+                              "it until it does.");
+        tip (calLowerButton,  "Move this mapping down one semitone.");
+        tip (calHigherButton, "Move this mapping up one semitone.");
+        tip (calSaveButton,   "Write what you measured into the driver profile. It names every "
+                              "note that changed.");
+        tip (calDoneButton,   "Back to the song, discarding anything not saved.");
+
+        // ---- takes ----
+        tip (tkName,       "What to call this performance. Saving over a name replaces that take.");
+        tip (tkSaveButton, "Save the seed, all three dials AND the whole song, so this take comes "
+                           "back exactly even if the preset it came from is later edited.");
+        tip (tkRecall,     "Load this performance and go back to the song. Your mix and channels "
+                           "are left alone - those are your rig, not the playing.");
+        tip (tkDelete,     "Delete this take permanently.");
+        tip (tkDoneButton, "Back to the song.");
+
+        // ---- about ----
+        tip (manualButton, "Open the README, which is the manual.");
+        tip (repoButton,   "Open the source code on GitHub.");
+        tip (emailButton,  "Email the author.");
+        tip (donateButton, "Ghostband is free and always will be. This is a button, not a nag.");
+    }
+
     // Fill it before the first tick, so the footer is never briefly blank -
     // and so an offline render of the editor shows it too.
     updateLatencyReadout();
@@ -1761,6 +2238,7 @@ void GhostbandEditor::updateLatencyReadout()
 void GhostbandEditor::timerCallback()
 {
     updateLatencyReadout();
+    refreshTracker();
 
     // Playhead.
     const int tick = processor.transportRunning.load() ? processor.playbackTick.load() : -1;
@@ -1769,6 +2247,7 @@ void GhostbandEditor::timerCallback()
         lastPlayheadTick = tick;
         sectionList.setPlayhead (tick);
         arrangement.setPlayhead (tick);
+        tracker.setPlayhead (tick);
 
         // "stopped" alone is a status; this is an instruction. Ghostband
         // follows the host transport, so with it stopped nothing is sent and a
@@ -1809,6 +2288,7 @@ void GhostbandEditor::timerCallback()
         lastQueued = queued;
         sectionList.setQueued (queued);
         arrangement.setQueued (queued);
+        tracker.setQueued (queued);
     }
 
     // Host tempo, because Ghostband does not own it - the host does, and a BPM
@@ -1982,14 +2462,17 @@ void GhostbandEditor::updateModeVisibility()
     // The list is the edit screen's, where picking one row IS the job. The song
     // screen shows the arrangement instead.
     viewport.setVisible (edit);
-    arrangement.setVisible (song);
+    arrangement.setVisible (false);   // superseded by the tracker; kept for now
+    tracker.setVisible (song);
 
+    if (song) { lastTrackerTick = -1; refreshTracker(); }
     if (tks)  refreshTakes();
     if (cal)  refreshCalibration();
     if (edit) pullSectionEdit();
     if (! song) controlsPanel = {};
     if (song) { sectionList.setSelection (rerollSelection);
-                arrangement.setSelection (rerollSelection); }
+                arrangement.setSelection (rerollSelection);
+                tracker.setSelection (rerollSelection); }
 
     resized();
 }
@@ -2028,8 +2511,8 @@ void GhostbandEditor::layOutFooter (juce::Rectangle<int> area)
 
 void GhostbandEditor::ctrlClickSectionForTesting (int index)
 {
-    if (arrangement.onSectionToggled)
-        arrangement.onSectionToggled (index);
+    if (tracker.onSectionToggled)
+        tracker.onSectionToggled (index);
 }
 
 void GhostbandEditor::editSectionForTesting (int index)
@@ -2152,6 +2635,42 @@ void GhostbandEditor::setThemeForTesting (int index)
 {
     themeBox.setSelectedId (index + 1, juce::dontSendNotification);
     applyThemeChoice (index);
+}
+
+// Feeds the tracker the beats it is currently showing.
+//
+// The view never touches the sequence itself - that belongs to the audio
+// thread, and a component reaching into it during a repaint is how you get a
+// dropout. The editor's timer pulls a window of cells across and hands them
+// over, and only when the window has actually moved.
+void GhostbandEditor::refreshTracker()
+{
+    if (screen != Screen::Song || tracker.getHeight() <= 0)
+        return;
+
+    const int beat = juce::jmax (1, processor.getBeatTicks());
+    const int rows = tracker.visibleRows();
+    const int now  = processor.transportRunning.load() ? processor.playbackTick.load() : 0;
+
+    // The current beat sits a third of the way down, so you can see what just
+    // happened as well as what is coming. Snapped to a beat, or the whole grid
+    // would slide continuously and be unreadable.
+    const int lead  = (rows / 3) * beat;
+    const int first = juce::jmax (0, ((now / beat) * beat) - lead);
+
+    if (first == lastTrackerTick && rows == lastTrackerRows)
+        return;
+
+    lastTrackerTick = first;
+    lastTrackerRows = rows;
+
+    const std::vector<int> channels {
+        processor.channelDrums.load(), processor.channelBass.load(),
+        processor.channelGuitar.load(), processor.channelGuitar2.load(),
+        processor.channelPiano.load() };
+
+    tracker.setCells (processor.getTrackerCells (first, rows, channels),
+                      first, beat, processor.getBarTicks());
 }
 
 void GhostbandEditor::refreshTakes()
@@ -2674,6 +3193,9 @@ void GhostbandEditor::refreshFromProcessor()
 
     sectionList.setSections (processor.getSections());
     arrangement.setSections (processor.getSections());
+    tracker.setSections (processor.getSections());
+    lastTrackerTick = -1;          // the song changed; the window must be refilled
+    refreshTracker();
     sectionList.setSize (viewport.getWidth() > 0 ? viewport.getWidth() - 10 : 500,
                          sectionList.getHeight());
 
@@ -3364,4 +3886,6 @@ void GhostbandEditor::resized()
 
     r.removeFromBottom (8);
     arrangement.setBounds (r);
+    tracker.setBounds (r);
+    refreshTracker();
 }

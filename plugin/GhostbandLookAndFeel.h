@@ -105,6 +105,17 @@ inline const Theme kThemes[] =
     { "Blueprint", 0xffe9eef1, 0xfff6f8fa, 0xffffffff, 0xffb3c2cc,
                    0xff1b2a34, 0xff3a505c, 0xff4d6470,
                    0xff2f6f96, 0xff3f8fb8, 0xffcfe0ea, 0xffb2560f },
+
+    // Neon, and the default as of session 16. Near-black with cyan into
+    // magenta - the ground the tracker was designed for, where a lit row and a
+    // playing column actually read as lit rather than merely coloured.
+    //
+    // At the end again, and for the same reason: a saved session stores the
+    // theme as a NUMBER, so a theme inserted anywhere but the end repaints
+    // somebody's rackspace in colours they did not choose.
+    { "Neon",    0xff05070d, 0xff0a0e16, 0xff121826, 0xff203044,
+                 0xffdff6ff, 0xffa8cadd, 0xff6f93a8,
+                 0xff00e5ff, 0xffff2d95, 0xff0b3a4a, 0xffffb84d },
 };
 
 inline constexpr int numThemes = sizeof (kThemes) / sizeof (kThemes[0]);

@@ -207,6 +207,65 @@ private:
     int hoverIndex   = -1;
 };
 
+// What Ghostband is actually SENDING, one row per beat, one column per player.
+//
+// Every other view in this plugin has shown a summary - counts, densities, the
+// name of a feel. This shows the wire: the note, how hard, and any articulation
+// landing on that beat. Given that most of this project's hard faults were
+// "what is it actually sending", that is worth a component.
+//
+// One implementation, nine themes. Each part keeps its HUE and takes saturation
+// and brightness from the palette, so the same code reads as neon on a dark
+// ground and as ink on a light one.
+class TrackerView : public juce::Component,
+                    public juce::SettableTooltipClient
+{
+public:
+    void setSections (std::vector<gb::SectionReport> s);
+    void setPlayhead (int tick);
+    void setQueued   (int index);
+    void setSelection (const std::vector<int>& indices);
+
+    // Filled by the editor's timer from the processor, because the view must
+    // not reach into the audio thread's sequence itself.
+    void setCells (std::vector<GhostbandProcessor::TrackerCell> c, int firstTick,
+                   int beat, int barTicks);
+
+    int  visibleRows() const;
+    int  firstTickWanted() const { return firstRowTick; }
+
+    void paint (juce::Graphics& g) override;
+    void mouseDown (const juce::MouseEvent& e) override;
+    void mouseMove (const juce::MouseEvent& e) override;
+    void mouseExit (const juce::MouseEvent&) override;
+
+    std::function<void (int)> onSectionClicked;
+    std::function<void (int)> onSectionToggled;
+
+    static constexpr int numParts     = 5;
+    static constexpr int rowHeight    = 19;
+    static constexpr int headerHeight = 52;
+    static constexpr int barColumn    = 46;
+
+private:
+    juce::Colour partColour (int part) const;
+    bool onDarkGround() const;
+    juce::Rectangle<int> ribbonFor (size_t index) const;
+    int  sectionAt (juce::Point<int> p) const;
+
+    std::vector<gb::SectionReport> sections;
+    std::vector<GhostbandProcessor::TrackerCell> cells;
+    std::vector<int> selection;
+
+    int firstRowTick = 0;
+    int beatTicks    = 96;
+    int barTicks     = 384;
+    int playheadTick = -1;
+    int playheadRow  = -1;
+    int queuedIndex  = -1;
+    int hoverIndex   = -1;
+};
+
 class GhostbandEditor : public juce::AudioProcessorEditor,
                         private juce::ChangeListener,
                         private juce::Timer
@@ -358,7 +417,12 @@ private:
 
     juce::Viewport   viewport;
     SectionList      sectionList;   // the edit screen, where picking one row is the job
-    ArrangementView  arrangement;   // the song screen
+    ArrangementView  arrangement;   // kept, but no longer on screen - see TrackerView
+    TrackerView      tracker;       // the song screen
+
+    // One tooltip window for the whole editor. Without one, setTooltip is
+    // recorded and never shown, which looks exactly like tooltips not working.
+    juce::TooltipWindow tooltips { this, 550 };
 
     // Three screens share the window: the normal song view, the calibration
     // view, and the structure editor.
@@ -384,6 +448,10 @@ private:
     // LookAndFeel changes, so without this half the interface stays on the old
     // palette and the theme looks broken rather than applied.
     void recolour();
+
+    void refreshTracker();
+    int  lastTrackerTick = -1;
+    int  lastTrackerRows = -1;
 
     void refreshTakes();
     void saveTakeFromBox();

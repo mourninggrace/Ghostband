@@ -171,6 +171,29 @@ public:
     int getSequenceHighestNote (int channel) const;
     int getSequencePitchSum   (int channel) const;
     int getBarTicks() const;
+    int getBeatTicks() const;
+
+    //==========================================================================
+    // What the tracker view reads.
+    //
+    // Every other view in this plugin shows a SUMMARY - counts, densities,
+    // feels. This shows what is actually on the wire: the note, how hard, and
+    // which articulation, per part, per beat. Given how much of this project has
+    // been "what is Ghostband actually sending", that is worth a component.
+    struct TrackerCell
+    {
+        int note     = -1;   // -1 for an empty cell
+        int velocity = 0;
+        int cc       = -1;   // an articulation or control change landing on this beat
+        int ccValue  = 0;
+    };
+
+    // `rows` beats starting at `firstTick`, for each channel given, row-major:
+    // row 0's cells first, then row 1's. One pass under one lock, because the
+    // view needs eighty of these per repaint and eighty walks of the sequence
+    // would be eighty times the work for the same answer.
+    std::vector<TrackerCell> getTrackerCells (int firstTick, int rows,
+                                              const std::vector<int>& channels) const;
 
     struct Diagnostics
     {
