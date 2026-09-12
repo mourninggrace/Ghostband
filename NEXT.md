@@ -6,16 +6,23 @@ useless for the one job it has: telling whoever picks this up next what is true
 right now. The history is in `docs/archive/NEXT-through-session-13.md`, and
 nobody has to read it.
 
-**Last touched 2026-09-12, end of session 16.**
+**Last touched 2026-09-12, end of session 17.**
 
 ## State
 
 - **v0.3.0 released.** Tagged, published, and the asset's checksum verified by
   downloading it back from GitHub.
-- **315 checks** pass on every build.
+- **Session 17's work is committed but NOT installed and NOT released.** The
+  owner had to leave before Gig Performer could be closed, so what is in his
+  VST3 folder is still v0.3.0. First job next session: ask him to close GP5,
+  run `Install.bat`, and let him try the ROWS selector.
+- **322 checks** pass on every build.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
+- **Run the suite against both reference songs, not just the default.** Passing
+  `demo-metal` alone hid a broken check for four sessions. All 34 plans pass as
+  of session 17; the sweep script is three lines and worth repeating.
 - 34 preset songs, 14 driver profiles, 10 colour themes.
 - Working tree clean, `main` pushed.
 
@@ -36,8 +43,20 @@ build\ghostband_plugin_test_artefacts\Release\ghostband_plugin_test.exe
 
 Add `--snapshot <dir>` to render every screen to PNG. **Look at them.** The
 overlap checker is blind to painted content, to clipped text, to contrast, and —
-until this session taught it otherwise — to a control laid out at zero size. Two
+until session 16 taught it otherwise — to a control laid out at zero size. Two
 features shipped invisible because nobody opened the images.
+
+Add `--audit [plan]` to print, for every screen, the bounds of every VISIBLE
+child and a count of the hidden ones. This is the fastest way to answer "why is
+that control not there" and "where is all the empty space", and it answers in
+numbers rather than in opinions. It is a look, not a test: it runs and exits
+without checking anything.
+
+Run against **both** reference songs, and ideally all 34 plans:
+
+```bash
+for /f %p in ('dir /b plans\*.json') do build\ghostband_plugin_test_artefacts\Release\ghostband_plugin_test.exe plans\%p
+```
 
 To cut a release: `Release.bat`, then `gh release create`. It refuses a dirty
 tree or a failing build.
@@ -65,6 +84,71 @@ Related: anything the message thread calls at timer rate must not walk the whole
 sequence under that lock either. The audio thread takes it with a TRY-lock, so it
 does not wait - it skips the block and sends nothing. `getTrackerCells` binary
 searches the window instead.
+
+## THERE IS A SECOND STALL, AND IT IS NOT FIXED
+
+Reported 2026-09-12, session 17, and **nothing has been done about it yet**:
+
+> "sometimes the ghostband UI is frozen, playhead not moving, screen not
+> changing, but audio is still heard like normal and then suddenly it will start
+> working normally again"
+
+**This is not the session 16 deadlock.** That one takes the whole host down and
+never recovers. This one leaves the audio thread running normally and releases
+on its own after a while, which rules out a deadlock and points at the message
+thread being *starved or blocked for seconds at a time* — the editor's 30 Hz
+timer not getting to run, or getting stuck behind something slow.
+
+Suspects, in the order worth checking:
+
+1. **The editor's timer spinning on `sequenceLock`.** It is a `juce::SpinLock`,
+   so the message thread BUSY-WAITS rather than sleeping. A regeneration holds
+   it while it rebuilds forty thousand events; on a big plan that is not
+   instant, and every 33 ms the timer wakes up and burns CPU fighting for it.
+   Recovering "suddenly" is exactly what finishing a long hold looks like.
+2. **`refreshFromProcessor` doing real work at timer rate.** Anything that
+   rebuilds a list, re-reads a profile, or touches the filesystem in there will
+   stall the same way.
+3. **A `stateLock` hold on the message thread** while a background regeneration
+   has it.
+
+The cheap first move is instrumentation, not a guess: time each timer callback
+and record the worst one seen, then show it beside the latency reading. Six
+theories died by measurement on the Shreddage fault, and one manual page settled
+it. Measure first.
+
+## Session 17: nothing vanishes, and the row is yours to set
+
+Started with "the piano mix knob is missing, which means there could be other
+dials or buttons or whatever that is missing as well and I just don't realize it
+yet." Swept all 34 plans through the editor and dumped the layout: the knob was
+present on every song that has a piano and absent on the one that does not,
+which is what the code intended. He confirmed it himself mid-session by loading
+another preset.
+
+**It was still the right complaint.** A control that silently disappears is
+indistinguishable from one that is broken, and one silent absence makes every
+other control suspect - which is exactly the doubt he described. His drum knob
+is hidden *permanently* on an SSD5 rig for the same reason and he had no way to
+know why. So all five mix knobs are now always laid out in the same places, and
+one that cannot work is greyed with the reason written on it - `not in song`,
+`no reach`, `CC7` - and the fix in its tooltip.
+
+**The tracker got a ROWS selector**: bar, beat, 8th, 16th. One row per beat was
+picked in session 16 without anything to compare it against, and his words were
+"if i don't try them i have nothing to compare it to". `TrackerCell` now carries
+a hit count, because at one row per bar a cell can cover sixteen hi-hats and
+showing the loudest with no sign of the rest would be a lie. `TrackerView`'s
+`beatTicks` was doing two jobs and is now `rowTicks` (how much music a row
+covers) and `beatTicks` (where the beat is), and the bar.beat.sub label is
+computed in ticks so it stays right in 5/4 and 7/8.
+
+**A test had been picking the wrong section since it was written.** It looked
+for `guitar2Feel != "silent"` - but a part switched off never reaches the code
+that names a feel, so its feel is EMPTY, and `empty != "silent"` is true. On
+`demo-metal` the first section happens to play the second guitar, so it passed;
+`demo-rock` failed three checks the first time it was ever run. The comment forty
+lines below the bug had described the trap accurately the whole time.
 
 ## Session 16: a tracker, tooltips, and the freeze
 
