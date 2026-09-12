@@ -3636,6 +3636,119 @@ int main (int argc, char** argv)
         proc.loadPlan (juce::File (planPath));
     }
 
+    // ---- the playhead stops when the song does ---------------------------------
+    // Reported: "when the song ends, the playhead just keeps going, only the
+    // arrangement is blank." A rackspace transport is left running for a whole
+    // set, so the host does not stop when the song does - and a playhead
+    // sweeping through empty space looks exactly like the plugin still playing
+    // something you cannot hear.
+    {
+        proc.loadPlan (juce::File (planPath));
+
+        // BOTH, and the comment at the top of this file says why: prepareToPlay
+        // alone leaves getSampleRate() at zero, and processBlock then returns
+        // before it ever advances anything. Walked straight into it.
+        proc.setRateAndBufferSizeDetails (sampleRate, blockSize);
+        proc.prepareToPlay (sampleRate, blockSize);
+
+        FakePlayHead h;
+        h.bpm = proc.getPlanBpm();
+        h.playing = true;
+        proc.setPlayHead (&h);
+
+        const auto sections = proc.getSections();
+        const int endTick = sections.empty() ? 0 : sections.back().endTick;
+        check (endTick > 0, "the song has an end to reach", juce::String (endTick));
+
+        juce::AudioBuffer<float> buf (2, blockSize);
+        juce::MidiBuffer mb;
+
+        // Walk to just before the end, then well past it.
+        const double quartersPerBlock = (blockSize / sampleRate) * (h.bpm / 60.0);
+        const double endQuarter = endTick / double (gb::kPPQ);
+
+        int atEnd = -1, wayPast = -1;
+        bool finishedAtEnd = false, finishedPast = false;
+
+        int blocksRun = 0;
+        for (double q = 0.0; q < endQuarter * 1.5; q += quartersPerBlock)
+        {
+            h.ppq = q;
+            buf.clear(); mb.clear();
+            proc.processBlock (buf, mb);
+            ++blocksRun;
+
+            const int t = proc.playbackTick.load();
+            if (atEnd < 0 && proc.songFinished.load())
+            {
+                atEnd = t;
+                finishedAtEnd = true;
+            }
+        }
+        wayPast = proc.playbackTick.load();
+        finishedPast = proc.songFinished.load();
+
+        check (finishedAtEnd && finishedPast,
+               "the plugin knows the song has finished",
+               juce::String (blocksRun) + " blocks played");
+
+        check (wayPast <= endTick,
+               "and the playhead stops at the last bar instead of running on",
+               juce::String (wayPast) + " with the song ending at " + juce::String (endTick));
+
+        check (atEnd == wayPast,
+               "and stays there however long the host keeps running",
+               juce::String (atEnd) + " -> " + juce::String (wayPast));
+
+        // Stopping and starting the host has to bring it back, or the plugin
+        // is finished for the rest of the session. Not "rewinding": on its own
+        // clock Ghostband ignores the host's position, and the transport
+        // STOPPING is what resets the count.
+        h.playing = false;
+        buf.clear(); mb.clear();
+        proc.processBlock (buf, mb);
+
+        h.playing = true;
+        h.ppq = 0.0;
+        buf.clear(); mb.clear();
+        proc.processBlock (buf, mb);
+
+        check (! proc.songFinished.load() && proc.playbackTick.load() < endTick / 4,
+               "and stopping then starting the host plays it again",
+               juce::String (proc.playbackTick.load()));
+
+        h.playing = false;
+        proc.setPlayHead (&h);
+    }
+
+    // ---- a song is called what its file says ----------------------------------
+    // Every generated preset writes "name"; this only ever read "title". So all
+    // thirty-four were called "Untitled" wherever a song's name is shown, which
+    // surfaced in the take library as two takes of different songs both reading
+    // "Untitled" - the one thing that list exists to tell apart.
+    {
+        int untitled = 0;
+        juce::StringArray named;
+
+        const juce::File plansDir = juce::File (planPath).getParentDirectory();
+        for (const juce::File& f : plansDir.findChildFiles (juce::File::findFiles, false, "*.json"))
+        {
+            if (f.getFileName().contains ("previous")) continue;
+
+            gb::SongPlan plan;
+            std::string error;
+            if (! gb::SongPlan::load (f.getFullPathName().toStdString(), plan, error))
+                continue;
+
+            if (juce::String (plan.title) == "Untitled") ++untitled;
+            else if (named.size() < 3) named.add (juce::String (plan.title));
+        }
+
+        check (untitled == 0, "every shipped song knows its own name",
+               untitled == 0 ? named.joinIntoString (", ") + ", ..."
+                             : juce::String (untitled) + " still say Untitled");
+    }
+
     // ---- nothing is written outside what the instrument can play ---------------
     // Shreddage's profile said its chord zone bottomed out at 28 for weeks. The
     // guitar's lowest string is E1 = 40, drop-tuned; there is nothing below it.

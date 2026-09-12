@@ -236,6 +236,10 @@ public:
     // action. Paused releases every sounding note and freezes the song where it
     // stands; playing again carries on from there.
     std::atomic<bool> paused { false };
+
+    // True once the playhead has passed the last bar while the host is still
+    // running. Distinct from `paused`, which is somebody choosing to stop.
+    std::atomic<bool> songFinished { false };
     void togglePaused()  { paused.store (! paused.load()); }
 
     // Set when the song underneath the playhead has been replaced. The audio

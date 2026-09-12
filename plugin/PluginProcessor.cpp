@@ -2697,16 +2697,38 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
         }
     }
 
-    playbackTick.store (static_cast<int> (songStart));
+    // The song can END while the host keeps running, and it usually does - a
+    // rackspace transport is left going for a whole set. The playhead used to
+    // carry on sweeping into empty space past the last bar, which looks exactly
+    // like the plugin still playing something you cannot hear.
+    //
+    // So it stops at the end and stays there until the host is rewound. The
+    // flag is separate from the tick because "parked on the last bar" and
+    // "playing the last bar" are different things and the interface has to be
+    // able to say which.
+    // The song ends at its last BAR LINE, not at its last MIDI event. The final
+    // chord rings past the end - that is what a final chord does - and parking
+    // the playhead on the last note-off puts it a bar beyond the music.
+    const int musicalEnd = sectionRanges.empty()
+                             ? sequenceEndTick
+                             : static_cast<int> (sectionRanges.back().endTick);
+
+    const bool finished = songStart >= musicalEnd;
+    songFinished.store (finished);
+
+    playbackTick.store (finished ? musicalEnd : static_cast<int> (songStart));
 
     int nowIn = -1;
-    for (size_t i = 0; i < sectionRanges.size(); ++i)
-        if (songStart >= sectionRanges[i].startTick && songStart < sectionRanges[i].endTick)
-            { nowIn = static_cast<int> (i); break; }
+    if (! finished)
+        for (size_t i = 0; i < sectionRanges.size(); ++i)
+            if (songStart >= sectionRanges[i].startTick && songStart < sectionRanges[i].endTick)
+                { nowIn = static_cast<int> (i); break; }
     activeSection.store (nowIn);
 
+    // Still emit past the bar line, so the last chord is allowed to release.
+    // Only the PLAYHEAD stops at the end; the sound finishes properly.
     if (songStart >= sequenceEndTick)
-        return;   // the song has finished; it does not loop on its own
+        return;   // nothing left to send, and it does not loop on its own
 
     emitSpan (songStart, songEnd, 0.0);
 }

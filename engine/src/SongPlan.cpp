@@ -106,7 +106,15 @@ static bool fromJson (const Json& j, const std::string& sourceName,
 
     out = SongPlan();
 
-    out.title = j.stringOr ("title", "Untitled");
+    // "title" OR "name". The generator that wrote all thirty-four presets emits
+    // "name", and this only ever read "title" - so every generated song was
+    // called "Untitled" everywhere a song's name is shown. It surfaced in the
+    // take library, where two takes of different songs both read "Untitled",
+    // which is precisely the thing that list exists to tell apart.
+    //
+    // Accepting both rather than rewriting thirty-four files, because a plan
+    // somebody wrote by hand may legitimately use either.
+    out.title = j.stringOr ("title", j.stringOr ("name", "Untitled"));
     out.key   = j.stringOr ("key", "E");
     out.mode  = toLower (j.stringOr ("mode", "natural_minor"));
     out.bpm   = j.numberOr ("bpm", 120.0);

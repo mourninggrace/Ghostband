@@ -2260,7 +2260,18 @@ void GhostbandEditor::timerCallback()
         juce::String where = processor.paused.load()
                                ? juce::String ("paused")
                                : juce::String ("stopped   -   press play in your host");
-        if (tick >= 0)
+
+        // The song ending and the transport stopping are different events, and
+        // the difference matters: one wants rewinding, the other wants playing.
+        if (processor.songFinished.load() && ! processor.paused.load())
+            // Stop AND start, not rewind. On its own clock Ghostband counts
+            // its own ticks and ignores the host's position entirely, so moving
+            // the host's playhead does nothing; what resets the song is the
+            // transport stopping, which is the moment the count goes back to
+            // zero. Telling somebody to rewind would have them dragging a
+            // playhead that Ghostband is not reading.
+            where = "song ended   -   stop and start your host to play it again";
+        else if (tick >= 0)
         {
             where = "playing";
             for (const gb::SectionReport& s : processor.getSections())
@@ -2743,14 +2754,28 @@ void GhostbandEditor::saveTakeFromBox()
 
 void GhostbandEditor::showScreenForSnapshot (int index)
 {
-    switch (juce::jlimit (0, numScreens - 1, index))
+    // EVERY screen but Calibrate leaves calibration, not just the song screen.
+    //
+    // Calibration silences the band - deliberately, so the note being
+    // identified is not buried under it - and only case 0 used to switch it
+    // off. So any sweep of the screens that did not happen to END on the song
+    // screen left the processor mute for everything after it, which cost a real
+    // debugging session: a playback test reported the transport as not running
+    // and the playhead as frozen, and the cause was a screenshot loop three
+    // hundred lines earlier finishing on the Takes screen.
+    const int wanted = juce::jlimit (0, numScreens - 1, index);
+
+    if (wanted == 1) processor.enterCalibration();
+    else             processor.exitCalibration();
+
+    switch (wanted)
     {
-        case 1:  screen = Screen::Calibrate; processor.enterCalibration(); break;
-        case 2:  screen = Screen::Edit;     break;
-        case 3:  screen = Screen::Settings; break;
-        case 4:  screen = Screen::About;    break;
-        case 5:  screen = Screen::Takes;    break;
-        default: screen = Screen::Song;     processor.exitCalibration(); break;
+        case 1:  screen = Screen::Calibrate; break;
+        case 2:  screen = Screen::Edit;      break;
+        case 3:  screen = Screen::Settings;  break;
+        case 4:  screen = Screen::About;     break;
+        case 5:  screen = Screen::Takes;     break;
+        default: screen = Screen::Song;      break;
     }
     updateModeVisibility();
 }
