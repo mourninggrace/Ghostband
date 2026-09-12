@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 # C is enabled because JUCE requires a C compiler for the targets that depend
 # on it, even though nothing Ghostband writes is C.
-project(Ghostband VERSION 0.2.2 LANGUAGES C CXX)
+project(Ghostband VERSION 0.3.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
