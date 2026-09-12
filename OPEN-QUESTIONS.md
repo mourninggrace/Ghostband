@@ -9,17 +9,37 @@ with a date rather than being deleted, so the same question is never asked twice
 
 ## YOUR LIST
 
-### 0. The interface overhaul — look at it and steer
+### 0. The freeze is fixed — but tell me if it happens again
+
+Gig Performer froze because of a deadlock between the tracker's timer and the
+audio thread. Both halves are fixed and there is a stress test against it.
+
+**If it ever freezes again, the useful details are:** what you were doing, which
+screen was showing, and whether the transport was running. A hang leaves no log,
+so what you were doing IS the evidence.
+
+### 0b. The tracker, the playhead and the song names
+
+All installed. Worth a look:
+
+- The playhead now **stops at the last bar** instead of running on. Stop and
+  start your host to play again — not rewind: on its own clock Ghostband ignores
+  the host's position entirely.
+- Songs are no longer all called **"Untitled"**. Existing takes keep the wrong
+  name because it was baked in when you saved them; re-saving under the same
+  name fixes one in place.
+- The tracker is one row per beat. If that feels too dense or too sparse, it is
+  one constant to change.
+
+
+### 0c. The interface overhaul — the other five screens
 
 Not released, and not finished. Only the **song screen** has actually been
 redesigned; Calibrate, Edit, Settings, Takes and About still use the old form
 layout and simply inherit the new palette.
 
-What changed: the section list is gone from the song screen, replaced by an
-**arrangement grid** - sections left to right, each as wide as it is long, five
-player lanes down, inked by how much each part plays there, with the intensity
-curve above and the playhead sweeping across. The **Blueprint** theme is the new
-default.
+The song screen is now the neon tracker you chose. Calibrate, Edit, Settings,
+Takes and About still use the old form layout and only inherit the palette.
 
 **Tell me which way to go:** keep pushing (the other five screens, the wordmark,
 the knobs, the buttons), change direction, or stop here. The old look is one

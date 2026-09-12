@@ -6,13 +6,13 @@ useless for the one job it has: telling whoever picks this up next what is true
 right now. The history is in `docs/archive/NEXT-through-session-13.md`, and
 nobody has to read it.
 
-**Last touched 2026-09-11, end of session 15.**
+**Last touched 2026-09-12, end of session 16.**
 
 ## State
 
 - **v0.2.2 released.** Tagged, published, and the asset's checksum verified by
   downloading it back from GitHub.
-- **301 checks** pass on every build.
+- **315 checks** pass on every build.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
@@ -41,6 +41,47 @@ features shipped invisible because nobody opened the images.
 
 To cut a release: `Release.bat`, then `gh release create`. It refuses a dirty
 tree or a failing build.
+
+## THE LOCK ORDER RULE
+
+Read this before touching the processor.
+
+**Never hold `sequenceLock` and `stateLock` at the same time, in either order,
+and never let the audio thread block on `stateLock` at all.**
+
+Breaking it froze Gig Performer solid on 2026-09-12: `processBlock` took
+sequenceLock then stateLock, `getBeatTicks` took stateLock then sequenceLock, and
+the tracker called the second thirty times a second. It does not present as an
+audio glitch - the message thread SPINS on a SpinLock it can never take, so the
+host stops repainting and stops answering the mouse.
+
+`processBlock` now takes no stateLock at all; the one value it needed is
+published to an atomic when the plan changes. There is a stress test that
+hammers every accessor the editor's timer uses against a running audio thread.
+**If that test hangs, this rule has been broken again** - there is no way to
+report a deadlock from inside one.
+
+Related: anything the message thread calls at timer rate must not walk the whole
+sequence under that lock either. The audio thread takes it with a TRY-lock, so it
+does not wait - it skips the block and sends nothing. `getTrackerCells` binary
+searches the window instead.
+
+## Session 16: a tracker, tooltips, and the freeze
+
+The song screen is a TRACKER now - one row per beat, one column per player, and
+the contents are what Ghostband is actually SENDING: note, velocity, and any
+articulation landing on that beat. Chosen from ten mockups across two rounds
+after the arrangement grid was rejected for being another summary. A `Neon` theme
+is the default; the view derives each part's hue from the palette and takes
+saturation and brightness from it, so one implementation is neon on a dark ground
+and ink on a light one.
+
+Tooltips on all 92 controls, explaining the CHOICES rather than naming the
+control, pinned per screen.
+
+Fixed: the playhead ran past the end of the song (now parks at the last bar
+line); every generated preset was called "Untitled" because the generator writes
+"name" and SongPlan only read "title"; and the freeze above.
 
 ## Session 15: the interface was overhauled, and is not finished
 
