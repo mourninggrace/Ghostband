@@ -253,6 +253,14 @@ public:
     std::atomic<int>    playbackTick     { 0 };
     std::atomic<bool>   transportRunning { false };
     std::atomic<double> hostBpm          { 0.0 };
+
+    // The plan's own tempo, published for the AUDIO THREAD.
+    //
+    // It used to read plan.bpm under stateLock from inside processBlock, while
+    // already holding sequenceLock - the other half of the deadlock that froze
+    // the host. The audio thread must never block on a lock the message thread
+    // can hold, so the one value it needs is published here instead.
+    std::atomic<double> planBpmForAudio  { 0.0 };
     std::atomic<int>    activeSection    { -1 };
 
     // Live section jumping. Clicking a section queues it; the jump lands on the

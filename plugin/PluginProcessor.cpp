@@ -2390,6 +2390,10 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
         sequenceEndTick = endTick;
         barTicks = bar;
     }
+
+    // Published for the audio thread, which can no longer read the plan itself.
+    // Here because every path that changes the tempo ends in a regenerate.
+    planBpmForAudio.store (planToUse.bpm);
 }
 
 //==============================================================================
@@ -2571,9 +2575,16 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     double bpm = hostBpmNow;
     if (ownClock)
     {
-        const juce::ScopedLock sl (stateLock);
-        if (plan.bpm > 0.0)
-            bpm = plan.bpm;
+        // An ATOMIC, not stateLock. The audio thread must never block on a lock
+        // the message thread can hold: it inverts priority at best, and here it
+        // was half of an outright deadlock, because this sits inside the
+        // sequenceLock the message thread also wants.
+        //
+        // The value is published whenever the plan changes, which is the only
+        // time it can move.
+        const double planned = planBpmForAudio.load();
+        if (planned > 0.0)
+            bpm = planned;
     }
 
     const double ppq = pos->getPpqPosition().orFallback (0.0);
@@ -2807,8 +2818,24 @@ int GhostbandProcessor::getSequencePitchSum (int channel) const
 
 int GhostbandProcessor::getBeatTicks() const
 {
-    const juce::ScopedLock sl (stateLock);
-    const int n = juce::jmax (1, plan.timeSigNumerator);
+    // NEVER BOTH AT ONCE. This held stateLock and then took sequenceLock, while
+    // processBlock takes sequenceLock and then stateLock - a lock-order
+    // inversion, and a deadlock the moment they interleaved.
+    //
+    // It froze Gig Performer solid: the audio thread blocked on stateLock while
+    // holding sequenceLock, and the message thread SPUN on sequenceLock while
+    // holding stateLock. A spinning message thread is an unresponsive host, so
+    // it does not even present as a hang in the audio - the whole application
+    // stops answering. Called thirty times a second by the tracker, so it was
+    // only ever a matter of minutes.
+    //
+    // Two separate acquisitions, neither nested inside the other.
+    int n = 4;
+    {
+        const juce::ScopedLock sl (stateLock);
+        n = juce::jmax (1, plan.timeSigNumerator);
+    }
+
     const juce::SpinLock::ScopedLockType lock (sequenceLock);
     return juce::jmax (1, barTicks / n);
 }
@@ -2824,12 +2851,28 @@ GhostbandProcessor::getTrackerCells (int firstTick, int rows,
     if (rows <= 0 || n == 0)
         return out;
 
+    const int lastTick = firstTick + rows * perRow;
+
     const juce::SpinLock::ScopedLockType lock (sequenceLock);
 
-    for (const TimedMessage& m : sequence)
+    // BINARY SEARCH, not a full walk. This is called thirty times a second by
+    // the tracker's timer while the audio thread is trying to take the same
+    // lock - and the audio thread uses a TRY-lock, so it does not wait, it
+    // simply skips the block and sends nothing. Walking forty thousand events
+    // to find the hundred in view was a MIDI dropout every time the window
+    // moved.
+    //
+    // The sequence is sorted by tick, so the window can be found rather than
+    // searched for. Typically a hundred events instead of forty thousand.
+    const auto begin = std::lower_bound (sequence.begin(), sequence.end(), firstTick,
+                                         [] (const TimedMessage& m, int t)
+                                         { return m.tick < t; });
+
+    for (auto it = begin; it != sequence.end() && it->tick < lastTick; ++it)
     {
+        const TimedMessage& m = *it;
         const int row = (m.tick - firstTick) / perRow;
-        if (m.tick < firstTick || row < 0 || row >= rows)
+        if (row < 0 || row >= rows)
             continue;
 
         int col = -1;

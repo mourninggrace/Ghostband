@@ -3636,6 +3636,91 @@ int main (int argc, char** argv)
         proc.loadPlan (juce::File (planPath));
     }
 
+    // ---- the UI and the audio thread do not deadlock ---------------------------
+    // Gig Performer froze solid and stopped answering. The cause was a
+    // lock-order inversion introduced the same day:
+    //
+    //     audio thread   processBlock:  sequenceLock  ->  stateLock
+    //     message thread getBeatTicks:  stateLock     ->  sequenceLock
+    //
+    // Interleave those and both stop forever. It does not present as an audio
+    // glitch: the message thread SPINS on a SpinLock it can never take, so the
+    // whole host stops repainting and stops answering the mouse. The tracker
+    // called it thirty times a second, so it was a matter of minutes.
+    //
+    // THE LOCK ORDER RULE, since it is not otherwise written down anywhere:
+    // never hold sequenceLock and stateLock at the same time, in either order,
+    // and never let the audio thread block on stateLock at all.
+    //
+    // IF THIS TEST HANGS, that rule has been broken again. A hang is the
+    // failure - there is no way to report a deadlock from inside one.
+    {
+        proc.loadPlan (juce::File (planPath));
+        proc.setRateAndBufferSizeDetails (sampleRate, blockSize);
+        proc.prepareToPlay (sampleRate, blockSize);
+
+        FakePlayHead h;
+        h.bpm = proc.getPlanBpm();
+        h.playing = true;
+        proc.setPlayHead (&h);
+
+        struct AudioThread : public juce::Thread
+        {
+            AudioThread (GhostbandProcessor& p, FakePlayHead& head, double sr, int bs)
+                : juce::Thread ("audio"), proc (p), ph (head), rate (sr), block (bs) {}
+
+            void run() override
+            {
+                juce::AudioBuffer<float> buf (2, block);
+                juce::MidiBuffer mb;
+                const double perBlock = (block / rate) * (ph.bpm / 60.0);
+
+                for (int i = 0; i < 4000 && ! threadShouldExit(); ++i)
+                {
+                    ph.ppq = i * perBlock;
+                    buf.clear(); mb.clear();
+                    proc.processBlock (buf, mb);
+                }
+                finished = true;
+            }
+
+            GhostbandProcessor& proc;
+            FakePlayHead& ph;
+            double rate; int block;
+            std::atomic<bool> finished { false };
+        };
+
+        AudioThread audio (proc, h, sampleRate, blockSize);
+        audio.startThread();
+
+        // Everything the editor's timer touches, as hard as it can, while the
+        // audio thread is running.
+        const std::vector<int> chans { proc.channelDrums.load(), proc.channelBass.load(),
+                                       proc.channelGuitar.load(), proc.channelGuitar2.load(),
+                                       proc.channelPiano.load() };
+        int reads = 0;
+        for (int i = 0; i < 4000; ++i)
+        {
+            reads += proc.getBeatTicks() > 0 ? 1 : 0;
+            reads += proc.getBarTicks()  > 0 ? 1 : 0;
+            (void) proc.getTrackerCells (i * 96, 20, chans);
+            (void) proc.getSections();
+            (void) proc.getStatus();
+        }
+
+        const bool done = audio.waitForThreadToExit (10000);
+        if (! done) audio.stopThread (2000);
+
+        check (done, "the UI can hammer the processor while it plays, without deadlocking",
+               juce::String (reads) + " reads against 4000 audio blocks");
+
+        h.playing = false;
+        proc.setPlayHead (&h);
+        juce::AudioBuffer<float> b (2, blockSize);
+        juce::MidiBuffer m;
+        proc.processBlock (b, m);
+    }
+
     // ---- the playhead stops when the song does ---------------------------------
     // Reported: "when the song ends, the playhead just keeps going, only the
     // arrangement is blank." A rackspace transport is left running for a whole
