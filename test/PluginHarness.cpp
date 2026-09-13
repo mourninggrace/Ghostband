@@ -79,6 +79,20 @@ double contrastRatio (juce::Colour a, juce::Colour b)
 constexpr int kMinW = 1020;
 constexpr int kMinH = 820;
 
+// Same idea as the local `describe` lambdas, at file scope so checks outside
+// those blocks can name a component too.
+inline juce::String describeComponent (juce::Component* c)
+{
+    if (auto* l = dynamic_cast<juce::Label*> (c))
+        return "label \"" + l->getText().substring (0, 30) + "\"";
+    if (auto* b = dynamic_cast<juce::TextButton*> (c))
+        return "button \"" + b->getButtonText() + "\"";
+    if (dynamic_cast<juce::ComboBox*> (c))    return "a combo box";
+    if (dynamic_cast<juce::TextEditor*> (c))  return "a text box";
+    if (dynamic_cast<juce::Slider*> (c))      return "a slider";
+    return "a component";
+}
+
 int failures = 0;
 
 void check (bool condition, const juce::String& what, const juce::String& detail = {})
@@ -3155,6 +3169,62 @@ int main (int argc, char** argv)
                        collisions.joinIntoString ("; "));
             }
 
+            // AND ONCE MORE ON THE SONG SCREEN WITH THE QUICK EDIT STRIP OPEN.
+            //
+            // The sweep above walks the screens without touching anything, and
+            // the strip only exists after a click - so its first version drew
+            // the feel box on top of the Reroll button at the window's minimum
+            // width and every check passed. A state that needs a gesture to
+            // reach needs the gesture in the test.
+            if (gbEd != nullptr && proc.getBarTicks() > 0)
+            {
+                gbEd->showScreenForSnapshot (0);
+                ed->setSize (kMinW, kMinH);
+                gbEd->clickTrackerRowForTesting (2 * proc.getBarTicks());
+                ed->setSize (kMinW, kMinH);
+
+                std::vector<juce::Component*> shown;
+                for (int i = 0; i < ed->getNumChildComponents(); ++i)
+                {
+                    juce::Component* c = ed->getChildComponent (i);
+                    if (c != nullptr && c->isVisible() && ! c->getBounds().isEmpty())
+                        shown.push_back (c);
+                }
+
+                juce::StringArray collisions, vanished;
+                for (size_t a = 0; a < shown.size(); ++a)
+                {
+                    const auto ra = shown[a]->getBounds();
+
+                    const bool isControl = dynamic_cast<juce::Button*> (shown[a])     != nullptr
+                                        || dynamic_cast<juce::ComboBox*> (shown[a])   != nullptr
+                                        || dynamic_cast<juce::Slider*> (shown[a])     != nullptr
+                                        || dynamic_cast<juce::TextEditor*> (shown[a]) != nullptr;
+                    if (ra.getWidth() < (isControl ? 16 : 4) || ra.getHeight() < (isControl ? 16 : 4))
+                        vanished.add (describeComponent (shown[a]) + " ("
+                                      + juce::String (ra.getWidth()) + "x"
+                                      + juce::String (ra.getHeight()) + ")");
+
+                    for (size_t b = a + 1; b < shown.size(); ++b)
+                    {
+                        const auto hit = ra.getIntersection (shown[b]->getBounds());
+                        if (hit.getWidth() >= 6 && hit.getHeight() >= 6)
+                            collisions.add (describeComponent (shown[a]) + "  over  "
+                                            + describeComponent (shown[b]));
+                    }
+                }
+
+                check (collisions.isEmpty(),
+                       "nothing overlaps with the quick edit strip open",
+                       collisions.joinIntoString ("; "));
+
+                check (vanished.isEmpty(),
+                       "and nothing on it is squeezed out of existence",
+                       vanished.joinIntoString ("; "));
+
+                gbEd->clickTrackerRowForTesting (2 * proc.getBarTicks());   // close it again
+            }
+
             // ---- the guitar 2 toggle, driven through the form ----------------
             // applySectionEdit WRITES playsGuitar2 now. It used to leave the
             // flag alone, and that was the only thing protecting the second
@@ -3879,6 +3949,138 @@ int main (int argc, char** argv)
         }
 
         log.deleteFile();
+    }
+
+    // ---- clicking a row of the grid edits the bar it is in -------------------
+    // Asked for as "click on any line anywhere in the tracker and make quick
+    // edits". What is editable there is what is AUTHORED - the chord under the
+    // bar and the feel of its section - because a note in the grid is the
+    // output of a seed and a plan, with nowhere to put a hand-placed one and no
+    // way to keep it through a reroll.
+    //
+    // Driven through the view's own callback rather than by calling the open
+    // function, so the wiring from click to strip is exercised as well.
+    {
+        proc.loadPlan (juce::File (planPath));
+
+        const juce::File log = GhostbandProcessor::changeLogFile();
+        log.deleteFile();
+
+        if (auto* ed = proc.createEditorIfNeeded())
+        {
+            auto* gbEd = dynamic_cast<GhostbandEditor*> (ed);
+            if (gbEd != nullptr)
+            {
+                gbEd->showScreenForSnapshot (0);      // song
+                ed->setSize (kMinW, kMinH);
+
+                const int barTicks = proc.getBarTicks();
+
+                check (barTicks > 0, "the song has bars to click on",
+                       juce::String (barTicks));
+
+                // The third bar, which is far enough in to be inside a real
+                // section rather than on a boundary.
+                const int wantedBar = 2;
+                gbEd->clickTrackerRowForTesting (wantedBar * barTicks);
+
+                check (gbEd->trackerEditBarForTesting() == wantedBar,
+                       "clicking a row opens the strip on the bar that row is in",
+                       juce::String (gbEd->trackerEditBarForTesting() + 1));
+
+                const juce::String was = proc.chordAtBar (wantedBar);
+
+                check (was.isNotEmpty(),
+                       "a bar always has a chord, even in a section that chose its own",
+                       was);
+
+                check (gbEd->trackerChordForTesting() == was,
+                       "and the strip shows the one that is actually playing there",
+                       gbEd->trackerChordForTesting() + " vs " + was);
+
+                // Change it. Something that is definitely not what was there.
+                const juce::String wanted = was == "Bb" ? "Db" : "Bb";
+                gbEd->typeTrackerChordForTesting (wanted);
+
+                check (proc.chordAtBar (wantedBar) == wanted,
+                       "typing a chord changes that bar",
+                       proc.chordAtBar (wantedBar));
+
+                // ...and ONLY that bar. A section whose chords were automatic
+                // gets pinned to what it was already playing, so its
+                // neighbours must come back exactly as they were.
+                const int section = proc.sectionIndexForBar (wantedBar);
+                const auto secs = proc.getSections();
+                bool neighboursHeld = true;
+                juce::String moved;
+
+                if (section >= 0)
+                {
+                    const auto& rep = secs[static_cast<size_t> (section)];
+                    for (int b = rep.startBar; b < rep.startBar + rep.bars; ++b)
+                    {
+                        if (b == wantedBar) continue;
+                        if (proc.chordAtBar (b).isEmpty()) { neighboursHeld = false; moved = "bar "
+                            + juce::String (b + 1) + " lost its chord"; }
+                    }
+                }
+
+                check (neighboursHeld,
+                       "and every other bar of that section keeps a chord of its own", moved);
+
+                // It is a change, so it is in the log, with what it was.
+                const juce::String text = log.existsAsFile() ? log.loadFileAsString()
+                                                             : juce::String();
+                check (text.contains ("chord at bar " + juce::String (wantedBar + 1))
+                           && text.contains (was) && text.contains (wanted),
+                       "the edit goes in the change log with what it was before",
+                       text.trim().replace ("\n", " | "));
+
+                // Clicking the same row again closes it, which is what a thing
+                // that opened on a click should do.
+                gbEd->clickTrackerRowForTesting (wantedBar * barTicks);
+                check (gbEd->trackerEditBarForTesting() < 0,
+                       "clicking the same row again closes the strip",
+                       juce::String (gbEd->trackerEditBarForTesting()));
+
+                // And every control on it explains itself, which the tooltip
+                // sweep cannot see because it skips anything not on screen.
+                gbEd->clickTrackerRowForTesting (wantedBar * barTicks);
+                ed->setSize (kMinW, kMinH);
+
+                juce::StringArray silent;
+                for (int i = 0; i < ed->getNumChildComponents(); ++i)
+                {
+                    juce::Component* c = ed->getChildComponent (i);
+                    if (c == nullptr || ! c->isVisible() || c->getBounds().isEmpty())
+                        continue;
+
+                    const bool isControl = dynamic_cast<juce::Button*> (c)     != nullptr
+                                        || dynamic_cast<juce::ComboBox*> (c)   != nullptr
+                                        || dynamic_cast<juce::TextEditor*> (c) != nullptr;
+                    if (! isControl) continue;
+
+                    auto* t = dynamic_cast<juce::SettableTooltipClient*> (c);
+                    if (t == nullptr || t->getTooltip().isEmpty())
+                        silent.add (describeComponent (c));
+                }
+
+                check (silent.isEmpty(),
+                       "every control on the open edit strip explains itself",
+                       silent.joinIntoString ("; "));
+
+                gbEd->clickTrackerRowForTesting (wantedBar * barTicks);
+            }
+
+            proc.editorBeingDeleted (ed);
+            delete ed;
+        }
+
+        log.deleteFile();
+
+        // The chord edit changed the song, so put it back for whatever runs
+        // next - the reference counts downstream depend on it.
+        proc.loadPlan (juce::File (planPath));
     }
 
     // ---- the transport button says what is true ----------------------------
@@ -5172,11 +5374,27 @@ int main (int argc, char** argv)
                 // it broke both times.
                 shots.push_back ({ 4, 1020, 1400, "-wide" });
 
+                // The song screen with the quick edit strip OPEN. It is only
+                // on screen after a click, so every other image in this set
+                // shows a layout that has never been looked at with it there.
+                // The click happens in the render loop below, not here: every
+                // shot switches screens, and leaving one closes the strip.
+                if (gbEd != nullptr && proc.getBarTicks() > 0)
+                    shots.push_back ({ 0, 1180, 820, "-editing" });
+
                 for (const Shot& shot : shots)
                 {
                     if (gbEd != nullptr) gbEd->showScreenForSnapshot (shot.screen);
 
                     ed->setSize (shot.w, shot.h);
+
+                    // The one shot that needs a gesture first.
+                    if (gbEd != nullptr && juce::String (shot.suffix) == "-editing")
+                    {
+                        gbEd->clickTrackerRowForTesting (2 * proc.getBarTicks());
+                        ed->setSize (shot.w, shot.h);
+                    }
+
                     const juce::Image img = ed->createComponentSnapshot (ed->getLocalBounds(), true);
 
                     const juce::String label = juce::String (GhostbandEditor::screenName (shot.screen))

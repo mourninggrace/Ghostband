@@ -242,6 +242,16 @@ public:
     std::function<void (int)> onSectionClicked;
     std::function<void (int)> onSectionToggled;
 
+    // A click on a ROW rather than on the section ribbon, reported as the tick
+    // that row starts at. The grid shows time, and everything editable is
+    // attached to a bar, so the editor turns the tick into a bar itself.
+    std::function<void (int)> onRowClicked;
+
+    // Which row is being edited, so it can be drawn as the one you picked. -1
+    // for none. Kept in ticks, not row numbers, so it survives the grid
+    // scrolling under it.
+    void setEditedTick (int tick);
+
     static constexpr int numParts     = 5;
     static constexpr int rowHeight    = 19;
     static constexpr int headerHeight = 52;
@@ -257,6 +267,7 @@ private:
     std::vector<GhostbandProcessor::TrackerCell> cells;
     std::vector<int> selection;
 
+    int editedTick = -1;
     int firstRowTick = 0;
     // How much music one row covers. Equal to beatTicks at the default zoom,
     // a whole bar at the coarsest and a sixteenth at the finest - so every
@@ -313,6 +324,14 @@ public:
     void commitSectionEditForTesting();          // as if a field lost focus
     void setSectionGuitar2ForTesting (bool on);  // click the guitar 2 toggle
     bool sectionGuitar2ForTesting() const;
+
+    // The quick edit strip, driven the way a mouse drives it. Clicking a row is
+    // the only way in, so a test that called openTrackerEdit directly would
+    // skip the hit test - which is the part that can be wrong.
+    void clickTrackerRowForTesting (int tick);
+    int  trackerEditBarForTesting() const;
+    juce::String trackerChordForTesting() const;
+    void typeTrackerChordForTesting (const juce::String& chord);
 
     void pressRollForTesting();
     int  rerollSelectionSizeForTesting() const;
@@ -395,6 +414,31 @@ private:
     juce::TextEditor seedEditor;
     juce::Label      seedLabel;
 
+    //==========================================================================
+    // THE QUICK EDIT STRIP, under the grid. Click any row and it opens on the
+    // bar that row is in.
+    //
+    // What can be edited here is what is AUTHORED, not what is generated. The
+    // grid shows notes, and a note is the output of a seed and a plan - there
+    // is nowhere to put a hand-placed one and no way to keep it through a
+    // reroll. The chord under a bar and the feel of its section ARE authored,
+    // they are what actually decide those notes, and changing either is heard
+    // immediately. Anything deeper is a button away in Edit song.
+    juce::Label      trkWhereLabel;      // "BAR 12   chorus1"
+    juce::Label      trkChordLabel;
+    juce::TextEditor trkChord;
+    juce::Label      trkFeelLabel;
+    juce::ComboBox   trkFeel;
+    juce::TextButton trkReroll { "Reroll section" };
+    juce::TextButton trkOpen   { "Open in editor" };
+    juce::TextButton trkClose  { "Close" };
+
+    // The bar the strip is editing, or -1 when it is not showing.
+    int  trackerEditBar = -1;
+    void openTrackerEdit (int tick);
+    void refreshTrackerEdit();
+    void closeTrackerEdit();
+
     // A heading for the transport row. Every other block in the rail has one -
     // KEY, STYLE, SEED, MIX - and this row had none, so the Pause button read
     // as a stray control rather than as the band's transport. It was reported
@@ -449,6 +493,10 @@ private:
     // is what made the window read as a form rather than as an instrument. A
     // ground with panels ON it is most of what separates the two.
     juce::Rectangle<int> controlsPanel;
+
+    // The quick edit strip's own surface, painted behind it so it reads as one
+    // thing attached to the grid rather than four loose controls.
+    juce::Rectangle<int> trackerEditStrip;
     juce::Label summaryLabel;
     juce::Label transportLabel;
 

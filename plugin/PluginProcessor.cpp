@@ -1460,6 +1460,104 @@ bool GhostbandProcessor::resetControlsToProfile (int part, juce::String& error)
     return true;
 }
 
+//==============================================================================
+int GhostbandProcessor::sectionIndexForBar (int bar) const
+{
+    const auto secs = getSections();
+    for (size_t i = 0; i < secs.size(); ++i)
+        if (bar >= secs[i].startBar && bar < secs[i].startBar + secs[i].bars)
+            return static_cast<int> (i);
+
+    return -1;
+}
+
+// The chords a section is actually playing, one per bar, whether they were
+// written down or chosen. A section with no chords in its plan still HAS
+// chords - they are in its report - and an interface that showed nothing there
+// would be reporting the absence of a setting as the absence of music.
+static juce::StringArray chordsForSection (const GhostbandProcessor::SectionEdit& edit,
+                                           const gb::SectionReport& report)
+{
+    juce::StringArray tokens =
+        juce::StringArray::fromTokens (edit.chords.isNotEmpty() ? edit.chords
+                                                                : juce::String (report.chords),
+                                       " ", "");
+    tokens.removeEmptyStrings();
+
+    if (tokens.isEmpty())
+        return {};
+
+    // A shorter list repeats to fill the bars - that is how the plan format
+    // reads them, so expanding has to repeat too or editing bar 5 of a
+    // four-chord section would write a chord nobody asked for into bar 1.
+    juce::StringArray full;
+    for (int b = 0; b < juce::jmax (1, report.bars); ++b)
+        full.add (tokens[b % tokens.size()]);
+
+    return full;
+}
+
+juce::String GhostbandProcessor::chordAtBar (int bar) const
+{
+    const int index = sectionIndexForBar (bar);
+    if (index < 0)
+        return {};
+
+    const auto secs = getSections();
+    const auto full = chordsForSection (getSectionEdit (index),
+                                        secs[static_cast<size_t> (index)]);
+
+    const int within = bar - secs[static_cast<size_t> (index)].startBar;
+    return juce::isPositiveAndBelow (within, full.size()) ? full[within] : juce::String();
+}
+
+bool GhostbandProcessor::setChordAtBar (int bar, const juce::String& chord, juce::String& error)
+{
+    GB_WORK ("edit chord");
+
+    const int index = sectionIndexForBar (bar);
+    if (index < 0)
+    {
+        error = "There is no bar " + juce::String (bar + 1) + " in this song.";
+        return false;
+    }
+
+    const auto secs = getSections();
+    const gb::SectionReport& report = secs[static_cast<size_t> (index)];
+
+    SectionEdit edit = getSectionEdit (index);
+    juce::StringArray full = chordsForSection (edit, report);
+
+    const int within = bar - report.startBar;
+    if (! juce::isPositiveAndBelow (within, full.size()))
+    {
+        error = "That bar is not inside its own section, which should be impossible.";
+        return false;
+    }
+
+    const juce::String wanted = chord.trim();
+    if (wanted.isEmpty())
+    {
+        error = "A bar needs a chord. Type one, or use Edit song to clear the whole section "
+                "back to automatic.";
+        return false;
+    }
+
+    if (full[within] == wanted)
+        return true;   // nothing to do, and nothing to log
+
+    const juce::String was = full[within];
+    full.set (within, wanted);
+
+    edit.chords = full.joinIntoString (" ");
+    applySectionEdit (index, edit);
+
+    logChange ("chord at bar " + juce::String (bar + 1)
+                   + " of " + juce::String (report.name),
+               was, wanted);
+    return true;
+}
+
 gb::PhraseProfile* GhostbandProcessor::phraseProfileFor (int part)
 {
     // 4 rather than 3, so every part index already saved in a session or used

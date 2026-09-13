@@ -877,19 +877,41 @@ int TrackerView::sectionAt (juce::Point<int> p) const
     return -1;
 }
 
+void TrackerView::setEditedTick (int tick)
+{
+    if (tick == editedTick) return;
+    editedTick = tick;
+    repaint();
+}
+
 void TrackerView::mouseDown (const juce::MouseEvent& e)
 {
     const int i = sectionAt (e.getPosition());
-    if (i < 0) return;
+    if (i >= 0)
+    {
+        if (e.mods.isCtrlDown() || e.mods.isCommandDown())
+        {
+            if (onSectionToggled) onSectionToggled (i);
+        }
+        else if (onSectionClicked)
+        {
+            onSectionClicked (i);
+        }
+        return;
+    }
 
-    if (e.mods.isCtrlDown() || e.mods.isCommandDown())
-    {
-        if (onSectionToggled) onSectionToggled (i);
-    }
-    else if (onSectionClicked)
-    {
-        onSectionClicked (i);
-    }
+    // Below the ribbon: a row. The whole width is clickable rather than just
+    // the bar number - a grid you can only click in one column is a grid that
+    // makes you aim.
+    const int y = e.getPosition().y - headerHeight;
+    if (y < 0 || onRowClicked == nullptr)
+        return;
+
+    const int row = y / rowHeight;
+    if (row < 0 || row >= visibleRows())
+        return;
+
+    onRowClicked (firstRowTick + row * rowTicks);
 }
 
 void TrackerView::mouseMove (const juce::MouseEvent& e)
@@ -1012,18 +1034,68 @@ void TrackerView::paint (juce::Graphics& g)
             g.setColour (partColour (0).withAlpha (dark ? 0.85f : 0.55f));
             g.fillRect (12, y, getWidth() - 24, 1);
         }
-        else if (downbeat)
+        else
         {
-            g.setColour (ghost::colours::cardRaised.withAlpha (0.55f));
+            // NO TWO NEIGHBOURING ROWS ARE THE SAME SHADE, at any zoom.
+            //
+            // This used to shade the downbeat and, below one row per beat, the
+            // beats. At one row per BAR - which is the default - every row IS a
+            // downbeat, so every row got the identical fill and the grid was a
+            // wall of identical stripes: nothing to count along, nothing to
+            // land your eye on, and no way to be sure which line you were
+            // reading across. "Every line should be a different shade, this way
+            // each line can be easily distinguished against the ones around it."
+            //
+            // Three tiers, and the shade also says WHERE you are rather than
+            // just alternating for its own sake:
+            //
+            //   downbeat   the strongest band - the top of a bar
+            //   beat       a middle band, when a row is finer than a beat
+            //   zebra      alternating either side, so adjacent rows always
+            //              differ even where every row is the same kind
+            //
+            // The zebra alternates on the row's position IN THE BAR where a bar
+            // holds several rows, and on the BAR NUMBER where it does not -
+            // which is what makes the default zoom readable.
+            const int rowsPerBar = juce::jmax (1, barTicks / rowTicks);
+            const int indexInBar = inBar / rowTicks;
+            const int barNumber  = tick / juce::jmax (1, barTicks);
+            const bool oddStripe = ((rowsPerBar > 1 ? indexInBar : barNumber) % 2) == 1;
+
+            float alpha = oddStripe ? 0.26f : 0.04f;
+
+            if (downbeat && rowsPerBar > 1)
+                alpha = 0.55f;                       // the top of a bar, unmistakable
+            else if (onBeat && rowTicks < beatTicks)
+                alpha = oddStripe ? 0.34f : 0.26f;   // a beat, inside a busier bar
+            else if (rowsPerBar == 1 && (barNumber % 4) == 0)
+                alpha = 0.50f;                       // every fourth bar: a phrase edge
+
+            g.setColour (ghost::colours::cardRaised.withAlpha (alpha));
             g.fillRect (12, y, getWidth() - 24, rowHeight);
         }
-        else if (onBeat && rowTicks < beatTicks)
+
+        // A hairline under every row regardless of its fill. Two rows that
+        // happen to land on the same shade still read as two rows, and reading
+        // a value ACROSS a row is the thing the grid exists for - a line to
+        // follow is worth more than the shade it sits on.
+        if (! isNow)
         {
-            // Below one row per beat the grid needs a second tier of banding,
-            // or sixteen identical rows to the bar is a wall with no landmarks
-            // in it and you cannot tell the downbeat from the "and" of three.
-            g.setColour (ghost::colours::cardRaised.withAlpha (0.22f));
-            g.fillRect (12, y, getWidth() - 24, rowHeight);
+            g.setColour (ghost::colours::line.withAlpha (0.35f));
+            g.fillRect (12, y + rowHeight - 1, getWidth() - 24, 1);
+        }
+
+        // The row being edited, marked with a bar down the left rather than a
+        // fill: the fill is already carrying the beat and the playhead, and a
+        // third thing competing for the same pixels would make all three
+        // harder to read.
+        if (editedTick >= 0 && tick <= editedTick && editedTick < tick + rowTicks)
+        {
+            g.setColour (ghost::colours::accent);
+            g.fillRect (12, y, 3, rowHeight - 1);
+
+            g.setColour (ghost::colours::accent.withAlpha (0.10f));
+            g.fillRect (15, y, getWidth() - 27, rowHeight - 1);
         }
 
         // The position, at whatever precision this zoom can actually resolve:
@@ -1275,6 +1347,74 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         if (id > 0) processor.setBassTuning (tuningIdToName (id));
     };
 
+    // ---- the quick edit strip ----
+    styleCombo (trkFeel);
+    for (const char* f : { "straight", "half_time", "double_time", "blast" })
+        trkFeel.addItem (juce::String (f).replace ("_", " "), trkFeel.getNumItems() + 1);
+
+    styleButton (trkReroll, false);
+    styleButton (trkOpen,   false);
+    styleButton (trkClose,  false);
+
+    addChildComponent (trkWhereLabel);
+    addChildComponent (trkChordLabel);
+    addChildComponent (trkChord);
+    addChildComponent (trkFeelLabel);
+    addChildComponent (trkFeel);
+    addChildComponent (trkReroll);
+    addChildComponent (trkOpen);
+    addChildComponent (trkClose);
+
+    trkChord.setJustification (juce::Justification::centredLeft);
+
+    // On ENTER and on losing focus, the two ways anybody finishes typing.
+    trkChord.onReturnKey = [this]
+    {
+        juce::String err;
+        if (! processor.setChordAtBar (trackerEditBar, trkChord.getText(), err))
+            statusLabel.setText (err, juce::dontSendNotification);
+        refreshTrackerEdit();
+    };
+    trkChord.onFocusLost = trkChord.onReturnKey;
+
+    trkFeel.onChange = [this]
+    {
+        const int section = processor.sectionIndexForBar (trackerEditBar);
+        if (section < 0) return;
+
+        auto edit = processor.getSectionEdit (section);
+        const juce::String wanted = trkFeel.getText().replace (" ", "_");
+        if (edit.feel == wanted) return;
+
+        processor.logChange ("feel of " + edit.name, edit.feel, wanted);
+        edit.feel = wanted;
+        processor.applySectionEdit (section, edit);
+    };
+
+    trkReroll.onClick = [this]
+    {
+        const int section = processor.sectionIndexForBar (trackerEditBar);
+        if (section < 0) return;
+        processor.rerollSections ({ section });
+    };
+
+    trkOpen.onClick = [this]
+    {
+        const int section = processor.sectionIndexForBar (trackerEditBar);
+        if (section < 0) return;
+        // The same three steps the Edit button takes, with the section this
+        // row is in already chosen rather than the first one.
+        editSelected = section;
+        closeTrackerEdit();
+        screen = Screen::Edit;
+        pullSectionEdit();
+        updateModeVisibility();
+    };
+
+    trkClose.onClick = [this] { closeTrackerEdit(); };
+
+    tracker.onRowClicked = [this] (int tick) { openTrackerEdit (tick); };
+
     // ---- how much music one tracker row covers ----
     styleCombo (zoomBox);
     addAndMakeVisible (zoomBox);
@@ -1395,6 +1535,9 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     initLabel (tuningLabel,     "BASS TUNING",15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (zoomLabel,       "ROWS",       15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (bandLabel,       "BAND",       15.0f, ghost::dim,   juce::Justification::centredLeft);
+    initLabel (trkWhereLabel,   "",           15.0f, ghost::accent, juce::Justification::centredLeft);
+    initLabel (trkChordLabel,   "CHORD",      15.0f, ghost::dim,   juce::Justification::centredLeft);
+    initLabel (trkFeelLabel,    "FEEL",       15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (tempoLabel,      "",           15.0f, ghost::dim,   juce::Justification::centredRight);
     initLabel (complexityLabel, "COMPLEXITY", 15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (humanizeLabel,   "HUMANIZE",   15.0f, ghost::dim,   juce::Justification::centredLeft);
@@ -2147,6 +2290,26 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         tip (styleBox, "How the band plays: which grooves, how the bass moves, whether the guitars "
                        "use power chords, how busy the drums get. It changes the playing, not the "
                        "chords.");
+        tip (trkChord, "The chord under this bar. Type one - Em, C, G7, F#m - and the band "
+                       "plays it immediately.\n\n"
+                       "If this section's chords were chosen automatically, editing one bar "
+                       "PINS the whole section to what it was already playing and changes only "
+                       "the bar you edited. That is deliberate: otherwise the other bars would "
+                       "be free to move the next time the song regenerated, which is not what "
+                       "anybody means by changing one chord.");
+        tip (trkFeel,  "The feel of the section this bar is in, changed without leaving the "
+                       "grid. straight is normal; half time moves the backbeat to beat 3; "
+                       "double time halves it; blast is both hands flat out. It applies to the "
+                       "whole section, not to this bar alone - a feel is what a section IS.");
+        tip (trkReroll,"A different performance of this section only. Same chords, same length, "
+                       "different playing, and every other section provably untouched.");
+        tip (trkOpen,  "Open this section in the structure editor, where its length, its whole "
+                       "chord list, who plays and how hard all live.");
+        tip (trkClose, "Close the strip. Clicking the same row again does the same thing.");
+        tip (trkWhereLabel, "Which bar you clicked, and the section it belongs to.");
+        tip (trkChordLabel, "The chord under the bar you clicked.");
+        tip (trkFeelLabel,  "The feel of the section this bar is in.");
+
         tip (zoomBox,  "How much music one row of the grid below covers, which is the single "
                        "biggest change you can make to what it tells you. bar is the shape of the "
                        "arrangement - one line per bar, with x7 meaning seven hits landed in it. "
@@ -2923,6 +3086,21 @@ void GhostbandEditor::updateModeVisibility()
     arrangement.setVisible (false);   // superseded by the tracker; kept for now
     tracker.setVisible (song);
 
+    // The quick edit strip belongs to the song screen AND to having picked a
+    // row. Leaving the screen closes it rather than hiding it, so coming back
+    // does not restore an editor pointed at a bar nobody remembers choosing.
+    if (! song && trackerEditBar >= 0)
+    {
+        trackerEditBar = -1;
+        tracker.setEditedTick (-1);
+    }
+
+    const bool editingRow = song && trackerEditBar >= 0;
+    for (juce::Component* c : std::initializer_list<juce::Component*> {
+             &trkWhereLabel, &trkChordLabel, &trkChord, &trkFeelLabel, &trkFeel,
+             &trkReroll, &trkOpen, &trkClose })
+        c->setVisible (editingRow);
+
     if (song) { lastTrackerTick = -1; refreshTracker(); }
     if (tks)  refreshTakes();
     if (cal)  refreshCalibration();
@@ -3116,6 +3294,78 @@ int GhostbandEditor::trackerRowTicks (int beatTicks, int barTicks) const
         case 3:  return juce::jmax (1, beatTicks / 4);
         default: return juce::jmax (1, beatTicks);
     }
+}
+
+void GhostbandEditor::clickTrackerRowForTesting (int tick)
+{
+    // Through the view's own callback, so the wiring is exercised too.
+    if (tracker.onRowClicked) tracker.onRowClicked (tick);
+}
+
+int GhostbandEditor::trackerEditBarForTesting() const { return trackerEditBar; }
+
+juce::String GhostbandEditor::trackerChordForTesting() const { return trkChord.getText(); }
+
+void GhostbandEditor::typeTrackerChordForTesting (const juce::String& chord)
+{
+    trkChord.setText (chord, juce::dontSendNotification);
+    if (trkChord.onReturnKey) trkChord.onReturnKey();
+}
+
+void GhostbandEditor::openTrackerEdit (int tick)
+{
+    const int bar = processor.getBarTicks() > 0 ? tick / processor.getBarTicks() : 0;
+
+    // Clicking the row that is already open closes it, which is what a person
+    // expects of a thing that opened on a click.
+    if (bar == trackerEditBar)
+    {
+        closeTrackerEdit();
+        return;
+    }
+
+    trackerEditBar = bar;
+    tracker.setEditedTick (tick);
+    refreshTrackerEdit();
+    resized();
+}
+
+void GhostbandEditor::closeTrackerEdit()
+{
+    if (trackerEditBar < 0) return;
+
+    trackerEditBar = -1;
+    tracker.setEditedTick (-1);
+    updateModeVisibility();
+    resized();
+}
+
+void GhostbandEditor::refreshTrackerEdit()
+{
+    if (trackerEditBar < 0) return;
+
+    const int section = processor.sectionIndexForBar (trackerEditBar);
+    if (section < 0)
+    {
+        closeTrackerEdit();
+        return;
+    }
+
+    const auto edit = processor.getSectionEdit (section);
+
+    trkWhereLabel.setText ("BAR " + juce::String (trackerEditBar + 1) + "     " + edit.name,
+                           juce::dontSendNotification);
+
+    // Only when it actually differs, or every refresh would move the caret out
+    // from under somebody in the middle of typing.
+    const juce::String chord = processor.chordAtBar (trackerEditBar);
+    if (trkChord.getText() != chord)
+        trkChord.setText (chord, juce::dontSendNotification);
+
+    trkFeel.setText (juce::String (edit.feel).replace ("_", " "),
+                     juce::dontSendNotification);
+
+    updateModeVisibility();
 }
 
 void GhostbandEditor::refreshTracker()
@@ -3770,6 +4020,9 @@ void GhostbandEditor::paint (juce::Graphics& g)
     // component so it lands BEHIND them - paint() runs before children do.
     if (screen == Screen::Song && ! controlsPanel.isEmpty())
         ghost::drawSurface (g, controlsPanel.toFloat(), 10.0f);
+
+    if (screen == Screen::Song && ! trackerEditStrip.isEmpty())
+        ghost::drawSurface (g, trackerEditStrip.toFloat(), 8.0f);
 
     // The footer's own separator. Without it the two lines down there read as
     // more page rather than as a distinct block - which was the complaint: no
@@ -4575,6 +4828,53 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
         rollHintLabel.setBounds (foot.removeFromRight (juce::jmin (280, foot.getWidth() / 2)));
         transportLabel.setBounds (foot);
         r.removeFromBottom (8);
+
+        // The strip sits between the grid and the transport line, so it appears
+        // directly under the thing that was clicked and the grid simply gets
+        // shorter. A floating panel over the grid would cover the rows either
+        // side of the one being edited, which are the rows you are comparing
+        // it against.
+        if (trackerEditBar >= 0)
+        {
+            // ONE ROW WHEN THERE IS ROOM, TWO WHEN THERE IS NOT.
+            //
+            // The fields and the three buttons need about 740 pixels between
+            // them. At the default window the grid is 802 wide and they sit
+            // comfortably; at the window's minimum it is 642, and the first
+            // version simply overran - the feel box and the Reroll button drew
+            // on top of each other. Nothing caught it, because the strip is
+            // only on screen after a click and the layout checks sweep the
+            // screens without touching anything.
+            //
+            // Wrapping rather than shrinking: buttons whose text is clipped to
+            // "Reroll sect..." are worse than buttons on their own line.
+            const bool oneRow = r.getWidth() >= 760;
+
+            auto strip = r.removeFromBottom (oneRow ? 28 : 62);
+            r.removeFromBottom (8);
+            trackerEditStrip = strip.expanded (8, 4);
+
+            auto fields  = oneRow ? strip : strip.removeFromTop (26);
+            auto buttons = oneRow ? fields : strip.removeFromBottom (26);
+
+            trkWhereLabel.setBounds (fields.removeFromLeft (juce::jmin (170, fields.getWidth())));
+            fields.removeFromLeft (8);
+            trkChordLabel.setBounds (fields.removeFromLeft (juce::jmin (52, fields.getWidth())));
+            trkChord.setBounds (fields.removeFromLeft (juce::jmin (90, fields.getWidth())));
+            fields.removeFromLeft (14);
+            trkFeelLabel.setBounds (fields.removeFromLeft (juce::jmin (40, fields.getWidth())));
+            trkFeel.setBounds (fields.removeFromLeft (juce::jmin (108, fields.getWidth())));
+
+            trkClose.setBounds (buttons.removeFromRight (juce::jmin (70, buttons.getWidth())));
+            buttons.removeFromRight (6);
+            trkOpen.setBounds (buttons.removeFromRight (juce::jmin (124, buttons.getWidth())));
+            buttons.removeFromRight (6);
+            trkReroll.setBounds (buttons.removeFromRight (juce::jmin (124, buttons.getWidth())));
+        }
+        else
+        {
+            trackerEditStrip = {};
+        }
     }
 
     arrangement.setBounds (r);

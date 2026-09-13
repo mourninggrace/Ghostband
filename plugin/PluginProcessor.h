@@ -514,6 +514,22 @@ public:
     SectionEdit getSectionEdit (int index) const;
     void        applySectionEdit (int index, const SectionEdit& edit);
 
+    //==========================================================================
+    // One bar, by its number in the song. What the tracker clicks on.
+    //
+    // A row of the grid is a moment in TIME; a section is the thing that can be
+    // edited. These translate between the two so a click on bar 34 can reach
+    // the chord playing there.
+    //
+    // Editing one bar of a section whose chords were chosen automatically PINS
+    // the whole section to what it was already playing and changes only that
+    // bar. That is the honest behaviour and the interface says so: the
+    // alternative is for the other seven bars to be free to move next time the
+    // song regenerates, which nobody means by "change this chord".
+    int          sectionIndexForBar (int bar) const;
+    juce::String chordAtBar (int bar) const;
+    bool         setChordAtBar (int bar, const juce::String& chord, juce::String& error);
+
     void addSection (int afterIndex);
     void deleteSection (int index);
     void moveSection (int index, int delta);
