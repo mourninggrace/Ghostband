@@ -358,8 +358,45 @@ bool GhostbandProcessor::resolveProfiles (juce::String& error)
     return error.isEmpty();
 }
 
+//==============================================================================
+// See the note in the header. Plain statics rather than per-instance state: two
+// editors open at once would pool their totals, which can only ever make
+// Ghostband look BUSIER than it was - and a diagnostic whose bias points at
+// blaming ourselves is the safe way round for it to be wrong.
+double      gbdiag::Work::total     = 0.0;
+double      gbdiag::Work::worst     = 0.0;
+const char* gbdiag::Work::worstName = "-";
+
+void gbdiag::Work::add (const char* name, double ms)
+{
+    total += ms;
+    if (ms > worst) { worst = ms; worstName = name; }
+}
+
+void gbdiag::Work::reset()
+{
+    total = 0.0;
+    worst = 0.0;
+    worstName = "-";
+}
+
+gbdiag::Scope::Scope (const char* n)
+    : name (n),
+      counting (juce::MessageManager::existsAndIsCurrentThread())
+{
+    if (counting)
+        start = juce::Time::getMillisecondCounterHiRes();
+}
+
+gbdiag::Scope::~Scope()
+{
+    if (counting)
+        Work::add (name, juce::Time::getMillisecondCounterHiRes() - start);
+}
+
 void GhostbandProcessor::loadPlan (const juce::File& file)
 {
+    GB_WORK ("load plan");
     gb::SongPlan loaded;
     std::string error;
 
@@ -898,6 +935,7 @@ void GhostbandProcessor::loadLearnedControls()
 
 void GhostbandProcessor::saveLearnedControls() const
 {
+    GB_WORK ("save mappings");
     const juce::File f = learnedControlsFile();
     f.getParentDirectory().createDirectory();
 
@@ -1032,6 +1070,7 @@ std::vector<GhostbandProcessor::Take> GhostbandProcessor::getTakes() const
 
 bool GhostbandProcessor::saveTake (const juce::String& name, juce::String& error)
 {
+    GB_WORK ("save take");
     const juce::String trimmed = name.trim();
     if (trimmed.isEmpty())
     {
@@ -1092,6 +1131,7 @@ bool GhostbandProcessor::saveTake (const juce::String& name, juce::String& error
 
 void GhostbandProcessor::recallTake (int index)
 {
+    GB_WORK ("recall take");
     const std::vector<Take> takes = readTakes();
     if (index < 0 || index >= static_cast<int> (takes.size()))
         return;
@@ -1144,6 +1184,7 @@ void GhostbandProcessor::recallTake (int index)
 
 void GhostbandProcessor::deleteTake (int index)
 {
+    GB_WORK ("delete take");
     std::vector<Take> takes = readTakes();
     if (index < 0 || index >= static_cast<int> (takes.size()))
         return;
@@ -2211,6 +2252,7 @@ void GhostbandProcessor::setBassTuning (const juce::String& tuning)
 
 void GhostbandProcessor::reloadPlan()
 {
+    GB_WORK ("reload plan");
     const juce::File current = getPlanFile();
 
     if (current.existsAsFile())
@@ -2221,6 +2263,7 @@ void GhostbandProcessor::reloadPlan()
 
 void GhostbandProcessor::rerollSections (const std::vector<int>& indices)
 {
+    GB_WORK ("reroll");
     if (indices.empty())
         return;
 
@@ -2236,6 +2279,7 @@ void GhostbandProcessor::rerollSections (const std::vector<int>& indices)
 
 void GhostbandProcessor::regenerate()
 {
+    GB_WORK ("regenerate");
     gb::SongPlan working;
     gb::DrumProfile workingKit;
     gb::BassProfile workingBass;

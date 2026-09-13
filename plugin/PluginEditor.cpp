@@ -131,6 +131,7 @@ int SectionList::tickToY (int tick) const
 
 void SectionList::paint (juce::Graphics& g)
 {
+    GB_WORK ("paint sections");
     ghost::drawSurface (g, getLocalBounds().toFloat(), 10.0f);
 
     if (sections.empty())
@@ -273,6 +274,7 @@ void CalibrationList::mouseDown (const juce::MouseEvent& e)
 
 void CalibrationList::paint (juce::Graphics& g)
 {
+    GB_WORK ("paint calibration");
     ghost::drawSurface (g, getLocalBounds().toFloat(), 10.0f);
 
     for (size_t i = 0; i < rows.size(); ++i)
@@ -327,6 +329,7 @@ void ControlList::mouseDown (const juce::MouseEvent& e)
 
 void ControlList::paint (juce::Graphics& g)
 {
+    GB_WORK ("paint controls");
     ghost::drawSurface (g, getLocalBounds().toFloat(), 10.0f);
 
     if (rows.empty())
@@ -405,6 +408,7 @@ void TakeList::mouseDoubleClick (const juce::MouseEvent& e)
 
 void TakeList::paint (juce::Graphics& g)
 {
+    GB_WORK ("paint takes");
     ghost::drawSurface (g, getLocalBounds().toFloat(), 10.0f);
 
     if (rows.empty())
@@ -557,6 +561,7 @@ void ArrangementView::mouseExit (const juce::MouseEvent&)
 
 void ArrangementView::paint (juce::Graphics& g)
 {
+    GB_WORK ("paint arrangement");
     const auto full = getLocalBounds().toFloat();
 
     // ---- the page ----
@@ -912,6 +917,7 @@ void TrackerView::mouseExit (const juce::MouseEvent&)
 
 void TrackerView::paint (juce::Graphics& g)
 {
+    GB_WORK ("paint grid");
     const bool dark = onDarkGround();
     const auto full = getLocalBounds().toFloat();
 
@@ -2365,12 +2371,15 @@ void GhostbandEditor::noteTimerTick()
         if (gap > stallThresholdMs)
         {
             Stall s;
-            s.gapMs       = gap;
-            s.workMs      = lastTimerWorkMs;
-            s.audioBlocks = static_cast<int> (blocks - lastAudioBlocks);
-            s.screen      = static_cast<int> (screen);
-            s.playing     = processor.transportRunning.load();
-            s.at          = juce::Time::getCurrentTime().toString (false, true, false);
+            s.gapMs        = gap;
+            s.workMs       = lastTimerWorkMs;
+            s.ghostbandMs  = gbdiag::Work::total;
+            s.worstPieceMs = gbdiag::Work::worst;
+            s.worstPiece   = gbdiag::Work::worstName;
+            s.audioBlocks  = static_cast<int> (blocks - lastAudioBlocks);
+            s.screen       = static_cast<int> (screen);
+            s.playing      = processor.transportRunning.load();
+            s.at           = juce::Time::getCurrentTime().toString (false, true, false);
 
             stalls.push_back (s);
             if (stalls.size() > maxStallsKept)
@@ -2382,17 +2391,38 @@ void GhostbandEditor::noteTimerTick()
             // safe: this runs AFTER the stall, and by definition rarely.
             const juce::File log = GhostbandProcessor::stallLogFile();
             log.getParentDirectory().createDirectory();
+            // The audio block figure only means something beside the block
+            // size and rate, so both go in the line rather than having to be
+            // remembered. 512 samples at 48k is 10.67 ms a block; if the blocks
+            // account for the whole gap, the audio thread never missed one and
+            // only the window was stuck.
+            const double sr = processor.getSampleRate();
             log.appendText (s.at + "  gap " + juce::String (s.gapMs, 0) + " ms"
-                            + "   previous callback " + juce::String (s.workMs, 1) + " ms"
-                            + "   audio blocks during gap " + juce::String (s.audioBlocks)
+                            + "   ghostband " + juce::String (s.ghostbandMs, 1) + " ms"
+                            + " (worst " + juce::String (s.worstPieceMs, 1) + " ms "
+                            + s.worstPiece + ")"
+                            + "   timer callback " + juce::String (s.workMs, 1) + " ms"
+                            + "   audio " + juce::String (s.audioBlocks) + " blocks of "
+                            + juce::String (processor.getBlockSize())
+                            + (sr > 0.0 ? " at " + juce::String (sr / 1000.0, 1) + "k" : "")
                             + "   screen " + juce::String (screenName (s.screen))
                             + (s.playing ? "   playing" : "   stopped")
+                            // In case the grid provokes it: 16th repaints four
+                            // times as often as bar, so a stall that only ever
+                            // happens on the fine settings is a different fault
+                            // from one that happens on all of them.
+                            + "   rows " + zoomBox.getText()
                             + "\n");
         }
     }
 
     lastTimerStartMs = now;
     lastAudioBlocks  = blocks;
+
+    // Zeroed AFTER recording, so what accumulates from here belongs to the next
+    // gap. Painting and handlers both run between ticks, which is the whole
+    // reason this exists.
+    gbdiag::Work::reset();
 }
 
 // What the footer says. Short, because it shares a line with the latency.
@@ -2424,16 +2454,27 @@ juce::String GhostbandEditor::stallDetail() const
     {
         const Stall& st = stalls[i];
 
-        // The whole reason all three numbers are collected. A gap with the
-        // audio thread still running says the message thread was starved; a
-        // gap with a long previous callback says we did it to ourselves.
+        // The whole reason four numbers are collected rather than one. A gap
+        // says something went wrong; only the split says WHAT, and saying which
+        // is the difference between a diagnosis and a shrug.
+        //
+        // ghostbandMs covers PAINTING and our own handlers as well as the timer
+        // callback - the two things that happen between ticks and would
+        // otherwise be invisible here. Without it, a slow paint of ours would
+        // have been blamed on the host, confidently and wrongly.
+        const double ours = juce::jmax (st.ghostbandMs, st.workMs);
+
         const juce::String blame =
-            st.workMs > stallThresholdMs / 2.0
-                ? "Ghostband's own work was slow - this one is ours."
-                : st.audioBlocks > 0
-                    ? "The audio kept running, so only the window was stuck - "
-                      "something else on the host's message thread."
-                    : "Audio stopped too, so the whole plugin was held up.";
+            ours > st.gapMs * 0.5
+                ? "Ghostband did this - " + st.worstPiece + " took "
+                      + juce::String (st.worstPieceMs / 1000.0, 1) + "s."
+          : st.audioBlocks <= 0
+                ? "Audio stopped too, so the whole plugin was held up."
+                : "Not Ghostband: it used " + juce::String (ours, 0)
+                      + " ms of that, and the audio thread ran every one of its "
+                      + juce::String (st.audioBlocks)
+                      + " blocks without missing one. Something else on your "
+                        "host's interface thread held it.";
 
         s << st.at << "   froze for " << juce::String (st.gapMs / 1000.0, 1) << "s on the "
           << screenName (st.screen) << " screen"
@@ -3481,6 +3522,7 @@ void GhostbandEditor::refreshFromProcessor()
 
 void GhostbandEditor::paint (juce::Graphics& g)
 {
+    GB_WORK ("paint window");
     // A gradient rather than a flat fill. See ghost::fillBackground.
     ghost::fillBackground (g, getLocalBounds().toFloat());
 

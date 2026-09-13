@@ -670,6 +670,15 @@ private:
     {
         double  gapMs      = 0.0;   // how long the timer went uncalled
         double  workMs     = 0.0;   // how long the PREVIOUS callback took
+
+        // Everything Ghostband did on the message thread DURING the gap -
+        // painting and its own handlers, both of which happen outside the timer
+        // callback and both of which would otherwise be invisible here. Against
+        // gapMs this is the whole answer: near zero means it was not us.
+        double  ghostbandMs = 0.0;
+        double  worstPieceMs = 0.0;
+        juce::String worstPiece;    // and which piece that was
+
         int     audioBlocks = 0;    // blocks the audio thread ran during the gap
         int     screen     = 0;
         bool    playing    = false;

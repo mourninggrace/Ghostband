@@ -3496,19 +3496,45 @@ int main (int argc, char** argv)
                        "a gap in the timer is caught",
                        juce::String (gbEd->stallCountForTesting()) + " recorded");
 
-                // The whole point of collecting three numbers rather than one.
-                // A gap while the audio thread kept working means the window
-                // was starved, NOT that the plugin was slow - and saying which
-                // is the difference between a diagnosis and a shrug.
-                const juce::String detail = gbEd->stallDetailForTesting();
-                check (detail.contains ("audio kept running")
-                           || detail.contains ("only the window was stuck"),
-                       "and it says the audio kept running while the window did not",
-                       detail.upToFirstOccurrenceOf ("\n", false, false));
+                // THE ATTRIBUTION IS THE WHOLE POINT, and it has to be able to
+                // come out both ways or it is not a diagnosis.
+                //
+                // This one: the timer was not called, Ghostband did nothing in
+                // the meantime, and the audio thread kept working. That can
+                // only mean the message thread was held by something else.
+                const juce::String notUs = gbEd->stallDetailForTesting();
+                check (notUs.contains ("Not Ghostband"),
+                       "a gap with no work of ours is not blamed on us",
+                       notUs.fromFirstOccurrenceOf ("froze", true, false)
+                            .upToFirstOccurrenceOf ("held it.", true, false));
 
                 check (proc.audioBlocks.load() == before + 17,
                        "the audio block counter is what told it so",
                        juce::String (proc.audioBlocks.load() - before) + " blocks");
+
+                // And the other way. A stall where GHOSTBAND held the message
+                // thread must be blamed on Ghostband and must name the piece -
+                // otherwise the first real fault of our own would be reported
+                // to the owner as his host's problem, confidently and wrongly.
+                //
+                // This is not hypothetical: painting happens OUTSIDE the timer
+                // callback, so before gbdiag::Work existed a slow paint of ours
+                // looked exactly like a starved thread.
+                {
+                    gbEd->runTimerForTesting();      // start a clean window
+                    {
+                        GB_WORK ("a deliberately slow thing");
+                        juce::Thread::sleep (400);
+                    }
+                    gbEd->runTimerForTesting();
+
+                    const juce::String ourFault = gbEd->stallDetailForTesting();
+                    check (ourFault.contains ("Ghostband did this")
+                               && ourFault.contains ("a deliberately slow thing"),
+                           "and work done between ticks IS blamed on us, by name",
+                           ourFault.fromFirstOccurrenceOf ("Ghostband did this", true, false)
+                                   .upToFirstOccurrenceOf ("\n", false, false));
+                }
 
                 // Written down as well as shown, because the window that would
                 // show it is the thing that was frozen, and the session may be

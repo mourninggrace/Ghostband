@@ -12,6 +12,59 @@
 #include <map>
 #include <vector>
 
+// How much of a UI freeze was Ghostband's own fault.
+//
+// The stall detector already separates "our timer callback was slow" from "our
+// timer was never called". That was enough to rule out the per-frame work, and
+// not enough to name a culprit, because TWO things happen on the message thread
+// outside the timer callback and both look identical to someone else's code
+// holding it:
+//
+//   * PAINTING. repaint() only marks the window dirty; the actual paint runs
+//     later in the message loop, so a slow paint shows up as a GAP with zero
+//     work recorded and would be blamed on the host.
+//   * OUR OWN HANDLERS. A button that saves a file or reloads a plan blocks the
+//     timer for exactly as long as it takes, and again the previous callback
+//     reads as fast.
+//
+// So every piece of Ghostband that runs on the message thread and could take
+// real time is wrapped in a Scope. The total is what we did between one tick
+// and the next; against the gap, it says "us" or "not us" with no
+// interpretation left over.
+//
+// Only counts on the message thread - the audio thread must never pay for a
+// diagnostic, and the harness calls most of these from wherever it likes.
+namespace gbdiag
+{
+    struct Work
+    {
+        // Milliseconds of message-thread time spent inside Ghostband since the
+        // last timer tick, and the single longest piece of it.
+        static double      total;
+        static double      worst;
+        static const char* worstName;
+
+        static void add (const char* name, double ms);
+        static void reset();
+    };
+
+    struct Scope
+    {
+        explicit Scope (const char* n);
+        ~Scope();
+
+        const char* name;
+        double      start    = 0.0;
+        bool        counting = false;
+
+        Scope (const Scope&) = delete;
+        Scope& operator= (const Scope&) = delete;
+    };
+}
+
+// One line at the top of anything on the message thread that could be slow.
+#define GB_WORK(name) const gbdiag::Scope gbWorkScope__ (name)
+
 // Ghostband as a VST3.
 //
 // It emits MIDI and touches nothing else: audio passes through untouched, and
