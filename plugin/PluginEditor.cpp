@@ -1930,7 +1930,8 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     // An open-ended list rather than fixed slots: how many knobs, buttons and
     // switches are worth automating is the owner's decision.
     for (juce::TextButton* b : std::initializer_list<juce::TextButton*> {
-             &ctlAdd, &ctlRemove, &ctlTeach, &ctlSave, &ctlSend, &ctlWalk })
+             &ctlAdd, &ctlRemove, &ctlTeach, &ctlSave, &ctlSend, &ctlWalk,
+             &ctlReset, &openDataFolder })
     {
         styleButton (*b, b == &ctlTeach);
         addChildComponent (*b);
@@ -2020,12 +2021,40 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
             statusLabel.setText (err, juce::dontSendNotification);
     };
 
+    ctlReset.onClick = [this, part]
+    {
+        juce::String err;
+        if (processor.resetControlsToProfile (part(), err))
+        {
+            refreshControls();
+            statusLabel.setText ("Mappings put back to what the profile says.",
+                                 juce::dontSendNotification);
+        }
+        else
+        {
+            statusLabel.setText (err, juce::dontSendNotification);
+        }
+    };
+
+    openDataFolder.onClick = [this]
+    {
+        // Reveal rather than open: the folder holds the change log, the stall
+        // log, the takes and the taught mappings, and which of them somebody
+        // wants depends on why they came looking.
+        const juce::File f = GhostbandProcessor::changeLogFile();
+        f.getParentDirectory().createDirectory();
+        if (! f.existsAsFile())
+            processor.logChange ("change log opened for the first time");
+        f.revealToUser();
+    };
+
     ctlList.onRowClicked = [this] (int row) { ctlSelected = row; refreshControls(); };
 
     ctlViewport.setViewedComponent (&ctlList, false);
     ctlViewport.setScrollBarsShown (true, false);
     addChildComponent (ctlViewport);
 
+    initLabel (ctlDiffLabel,    "",        15.0f, ghost::dim, juce::Justification::centredLeft);
     initLabel (ctlNameLabel,    "NAME",    15.0f, ghost::dim, juce::Justification::centredLeft);
     initLabel (ctlFollowsLabel, "FOLLOWS", 15.0f, ghost::dim, juce::Justification::centredLeft);
     initLabel (ctlTypeLabel,    "TYPE",    15.0f, ghost::dim, juce::Justification::centredLeft);
@@ -2229,7 +2258,23 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         tip (ctlSend,   "Send this control once at its parked value, so you can see which knob "
                         "moves.");
         tip (ctlWalk,   "Step slowly through every position of a selector so you can count them.");
-        tip (ctlSave,   "Write these mappings to disk. They are remembered per instrument.");
+        tip (ctlSave,   "Write these mappings to disk. They are remembered per instrument, "
+                        "and the profile file is written too - so if it has comments in it, a "
+                        "copy of the old one is kept beside it as .json.bak.");
+        tip (ctlReset,  "Throw away what has been taught for this instrument and go back to what "
+                        "its profile file says. Only controller NUMBERS can differ - everything "
+                        "about what a control means is read from the profile every time - so this "
+                        "undoes a CC that was taught wrong, and removes a control that the "
+                        "profile no longer has. That second one cannot be undone any other way: a "
+                        "control the store knows about is put back on every load, whatever the "
+                        "profile says.");
+        tip (ctlDiffLabel, "How many controller numbers on this instrument disagree with its "
+                           "profile file. Usually zero, and not a problem when it is not - a "
+                           "taught CC is a fact about your rack. It matters when a profile has "
+                           "been corrected since you taught it.");
+        tip (openDataFolder, "Opens the folder holding the change log, the stall log, your takes "
+                             "and your taught mappings. changes.log records every change you "
+                             "make, with the date and time and what it was before.");
         tip (ctlName,   "What this knob is called on the instrument. Only for your own reading - "
                         "Ghostband matches on the CC number.");
         tip (ctlFollows,"What the arrangement does with this control. intensity tracks how hard "
@@ -2494,6 +2539,119 @@ void GhostbandEditor::runTimerForTesting()        { timerCallback(); }
 int  GhostbandEditor::stallCountForTesting() const { return static_cast<int> (stalls.size()); }
 juce::String GhostbandEditor::stallDetailForTesting() const { return stallDetail(); }
 
+//==============================================================================
+bool GhostbandEditor::LogSnapshot::operator== (const LogSnapshot& o) const
+{
+    for (int i = 0; i < 5; ++i)
+        if (levels[i] != o.levels[i] || channels[i] != o.channels[i])
+            return false;
+
+    return plan == o.plan && key == o.key && mode == o.mode && style == o.style
+        && tuning == o.tuning && theme == o.theme && rows == o.rows
+        && seed == o.seed && complexity == o.complexity && humanize == o.humanize
+        && fills == o.fills && paused == o.paused;
+}
+
+GhostbandEditor::LogSnapshot GhostbandEditor::takeLogSnapshot() const
+{
+    LogSnapshot s;
+
+    s.plan   = processor.getStatus().planName;
+    s.key    = keyBox.getText();
+    s.mode   = modeBox.getText();
+    s.style  = styleBox.getText();
+    s.tuning = tuningBox.getText();
+    s.theme  = themeBox.getText();
+    s.rows   = zoomBox.getText();
+
+    s.seed       = processor.seed.load();
+    // Per cent, because a slider carries more precision than anyone means by a
+    // change - and because per cent is how these read on screen.
+    s.complexity = juce::roundToInt (processor.complexity.load() * 100.0);
+    s.humanize   = juce::roundToInt (processor.humanize.load()   * 100.0);
+    s.fills      = juce::roundToInt (processor.fills.load()      * 100.0);
+    s.paused     = processor.paused.load();
+
+    const std::atomic<float>* lv[5] = { &processor.levelDrums, &processor.levelBass,
+                                        &processor.levelGuitar, &processor.levelGuitar2,
+                                        &processor.levelPiano };
+    const std::atomic<int>* ch[5] = { &processor.channelDrums, &processor.channelBass,
+                                      &processor.channelGuitar, &processor.channelGuitar2,
+                                      &processor.channelPiano };
+    for (int i = 0; i < 5; ++i)
+    {
+        s.levels[i]   = juce::roundToInt (lv[i]->load() * 100.0f);
+        s.channels[i] = ch[i]->load();
+    }
+
+    return s;
+}
+
+void GhostbandEditor::pollChangeLog()
+{
+    const LogSnapshot now = takeLogSnapshot();
+
+    // First look of the session: remember where things stand, say nothing. The
+    // state at startup is not a change somebody made.
+    if (! haveLoggedBaseline)
+    {
+        logged = pending = now;
+        haveLoggedBaseline = true;
+        return;
+    }
+
+    // Still moving. Restart the clock and wait for it to settle.
+    if (now != pending)
+    {
+        pending = now;
+        pendingSince = juce::Time::getMillisecondCounter();
+        return;
+    }
+
+    if (pendingSince == 0 || juce::Time::getMillisecondCounter() - pendingSince
+                                 < static_cast<juce::uint32> (logSettleMs))
+        return;
+
+    pendingSince = 0;
+
+    // A different song changes nearly every field at once, and the processor
+    // has already written the line that explains why. Re-baseline quietly
+    // rather than following it with eight lines of consequences.
+    if (now.plan != logged.plan)
+    {
+        logged = now;
+        return;
+    }
+
+    const auto& p2 = processor;
+    p2.logChange ("key",        logged.key,    now.key);
+    p2.logChange ("mode",       logged.mode,   now.mode);
+    p2.logChange ("style",      logged.style,  now.style);
+    p2.logChange ("bass tuning", logged.tuning, now.tuning);
+    p2.logChange ("theme",      logged.theme,  now.theme);
+    p2.logChange ("tracker rows", logged.rows, now.rows);
+    p2.logChange ("seed",       juce::String (logged.seed),       juce::String (now.seed));
+    p2.logChange ("complexity", juce::String (logged.complexity) + "%", juce::String (now.complexity) + "%");
+    p2.logChange ("humanize",   juce::String (logged.humanize) + "%",   juce::String (now.humanize) + "%");
+    p2.logChange ("fills",      juce::String (logged.fills) + "%",      juce::String (now.fills) + "%");
+
+    if (logged.paused != now.paused)
+        p2.logChange (now.paused ? "band paused" : "band playing again");
+
+    static const char* partNames[5] = { "drums", "bass", "guitar", "guitar 2", "piano" };
+    for (int i = 0; i < 5; ++i)
+    {
+        p2.logChange (juce::String (partNames[i]) + " level",
+                      juce::String (logged.levels[i]) + "%",
+                      juce::String (now.levels[i]) + "%");
+        p2.logChange (juce::String (partNames[i]) + " channel",
+                      juce::String (logged.channels[i]),
+                      juce::String (now.channels[i]));
+    }
+
+    logged = now;
+}
+
 void GhostbandEditor::timerCallback()
 {
     noteTimerTick();
@@ -2522,6 +2680,11 @@ void GhostbandEditor::timerCallback()
         juce::String where = processor.paused.load()
                                ? juce::String ("paused")
                                : juce::String ("stopped   -   press play in your host");
+
+        // Reaching the end now parks the playhead at bar 1 and pauses, so the
+        // instruction is one button rather than a trip to the host.
+        if (processor.songFinished.load() && processor.paused.load())
+            where = "song ended   -   back at the top, press Play to hear it again";
 
         // The song ending and the transport stopping are different events, and
         // the difference matters: one wants rewinding, the other wants playing.
@@ -2585,6 +2748,8 @@ void GhostbandEditor::timerCallback()
     tempoLabel.setText (bpm > 0.0 ? juce::String (bpm, 1) + " bpm  (host)"
                                   : juce::String ("tempo from host"),
                         juce::dontSendNotification);
+
+    pollChangeLog();
 
     // Debounced regenerate after the dials settle.
     if (dialsDirty && juce::Time::getMillisecondCounter() - lastDialMove > 200)
@@ -2679,7 +2844,8 @@ void GhostbandEditor::updateModeVisibility()
              &tempoModeButton,
              &testDrums, &testBass, &testGuitar, &testPiano, &testGuitar2,
              &learnPart, &learnHeading, &learnHelp,
-             &ctlAdd, &ctlRemove, &ctlTeach, &ctlSave, &ctlName,
+             &ctlAdd, &ctlRemove, &ctlTeach, &ctlSave, &ctlReset, &ctlDiffLabel,
+             &openDataFolder, &ctlName,
              &ctlFollows, &ctlType, &ctlPositions, &ctlViewport,
              &ctlNameLabel, &ctlFollowsLabel, &ctlTypeLabel, &ctlPositionsLabel,
              &ctlPositionsHint, &ctlValue, &ctlValueLabel, &ctlValueHint,
@@ -3132,6 +3298,29 @@ void GhostbandEditor::refreshControls()
     ctlList.setRows (std::move (rows));
     ctlList.setSelected (ctlSelected);
     ctlList.setSize (juce::jmax (100, ctlViewport.getWidth() - 10), ctlList.getHeight());
+
+    // How far this instrument has drifted from its profile file, said as a
+    // number rather than as a warning - usually zero, and not a fault when it
+    // is not. The reset button is only offered when there is something to undo,
+    // and it is DISABLED rather than hidden: a button that appears and vanishes
+    // is the fault this session started on.
+    const int differ = processor.controlsDifferingFromProfile (part);
+    ctlReset.setEnabled (differ > 0);
+    ctlReset.setAlpha (differ > 0 ? 1.0f : 0.45f);
+    ctlDiffLabel.setText (differ == 0
+                              ? juce::String()
+                              : juce::String (differ)
+                                    + (differ == 1 ? " differs from the profile"
+                                                   : " differ from the profile"),
+                          juce::dontSendNotification);
+    ctlDiffLabel.setColour (juce::Label::textColourId, ghost::warn);
+
+    // The detail belongs on the thing that would change it, and there is no
+    // room for it on a line.
+    const juce::String detail = processor.controlDifferenceSummary (part);
+    if (detail.isNotEmpty())
+        ctlReset.setTooltip ("Put this instrument's mappings back to what its profile file "
+                             "says. What differs right now:\n\n" + detail);
 
     // Guitar and piano are optional. When the loaded song has neither, its
     // mappings are still safely in the profile file - they just belong to a
@@ -3875,6 +4064,8 @@ void GhostbandEditor::resized()
             reloadProfilesBtn.setBounds (row.removeFromLeft (170));
             row.removeFromLeft (8);
             resetSizeButton.setBounds (row.removeFromLeft (150));
+            row.removeFromLeft (8);
+            openDataFolder.setBounds (row.removeFromLeft (140));
         }
 
         // ---- right: teaching Ghostband an instrument's own knobs ----
@@ -3897,6 +4088,16 @@ void GhostbandEditor::resized()
             ctlSave.setBounds (learnRow.removeFromLeft (124));
             learnRow.removeFromLeft (14);
             learnPartName.setBounds (learnRow);
+
+            // Its own row. Squeezed onto the one above, it left the instrument
+            // name zero pixels wide at the window's minimum size - and a
+            // control that undoes something belongs a little apart from the one
+            // that does it anyway.
+            right.removeFromTop (8);
+            auto resetRow = right.removeFromTop (26);
+            ctlReset.setBounds (resetRow.removeFromLeft (130));
+            resetRow.removeFromLeft (12);
+            ctlDiffLabel.setBounds (resetRow);
 
             right.removeFromTop (8);
             auto editRow = right.removeFromTop (26);

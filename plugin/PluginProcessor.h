@@ -158,6 +158,39 @@ public:
     // taught controls of every instrument on the machine.
     static void setLearnedControlsFileForTesting (const juce::File& f);
 
+    // What a part is ACTUALLY set to once the learned store has been merged
+    // over the shipped profile. Public because the difference between those two
+    // is exactly the thing that cannot be worked out by reading either one:
+    // the store supplies CC numbers and the profile supplies everything else,
+    // and I got that backwards once by reasoning about it instead of printing
+    // it. `--controls` in the harness prints it.
+    const gb::ControlSet* controlSetForTesting (int part) const;
+
+    //==========================================================================
+    // Putting an instrument's mappings back to what its profile says.
+    //
+    // The learned store holds CC NUMBERS taught by MIDI Learn and nothing else;
+    // everything about what a control MEANS comes from the profile. So the only
+    // thing that can drift is a controller number - which is usually right,
+    // because a taught CC is a fact about the rack rather than an opinion.
+    //
+    // Two ways it can be wrong, and they are why this exists:
+    //
+    //   * a profile corrects a CC and the store keeps the old one, silently;
+    //   * a profile DROPS a control and the store puts it straight back, since
+    //     a control only the store knows about is carried across whole. That
+    //     one is permanent: there is no edit to the profile that removes it.
+    //
+    // Called "profile" rather than "shipped" on purpose. Saving mappings writes
+    // the profile file too, so what this resets to is whatever that file says
+    // now - which may be something you saved yesterday, not what was in the zip.
+    // The instrument a part is filling, as the learned store keys it.
+    std::string instrumentKeyForPart (int part) const;
+
+    int controlsDifferingFromProfile (int part) const;
+    juce::String controlDifferenceSummary (int part) const;
+    bool resetControlsToProfile (int part, juce::String& error);
+
     //==========================================================================
     // Takes: one performance of one song, saved by name.
     //
@@ -277,6 +310,35 @@ public:
     // controls, so it can be found and sent without hunting.
     static juce::File stallLogFile();
 
+    //==========================================================================
+    // THE CHANGE LOG. Every change, when it happened, and what it was before.
+    //
+    // A rig accumulates decisions and forgets them. "It sounded better
+    // yesterday" is unanswerable without a record, and so is "when did this
+    // channel move" - the plugin knows both and had been throwing them away.
+    //
+    // Two rules that make the difference between a log and a stream of noise:
+    //
+    //   * FROM and TO, not just the new value. "seed 88345" says nothing;
+    //     "seed 88345 -> 4242" is the change, which is what was asked for.
+    //   * Continuous controls are logged when they SETTLE, not while they move.
+    //     A mix knob dragged across its range is one change, not two hundred.
+    //     The editor's timer does that coalescing - see snapshotForLog.
+    static juce::File changeLogFile();
+    static void setChangeLogFileForTesting (const juce::File& f);
+
+    // `what` names the thing; from/to are optional and make it a change rather
+    // than an event. Safe from any thread but meant for the message thread -
+    // it opens a file, so never call it from processBlock.
+    void logChange (const juce::String& what) const;
+    void logChange (const juce::String& what, const juce::String& from,
+                    const juce::String& to) const;
+
+    // Off while a session is being restored, so reopening a rackspace does not
+    // write twenty lines claiming somebody just set every control by hand.
+    // A restore is one line, and it says so.
+    mutable std::atomic<bool> changeLogQuiet { false };
+
     // Same reason as the learned-controls and takes overrides: a test run must
     // not append to the owner's real log. Forgetting this once already rewrote
     // the channels of every instrument on this machine.
@@ -344,7 +406,17 @@ public:
     // True once the playhead has passed the last bar while the host is still
     // running. Distinct from `paused`, which is somebody choosing to stop.
     std::atomic<bool> songFinished { false };
-    void togglePaused()  { paused.store (! paused.load()); }
+    void togglePaused()
+    {
+        const bool nowPaused = ! paused.load();
+        paused.store (nowPaused);
+
+        // Coming off pause starts a performance, so the "song ended" notice
+        // goes with it. Left set, the interface would keep explaining why the
+        // band had stopped while it was playing.
+        if (! nowPaused)
+            songFinished.store (false);
+    }
 
     // Set when the song underneath the playhead has been replaced. The audio
     // thread releases everything still sounding before the new one starts,
@@ -672,6 +744,15 @@ private:
     // `id`), and are written to one file outside the project so they survive
     // every song, every profile and every gig.
     std::map<std::string, gb::ControlSet> learnedControls;
+
+    // Each instrument's controls EXACTLY AS ITS PROFILE FILE DECLARED THEM,
+    // captured before the learned store is merged over the top. Keyed by
+    // instrument, like the store itself, so it survives a change of song.
+    //
+    // Without this there is nowhere to reset TO. The merged set is all the
+    // plugin ever holds, the file has already been read and closed, and the
+    // difference between the two is invisible from either one on its own.
+    std::map<std::string, gb::ControlSet> profileControls;
 
     // And the channel, for exactly the same reason.
     //

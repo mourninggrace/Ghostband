@@ -553,6 +553,18 @@ private:
     juce::TextButton ctlSend   { "Send" };
     juce::TextButton ctlWalk   { "Walk the list" };
     juce::TextButton ctlSave   { "Save mappings" };
+
+    // Puts an instrument's mappings back to what its profile file says, and
+    // says how many differ before you press it. Only the CC can differ - see
+    // the note on resetControlsToProfile - so the count is small and exact
+    // rather than a vague "this has been changed" warning.
+    juce::TextButton ctlReset  { "Reset to profile" };
+    juce::Label      ctlDiffLabel;
+
+    // Opens the folder holding changes.log, stalls.log and the takes, because
+    // "%APPDATA%\Ghostband" is not something anyone should have to be told
+    // twice.
+    juce::TextButton openDataFolder { "Show log folder" };
     juce::TextEditor ctlName;
     juce::ComboBox   ctlFollows, ctlType;
 
@@ -691,6 +703,41 @@ private:
         bool    playing    = false;
         juce::String at;            // wall clock, so it can be matched to what you were doing
     };
+
+    //==========================================================================
+    // What goes in the change log, polled rather than reported.
+    //
+    // The alternative was a logChange call at every place a control can move,
+    // which is forty-odd sites, all of them easy to forget when the forty-first
+    // is added - and worse, a knob dragged across its range fires its callback
+    // on every pixel, so a log built that way would bury the day's real
+    // decisions under two hundred lines of one gesture.
+    //
+    // Polling the state and logging what SETTLED fixes both. It also catches
+    // changes the editor never sees, like a host moving something.
+    struct LogSnapshot
+    {
+        juce::String plan, key, mode, style, tuning, theme, rows;
+        int  seed = 0;
+        int  complexity = 0, humanize = 0, fills = 0;   // per cent: below that is jitter
+        int  levels[5]   = { 0, 0, 0, 0, 0 };
+        int  channels[5] = { 0, 0, 0, 0, 0 };
+        bool paused = false;
+
+        bool operator== (const LogSnapshot& o) const;
+        bool operator!= (const LogSnapshot& o) const { return ! (*this == o); }
+    };
+
+    LogSnapshot takeLogSnapshot() const;
+    void        pollChangeLog();
+
+    LogSnapshot logged, pending;
+    bool         haveLoggedBaseline = false;
+    juce::uint32 pendingSince = 0;
+
+    // Long enough that a knob dragged across its range is one line, short
+    // enough that the log keeps up with somebody working.
+    static constexpr int logSettleMs = 500;
 
     void noteTimerTick();           // called at the top and bottom of timerCallback
     juce::String stallSummary() const;

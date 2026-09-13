@@ -397,6 +397,7 @@ gbdiag::Scope::~Scope()
 void GhostbandProcessor::loadPlan (const juce::File& file)
 {
     GB_WORK ("load plan");
+    logChange ("song loaded   " + file.getFileNameWithoutExtension());
     gb::SongPlan loaded;
     std::string error;
 
@@ -852,6 +853,63 @@ void GhostbandProcessor::setLearnedControlsFileForTesting (const juce::File& f)
     learnedControlsOverride() = f;
 }
 
+//==============================================================================
+static juce::File& changeLogOverride()
+{
+    static juce::File f;
+    return f;
+}
+
+void GhostbandProcessor::setChangeLogFileForTesting (const juce::File& f)
+{
+    changeLogOverride() = f;
+}
+
+juce::File GhostbandProcessor::changeLogFile()
+{
+    if (changeLogOverride() != juce::File())
+        return changeLogOverride();
+
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+               .getChildFile ("Ghostband")
+               .getChildFile ("changes.log");
+}
+
+void GhostbandProcessor::logChange (const juce::String& what) const
+{
+    if (changeLogQuiet.load() || what.isEmpty())
+        return;
+
+    const juce::File f = changeLogFile();
+
+    // Rolled rather than left to grow without limit. One previous file is kept:
+    // a log that eats a gigabyte is a bug, and a log that silently discards the
+    // week you actually needed is worse, so the cut is generous and the old
+    // half survives.
+    if (f.getSize() > 2 * 1024 * 1024)
+    {
+        const juce::File old = f.getSiblingFile (f.getFileName() + ".1");
+        old.deleteFile();
+        f.moveFileTo (old);
+    }
+
+    f.getParentDirectory().createDirectory();
+    f.appendText (juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H:%M:%S  ")
+                  + what + "\n");
+}
+
+void GhostbandProcessor::logChange (const juce::String& what, const juce::String& from,
+                                    const juce::String& to) const
+{
+    // Nothing actually moved. Worth checking here rather than at forty call
+    // sites, and it is what lets the editor poll a snapshot without having to
+    // work out for itself whether each field is news.
+    if (from == to)
+        return;
+
+    logChange (what + "   " + from + " -> " + to);
+}
+
 // Beside the takes and the learned controls, because a report nobody can find
 // is a report nobody sends.
 static juce::File& stallLogOverride()
@@ -1132,6 +1190,11 @@ bool GhostbandProcessor::saveTake (const juce::String& name, juce::String& error
 void GhostbandProcessor::recallTake (int index)
 {
     GB_WORK ("recall take");
+    {
+        const auto t = getTakes();
+        if (index >= 0 && index < static_cast<int> (t.size()))
+            logChange ("take recalled   " + t[static_cast<size_t> (index)].name);
+    }
     const std::vector<Take> takes = readTakes();
     if (index < 0 || index >= static_cast<int> (takes.size()))
         return;
@@ -1185,6 +1248,11 @@ void GhostbandProcessor::recallTake (int index)
 void GhostbandProcessor::deleteTake (int index)
 {
     GB_WORK ("delete take");
+    {
+        const auto t = getTakes();
+        if (index >= 0 && index < static_cast<int> (t.size()))
+            logChange ("take deleted   " + t[static_cast<size_t> (index)].name);
+    }
     std::vector<Take> takes = readTakes();
     if (index < 0 || index >= static_cast<int> (takes.size()))
         return;
@@ -1227,6 +1295,11 @@ void GhostbandProcessor::mergeLearnedControls (gb::ControlSet& controls,
     const std::string key = instrument.empty() ? id : instrument;
     if (key.empty())
         return;
+
+    // What the FILE said, before anything is merged over it. Captured here
+    // because this is the one place that has both the key and the untouched
+    // set, and because a reset needs something to reset to.
+    profileControls[key] = controls;
 
     const auto found = learnedControls.find (key);
     if (found != learnedControls.end())
@@ -1283,6 +1356,108 @@ void GhostbandProcessor::mergeLearnedControls (gb::ControlSet& controls,
         learnedControls[key] = controls;
         saveLearnedControls();
     }
+}
+
+
+//==============================================================================
+// The instrument key for a part, or empty when the part is not in the song.
+static std::string keyForSet (const std::string& instrument, const std::string& id)
+{
+    return instrument.empty() ? id : instrument;
+}
+
+std::string GhostbandProcessor::instrumentKeyForPart (int part) const
+{
+    switch (part)
+    {
+        case 0:  return keyForSet (kit.instrument,            kit.id);
+        case 1:  return keyForSet (bassProfile.instrument,    bassProfile.id);
+        case 2:  return haveGuitar  ? keyForSet (guitarProfile.instrument,  guitarProfile.id)  : std::string();
+        case 4:  return haveGuitar2 ? keyForSet (guitar2Profile.instrument, guitar2Profile.id) : std::string();
+        case 3:  return havePiano   ? keyForSet (pianoProfile.instrument,   pianoProfile.id)   : std::string();
+        default: return {};
+    }
+}
+
+// Only the CC can differ, and a control can be present on one side and not the
+// other. Everything else is taken from the profile every time it loads, so
+// comparing it would always report agreement and would be a lie by omission.
+juce::String GhostbandProcessor::controlDifferenceSummary (int part) const
+{
+    const juce::ScopedLock sl (stateLock);
+
+    const gb::ControlSet* now = controlSetFor (part);
+    const std::string key = instrumentKeyForPart (part);
+    if (now == nullptr || key.empty())
+        return {};
+
+    const auto found = profileControls.find (key);
+    if (found == profileControls.end())
+        return {};
+
+    const gb::ControlSet& file = found->second;
+    juce::StringArray out;
+
+    for (const gb::ControlDef& c : now->all())
+    {
+        const int inFile = file.ccFor (c.name);
+        if (inFile < 0)
+            out.add (juce::String (c.name) + " is not in the profile at all");
+        else if (inFile != c.cc)
+            out.add (juce::String (c.name) + " is on CC " + juce::String (c.cc)
+                     + ", the profile says " + juce::String (inFile));
+    }
+
+    for (const gb::ControlDef& c : file.all())
+        if (now->ccFor (c.name) < 0)
+            out.add (juce::String (c.name) + " is in the profile and not here");
+
+    return out.joinIntoString ("\n");
+}
+
+int GhostbandProcessor::controlsDifferingFromProfile (int part) const
+{
+    const juce::String s = controlDifferenceSummary (part);
+    return s.isEmpty() ? 0 : juce::StringArray::fromLines (s).size();
+}
+
+bool GhostbandProcessor::resetControlsToProfile (int part, juce::String& error)
+{
+    GB_WORK ("reset mappings");
+
+    std::string key;
+    {
+        const juce::ScopedLock sl (stateLock);
+
+        key = instrumentKeyForPart (part);
+        gb::ControlSet* now = controlSetFor (part);
+
+        if (now == nullptr || key.empty())
+        {
+            error = "That part has no instrument to reset.";
+            return false;
+        }
+
+        const auto found = profileControls.find (key);
+        if (found == profileControls.end())
+        {
+            error = "Nothing was read from a profile for that instrument.";
+            return false;
+        }
+
+        *now = found->second;
+    }
+
+    // The store is what would put the old numbers straight back on the next
+    // load, so dropping the entry is the actual reset - overwriting the merged
+    // copy alone would last until the plugin reopened.
+    learnedControls.erase (key);
+    saveLearnedControls();
+
+    logChange ("mappings reset to profile for " + juce::String (key));
+
+    stateChanged.sendChangeMessage();
+    return true;
 }
 
 gb::PhraseProfile* GhostbandProcessor::phraseProfileFor (int part)
@@ -1361,6 +1536,11 @@ gb::ControlSet* GhostbandProcessor::controlSetFor (int part)
 const gb::ControlSet* GhostbandProcessor::controlSetFor (int part) const
 {
     return const_cast<GhostbandProcessor*> (this)->controlSetFor (part);
+}
+
+const gb::ControlSet* GhostbandProcessor::controlSetForTesting (int part) const
+{
+    return controlSetFor (part);
 }
 
 // Where a part's mappings are written back to.
@@ -2253,6 +2433,7 @@ void GhostbandProcessor::setBassTuning (const juce::String& tuning)
 void GhostbandProcessor::reloadPlan()
 {
     GB_WORK ("reload plan");
+    logChange ("song re-read from disk");
     const juce::File current = getPlanFile();
 
     if (current.existsAsFile())
@@ -2811,7 +2992,40 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     // Still emit past the bar line, so the last chord is allowed to release.
     // Only the PLAYHEAD stops at the end; the sound finishes properly.
     if (songStart >= sequenceEndTick)
+    {
+        // THE SONG IS OVER AND THE LAST CHORD HAS BEEN RELEASED. Park at the
+        // top, paused, so playing it again is one button.
+        //
+        // It used to stop where it ended and stay there, and the only way back
+        // to the beginning was to stop and start the host transport - because
+        // on its own clock Ghostband ignores the host's position, so dragging
+        // the host's playhead does nothing. Two actions in the host to undo
+        // something that happened in the plugin, and it had to be explained on
+        // the status line every time.
+        //
+        // HERE rather than at the last bar line, which is where the playhead
+        // stops: rewinding at the bar line would cut the final chord off
+        // mid-ring. This is the point where there is genuinely nothing left to
+        // send.
+        //
+        // Pausing rather than looping is the point of the request - "so i then
+        // have to only press play again for it to start the song once more". A
+        // band that starts over on its own would be a different feature.
+        if (! paused.load())
+        {
+            sendAllNotesOff (midi, 0);
+
+            paused.store (true);
+            rewindPending.store (true);   // consumed at the top of the next block
+            songFinished.store (true);    // so the interface can say why it stopped
+            playbackTick.store (0);
+            activeSection.store (-1);
+
+            wasPlaying = false;
+            transportRunning.store (false);
+        }
         return;   // nothing left to send, and it does not loop on its own
+    }
 
     emitSpan (songStart, songEnd, 0.0);
 }

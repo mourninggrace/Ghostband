@@ -254,6 +254,15 @@ int main (int argc, char** argv)
     testStore.deleteFile();
     GhostbandProcessor::setLearnedControlsFileForTesting (testStore);
 
+    // And the change log, for exactly the same reason. A test run must not
+    // append a few hundred lines of invented history to the owner's record of
+    // what he actually changed - a log nobody can trust is worse than no log.
+    const juce::File testChangeLog = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                         .getChildFile ("ghostband-harness")
+                                         .getChildFile ("changes.log");
+    testChangeLog.deleteFile();
+    GhostbandProcessor::setChangeLogFileForTesting (testChangeLog);
+
     GhostbandProcessor proc;
 
     if (argc > 1 && juce::String (argv[1]) == "--audit")
@@ -261,6 +270,55 @@ int main (int argc, char** argv)
         layoutAudit (proc, argc > 2 ? juce::String (argv[2]) : juce::String(),
                      argc > 3 ? juce::String (argv[3]).getIntValue() : 0,
                      argc > 4 ? juce::String (argv[4]).getIntValue() : 0);
+        return 0;
+    }
+
+    if (argc > 1 && juce::String (argv[1]) == "--controls")
+    {
+        // What a rig is ACTUALLY set to, which is neither what the profile says
+        // nor what the learned store says: the store supplies CC numbers and
+        // the profile supplies everything else. Reading either file alone gives
+        // the wrong answer, and reading the merge code gave me the wrong answer
+        // too - so it gets printed.
+        //
+        //   --controls [plan] [learned-controls.json]
+        //
+        // The third argument points at a real store, so a particular machine's
+        // rig can be resolved rather than guessed at.
+        const juce::String planArg = argc > 2 ? juce::String (argv[2]) : juce::String();
+
+        const auto dump = [] (const GhostbandProcessor& p2)
+        {
+            static const char* pn[5] = { "drums", "bass", "guitar", "piano", "guitar 2" };
+
+            for (int part = 0; part < 5; ++part)
+            {
+                std::cout << "  " << pn[part] << "\n";
+                const gb::ControlSet* set = p2.controlSetForTesting (part);
+                if (set == nullptr) { std::cout << "      (not in this song)\n"; continue; }
+                for (const gb::ControlDef& c : set->all())
+                    std::cout << "      cc" << juce::String (c.cc).paddedLeft (' ', 3)
+                              << "  " << juce::String (c.name).paddedRight (' ', 22)
+                              << "follows " << c.follows << "\n";
+            }
+        };
+
+        if (argc > 3)
+        {
+            GhostbandProcessor::setLearnedControlsFileForTesting (juce::File (juce::String (argv[3])));
+            GhostbandProcessor fresh;
+            if (planArg.isNotEmpty()) fresh.loadPlan (juce::File (planArg));
+
+            std::cout << "\nstore: " << argv[3] << "\n\n";
+            dump (fresh);
+            std::cout << "\n";
+            return 0;
+        }
+
+        if (planArg.isNotEmpty()) proc.loadPlan (juce::File (planArg));
+        std::cout << "\nno store - the shipped profiles alone\n\n";
+        dump (proc);
+        std::cout << "\n";
         return 0;
     }
 
@@ -301,6 +359,25 @@ int main (int argc, char** argv)
         for (size_t i = 1; i < sections.size(); ++i)
             if (sections[i].startTick != sections[i - 1].endTick) ticksSane = false;
         check (ticksSane, "section tick ranges are contiguous (the UI playhead depends on it)");
+
+        // NOTHING DIFFERS FROM THE PROFILE ON A CLEAN LOAD, and this has to be
+        // checked before anything in the suite has touched a mapping.
+        //
+        // The Settings screen shows the count in amber next to a Reset button.
+        // If a fresh rig reported differences it would be crying wolf on every
+        // launch, and the one time it mattered nobody would look. Every part,
+        // including the ones this song does not have - "not in the song" must
+        // read as zero rather than as everything missing.
+        juce::StringArray noisy;
+        for (int part = 0; part < 5; ++part)
+            if (proc.controlsDifferingFromProfile (part) != 0)
+                noisy.add (juce::String (part) + ": "
+                           + proc.controlDifferenceSummary (part).replace ("\n", "; "));
+
+        check (noisy.isEmpty(),
+               "a freshly loaded rig reports nothing out of step with its profiles",
+               noisy.isEmpty() ? juce::String ("all five parts agree")
+                               : noisy.joinIntoString ("   |   "));
     }
 
     proc.loadPlan (juce::File (planPath));
@@ -513,6 +590,28 @@ int main (int argc, char** argv)
            juce::String (noteOnByChannel[1]) + " vs " + juce::String (status.bassNotes));
 
     // ---- stopping --------------------------------------------------------
+    // A SONG THAT HAS PLAYED TO ITS END HAS PAUSED ITSELF, so anything below
+    // that expects a playing band has to start it again. This is not the test
+    // being bent to fit: it is the same thing a person does, and the pause is
+    // covered on its own further down.
+    //
+    // And it has to be PLAYING before stopping it means anything - all-notes-off
+    // is sent on the transition out of playing, and the auto-pause already made
+    // that transition (sending its own all-notes-off on the way). So: resume,
+    // play a block, and then stop the thing that is actually running.
+    proc.paused.store (false);
+    proc.songFinished.store (false);
+
+    head.playing = true;
+    head.ppq = 0.0;
+    for (int i = 0; i < 8; ++i)
+    {
+        head.ppq = i * quartersPerBlock;
+        buffer.clear();
+        midi.clear();
+        proc.processBlock (buffer, midi);
+    }
+
     head.playing = false;
     buffer.clear();
     midi.clear();
@@ -599,6 +698,13 @@ int main (int argc, char** argv)
         std::map<int, int> openByPitch;
         int jumpedAtTick = -1;
         int blocksAfterQueue = 0;
+    // A SONG THAT HAS PLAYED TO ITS END HAS PAUSED ITSELF, so anything below
+    // that expects a playing band has to start it again. This is not the test
+    // being bent to fit: it is the same thing a person does, and the pause is
+    // covered on its own further down.
+    proc.paused.store (false);
+    proc.songFinished.store (false);
+
         const int targetSection = 3;
         bool queuedYet = false;
 
@@ -3614,6 +3720,167 @@ int main (int argc, char** argv)
         bak.deleteFile();
     }
 
+    // ---- mappings can be put back to what the profile says ------------------
+    // Only a CC can drift: the store holds controller numbers and the profile
+    // supplies everything else, every load. So the reset undoes exactly two
+    // things, and both are checked - a number that is stale, and a control the
+    // profile no longer has. The second one has no other cure, because a
+    // control the store knows about is put back on every load whatever the
+    // profile says.
+    //
+    // The stale CC is built by writing a STORE, not by calling updateControl:
+    // the form does not edit controller numbers, MIDI Learn does, so an edit
+    // through the form could never produce this state and a test that used one
+    // would pass without exercising anything.
+    {
+        const juce::File staleStore = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                          .getChildFile ("ghostband-harness")
+                                          .getChildFile ("stale-store.json");
+        staleStore.getParentDirectory().createDirectory();
+
+        // Just the one control, on the wrong number. Everything else about the
+        // guitar comes from its profile, which is the behaviour being relied on.
+        staleStore.replaceWithText (
+            "{\n"
+            "  \"controls\": {\n"
+            "    \"vg_iron2_instrument\": \"\\\"controls\\\": {\\n"
+            "\\\"drive\\\": { \\\"cc\\\": 99, \\\"follows\\\": \\\"intensity\\\", "
+            "\\\"type\\\": \\\"knob\\\", \\\"low\\\": 0, \\\"high\\\": 1 }\\n }\"\n"
+            "  }\n"
+            "}\n");
+
+        GhostbandProcessor::setLearnedControlsFileForTesting (staleStore);
+        {
+            GhostbandProcessor stale;
+            stale.loadPlan (juce::File (planPath));
+
+            const int part = 2;      // guitar
+            const int before = stale.getControlCount (part);
+
+            check (before > 0, "the guitar has mappings to begin with",
+                   juce::String (before));
+
+            const juce::String summary = stale.controlDifferenceSummary (part);
+
+            check (stale.controlsDifferingFromProfile (part) == 1
+                       && summary.contains ("drive") && summary.contains ("99"),
+                   "a stale controller number in the store is spotted",
+                   summary.replace ("\n", "; "));
+
+            // And a control the profile has never heard of, which is the case
+            // that cannot be fixed by editing the profile.
+            stale.addControl (part);
+            check (stale.controlsDifferingFromProfile (part) == 2,
+                   "so is a control the profile does not have",
+                   stale.controlDifferenceSummary (part).replace ("\n", "; "));
+
+            juce::String err;
+            check (stale.resetControlsToProfile (part, err), "the reset runs", err);
+
+            check (stale.controlsDifferingFromProfile (part) == 0,
+                   "and afterwards nothing differs from the profile",
+                   stale.controlDifferenceSummary (part).replace ("\n", "; "));
+
+            check (stale.getControlCount (part) == before,
+                   "the invented control is gone",
+                   juce::String (stale.getControlCount (part)) + " vs " + juce::String (before));
+
+            bool driveBack = false;
+            for (int i = 0; i < stale.getControlCount (part); ++i)
+                if (stale.getControl (part, i).name == "drive")
+                    driveBack = stale.getControl (part, i).cc != 99;
+
+            check (driveBack, "and the stale number is back to what the profile says");
+        }
+
+        // Never leave a test pointing at somebody's real mappings.
+        GhostbandProcessor::setLearnedControlsFileForTesting (testStore);
+        staleStore.deleteFile();
+    }
+
+    // ---- every change is written down, once ---------------------------------
+    // Asked for in these words: "a running log that ghostband writes to in real
+    // time - every time a change is made, it goes in the log, every change,
+    // every time... a user can open the log and see what changes were made, at
+    // what time they were made on what day".
+    //
+    // The two things that decide whether that is a log or a pile of noise are
+    // both checked: it records what a value WAS as well as what it became, and
+    // a control dragged across its range is ONE line rather than one per pixel.
+    {
+        const juce::File log = GhostbandProcessor::changeLogFile();
+        log.deleteFile();
+
+        if (auto* ed = proc.createEditorIfNeeded())
+        {
+            auto* gbEd = dynamic_cast<GhostbandEditor*> (ed);
+            if (gbEd != nullptr)
+            {
+                gbEd->showScreenForSnapshot (0);
+                ed->setSize (kMinW, kMinH);
+
+                // Settling takes two ticks either side of the delay: one to
+                // notice the value moved, one to find it has stopped moving.
+                const auto settle = [gbEd]
+                {
+                    gbEd->runTimerForTesting();
+                    juce::Thread::sleep (600);
+                    gbEd->runTimerForTesting();
+                };
+
+                // The first look is the baseline and must say nothing - the
+                // state at startup is not a change anybody made.
+                settle();
+
+                check (! log.existsAsFile() || log.loadFileAsString().trim().isEmpty(),
+                       "opening the window logs nothing on its own",
+                       log.existsAsFile() ? log.loadFileAsString().trim()
+                                          : juce::String ("no file"));
+
+                // A drag: many values in quick succession, then it settles.
+                const int wasSeed = proc.seed.load();
+                for (int i = 1; i <= 8; ++i)
+                {
+                    proc.levelBass.store (i / 10.0f);
+                    gbEd->runTimerForTesting();
+                }
+                proc.seed.store (wasSeed + 1);
+                settle();
+
+                const juce::String text = log.existsAsFile() ? log.loadFileAsString()
+                                                             : juce::String();
+                const juce::StringArray lines = juce::StringArray::fromLines (text.trim());
+
+                check (text.contains ("bass level") && text.contains ("80%"),
+                       "a control that moved is in the log at the value it settled on",
+                       text.trim().replace ("\n", " | "));
+
+                int bassLines = 0;
+                for (const juce::String& l : lines)
+                    if (l.contains ("bass level")) ++bassLines;
+
+                check (bassLines == 1,
+                       "and a drag across its range is ONE line, not one per step",
+                       juce::String (bassLines) + " lines for eight moves");
+
+                check (text.contains ("seed") && text.contains ("->"),
+                       "a change records what it was as well as what it became",
+                       text.fromFirstOccurrenceOf ("seed", true, false)
+                           .upToFirstOccurrenceOf ("\n", false, false));
+
+                // The date and the time, because "when" was half the request.
+                const juce::String today = juce::Time::getCurrentTime().formatted ("%Y-%m-%d");
+                check (text.contains (today),
+                       "and it is stamped with the day it happened", today);
+            }
+
+            proc.editorBeingDeleted (ed);
+            delete ed;
+        }
+
+        log.deleteFile();
+    }
+
     // ---- the transport button says what is true ----------------------------
     // Its text was set only inside its own onClick handler, so it started life
     // reading "Pause" and stayed there until somebody pressed it. Pause the
@@ -4343,30 +4610,61 @@ int main (int argc, char** argv)
                "the plugin knows the song has finished",
                juce::String (blocksRun) + " blocks played");
 
-        check (wayPast <= endTick,
-               "and the playhead stops at the last bar instead of running on",
-               juce::String (wayPast) + " with the song ending at " + juce::String (endTick));
+        check (atEnd <= endTick,
+               "the playhead stops at the last bar instead of running on",
+               juce::String (atEnd) + " with the song ending at " + juce::String (endTick));
 
-        check (atEnd == wayPast,
-               "and stays there however long the host keeps running",
-               juce::String (atEnd) + " -> " + juce::String (wayPast));
+        // AND THEN IT GOES BACK TO THE TOP, PAUSED. Asked for in these words:
+        // "when a song finishes playing, it should automatically move the
+        // playhead back to the beginning, so i then have to only press play
+        // again for it to start the song once more."
+        //
+        // The rewind happens once the last chord has been RELEASED, not at the
+        // last bar line - rewinding at the bar line would cut the final chord
+        // off mid-ring, so the two events are deliberately apart and both are
+        // checked.
+        check (wayPast == 0,
+               "and once the last chord has released it parks back at the top",
+               juce::String (wayPast));
 
-        // Stopping and starting the host has to bring it back, or the plugin
-        // is finished for the rest of the session. Not "rewinding": on its own
-        // clock Ghostband ignores the host's position, and the transport
-        // STOPPING is what resets the count.
-        h.playing = false;
-        buf.clear(); mb.clear();
-        proc.processBlock (buf, mb);
+        check (proc.paused.load(),
+               "and pauses itself rather than looping round again");
+
+        // One button, which is the whole point. Not two actions in the host.
+        proc.togglePaused();
+
+        check (! proc.songFinished.load(),
+               "pressing play clears the notice that the song had ended");
 
         h.playing = true;
         h.ppq = 0.0;
         buf.clear(); mb.clear();
         proc.processBlock (buf, mb);
 
-        check (! proc.songFinished.load() && proc.playbackTick.load() < endTick / 4,
-               "and stopping then starting the host plays it again",
-               juce::String (proc.playbackTick.load()));
+        // Long enough to reach the first note of a SPARSE opening. Forty blocks
+        // was enough for demo-metal, which starts on a downbeat, and not for
+        // the ballads, which open on a few piano notes at low intensity - so
+        // the check failed on three of the thirty-four plans while the song was
+        // playing perfectly. "No note in the next fraction of a second" is not
+        // the same claim as "silent", and the test was making the wrong one.
+        int firstNoteAt = -1;
+        for (int i = 0; i < 400 && firstNoteAt < 0; ++i)
+        {
+            for (const juce::MidiMessageMetadata m : mb)
+                if (m.getMessage().isNoteOn()) firstNoteAt = proc.playbackTick.load();
+
+            if (firstNoteAt < 0)
+            {
+                buf.clear(); mb.clear();
+                proc.processBlock (buf, mb);
+            }
+        }
+
+        check (firstNoteAt >= 0 && firstNoteAt < endTick / 4,
+               "and it plays again from the beginning",
+               firstNoteAt < 0 ? juce::String ("SILENT for 400 blocks")
+                               : "first note at tick " + juce::String (firstNoteAt)
+                                     + " of " + juce::String (endTick));
 
         h.playing = false;
         proc.setPlayHead (&h);
