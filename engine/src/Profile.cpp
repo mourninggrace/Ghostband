@@ -1159,6 +1159,31 @@ bool saveControlsInto (const std::string& path, const ControlSet& controls,
         return false;
     }
 
+    // KEEP THE OLD FILE when it has comments in it, because this write is
+    // lossy and there is no other copy.
+    //
+    // The block is regenerated from the ControlSet, so every comment INSIDE it
+    // is discarded - the mappings survive, the reasoning does not. Pressing
+    // "Save mappings" after removing one control from Shreddage on 2026-09-13
+    // took fifty lines of it: why the pickup is a three-position select rather
+    // than a switch, why xtra attack follows intensity rather than random, why
+    // four settings are deliberately left on "none". None of that was asked
+    // for and none of it was recoverable from the file afterwards.
+    //
+    // These profiles are hand-written and heavily annotated on purpose, and the
+    // annotations are most of their value: they are what stops the next person
+    // re-making a decision that was already measured. A one-line backup is a
+    // cheap price for never losing them again.
+    //
+    // Only when there IS something to lose, and named ".json.bak" so an
+    // installer globbing *.json never ships one.
+    std::string original;
+    if (readWholeFile (path, original) && original.find ("//") != std::string::npos)
+    {
+        std::string ignored;
+        writeFileAtomically (path + ".bak", original, ignored);
+    }
+
     return writeFileAtomically (path, text, error);
 }
 

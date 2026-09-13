@@ -3554,6 +3554,118 @@ int main (int argc, char** argv)
         testLog.deleteFile();
     }
 
+    // ---- saving mappings never destroys the reasoning in a profile ---------
+    // Writing a controls block regenerates it from the ControlSet, so every
+    // comment inside it is discarded. That is not theoretical: removing one
+    // control from Shreddage through the Settings screen on 2026-09-13 took
+    // fifty lines of annotation with it - why the pickup is a three-position
+    // select, why xtra attack follows intensity, why four settings are on
+    // "none". The mappings were fine; the reasoning was gone, and there was no
+    // other copy.
+    //
+    // A backup is written whenever the file has comments to lose.
+    {
+        const juce::File dir = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                   .getChildFile ("ghostband-harness");
+        dir.createDirectory();
+
+        const juce::File prof = dir.getChildFile ("commented-profile.json");
+        const juce::File bak  = dir.getChildFile ("commented-profile.json.bak");
+        prof.deleteFile();
+        bak.deleteFile();
+
+        prof.replaceWithText (
+            "{\n"
+            "  \"name\": \"Test\",\n"
+            "  \"id\": \"test\",\n"
+            "  \"channel\": 5,\n"
+            "  \"controls\": {\n"
+            "    // THE REASONING. This line is the whole point of the check.\n"
+            "    \"tone\": { \"cc\": 40, \"follows\": \"none\", \"type\": \"knob\", \"low\": 0, \"high\": 1 }\n"
+            "  }\n"
+            "}\n");
+
+        gb::ControlSet set;
+        gb::PhraseProfile::ControlDef def;
+        def.name = "tone"; def.cc = 40; def.follows = "none";
+        set.editable().push_back (def);
+
+        std::string err;
+        const bool wrote = gb::saveControlsInto (prof.getFullPathName().toStdString(), set, err);
+
+        check (wrote, "a profile's mappings can be written back", err);
+
+        check (bak.existsAsFile(),
+               "and the version with the comments in it is kept beside it",
+               bak.existsAsFile() ? bak.getFileName() : juce::String ("no backup written"));
+
+        check (bak.existsAsFile()
+                   && bak.loadFileAsString().contains ("THE REASONING"),
+               "so nothing that was written by hand is lost by pressing Save",
+               bak.existsAsFile() ? juce::String (bak.getSize()) + " bytes"
+                                  : juce::String ("-"));
+
+        // Named so an installer globbing *.json cannot ship one.
+        check (! bak.getFileName().endsWith (".json"),
+               "and the backup cannot be mistaken for a profile",
+               bak.getFileName());
+
+        prof.deleteFile();
+        bak.deleteFile();
+    }
+
+    // ---- the transport button says what is true ----------------------------
+    // Its text was set only inside its own onClick handler, so it started life
+    // reading "Pause" and stayed there until somebody pressed it. Pause the
+    // band, close the plugin window, reopen it, and you get a fresh editor
+    // reading "Pause" over a band that is already paused - the one control
+    // whose whole job is to say which of two states you are in, stating the
+    // opposite, with no way out but pressing it twice.
+    //
+    // Read the way a person reads it: find the button by its text among the
+    // editor's children. Asking the editor what it thinks the text is would
+    // pass on a button that never made it to the screen.
+    {
+        const auto transportText = [] (juce::AudioProcessorEditor* ed) -> juce::String
+        {
+            for (int i = 0; i < ed->getNumChildComponents(); ++i)
+                if (auto* b = dynamic_cast<juce::TextButton*> (ed->getChildComponent (i)))
+                    if (b->isVisible() && (b->getButtonText() == "Play"
+                                           || b->getButtonText() == "Pause"))
+                        return b->getButtonText();
+            return {};
+        };
+
+        proc.paused.store (true);
+
+        if (auto* ed = proc.createEditorIfNeeded())
+        {
+            auto* gbEd = dynamic_cast<GhostbandEditor*> (ed);
+            if (gbEd != nullptr)
+            {
+                gbEd->showScreenForSnapshot (0);      // song
+                ed->setSize (kMinW, kMinH);
+                gbEd->runTimerForTesting();
+
+                check (transportText (ed) == "Play",
+                       "a window opened while the band is paused offers to PLAY",
+                       transportText (ed));
+
+                proc.paused.store (false);
+                gbEd->runTimerForTesting();
+
+                check (transportText (ed) == "Pause",
+                       "and it goes back to PAUSE when the band is running",
+                       transportText (ed));
+            }
+
+            proc.editorBeingDeleted (ed);
+            delete ed;
+        }
+
+        proc.paused.store (false);
+    }
+
     // ---- one row of the tracker is as much music as you asked for -----------
     // Four zooms, and the only one that was ever exercised was the middle one.
     // The arithmetic that places a note in a row is the same at every zoom and

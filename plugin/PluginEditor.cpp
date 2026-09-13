@@ -1126,11 +1126,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     styleButton (rollButton, true);
     styleButton (playPauseButton, false);
     addAndMakeVisible (playPauseButton);
-    playPauseButton.onClick = [this]
-    {
-        processor.togglePaused();
-        playPauseButton.setButtonText (processor.paused.load() ? "Play" : "Pause");
-    };
+    playPauseButton.onClick = [this] { processor.togglePaused(); };
     styleButton (calibrateButton, false);
 
     addAndMakeVisible (calibrateButton);
@@ -1398,6 +1394,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     initLabel (styleLabel,      "STYLE",      15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (tuningLabel,     "BASS TUNING",15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (zoomLabel,       "ROWS",       15.0f, ghost::dim,   juce::Justification::centredLeft);
+    initLabel (bandLabel,       "BAND",       15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (tempoLabel,      "",           15.0f, ghost::dim,   juce::Justification::centredRight);
     initLabel (complexityLabel, "COMPLEXITY", 15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (humanizeLabel,   "HUMANIZE",   15.0f, ghost::dim,   juce::Justification::centredLeft);
@@ -2103,8 +2100,15 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         tip (rollButton,  "A different performance of the SAME song - same chords, same structure, "
                           "different playing. Ctrl-click sections first to reroll only those; "
                           "every other section is provably untouched.");
-        tip (playPauseButton, "Stops the band without stopping your host. Ghostband follows the "
-                              "host transport, so it cannot start one that is not running.");
+        tip (playPauseButton, "Stops the band without stopping your host, and starts it again. "
+                              "It says what will happen when you press it, so \"Play\" means the "
+                              "band is paused right now. What it cannot do is start a host "
+                              "transport that is not running - Ghostband follows yours, and the "
+                              "line under the grid says so when that is why nothing is playing.");
+        tip (bandLabel,       "Ghostband's own transport, separate from your host's. A rackspace "
+                              "usually leaves the host running for a whole set, so pausing the "
+                              "band and stopping the host are different things and both are "
+                              "useful.");
 
         tip (keyBox,   "Transposes the whole song, including chords written into the plan - not "
                        "just generated ones.");
@@ -2550,6 +2554,21 @@ void GhostbandEditor::timerCallback()
                                   tick >= 0 ? ghost::accent : ghost::dim);
     }
 
+    // The transport button says what is TRUE, not what was last clicked.
+    //
+    // Its text was set only inside its own onClick handler, so it started life
+    // reading "Pause" and stayed that way until somebody pressed it. Pause the
+    // band, close the plugin window, reopen it: a fresh editor, a button
+    // reading "Pause", and a band that is already paused. The one control whose
+    // whole job is to tell you which of two states you are in was stating the
+    // opposite of the truth, and the only way out was to press it twice.
+    const int nowPaused = processor.paused.load() ? 1 : 0;
+    if (nowPaused != lastPausedShown)
+    {
+        lastPausedShown = nowPaused;
+        playPauseButton.setButtonText (nowPaused ? "Play" : "Pause");
+    }
+
     // Queued section, which the processor clears once the jump lands.
     const int queued = processor.queuedSection.load();
     if (queued != lastQueued)
@@ -2704,7 +2723,7 @@ void GhostbandEditor::updateModeVisibility()
              &tuningBox, &keyLabel, &styleLabel, &tuningLabel,
              &zoomBox, &zoomLabel,
              &modeBox, &modeLabel,
-             &tempoLabel, &transportLabel, &summaryLabel, &playPauseButton,
+             &tempoLabel, &transportLabel, &summaryLabel, &playPauseButton, &bandLabel,
              &bpmLabel, &bpmEditor, &rollHintLabel,
              &mixLabel, &levelDrums, &levelBass, &levelGuitar, &levelGuitar2, &levelPiano,
              &levelDrumsLabel, &levelBassLabel, &levelGuitarLabel,
@@ -4225,7 +4244,8 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
         row.removeFromLeft (8);
         rollButton.setBounds (row);
 
-        rail.removeFromTop (8);
+        rail.removeFromTop (10);
+        bandLabel.setBounds (rail.removeFromTop (12));
         row = rail.removeFromTop (26);
         playPauseButton.setBounds (row.removeFromLeft (84));
         row.removeFromLeft (14);

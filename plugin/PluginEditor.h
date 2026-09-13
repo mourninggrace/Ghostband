@@ -395,6 +395,13 @@ private:
     juce::TextEditor seedEditor;
     juce::Label      seedLabel;
 
+    // A heading for the transport row. Every other block in the rail has one -
+    // KEY, STYLE, SEED, MIX - and this row had none, so the Pause button read
+    // as a stray control rather than as the band's transport. It was reported
+    // as missing while sitting in plain sight, which is what an unlabelled
+    // control in a labelled column looks like.
+    juce::Label      bandLabel;
+
     // Tempo, editable. The plan carries a bpm and nothing in the interface
     // could change it, so a preset was stuck at whatever tempo it was written
     // at unless you opened the file in a text editor.
@@ -714,6 +721,10 @@ private:
 
     int      lastPlayheadTick = -2;
     int      lastQueued       = -2;
+
+    // What the play/pause button is currently SAYING, so it can be corrected
+    // when it stops matching what is true. -1 means "nothing shown yet".
+    int      lastPausedShown  = -1;
 
     // resized() runs during construction, before setSize has been called, when
     // the editor is still zero by zero. Without this guard it stored that zero
