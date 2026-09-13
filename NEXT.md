@@ -6,20 +6,17 @@ useless for the one job it has: telling whoever picks this up next what is true
 right now. The history is in `docs/archive/NEXT-through-session-13.md`, and
 nobody has to read it.
 
-**Last touched 2026-09-13, end of session 18.**
+**Last touched 2026-09-13, end of session 19.**
 
 ## State
 
-- **v0.3.0 released.** Tagged, published, and the asset's checksum verified by
-  downloading it back from GitHub.
-- **Everything through session 18 is installed and hash-verified**, but NOT
-  released. v0.3.0 is still the last tag and a fair amount has landed since:
-  the mix knobs, the ROWS selector, the stall detector, and the rail layout.
-  A release is worth offering.
+- **v0.4.0 released 2026-09-13.** Tagged, published, marked latest, installed,
+  and the asset's checksum verified by downloading it back from GitHub. Nothing
+  is unreleased.
 - **The window is 1180x820, minimum 1020x820.** Both numbers are load-bearing:
   the minimum is set by the two-column Settings screen, not by the song screen,
   and the harness's `kMinW`/`kMinH` must move with it.
-- **329 checks** pass on every build.
+- **360 checks** pass on every build.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
@@ -88,7 +85,7 @@ sequence under that lock either. The audio thread takes it with a TRY-lock, so i
 does not wait - it skips the block and sends nothing. `getTrackerCells` binary
 searches the window instead.
 
-## THERE IS A SECOND STALL. IT IS INSTRUMENTED, NOT FIXED
+## THE SECOND STALL IS MEASURED, AND IT IS NOT GHOSTBAND
 
 Reported 2026-09-12:
 
@@ -128,9 +125,56 @@ conclusion rather than as numbers, and appended to
 `%APPDATA%\Ghostband\stalls.log` — because the window that would show it is
 the thing that was frozen.
 
-**Next session: ask whether that file has anything in it.** Also worth knowing
-whether it correlates with the ROWS setting; 16th repaints four times as often
-as bar, and if the stall only ever appears there, that is the answer.
+**IT HAS BEEN CAUGHT, and the answer is not us.** Eleven freezes in twenty-one
+minutes on 2026-09-13 - 29.5 seconds of frozen window, worst a single 11.6
+seconds. Every one recorded:
+
+```
+gap 11580 ms   ghostband 0.0 ms   audio 1086 blocks of 512 at 48.0k
+```
+
+Every gap divides by its block count to 10.6-10.8 ms against a theoretical 10.67
+for 512 samples at 48k, so the audio thread ran continuously through all of
+them, and Ghostband spent no measurable message-thread time - a figure that
+includes PAINTING and every handler. The host's message thread was held by
+something that is not this plugin.
+
+**Not further diagnosable from inside Ghostband.** What is left is the owner's
+to run: Windows Defender real-time protection and behaviour monitoring are on
+with no exclusions (Kontakt streaming samples through a scanner is the classic
+cause of exactly this), and bisecting the rackspace would settle it. Both are
+written up in OPEN-QUESTIONS.
+
+## Session 19: editing the grid, and a release
+
+The song screen's grid is now clickable: a row opens a strip on the bar it is
+in, carrying that bar's CHORD and its section's FEEL, plus reroll and a jump
+into the structure editor. What it offers is deliberately what is AUTHORED - a
+note in the grid is the output of a seed and a plan, there is nowhere to put a
+hand-placed one and no way to keep it through a reroll. Editing a bar of an
+automatic section PINS that section to what it was already playing; anything
+else would let its other bars drift on the next regenerate.
+
+**A note-overrides layer is the obvious next ask and has not been built.** It
+would need somewhere to store a hand-placed note, a rule for what happens to it
+when the section is rerolled, and a decision about whether a take carries it.
+
+Row shading was rewritten. It shaded downbeats, and at one row per bar - the
+default - every row IS a downbeat, so the grid was a wall of identical stripes.
+Three tiers now, and the zebra alternates on position-in-bar where a bar holds
+several rows and on BAR NUMBER where it does not.
+
+Also: a change log (`%APPDATA%\Ghostband\changes.log`), polled from a snapshot
+rather than reported from forty call sites, so a knob drag is one line; Reset to
+profile in Settings; the song rewinds itself and pauses when it ends; the
+transport button follows the state instead of only its own clicks.
+
+**The lesson, and it is the same one as last session.** The edit strip's first
+version overran at the window's minimum and drew the feel box on top of a
+button. Nothing caught it, because the strip only exists after a CLICK and every
+layout sweep walks the screens without touching anything. Both sweeps now
+perform the gesture first, and there is a snapshot of it open. **A state that
+needs a gesture to reach needs the gesture in the test.**
 
 ## Session 18: the rail, and catching the stall instead of guessing at it
 

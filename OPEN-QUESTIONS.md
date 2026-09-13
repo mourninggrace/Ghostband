@@ -3,60 +3,61 @@
 One file, so none of it has to be remembered. Answered items move to the bottom
 with a date rather than being deleted, so the same question is never asked twice.
 
-**Last updated 2026-09-13, end of session 18.**
+**Last updated 2026-09-13, end of session 19.**
 
 ---
 
 ## YOUR LIST
 
-### 0. THE UI STALL — the plugin catches it itself now
+### 0. THE UI STALL — ANSWERED, and it is not Ghostband. Over to you.
 
-Your words: *"sometimes the ghostband UI is frozen, playhead not moving, screen
-not changing, but audio is still heard like normal and then suddenly it will
-start working normally again."*
-
-It has not recurred, so rather than theorise I measured. **Every part of
-Ghostband's own frame is fast** — a full repaint is 4.5 ms, fetching the grid's
-contents is 0.04 ms at its worst, and a whole reroll is 1.2 ms. None of that can
-produce a multi-second freeze, which rules out the suspect I had written down
-last session. Useful, but it means there is nothing here to fix by reasoning.
-
-**So the plugin now catches it in the act.** Three numbers, and between them
-they say which fault it is:
-
-| what is measured | what it means |
-|---|---|
-| the **gap** between screen updates | a long gap with short work means we were never called — the message thread was busy elsewhere, and elsewhere means Gig Performer |
-| the **work** inside one update | a long one means Ghostband did it, and it is mine to fix |
-| **audio blocks during the gap** | still climbing means the audio thread ran the whole time and only the window was stuck; stopped too means the whole plugin was held up |
-
-Anything over a quarter of a second is recorded. **You do not have to do
-anything** — if it happens you will see a note appear beside the latency reading
-in the bottom right, in amber, saying how many times and how long the worst was.
-Hover it and it tells you which of the three it was, in words.
-
-It is also written to a file, because the window that would show it is the thing
-that was frozen and you might close the session before looking:
+Caught eleven times on 2026-09-13, between 11:11 and 11:32: **29.5 seconds of
+frozen window in twenty-one minutes, the worst a single 11.6-second hang.**
+Every one of them said the same thing:
 
 ```
-%APPDATA%\Ghostband\stalls.log
+gap 11580 ms   ghostband 0.0 ms   audio 1086 blocks of 512 at 48.0k
 ```
 
-**All I need next time: send me that file, or the tooltip's wording.** That plus
-what you were doing turns this from a hunt into a fix.
+Two numbers settle it. **Ghostband used 0.0 ms** of interface time during every
+freeze — and that figure includes painting and every button handler, which were
+the two holes I closed before trusting it. And **the audio thread never missed a
+block**: every gap divides by its block count to 10.6–10.8 ms against a
+theoretical 10.67 for 512 samples at 48 kHz. Through the 11.6-second freeze it
+ran 1,086 consecutive blocks.
 
-One thing that would genuinely help: it may be worse at the finer ROWS settings,
-since 16th repaints four times as often as bar. If you ever catch it, note which
-setting you were on — and if it only ever happens on 16th, that is the answer.
+So the plugin was fine and the *host's* interface thread was held by something
+else. There is nothing left to fix in Ghostband, and I cannot see outside it.
 
-### 0a. Everything is installed and hash-verified
+**Two things that would settle what is holding it, both yours to run:**
 
-Installed 2026-09-13 11:19. The binary in your VST3 folder is the one that was
-built and tested — checked by hash, not assumed.
+**1. Defender exclusions.** Real-time protection and behaviour monitoring are
+both on, with no exclusions I can read. Defender scanning sample files as
+Kontakt streams them is the classic cause of exactly this shape of freeze. In an
+**administrator** PowerShell:
 
-**Nothing since v0.3.0 has been RELEASED though**, and there is a lot of it now:
-the mix knobs, the ROWS selector, the stall detector, and the whole rail
-layout. A release is due whenever you want one — `Release.bat` does the work.
+```powershell
+Add-MpPreference -ExclusionPath "C:\Program Files\Common Files\VST3","C:\Program Files\Native Instruments","C:\Users\strin\Documents\Native Instruments"
+```
+
+Add your sample-library drive too if it lives elsewhere. Reversible with
+`Remove-MpPreference -ExclusionPath ...`. I will not change security settings
+myself, which is why this is a command rather than something already done.
+
+**2. Bisect the rackspace.** Ghostband alone in a fresh rackspace, ten minutes
+of playing. Still stalls → Gig Performer or Windows. Doesn't → add Kontakt back,
+then the rest.
+
+Either way, `stalls.log` keeps score, and the footer turns amber when it
+happens. If the log ever shows a line where **ghostband** is a big number rather
+than 0.0, that one IS mine and I want to see it.
+
+### 0a. v0.4.0 is out
+
+https://github.com/mourninggrace/Ghostband/releases/tag/v0.4.0
+
+Published, marked latest, installed on your machine, and the download's checksum
+verified by fetching it back from GitHub. Nothing is sitting unreleased.
 
 ### 0b. The mix knobs, and the ROWS selector — try these first
 
@@ -88,39 +89,34 @@ Nothing about the music changes — only how closely you are looking at it.
 quarter as many rows as a beat, so the grid repaints least often on the setting
 it opens on.
 
-### 0c. The rail shipped — three screens done, three left
+### 0c. The grid is clickable, and one limit is worth knowing
 
-You picked Option A and it is in. What changed:
+Click any row and a strip opens on that bar:
 
-- **Song.** A fixed 320px rail of controls down the left, the grid taking
-  everything else. **802 x 572 where it was 760 x 461** — at one row per bar
-  that is 26 bars on screen at once. The five mix knobs are five rows now,
-  which is what gives a knob that cannot work a whole line to say why on.
-- **Settings.** Two columns — channels on the left, MIDI learn on the right.
-  It was one narrow column in a 1180-wide window, so an instrument name got 900
-  pixels to say "MODO Bass 2" while the control list was squeezed to sixty.
-- **Edit.** The form is a rail too. This was your "cockeyed": its six rows ended
-  at six different x positions because each was as wide as its own contents
-  happened to be. A rail gives them one right edge for free, and the
-  arrangement list gets the full height.
-- **The window** is 1180 x 820, landscape, minimum 1020 x 820. The minimum is
-  set by Settings, not by the song screen.
+    BAR 3   intro     CHORD [Em]   FEEL [straight]
+                      Reroll section | Open in editor | Close
 
-**The thing worth trying deliberately:** grab the window edge and resize it.
-Only the grid changes size now. Every control stays exactly where your hand
-left it, at every size.
+**What it does not offer is note editing, and that is a real limit rather than
+an oversight.** A note in the grid is the *output* of a seed and a plan. There
+is nowhere to put a hand-placed one and no way to keep it through a reroll. What
+you can change is what actually decides those notes — the chord under the bar
+and the feel of its section — and both are heard immediately.
 
-**Not done: Takes, Calibrate and About.** All three are a short header over one
-long list, they already use the full width, and they look right at the new size
-— so I left them rather than adding a rail for the sake of consistency. Say if
-you want them matched anyway.
+If you want genuine per-note hand edits, that is buildable and it is a session
+of its own: it needs somewhere to store an override, a rule for what a reroll
+does to it, and a decision about whether a take carries it. **Say the word and
+I will spec it properly first.**
 
-Three bugs turned up while looking at the rendered screens, all now fixed:
-every middle dot in the interface was rendering as `A·` (juce::String's
-constructor decodes UTF-8, its `operator+` decodes Latin-1); the About screen
-had a stray hairline ruled through the middle of it; and shortening the window
-handed the theme picker an 8-pixel-tall box — the same fault, in the same
-place, as the one whose comment sits three lines above it.
+One behaviour to know: editing a bar in a section whose chords were automatic
+**pins that section to what it was already playing** and changes only your bar.
+Otherwise its other bars would drift the next time the song regenerated.
+
+### 0c2. Row shading — tell me if it is now too much
+
+Every line should be distinguishable from its neighbours at every zoom, with the
+downbeat strongest, beats in the middle, a zebra either side, and every fourth
+bar marked as a phrase edge. The contrast is two numbers if it reads as too
+subtle or too busy.
 
 ### 0d. Animations — yes, and here is where they would earn their keep
 

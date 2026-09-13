@@ -20,13 +20,11 @@ in fact done, and are noted at the bottom so nobody rediscovers them.
   across 19 presets recovered from a dead region.
 - **v0.3.0, 2026-09-12** — the tracker song screen, tooltips on all 92 controls,
   the Neon theme, and a deadlock that could freeze the host.
-- **unreleased, 2026-09-12/13 (sessions 17-18)** — the mix knobs stop
-  vanishing; the tracker's rows are selectable (bar / beat / 8th / 16th, and
-  bar is the default); a stall detector that catches a UI freeze and says
-  whether it was Ghostband or the host; the rail layout on the song, Settings
-  and Edit screens; a 1180x820 landscape window. **Installed and
-  hash-verified on the owner's machine, but not released** — v0.3.0 is still
-  the last tag and a release is worth offering.
+- **v0.4.0, 2026-09-13** — the rail layout and a 1180x820 landscape window;
+  click a grid row to edit that bar's chord and its section's feel; row shading
+  that distinguishes every line; selectable row resolution; a change log; Reset
+  to profile; a song that rewinds itself; the mix knobs stop vanishing; and a
+  stall detector that says whether a freeze was Ghostband or the host.
 
 `Release.bat` cuts one. It refuses a dirty tree or a failing build, and stages
 the profiles and preset songs INTO the bundle - the build output has neither, and
@@ -328,17 +326,18 @@ calibrated from inside Gig Performer. Same wall as IRON 2 in Player mode.
 
 ## E. Ideas raised, never scheduled
 
-- **The UI stall — instrumented, waiting on it to happen again.** The window
-  freezes for a while, audio keeps playing, then it recovers. Measured: nothing
-  Ghostband does per frame is slow enough to cause it, so the plugin now
-  records the gap, the work and the audio-block count whenever the timer misses
-  its slot, and writes `%APPDATA%\Ghostband\stalls.log`. See NEXT.md. Next
-  step is to ask whether that file has anything in it, not to guess again.
-- **Laying the screens out — mostly DONE 2026-09-13.** The owner picked the
-  left rail from two mockups; song, Settings and Edit are rebuilt around it and
-  the window is 1180x820. Takes, Calibrate and About are deliberately left as
-  they are — each is a short header over one long list, already using the full
-  width. Offer to match them if he wants consistency for its own sake.
+- **The UI stall — ANSWERED, and not Ghostband.** Caught eleven times: zero
+  message-thread time of ours, and the audio thread ran every block. Something
+  else in the host holds its interface thread. Nothing further to do in this
+  codebase; the remaining moves are the owner's and are in OPEN-QUESTIONS.
+- **Per-note hand edits in the grid.** The obvious next ask after clicking a
+  row. Needs somewhere to store a hand-placed note, a rule for what a reroll
+  does to it, and a decision about whether a take carries it. Not started.
+- **Laying the screens out — DONE 2026-09-13, shipped in v0.4.0.** Song,
+  Settings and Edit are built around the left rail he picked from two mockups.
+  Takes, Calibrate and About are deliberately left as they are — each is a short
+  header over one long list, already using the full width. Offer to match them
+  if he wants consistency for its own sake.
 - **Animations, requested 2026-09-12.** "The kinda animation you might see in
   very stable very expensive software by big companies." Best candidates, in
   order: screen cross-fades, the playhead row easing between rows, a pulse on
