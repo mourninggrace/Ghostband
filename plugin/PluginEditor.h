@@ -330,6 +330,16 @@ private:
     void timerCallback() override;
     void refreshFromProcessor();
     void layOutFooter (juce::Rectangle<int> area);
+
+    // The song screen, which is laid out differently from every other one: a
+    // fixed rail of controls down the left and the grid taking all the rest.
+    // See the note on the definition for why.
+    void layOutSongScreen (juce::Rectangle<int> area);
+
+    // Wide enough for MODE's box beside its label, which is the widest pair in
+    // it, and narrow enough to leave the grid the majority of the window at the
+    // smallest size the window is allowed to be.
+    static constexpr int kRailWidth = 320;
     void markDialsDirty();
     void styleButton (juce::TextButton& b, bool primary);
     void styleSlider (juce::Slider& s);

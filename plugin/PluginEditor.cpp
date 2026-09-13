@@ -1811,7 +1811,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     aboutButton.onClick    = [this] { screen = Screen::About;    updateModeVisibility(); };
     backButton.onClick     = [this] { screen = Screen::Song;     updateModeVisibility(); };
 
-    resetSizeButton.onClick = [this] { setSize (800, 960); };
+    resetSizeButton.onClick = [this] { setSize (1180, 820); };
 
     styleCombo (themeBox);
     addChildComponent (themeBox);
@@ -2059,15 +2059,19 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     // size lives on the processor so it survives closing the window and is
     // saved with the rest of the plugin state.
     setResizable (true, true);
-    // The floor is what the song screen actually needs before the section list
-    // starts being clipped, not an arbitrary small number.
-    setResizeLimits (700, 820, 2400, 2200);
+    // The floor is what the screens actually need, not an arbitrary small
+    // number, and it is set by SETTINGS rather than by the song screen. The
+    // song screen wants the 320-wide rail plus five readable tracker columns,
+    // which is about 900. Settings wants a 460 column of channels beside a 496
+    // column of the learn form, which is 1020 - and a minimum that fits five
+    // screens and breaks the sixth is not a minimum.
+    setResizeLimits (1020, 820, 2400, 2200);
 
     // Restore the remembered size, then start recording changes to it. The
     // order matters: recording before this point captures the zero-sized
     // editor and loses what was remembered.
-    setSize (juce::jmax (560, processor.editorWidth.load()),
-             juce::jmax (690, processor.editorHeight.load()));
+    setSize (juce::jmax (1020, processor.editorWidth.load()),
+             juce::jmax (820, processor.editorHeight.load()));
     sizeInitialised = true;
 
     // ---- tooltips ----
@@ -2332,6 +2336,22 @@ void GhostbandEditor::updateLatencyReadout()
 // Records a gap in the timer, if there was one, and starts the clock on this
 // callback. See the note on Stall in the header for why the gap and the work
 // are measured separately.
+// A middle dot, and it has to be built this way.
+//
+// juce::String's CONSTRUCTOR from a const char* decodes UTF-8, but its
+// operator+ and operator+= decode the same bytes as Latin-1 - so the perfectly
+// good two bytes C2 B7 came out as two characters, and every separator in the
+// interface read "DRUMS A. no reach" instead of "DRUMS - no reach". It had been
+// wrong in the mix labels since they were written and nobody had seen it,
+// because until this session the only label carrying one was a case that almost
+// never came up. Caught by looking at a rendered snapshot, which is the whole
+// reason the harness renders them.
+static const juce::String& midDot()
+{
+    static const juce::String d = juce::String::fromUTF8 ("\xc2\xb7");
+    return d;
+}
+
 void GhostbandEditor::noteTimerTick()
 {
     const double now = juce::Time::getMillisecondCounterHiRes();
@@ -2381,7 +2401,7 @@ juce::String GhostbandEditor::stallSummary() const
     if (stalls.empty())
         return {};
 
-    return "   \xc2\xb7   " + juce::String (static_cast<int> (stalls.size()))
+    return "   " + midDot() + "   " + juce::String (static_cast<int> (stalls.size()))
          + (stalls.size() == 1 ? " stall" : " stalls")
          + ", worst " + juce::String (worstGapMs / 1000.0, 1) + "s";
 }
@@ -3692,6 +3712,15 @@ void GhostbandEditor::resized()
 
     if (screen == Screen::About)
     {
+        // The only screen with no status block, so it must clear the rule that
+        // sits above one. layOutFooter is what sets footerRule, About never
+        // calls it, and the rectangle therefore kept whatever the LAST screen
+        // laid out - a hairline ruled across the middle of the About text at
+        // whatever height the previous screen's footer happened to be. Painted
+        // straight onto the canvas, so no child-component check could see it;
+        // found by looking at a rendered snapshot.
+        footerRule = {};
+
         auto a = r;
         auto buttons = a.removeFromBottom (30);
         manualButton.setBounds (buttons.removeFromLeft (118));
@@ -3704,137 +3733,173 @@ void GhostbandEditor::resized()
 
     if (screen == Screen::Settings)
     {
-        // Reserve the footer before anything else takes the space, or the list
-        // grows straight over it.
+        // TWO COLUMNS, and the reason is a bug rather than a preference.
+        //
+        // This was one narrow column of rows in a window 1180 wide, so the
+        // instrument names were given 900 pixels to say "MODO Bass 2" while the
+        // control list at the bottom was squeezed to sixty pixels. Then the
+        // window got shorter and the squeeze became a fault: the rows under the
+        // list were taken with
+        //
+        //     removeFromBottom (jmin (74, jmax (0, s.getHeight() - 60)))
+        //
+        // which protects the LIST by shrinking the CONTROLS, and at 820 tall it
+        // handed the theme picker a rectangle eight pixels high. That is the
+        // same fault, in the same place, as the one whose comment sits three
+        // lines above it - a list can scroll, a combo box cannot, so when the
+        // two compete for the last pixels the list must always be the one that
+        // gives. Both columns below reserve their fixed rows first.
         layOutFooter (r.removeFromBottom (58));
         r.removeFromBottom (10);
 
-        auto s = r;
-        settingsHeading.setBounds (s.removeFromTop (24));
-        s.removeFromTop (10);
+        settingsHeading.setBounds (r.removeFromTop (24));
+        r.removeFromTop (12);
 
-        juce::ComboBox* boxes[5]  = { &chDrums, &chBass, &chGuitar, &chPiano, &chGuitar2 };
-        juce::Label*    labels[5] = { &chDrumsLabel, &chBassLabel, &chGuitarLabel,
-                                      &chPianoLabel, &chGuitar2Label };
-        juce::TextButton* tests[5] = { &testDrums, &testBass, &testGuitar,
-                                       &testPiano, &testGuitar2 };
-        for (int i = 0; i < 5; ++i)
+        // The left column is a FIXED width, not half the window. Half looked
+        // reasonable and broke at the minimum size: the right column came out
+        // 406 wide, the learn form needs about 470, and removeFromLeft on an
+        // exhausted rectangle returns zero-width pieces at the same x - so
+        // three controls stacked on top of each other and a label came out two
+        // pixels wide. A column with a job has a size; it does not get a
+        // fraction and hope.
+        auto left = r.removeFromLeft (460);
+        r.removeFromLeft (24);
+        auto right = r;
+
+        // ---- left: the channels, and the things that are set once ----
         {
+            // Fixed rows off the bottom BEFORE anything above them is measured.
+            auto bottom = left.removeFromBottom (66);
+
+            juce::ComboBox* boxes[5]  = { &chDrums, &chBass, &chGuitar, &chPiano, &chGuitar2 };
+            juce::Label*    labels[5] = { &chDrumsLabel, &chBassLabel, &chGuitarLabel,
+                                          &chPianoLabel, &chGuitar2Label };
+            juce::TextButton* tests[5] = { &testDrums, &testBass, &testGuitar,
+                                           &testPiano, &testGuitar2 };
             juce::Label* names[5] = { &chDrumsName, &chBassName, &chGuitarName,
                                       &chPianoName, &chGuitar2Name };
 
-            auto row = s.removeFromTop (28);
-            labels[i]->setBounds (row.removeFromLeft (70));
-            boxes[i]->setBounds (row.removeFromLeft (78));
-            row.removeFromLeft (10);
-            tests[i]->setBounds (row.removeFromLeft (66));
-            row.removeFromLeft (14);
-            names[i]->setBounds (row);
-            s.removeFromTop (6);
+            for (int i = 0; i < 5; ++i)
+            {
+                auto row = left.removeFromTop (28);
+                labels[i]->setBounds (row.removeFromLeft (70));
+                boxes[i]->setBounds (row.removeFromLeft (78));
+                row.removeFromLeft (10);
+                tests[i]->setBounds (row.removeFromLeft (66));
+                row.removeFromLeft (14);
+                names[i]->setBounds (row);
+                left.removeFromTop (6);
+            }
+
+            left.removeFromTop (6);
+            // Capped rather than given everything left over: a Label centres
+            // its text vertically, so a paragraph handed three hundred pixels
+            // floats in the middle of them with a gap above and below that
+            // reads as a layout mistake.
+            channelsHelp.setBounds (left.removeFromTop (juce::jmin (72, left.getHeight())));
+
+            // Two rows of two, not one row of three plus the picker. Three
+            // buttons side by side need 476 and this column is 460 - and the
+            // widest thing in a column is what sets the column's width, so the
+            // choice was wrap them or make every other row wider than it needs
+            // to be.
+            auto themeRow = bottom.removeFromTop (28);
+            themeLabel.setBounds (themeRow.removeFromLeft (60));
+            themeBox.setBounds (themeRow.removeFromLeft (150));
+            themeRow.removeFromLeft (10);
+            tempoModeButton.setBounds (themeRow.removeFromLeft (140));
+
+            bottom.removeFromTop (10);
+            auto row = bottom.removeFromTop (28);
+            reloadProfilesBtn.setBounds (row.removeFromLeft (170));
+            row.removeFromLeft (8);
+            resetSizeButton.setBounds (row.removeFromLeft (150));
         }
 
-        s.removeFromTop (4);
-        channelsHelp.setBounds (s.removeFromTop (34));
-        s.removeFromTop (12);
-
-        learnHeading.setBounds (s.removeFromTop (16));
-        s.removeFromTop (4);
-        // Four lines, not two. 34px held this when the text was 11pt and the
-        // paragraph was all there was; it is 13.5pt now and carries a live
-        // "MIX KNOB:" line above it, so at 34 it was cut off mid-sentence -
-        // which is a worse failure than being small, because the reader cannot
-        // even tell something is missing.
-        learnHelp.setBounds (s.removeFromTop (92));
-        s.removeFromTop (6);
-
-        auto learnRow = s.removeFromTop (28);
-        learnPart.setBounds (learnRow.removeFromLeft (96));
-        learnRow.removeFromLeft (10);
-        ctlAdd.setBounds (learnRow.removeFromLeft (70));
-        learnRow.removeFromLeft (6);
-        ctlRemove.setBounds (learnRow.removeFromLeft (78));
-        learnRow.removeFromLeft (6);
-        ctlSave.setBounds (learnRow.removeFromLeft (124));
-        learnRow.removeFromLeft (14);
-        learnPartName.setBounds (learnRow);
-
-        s.removeFromTop (8);
-        auto editRow = s.removeFromTop (26);
-        ctlNameLabel.setBounds (editRow.removeFromLeft (42));
-        ctlName.setBounds (editRow.removeFromLeft (130));
-        editRow.removeFromLeft (10);
-        ctlFollowsLabel.setBounds (editRow.removeFromLeft (54));
-        ctlFollows.setBounds (editRow.removeFromLeft (98));
-        editRow.removeFromLeft (10);
-        ctlTypeLabel.setBounds (editRow.removeFromLeft (36));
-        ctlType.setBounds (editRow.removeFromLeft (84));
-
-        s.removeFromTop (8);
-        auto teachRow = s.removeFromTop (28);
-        ctlTeach.setBounds (teachRow.removeFromLeft (170));
-        teachRow.removeFromLeft (16);
-        ctlPositionsLabel.setBounds (teachRow.removeFromLeft (54));
-        ctlPositions.setBounds (teachRow.removeFromLeft (52).withSizeKeepingCentre (52, 26));
-        teachRow.removeFromLeft (8);
-        ctlWalk.setBounds (teachRow.removeFromLeft (112));
-        teachRow.removeFromLeft (8);
-        ctlPositionsHint.setBounds (teachRow);
-
-        if (ctlValue.isVisible() || ctlFrom.isVisible())
+        // ---- right: teaching Ghostband an instrument's own knobs ----
         {
-            s.removeFromTop (6);
-            auto valueRow = s.removeFromTop (26);
-            valueRow.removeFromLeft (186);          // line up under the choices box
+            learnHeading.setBounds (right.removeFromTop (16));
+            right.removeFromTop (4);
 
-            if (ctlValue.isVisible())
+            // Four lines, and one of them is live - it names the controller the
+            // selected part's mix knob actually reaches.
+            learnHelp.setBounds (right.removeFromTop (92));
+            right.removeFromTop (6);
+
+            auto learnRow = right.removeFromTop (28);
+            learnPart.setBounds (learnRow.removeFromLeft (96));
+            learnRow.removeFromLeft (10);
+            ctlAdd.setBounds (learnRow.removeFromLeft (70));
+            learnRow.removeFromLeft (6);
+            ctlRemove.setBounds (learnRow.removeFromLeft (78));
+            learnRow.removeFromLeft (6);
+            ctlSave.setBounds (learnRow.removeFromLeft (124));
+            learnRow.removeFromLeft (14);
+            learnPartName.setBounds (learnRow);
+
+            right.removeFromTop (8);
+            auto editRow = right.removeFromTop (26);
+            ctlNameLabel.setBounds (editRow.removeFromLeft (42));
+            ctlName.setBounds (editRow.removeFromLeft (130));
+            editRow.removeFromLeft (10);
+            ctlFollowsLabel.setBounds (editRow.removeFromLeft (54));
+            ctlFollows.setBounds (editRow.removeFromLeft (98));
+            editRow.removeFromLeft (10);
+            ctlTypeLabel.setBounds (editRow.removeFromLeft (36));
+            ctlType.setBounds (editRow.removeFromLeft (84));
+
+            right.removeFromTop (8);
+            auto teachRow = right.removeFromTop (28);
+            ctlTeach.setBounds (teachRow.removeFromLeft (170));
+            teachRow.removeFromLeft (16);
+            ctlPositionsLabel.setBounds (teachRow.removeFromLeft (54));
+            ctlPositions.setBounds (teachRow.removeFromLeft (52).withSizeKeepingCentre (52, 26));
+            teachRow.removeFromLeft (8);
+            ctlWalk.setBounds (teachRow.removeFromLeft (112));
+            teachRow.removeFromLeft (8);
+            ctlPositionsHint.setBounds (teachRow);
+
+            if (ctlValue.isVisible() || ctlFrom.isVisible())
             {
-                ctlValueLabel.setBounds (valueRow.removeFromLeft (54));
-                ctlValue.setBounds (valueRow.removeFromLeft (52).withSizeKeepingCentre (52, 26));
-                valueRow.removeFromLeft (8);
-                ctlSend.setBounds (valueRow.removeFromLeft (72));
-                valueRow.removeFromLeft (8);
-                ctlValueHint.setBounds (valueRow);
+                right.removeFromTop (6);
+                auto valueRow = right.removeFromTop (26);
+                valueRow.removeFromLeft (186);      // line up under the choices box
+
+                if (ctlValue.isVisible())
+                {
+                    ctlValueLabel.setBounds (valueRow.removeFromLeft (54));
+                    ctlValue.setBounds (valueRow.removeFromLeft (52).withSizeKeepingCentre (52, 26));
+                    valueRow.removeFromLeft (8);
+                    ctlSend.setBounds (valueRow.removeFromLeft (72));
+                    valueRow.removeFromLeft (8);
+                    ctlValueHint.setBounds (valueRow);
+                }
+                else
+                {
+                    ctlRangeLabel.setBounds (valueRow.removeFromLeft (54));
+                    ctlFrom.setBounds (valueRow.removeFromLeft (48).withSizeKeepingCentre (48, 26));
+                    ctlRangeToLabel.setBounds (valueRow.removeFromLeft (24));
+                    ctlTo.setBounds (valueRow.removeFromLeft (48).withSizeKeepingCentre (48, 26));
+                    valueRow.removeFromLeft (10);
+                    ctlRangeHint.setBounds (valueRow);
+                }
             }
-            else
-            {
-                ctlRangeLabel.setBounds (valueRow.removeFromLeft (54));
-                ctlFrom.setBounds (valueRow.removeFromLeft (48).withSizeKeepingCentre (48, 26));
-                ctlRangeToLabel.setBounds (valueRow.removeFromLeft (24));
-                ctlTo.setBounds (valueRow.removeFromLeft (48).withSizeKeepingCentre (48, 26));
-                valueRow.removeFromLeft (10);
-                ctlRangeHint.setBounds (valueRow);
-            }
+
+            right.removeFromTop (10);
+
+            // Everything left over, and there is a lot of it now - the list was
+            // sixty pixels tall in one column and is several hundred in two.
+            ctlViewport.setBounds (right);
+            ctlList.setSize (juce::jmax (100, right.getWidth() - 10), ctlList.getHeight());
         }
-        s.removeFromTop (8);
+        return;
+    }
 
-        // The rows under the list are taken off the BOTTOM before the list is
-        // given what is left, rather than the list being handed everything bar
-        // a hand-counted number of pixels.
-        //
-        // That number was 46. The rows below need 8 + 28 + 10 + 28 = 74, so the
-        // theme picker was laid out in a rectangle of zero height - constructed,
-        // made visible, and invisible on every build it shipped in. Nothing
-        // caught it: an overlap checker cannot see a component with no area,
-        // and a colour test checks the palette rather than the control that
-        // chooses it. Counting from the bottom means adding another row here
-        // can shrink the list but can never squeeze a control out of existence.
-        auto below = s.removeFromBottom (juce::jmin (74, juce::jmax (0, s.getHeight() - 60)));
-
-        ctlViewport.setBounds (s);
-        ctlList.setSize (s.getWidth() - 10, ctlList.getHeight());
-
-        below.removeFromTop (8);
-        auto row = below.removeFromTop (28);
-        reloadProfilesBtn.setBounds (row.removeFromLeft (170));
-        row.removeFromLeft (8);
-        resetSizeButton.setBounds (row.removeFromLeft (150));
-        row.removeFromLeft (8);
-        tempoModeButton.setBounds (row.removeFromLeft (140));
-
-        below.removeFromTop (10);
-        auto themeRow = below.removeFromTop (28);
-        themeLabel.setBounds (themeRow.removeFromLeft (60));
-        themeBox.setBounds (themeRow.removeFromLeft (150));
+    // The song screen is laid out around a RAIL and does not use planRow, so it
+    // takes its area whole rather than having a row cut off the top of it.
+    if (screen == Screen::Song)
+    {
+        layOutSongScreen (r);
         return;
     }
 
@@ -3850,50 +3915,80 @@ void GhostbandEditor::resized()
         planRow.removeFromLeft (10);
         planLabel.setBounds (planRow);
 
-        r.removeFromTop (10);
+        r.removeFromTop (12);
+        layOutFooter (r.removeFromBottom (58));
+        r.removeFromBottom (10);
 
-        auto row = r.removeFromTop (24);
+        // THE FORM IS A RAIL, for the same two reasons the song screen's
+        // controls are.
+        //
+        // Across the top, its six rows ended at six different x positions -
+        // 204, 302, 442, 552, 780, 1160 - because each row was as wide as its
+        // own contents happened to be. Nobody reads that as six coincidences;
+        // they read it as crooked, and "things seem cock eyed" is exactly what
+        // was reported. A rail gives every row the same right edge for free.
+        //
+        // And the arrangement it edits was getting whatever height was left
+        // under the form, which at 820 tall is not much. Beside it, the list
+        // gets the whole window.
+        auto rail = r.removeFromLeft (kRailWidth);
+        r.removeFromLeft (18);
+
+        auto row = rail.removeFromTop (24);
         edNameLabel.setBounds (row.removeFromLeft (44));
-        edName.setBounds (row.removeFromLeft (140));
-        row.removeFromLeft (12);
-        edBarsLabel.setBounds (row.removeFromLeft (40));
-        edBars.setBounds (row.removeFromLeft (52));
+        edName.setBounds (row);
 
-        r.removeFromTop (6);
-        row = r.removeFromTop (24);
+        rail.removeFromTop (6);
+        row = rail.removeFromTop (24);
+        edBarsLabel.setBounds (row.removeFromLeft (44));
+        edBars.setBounds (row.removeFromLeft (60));
+
+        rail.removeFromTop (6);
+        row = rail.removeFromTop (24);
         edIntensityLabel.setBounds (row.removeFromLeft (76));
         edIntensity.setBounds (row);
 
-        r.removeFromTop (6);
-        row = r.removeFromTop (24);
+        rail.removeFromTop (6);
+        row = rail.removeFromTop (24);
         edFeelLabel.setBounds (row.removeFromLeft (40));
         edFeel.setBounds (row.removeFromLeft (110));
         row.removeFromLeft (12);
         edFillLabel.setBounds (row.removeFromLeft (34));
         edFill.setBounds (row.removeFromLeft (86));
-        row.removeFromLeft (12);
-        edLeadLabel.setBounds (row.removeFromLeft (38));
-        edLead.setBounds (row.removeFromLeft (90));
 
-        r.removeFromTop (6);
-        row = r.removeFromTop (24);
+        rail.removeFromTop (6);
+        row = rail.removeFromTop (24);
+        edLeadLabel.setBounds (row.removeFromLeft (40));
+        edLead.setBounds (row.removeFromLeft (110));
+
+        rail.removeFromTop (6);
+        row = rail.removeFromTop (24);
         edChordsLabel.setBounds (row.removeFromLeft (60));
         edChords.setBounds (row);
 
-        r.removeFromTop (6);
-        row = r.removeFromTop (24);
-        // Wide enough for the words. A toggle draws a pill and then its label
-        // in what is left, and at 74 "drums" came out as "dru..." - which is
-        // not a theme problem, it read that way in every one of them.
-        edPlaysLabel.setBounds  (row.removeFromLeft (50));
-        edDrums.setBounds   (row.removeFromLeft (100));
-        edBass.setBounds    (row.removeFromLeft (86));
+        // Two per line, because the toggles carry words and the words are what
+        // makes them readable. Wide enough for them: a toggle draws a pill and
+        // then its label in what is left, and at 74 "drums" came out "dru...",
+        // which read that way in every theme.
+        rail.removeFromTop (8);
+        row = rail.removeFromTop (24);
+        edPlaysLabel.setBounds (row.removeFromLeft (50));
+        edDrums.setBounds (row.removeFromLeft (100));
+        edBass.setBounds  (row.removeFromLeft (86));
+
+        rail.removeFromTop (4);
+        row = rail.removeFromTop (24);
+        row.removeFromLeft (50);
         edGuitar.setBounds  (row.removeFromLeft (96));
         edGuitar2.setBounds (row.removeFromLeft (110));
-        edPiano.setBounds   (row.removeFromLeft (90));
 
-        r.removeFromTop (10);
-        row = r.removeFromTop (26);
+        rail.removeFromTop (4);
+        row = rail.removeFromTop (24);
+        row.removeFromLeft (50);
+        edPiano.setBounds (row.removeFromLeft (90));
+
+        rail.removeFromTop (12);
+        row = rail.removeFromTop (26);
         edAddButton.setBounds (row.removeFromLeft (66));
         row.removeFromLeft (6);
         edDeleteButton.setBounds (row.removeFromLeft (70));
@@ -3902,12 +3997,16 @@ void GhostbandEditor::resized()
         row.removeFromLeft (6);
         edDownButton.setBounds (row.removeFromLeft (60));
 
-        r.removeFromTop (10);
-        layOutFooter (r.removeFromBottom (58));
-        r.removeFromBottom (8);
-
         viewport.setBounds (r);
-        sectionList.setSize (r.getWidth() - 10, sectionList.getHeight());
+
+        // At least as tall as the viewport, so the card the rows sit on reaches
+        // the bottom instead of stopping under the last section and leaving a
+        // slab of background that reads as the list having failed to draw. The
+        // takes list has done this since it was written; beside a rail there is
+        // far more empty space below a short arrangement, so it matters here
+        // now too.
+        sectionList.setSize (r.getWidth() - 10,
+                             juce::jmax (r.getHeight(), sectionList.getHeight()));
         return;
     }
 
@@ -3980,89 +4079,129 @@ void GhostbandEditor::resized()
         return;
     }
 
-    calibrateButton.setBounds (planRow.removeFromRight (86));
-    planRow.removeFromRight (6);
-    editButton.setBounds (planRow.removeFromRight (86));
-    planRow.removeFromRight (6);
-    takesButton.setBounds (planRow.removeFromRight (70));
-    planRow.removeFromRight (10);
-    loadButton.setBounds (planRow.removeFromLeft (104));
-    planRow.removeFromLeft (6);
-    reloadButton.setBounds (planRow.removeFromLeft (72));
-    planRow.removeFromLeft (10);
-    planLabel.setBounds (planRow);
+}
 
-    r.removeFromTop (6);
-    auto infoRow = r.removeFromTop (18);
-    headlineLabel.setBounds (infoRow.removeFromLeft (infoRow.getWidth() / 2));
-    summaryLabel.setBounds (infoRow);
+//==============================================================================
+// The song screen: a RAIL down the left, and the grid taking everything else.
+//
+// What this replaces stacked every control across the top of a portrait window
+// and gave the tracker whatever was left, which was 48% of the height - less
+// than half the window spent on the one thing you actually watch. Worse, the
+// controls only reached about 55% of the way across, so the right-hand
+// two-fifths of every control row was empty. Measured rather than felt: see
+// the --audit mode in the harness.
+//
+// A rail fixes both at once and buys a third thing that is easy to miss. When
+// the window is resized, ONLY THE GRID CHANGES SIZE. Every control stays
+// exactly where your hand left it, at every window size, which is the
+// difference between a tool and a page.
+void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
+{
+    // The status block spans the whole window rather than the rail: it is two
+    // lines of prose naming five instruments, and 320 pixels would clip it.
+    layOutFooter (r.removeFromBottom (58));
+    r.removeFromBottom (10);
 
-    r.removeFromTop (12);
+    auto rail = r.removeFromLeft (kRailWidth);
+    r.removeFromLeft (18);                       // gutter between rail and grid
 
-    // Everything from here to the transport line sits on one panel. Measured
-    // now, painted in paint() behind the controls.
-    const int panelTop = r.getY() - 8;
+    // The rail sits on one surface, painted in paint() behind the controls.
+    controlsPanel = rail.expanded (10, 10);
 
-    auto songRow = r.removeFromTop (26);
-    keyLabel.setBounds (songRow.removeFromLeft (32));
-    keyBox.setBounds (songRow.removeFromLeft (84));
-    songRow.removeFromLeft (12);
-    modeLabel.setBounds (songRow.removeFromLeft (42));
-    modeBox.setBounds (songRow.removeFromLeft (140));
+    // ---- what song this is, and what to do with it ----
+    {
+        auto row = rail.removeFromTop (28);
+        loadButton.setBounds (row.removeFromLeft (128));
+        row.removeFromLeft (8);
+        reloadButton.setBounds (row.removeFromLeft (86));
 
-    r.removeFromTop (7);
-    songRow = r.removeFromTop (26);
-    styleLabel.setBounds (songRow.removeFromLeft (44));
-    styleBox.setBounds (songRow.removeFromLeft (132));
-    songRow.removeFromLeft (12);
-    tuningLabel.setBounds (songRow.removeFromLeft (80));
-    tuningBox.setBounds (songRow.removeFromLeft (106));
-    songRow.removeFromLeft (12);
-    zoomLabel.setBounds (songRow.removeFromLeft (44));
-    zoomBox.setBounds (songRow.removeFromLeft (84));
-    songRow.removeFromLeft (12);
-    tempoLabel.setBounds (songRow);
+        rail.removeFromTop (6);
+        row = rail.removeFromTop (28);
+        takesButton.setBounds (row.removeFromLeft (84));
+        row.removeFromLeft (6);
+        editButton.setBounds (row.removeFromLeft (104));
+        row.removeFromLeft (6);
+        calibrateButton.setBounds (row.removeFromLeft (104));
 
-    r.removeFromTop (12);
+        rail.removeFromTop (10);
+        planLabel.setBounds (rail.removeFromTop (22));
+        rail.removeFromTop (10);
+    }
 
-    auto knobRow = r.removeFromTop (76);
+    // ---- the song ----
+    {
+        auto row = rail.removeFromTop (26);
+        keyLabel.setBounds (row.removeFromLeft (32));
+        keyBox.setBounds (row.removeFromLeft (84));
+        row.removeFromLeft (12);
+        modeLabel.setBounds (row.removeFromLeft (42));
+        modeBox.setBounds (row.removeFromLeft (140));
 
-    auto k1 = knobRow.removeFromLeft (80);
-    complexityLabel.setBounds (k1.removeFromTop (12));
-    complexitySlider.setBounds (k1);
+        rail.removeFromTop (7);
+        row = rail.removeFromTop (26);
+        styleLabel.setBounds (row.removeFromLeft (44));
+        styleBox.setBounds (row.removeFromLeft (132));
+        row.removeFromLeft (12);
+        zoomLabel.setBounds (row.removeFromLeft (44));
+        zoomBox.setBounds (row.removeFromLeft (84));
 
-    knobRow.removeFromLeft (8);
-    auto k2 = knobRow.removeFromLeft (80);
-    humanizeLabel.setBounds (k2.removeFromTop (12));
-    humanizeSlider.setBounds (k2);
+        rail.removeFromTop (7);
+        row = rail.removeFromTop (26);
+        tuningLabel.setBounds (row.removeFromLeft (80));
+        tuningBox.setBounds (row.removeFromLeft (106));
+        row.removeFromLeft (10);
+        tempoLabel.setBounds (row);
+    }
 
-    knobRow.removeFromLeft (8);
-    auto k3 = knobRow.removeFromLeft (80);
-    fillsLabel.setBounds (k3.removeFromTop (12));
-    fillsSlider.setBounds (k3);
+    rail.removeFromTop (14);
 
-    // Seed and Roll sit beside the knobs rather than under them, so the section
-    // list keeps as much of the window as possible.
-    knobRow.removeFromLeft (18);
-    auto seedCol = knobRow.removeFromTop (58);
-    seedLabel.setBounds (seedCol.removeFromTop (12));
-    auto seedRow = seedCol.removeFromTop (26);
-    seedEditor.setBounds (seedRow.removeFromLeft (86));
-    seedRow.removeFromLeft (8);
-    // Fixed width: letting it take the remaining space made it span half the
-    // window, which read as the most important control on the panel.
-    rollButton.setBounds (seedRow.removeFromLeft (juce::jmin (100, seedRow.getWidth())));
-    seedRow.removeFromLeft (6);
-    playPauseButton.setBounds (seedRow.removeFromLeft (juce::jmin (74, seedRow.getWidth())));
+    // ---- the three feel dials, centred in the rail ----
+    {
+        const int knobW = 80, gap = 8;
+        auto row = rail.removeFromTop (76)
+                       .withSizeKeepingCentre (3 * knobW + 2 * gap, 76);
 
-    seedRow.removeFromLeft (16);
-    bpmLabel.setBounds (seedRow.removeFromLeft (juce::jmin (30, seedRow.getWidth())));
-    bpmEditor.setBounds (seedRow.removeFromLeft (juce::jmin (52, seedRow.getWidth())));
+        juce::Slider* dials[3] = { &complexitySlider, &humanizeSlider, &fillsSlider };
+        juce::Label*  names[3] = { &complexityLabel,  &humanizeLabel,  &fillsLabel  };
 
-    // Mix row: four small level knobs, one per part.
-    r.removeFromTop (8);
-    auto mixRow = r.removeFromTop (56);
-    mixLabel.setBounds (mixRow.removeFromLeft (34).withTrimmedTop (16));
+        for (int i = 0; i < 3; ++i)
+        {
+            auto cell = row.removeFromLeft (knobW);
+            names[i]->setBounds (cell.removeFromTop (12));
+            dials[i]->setBounds (cell);
+            row.removeFromLeft (gap);
+        }
+    }
+
+    rail.removeFromTop (12);
+
+    // ---- seed, roll, transport ----
+    {
+        seedLabel.setBounds (rail.removeFromTop (12));
+        auto row = rail.removeFromTop (26);
+        seedEditor.setBounds (row.removeFromLeft (96));
+        row.removeFromLeft (8);
+        rollButton.setBounds (row);
+
+        rail.removeFromTop (8);
+        row = rail.removeFromTop (26);
+        playPauseButton.setBounds (row.removeFromLeft (84));
+        row.removeFromLeft (14);
+        bpmLabel.setBounds (row.removeFromLeft (34));
+        bpmEditor.setBounds (row.removeFromLeft (62));
+    }
+
+    rail.removeFromTop (16);
+
+    // ---- the mix ----
+    //
+    // One knob per ROW here rather than five across, and that is the rail
+    // paying for itself. Across the top there was room for a five-character
+    // label, so a knob that could not work had nowhere to say why. Down the
+    // side each one gets a whole line, and "PIANO - not in song" fits as
+    // written.
+    mixLabel.setBounds (rail.removeFromTop (16));
+    rail.removeFromTop (4);
 
     juce::Slider* levelSliders[5] = { &levelDrums, &levelBass, &levelGuitar,
                                       &levelGuitar2, &levelPiano };
@@ -4071,12 +4210,6 @@ void GhostbandEditor::resized()
                                       &levelPianoLabel };
     static const char* kLevelNames[5] = { "DRUMS", "BASS", "GTR", "GTR 2", "PIANO" };
 
-    // A knob is laid out only for a part whose volume can actually be reached.
-    // SSD5 has no volume anything outside it can address, so a drum mix knob is
-    // a knob that does nothing - and this project keeps rediscovering that a
-    // control which does nothing is worse than no control at all. The knob
-    // returns on its own if a kit that can be reached is loaded.
-    //
     // Part order here is drums, bass, guitar, guitar 2, piano; the processor
     // indexes guitar 2 as 4, so the lookup is not the loop counter.
     static const int partForKnob[5] = { 0, 1, 2, 4, 3 };
@@ -4091,11 +4224,6 @@ void GhostbandEditor::resized()
     // gone reads as a bug, and worse, it makes every other control suspect -
     // "what else is missing that I have not noticed?" is not a question a
     // person should have to ask about their own mixer.
-    //
-    // So nothing vanishes. A knob that cannot do anything is drawn disabled
-    // with the reason in its own label, which is a statement rather than a
-    // silence. The row also stops reflowing: PIANO is in the same place in
-    // every song, whether or not this one has a piano.
     for (int i = 0; i < 5; ++i)
     {
         const int part = partForKnob[i];
@@ -4122,7 +4250,7 @@ void GhostbandEditor::resized()
 
         if (! inSong)
         {
-            suffix = " \xc2\xb7 not in song";
+            suffix = " " + midDot() + " not in song";
             colour = ghost::dim.withMultipliedAlpha (0.6f);
             alpha  = 0.3f;
         }
@@ -4131,13 +4259,13 @@ void GhostbandEditor::resized()
             // The instrument's own volume cannot be addressed from outside at
             // all - SSD5 is the case this exists for. Not a fault to fix here;
             // put a gain plugin after it in the host.
-            suffix = " \xc2\xb7 no reach";
+            suffix = " " + midDot() + " no reach";
             colour = ghost::dim.withMultipliedAlpha (0.6f);
             alpha  = 0.3f;
         }
         else if (! taught)
         {
-            suffix = " \xc2\xb7 CC7";
+            suffix = " " + midDot() + " CC7";
             colour = ghost::warn;
             alpha  = 0.55f;
         }
@@ -4148,8 +4276,11 @@ void GhostbandEditor::resized()
         levelLabels[i]->setText (juce::String (kLevelNames[i]) + suffix,
                                  juce::dontSendNotification);
 
-        // Why this one looks the way it does, on the knob itself, because the
-        // label has room for three words and a reason needs more.
+        // Left-aligned beside its knob now, not centred over it.
+        levelLabels[i]->setJustificationType (juce::Justification::centredLeft);
+
+        // Why this one looks the way it does, on the knob itself, because even
+        // a whole line has room for a statement and not for a remedy.
         levelSliders[i]->setTooltip (
             ! inSong    ? juce::String (kLevelNames[i]).toLowerCase()
                               + " is not in this song, so there is nothing to set a level for. "
@@ -4164,30 +4295,25 @@ void GhostbandEditor::resized()
                         : juce::String (kLevelNames[i])
                               + " level, sent to the instrument's own volume control.");
 
-        auto cell = mixRow.removeFromLeft (76);
-        levelLabels[i]->setBounds (cell.removeFromTop (11));
-        levelSliders[i]->setBounds (cell.reduced (12, 0));
-        mixRow.removeFromLeft (3);
+        auto row = rail.removeFromTop (34);
+        levelSliders[i]->setBounds (row.removeFromLeft (34).reduced (1));
+        row.removeFromLeft (10);
+        levelLabels[i]->setBounds (row);
     }
 
-    // Exactly the list's edges. They were inset by ten pixels more than it,
-    // which is the kind of thing nobody consciously notices and everybody reads
-    // as sloppy - two panels that nearly line up look worse than two that
-    // obviously do not.
-    controlsPanel = juce::Rectangle<int> (r.getX(), panelTop,
-                                          r.getWidth(), r.getY() - panelTop + 8);
-
-    r.removeFromTop (8);
+    // ---- the grid, and the two lines that frame it ----
     {
-        auto transportRow = r.removeFromTop (16);
-        rollHintLabel.setBounds (transportRow.removeFromRight (juce::jmin (260, transportRow.getWidth() / 2)));
-        transportLabel.setBounds (transportRow);
+        auto head = r.removeFromTop (18);
+        headlineLabel.setBounds (head.removeFromLeft (head.getWidth() / 2));
+        summaryLabel.setBounds (head);
+        r.removeFromTop (10);
+
+        auto foot = r.removeFromBottom (16);
+        rollHintLabel.setBounds (foot.removeFromRight (juce::jmin (280, foot.getWidth() / 2)));
+        transportLabel.setBounds (foot);
+        r.removeFromBottom (8);
     }
-    r.removeFromTop (6);
 
-    layOutFooter (r.removeFromBottom (58));
-
-    r.removeFromBottom (8);
     arrangement.setBounds (r);
     tracker.setBounds (r);
     refreshTracker();

@@ -247,8 +247,12 @@ public:
     // section list off before anything had been resized.
     // Bigger, because the type inside it got bigger. 620x780 was sized around
     // 11pt body text; readable type needs somewhere to sit or it just clips.
-    std::atomic<int> editorWidth  { 800 };
-    std::atomic<int> editorHeight { 960 };
+    // LANDSCAPE, because the content is. The old 800x960 was a portrait window
+    // holding a grid that runs left to right, on a monitor 2560 wide - it used
+    // 31% of the width and 67% of the height, and the song screen's controls
+    // stopped 45% short of its right edge. See layOutSongScreen.
+    std::atomic<int> editorWidth  { 1180 };
+    std::atomic<int> editorHeight { 820 };
 
     // How much music one tracker row covers: 0 bar, 1 beat, 2 eighth, 3
     // sixteenth. Which one is right depends entirely on what you are looking

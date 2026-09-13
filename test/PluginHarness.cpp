@@ -69,6 +69,16 @@ double contrastRatio (juce::Colour a, juce::Colour b)
     return (juce::jmax (la, lb) + 0.05) / (juce::jmin (la, lb) + 0.05);
 }
 
+// The window's own minimum. Layout checks run here because below it the layout
+// is allowed to run out of room - and because the minimum is the size at which
+// a layout fault is most likely and least often looked at.
+//
+// It moved from 700x820 to 1020x820 with the rail and the two-column Settings.
+// Settings is what sets it: a 460 column of channels beside a 496 column of the
+// learn form. The song screen alone would be happy at 900.
+constexpr int kMinW = 1020;
+constexpr int kMinH = 820;
+
 int failures = 0;
 
 void check (bool condition, const juce::String& what, const juce::String& detail = {})
@@ -82,7 +92,8 @@ void check (bool condition, const juce::String& what, const juce::String& detail
 // Dumps what each screen actually lays out, so a control that is present in the
 // source and absent on screen can be seen rather than reasoned about. Run with
 // "--audit [plan]". Not a test: a look.
-void layoutAudit (GhostbandProcessor& proc, const juce::String& planPath)
+void layoutAudit (GhostbandProcessor& proc, const juce::String& planPath,
+                  int wantW = 0, int wantH = 0)
 {
     if (planPath.isNotEmpty())
         proc.loadPlan (juce::File (planPath));
@@ -91,7 +102,8 @@ void layoutAudit (GhostbandProcessor& proc, const juce::String& planPath)
     if (ed == nullptr) { std::cout << "no editor\n"; return; }
 
     auto* gbEd = dynamic_cast<GhostbandEditor*> (ed);
-    ed->setSize (proc.editorWidth.load(), proc.editorHeight.load());
+    ed->setSize (wantW > 0 ? wantW : proc.editorWidth.load(),
+                 wantH > 0 ? wantH : proc.editorHeight.load());
 
     const auto describe = [] (juce::Component* c) -> juce::String
     {
@@ -198,7 +210,7 @@ void timingAudit (GhostbandProcessor& proc, const juce::String& planPath)
     {
         auto* gbEd = dynamic_cast<GhostbandEditor*> (ed);
         if (gbEd != nullptr) gbEd->showScreenForSnapshot (0);
-        ed->setSize (800, 960);
+        ed->setSize (kMinW, kMinH);
 
         juce::Image img (juce::Image::ARGB, ed->getWidth(), ed->getHeight(), true);
         for (int z = 0; z < 4; ++z)
@@ -246,7 +258,9 @@ int main (int argc, char** argv)
 
     if (argc > 1 && juce::String (argv[1]) == "--audit")
     {
-        layoutAudit (proc, argc > 2 ? juce::String (argv[2]) : juce::String());
+        layoutAudit (proc, argc > 2 ? juce::String (argv[2]) : juce::String(),
+                     argc > 3 ? juce::String (argv[3]).getIntValue() : 0,
+                     argc > 4 ? juce::String (argv[4]).getIntValue() : 0);
         return 0;
     }
 
@@ -1683,20 +1697,20 @@ int main (int argc, char** argv)
     // opened at the minimum however the user left it. Closing and reopening is
     // the exact thing that was broken, so that is what is tested.
     {
-        proc.editorWidth.store (900);
-        proc.editorHeight.store (820);
+        proc.editorWidth.store (kMinW);
+        proc.editorHeight.store (kMinH);
 
         if (auto* ed = proc.createEditorIfNeeded())
         {
-            check (ed->getWidth() == 900 && ed->getHeight() == 820,
+            check (ed->getWidth() == kMinW && ed->getHeight() == kMinH,
                    "the editor opens at the remembered size",
                    juce::String (ed->getWidth()) + "x" + juce::String (ed->getHeight()));
 
-            ed->setSize (760, 900);
+            ed->setSize (kMinW + 60, kMinH + 80);
             proc.editorBeingDeleted (ed);
             delete ed;
 
-            check (proc.editorWidth.load() == 760 && proc.editorHeight.load() == 900,
+            check (proc.editorWidth.load() == kMinW + 60 && proc.editorHeight.load() == kMinH + 80,
                    "resizing is remembered after the window closes",
                    juce::String (proc.editorWidth.load()) + "x"
                        + juce::String (proc.editorHeight.load()));
@@ -1704,7 +1718,7 @@ int main (int argc, char** argv)
 
         if (auto* ed = proc.createEditorIfNeeded())
         {
-            check (ed->getWidth() == 760 && ed->getHeight() == 900,
+            check (ed->getWidth() == kMinW + 60 && ed->getHeight() == kMinH + 80,
                    "and comes back on reopening",
                    juce::String (ed->getWidth()) + "x" + juce::String (ed->getHeight()));
             proc.editorBeingDeleted (ed);
@@ -2988,7 +3002,20 @@ int main (int argc, char** argv)
             for (int screen = 0; screen < GhostbandEditor::numScreens; ++screen)
             {
                 if (gbEd != nullptr) gbEd->showScreenForSnapshot (screen);
-                ed->setSize (600, 720);
+
+                // At the window's own MINIMUM, not below it. This ran at
+                // 600x720, which was already under the old floor of 700x820 and
+                // is well under the new one - a size the window cannot be put
+                // into, testing a layout nobody can see. It passed for years
+                // because every screen was a single column, which degrades by
+                // clipping; a two-column screen degrades by stacking its
+                // columns on top of each other, and that is what it started
+                // reporting.
+                //
+                // Below the minimum the layout is allowed to run out of room -
+                // the same rule the zero-size check states. At and above it,
+                // nothing may overlap.
+                ed->setSize (kMinW, kMinH);
 
                 std::vector<juce::Component*> shown;
                 for (int i = 0; i < ed->getNumChildComponents(); ++i)
@@ -3136,7 +3163,7 @@ int main (int argc, char** argv)
             if (gbEd != nullptr)
             {
                 gbEd->showScreenForSnapshot (0);
-                ed->setSize (800, 960);
+                ed->setSize (kMinW, kMinH);
 
                 gbEd->setThemeForTesting (0);
 
@@ -3258,7 +3285,7 @@ int main (int argc, char** argv)
             for (int screen = 0; screen < GhostbandEditor::numScreens; ++screen)
             {
                 if (gbEd != nullptr) gbEd->showScreenForSnapshot (screen);
-                ed->setSize (800, 960);
+                ed->setSize (kMinW, kMinH);
 
                 juce::StringArray silent;
                 int explained = 0;
@@ -3306,7 +3333,7 @@ int main (int argc, char** argv)
             for (int screen = 0; screen < GhostbandEditor::numScreens; ++screen)
             {
                 if (gbEd != nullptr) gbEd->showScreenForSnapshot (screen);
-                ed->setSize (800, 960);
+                ed->setSize (kMinW, kMinH);
 
                 juce::StringArray vanished;
                 for (int i = 0; i < ed->getNumChildComponents(); ++i)
@@ -3315,7 +3342,27 @@ int main (int argc, char** argv)
                     if (c == nullptr || ! c->isVisible())
                         continue;
 
-                    if (c->getWidth() < 4 || c->getHeight() < 4)
+                    // FOUR PIXELS WAS NOT ENOUGH OF A FLOOR.
+                    //
+                    // This caught a theme picker laid out at zero height, and
+                    // then let the same picker through at EIGHT pixels when the
+                    // window got shorter - visible, technically, and impossible
+                    // to read or click. "Not zero" is not the property that
+                    // matters; "usable" is.
+                    //
+                    // So a control that a person has to hit with a mouse gets a
+                    // real floor. 16 is below anything in this plugin - the
+                    // smallest is a 26-pixel row - and well above the point
+                    // where a combo box stops being one. Labels keep the old
+                    // floor, because an 11-pixel caption is a legitimate thing
+                    // and several are exactly that.
+                    const bool isControl = dynamic_cast<juce::Button*> (c)     != nullptr
+                                        || dynamic_cast<juce::ComboBox*> (c)   != nullptr
+                                        || dynamic_cast<juce::Slider*> (c)     != nullptr
+                                        || dynamic_cast<juce::TextEditor*> (c) != nullptr;
+                    const int floor = isControl ? 16 : 4;
+
+                    if (c->getWidth() < floor || c->getHeight() < floor)
                         vanished.add (describe (c) + " ("
                                       + juce::String (c->getWidth()) + "x"
                                       + juce::String (c->getHeight()) + ")");
@@ -3354,7 +3401,7 @@ int main (int argc, char** argv)
             {
                 auto* gbEd = dynamic_cast<GhostbandEditor*> (ed);
                 if (gbEd != nullptr) gbEd->showScreenForSnapshot (0);   // song
-                ed->setSize (800, 960);
+                ed->setSize (kMinW, kMinH);
 
                 juce::StringArray seen;
                 for (int i = 0; i < ed->getNumChildComponents(); ++i)
@@ -3428,7 +3475,7 @@ int main (int argc, char** argv)
             if (gbEd != nullptr)
             {
                 gbEd->showScreenForSnapshot (0);
-                ed->setSize (800, 960);
+                ed->setSize (kMinW, kMinH);
 
                 // Two ticks close together: normal, and nothing is recorded.
                 gbEd->runTimerForTesting();
@@ -4656,9 +4703,15 @@ int main (int argc, char** argv)
 
                 struct Shot { int screen; int w, h; const char* suffix; };
                 std::vector<Shot> shots;
+                // At the MINIMUM, because that is the hardest size the window
+                // can actually be put into and it is the one nobody looks at.
+                // These used to render at 600x720, which is below any floor the
+                // window has ever had - so the images showed a layout that
+                // cannot occur, and a real fault at the real minimum would not
+                // have appeared in any of them.
                 for (int s = 0; s < GhostbandEditor::numScreens; ++s)
-                    shots.push_back ({ s, 600, 720, "" });
-                shots.push_back ({ 0, 900, 640, "-wide" });   // song, resized wide
+                    shots.push_back ({ s, kMinW, kMinH, "" });
+                shots.push_back ({ 0, 1600, 900, "-wide" });   // song, resized wide
 
                 // The set that ships in docs/screenshots and is linked from the
                 // README. Rendered rather than captured by hand, so they can be
@@ -4669,12 +4722,12 @@ int main (int argc, char** argv)
                 // Sized per screen rather than uniformly: a settings page with a
                 // scrolling control list needs the height, and the song screen
                 // at that height is mostly empty floor.
-                shots.push_back ({ 0, 1000,  900, "-docs" });   // song
-                shots.push_back ({ 1, 1000, 1280, "-docs" });   // calibrate
-                shots.push_back ({ 2, 1000,  980, "-docs" });   // edit
-                shots.push_back ({ 3, 1000, 1320, "-docs" });   // settings
-                shots.push_back ({ 4, 1000,  760, "-docs" });   // about
-                shots.push_back ({ 5, 1000,  900, "-docs" });   // takes
+                shots.push_back ({ 0, 1180,  820, "-docs" });   // song
+                shots.push_back ({ 1, 1180,  980, "-docs" });   // calibrate
+                shots.push_back ({ 2, 1180,  980, "-docs" });   // edit
+                shots.push_back ({ 3, 1180,  900, "-docs" });   // settings
+                shots.push_back ({ 4, 1180,  820, "-docs" });   // about
+                shots.push_back ({ 5, 1180,  900, "-docs" });   // takes
 
                 // About at the size it is actually used at. It is the one
                 // screen painted straight onto the canvas rather than built
