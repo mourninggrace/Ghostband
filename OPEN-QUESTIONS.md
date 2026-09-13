@@ -3,39 +3,60 @@
 One file, so none of it has to be remembered. Answered items move to the bottom
 with a date rather than being deleted, so the same question is never asked twice.
 
-**Last updated 2026-09-12, end of session 17.**
+**Last updated 2026-09-13, end of session 18.**
 
 ---
 
 ## YOUR LIST
 
-### 0. THE UI STALL — I need details, this one is not fixed
+### 0. THE UI STALL — the plugin catches it itself now
 
 Your words: *"sometimes the ghostband UI is frozen, playhead not moving, screen
 not changing, but audio is still heard like normal and then suddenly it will
 start working normally again."*
 
-**This is a different fault from the freeze we fixed last session.** That one
-took Gig Performer down with it and never came back. Yours keeps playing and
-recovers on its own, which means the audio thread is fine and only the window is
-stuck. I have written up the three suspects in NEXT.md and have not started.
+It has not recurred, so rather than theorise I measured. **Every part of
+Ghostband's own frame is fast** — a full repaint is 4.5 ms, fetching the grid's
+contents is 0.04 ms at its worst, and a whole reroll is 1.2 ms. None of that can
+produce a multi-second freeze, which rules out the suspect I had written down
+last session. Useful, but it means there is nothing here to fix by reasoning.
 
-**Next time it happens, these are the details that would crack it:**
+**So the plugin now catches it in the act.** Three numbers, and between them
+they say which fault it is:
 
-- **How long** — a second, five, thirty?
-- **What you had just done.** Had you just rerolled, loaded a plan, saved a
-  take, changed a dial, switched screens?
-- **Which screen** was showing, and was the transport running?
-- **Does it recover on its own,** or when you click something?
-- **Is it worse on a big song** than a small one?
+| what is measured | what it means |
+|---|---|
+| the **gap** between screen updates | a long gap with short work means we were never called — the message thread was busy elsewhere, and elsewhere means Gig Performer |
+| the **work** inside one update | a long one means Ghostband did it, and it is mine to fix |
+| **audio blocks during the gap** | still climbing means the audio thread ran the whole time and only the window was stuck; stopped too means the whole plugin was held up |
 
-There is no log for this. What you were doing IS the evidence.
+Anything over a quarter of a second is recorded. **You do not have to do
+anything** — if it happens you will see a note appear beside the latency reading
+in the bottom right, in amber, saying how many times and how long the worst was.
+Hover it and it tells you which of the three it was, in words.
 
-### 0a. Install session 17's work when you are back
+It is also written to a file, because the window that would show it is the thing
+that was frozen and you might close the session before looking:
 
-You had to go before Gig Performer could be closed, so **what is in your VST3
-folder is still v0.3.0.** Everything below from this session is committed and
-tested but not installed. Say the word and it takes a minute.
+```
+%APPDATA%\Ghostband\stalls.log
+```
+
+**All I need next time: send me that file, or the tooltip's wording.** That plus
+what you were doing turns this from a hunt into a fix.
+
+One thing that would genuinely help: it may be worse at the finer ROWS settings,
+since 16th repaints four times as often as bar. If you ever catch it, note which
+setting you were on — and if it only ever happens on 16th, that is the answer.
+
+### 0a. Everything is installed and hash-verified
+
+Installed 2026-09-13 11:19. The binary in your VST3 folder is the one that was
+built and tested — checked by hash, not assumed.
+
+**Nothing since v0.3.0 has been RELEASED though**, and there is a lot of it now:
+the mix knobs, the ROWS selector, the stall detector, and the whole rail
+layout. A release is due whenever you want one — `Release.bat` does the work.
 
 ### 0b. The mix knobs, and the ROWS selector — try these first
 
@@ -62,43 +83,44 @@ other options were, so rather than pick one for you, all four are there:
 | **8th** | half a beat | off-beat placement — pushes, swing, where the guitar sits against the kick |
 | **16th** | a quarter beat | a real tracker. Every hi-hat exactly where it is, at the cost of showing about a bar and a half at a time |
 
-Nothing about the music changes — only how closely you are looking at it. Try
-all four and tell me which one should be the default.
+Nothing about the music changes — only how closely you are looking at it.
+**You chose `bar` and it is the default now**, which is also the cheapest: a
+quarter as many rows as a beat, so the grid repaints least often on the setting
+it opens on.
 
-### 0c. The screens still need laying out — I have the measurements, not a plan
+### 0c. The rail shipped — three screens done, three left
 
-You said things look cockeyed, space is wasted, and the default size is wrong.
-You are right, and here is the evidence rather than my opinion. I dumped every
-screen's real geometry (`--audit` in the harness, new this session):
+You picked Option A and it is in. What changed:
 
-- **Your monitor is 2560×1440. The plugin opens at 800×960** — 31% of the width
-  and 67% of the height. It is a portrait window holding landscape content.
-- **On the song screen the controls stop at about x=450 and the window is 780
-  wide.** The right-hand 45% of every control row is empty. The mix row ends at
-  x=271 with 500 pixels of nothing beside it.
-- **The tracker — the thing you actually watch — gets 461 of 960 pixels.** Less
-  than half the window is the view; the rest is chrome.
-- **The Edit screen's form rows end at five different x positions** (204, 302,
-  442, 552, 780). That raggedness is exactly what "cockeyed" is.
-- **Settings** gives a 522-pixel-wide label to a 30-character instrument name,
-  then squeezes the control list into a 180-pixel viewport with space going
-  spare above it.
+- **Song.** A fixed 320px rail of controls down the left, the grid taking
+  everything else. **802 x 572 where it was 760 x 461** — at one row per bar
+  that is 26 bars on screen at once. The five mix knobs are five rows now,
+  which is what gives a knob that cannot work a whole line to say why on.
+- **Settings.** Two columns — channels on the left, MIDI learn on the right.
+  It was one narrow column in a 1180-wide window, so an instrument name got 900
+  pixels to say "MODO Bass 2" while the control list was squeezed to sixty.
+- **Edit.** The form is a rail too. This was your "cockeyed": its six rows ended
+  at six different x positions because each was as wide as its own contents
+  happened to be. A rail gives them one right edge for free, and the
+  arrangement list gets the full height.
+- **The window** is 1180 x 820, landscape, minimum 1020 x 820. The minimum is
+  set by Settings, not by the song screen.
 
-**I did not start rebuilding, deliberately** — last time I redid a UI without
-showing you options first you told me every app we build looks the same. The
-honest structural fix is to stop stacking everything in one narrow column, and
-there are two credible ways to do that:
+**The thing worth trying deliberately:** grab the window edge and resize it.
+Only the grid changes size now. Every control stays exactly where your hand
+left it, at every size.
 
-- **A left rail.** Controls in a fixed ~300px column down the left, the tracker
-  taking the entire right side, full height. Biggest possible grid; everything
-  stays visible.
-- **A wide header strip.** Controls in two rows across the full width up top,
-  tracker below getting ~65% of the height. Less of a departure, still fixes the
-  dead space.
+**Not done: Takes, Calibrate and About.** All three are a short header over one
+long list, they already use the full width, and they look right at the new size
+— so I left them rather than adding a rail for the sake of consistency. Say if
+you want them matched anyway.
 
-Plus a wider default — something like 1280×860 instead of 800×960.
-
-**Pick one, or say "show me" and I will mock both up before writing code.**
+Three bugs turned up while looking at the rendered screens, all now fixed:
+every middle dot in the interface was rendering as `A·` (juce::String's
+constructor decodes UTF-8, its `operator+` decodes Latin-1); the About screen
+had a stray hairline ruled through the middle of it; and shortening the window
+handed the theme picker an 8-pixel-tall box — the same fault, in the same
+place, as the one whose comment sits three lines above it.
 
 ### 0d. Animations — yes, and here is where they would earn their keep
 
@@ -122,11 +144,17 @@ and never in the way. Candidates, best first:
 5. **Knobs** ease to their value when a take is recalled, so you can see which
    ones moved.
 
-**One caution I want on the record:** the window already has a 30 Hz timer
-driving the tracker, and there is an unexplained UI stall (item 0 above).
-Animation adds message-thread work in exactly the place that is already
-suspect. I would rather find that stall first, then animate — otherwise a new
-frame budget lands on top of a fault we do not understand yet.
+**The caution I had is now half answered.** Ghostband's own frame turned out to
+be cheap — 4.5 ms for a full repaint against a 33 ms budget — so there is real
+headroom and animation is affordable. What is still unknown is the stall, and
+it is unknown in the direction that matters: if it turns out to be Ghostband
+starving its own message thread, animation makes it worse.
+
+So the order I would pick is **animate the cheap, self-contained ones now** (the
+screen cross-fade, the queued-section pulse, knobs easing on recall — none of
+them run while the grid is scrolling) and **leave the playhead easing until the
+stall is understood**, because that one runs continuously in the exact place the
+fault would live. Say if you would rather have all of it and take the risk.
 
 ### 0e. The tracker, the playhead and the song names
 
@@ -139,14 +167,6 @@ All installed. Worth a look:
   name because it was baked in when you saved them; re-saving under the same
   name fixes one in place.
 - The tracker's row size is now a control rather than a constant — see 0b.
-
-### 0f. Only the song screen was ever redesigned
-
-Worth knowing while you think about 0c: Calibrate, Edit, Settings, Takes and
-About have **never been reconsidered.** They still use the old form layout from
-before the overhaul and merely inherit the new palette, which is a large part of
-why the plugin reads as inconsistent. Whichever direction you pick in 0c, the
-other five screens should follow it rather than being left as they are.
 
 ### 1. Listen to the low end
 

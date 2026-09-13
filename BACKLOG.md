@@ -20,11 +20,13 @@ in fact done, and are noted at the bottom so nobody rediscovers them.
   across 19 presets recovered from a dead region.
 - **v0.3.0, 2026-09-12** — the tracker song screen, tooltips on all 92 controls,
   the Neon theme, and a deadlock that could freeze the host.
-- **unreleased, 2026-09-12 (session 17)** — the mix knobs stop vanishing, the
-  tracker's rows are selectable (bar / beat / 8th / 16th), and a harness check
-  that had been picking the wrong section since it was written. Committed but
-  **not installed on the owner's machine and not released** — he had to leave
-  before Gig Performer could be closed.
+- **unreleased, 2026-09-12/13 (sessions 17-18)** — the mix knobs stop
+  vanishing; the tracker's rows are selectable (bar / beat / 8th / 16th, and
+  bar is the default); a stall detector that catches a UI freeze and says
+  whether it was Ghostband or the host; the rail layout on the song, Settings
+  and Edit screens; a 1180x820 landscape window. **Installed and
+  hash-verified on the owner's machine, but not released** — v0.3.0 is still
+  the last tag and a release is worth offering.
 
 `Release.bat` cuts one. It refuses a dirty tree or a failing build, and stages
 the profiles and preset songs INTO the bundle - the build output has neither, and
@@ -326,23 +328,25 @@ calibrated from inside Gig Performer. Same wall as IRON 2 in Player mode.
 
 ## E. Ideas raised, never scheduled
 
-- **The UI stall — INVESTIGATE FIRST.** Reported 2026-09-12: the window freezes
-  for a while, audio keeps playing normally, then it recovers on its own. Not
-  the session 16 deadlock, which never recovered and took the host with it.
-  Suspects and the reasoning are written up in NEXT.md under *THERE IS A SECOND
-  STALL*. Start with instrumentation — time each timer callback and keep the
-  worst — not with a fix.
-- **Laying the screens out properly.** The measurements are in
-  OPEN-QUESTIONS.md 0c: an 800×960 window on a 2560×1440 monitor, controls that
-  stop 45% short of the right edge, and the tracker getting less than half the
-  height. Two directions offered (a left rail, or a wide header strip); waiting
-  on the owner. The other five screens have never been redesigned at all.
+- **The UI stall — instrumented, waiting on it to happen again.** The window
+  freezes for a while, audio keeps playing, then it recovers. Measured: nothing
+  Ghostband does per frame is slow enough to cause it, so the plugin now
+  records the gap, the work and the audio-block count whenever the timer misses
+  its slot, and writes `%APPDATA%\Ghostband\stalls.log`. See NEXT.md. Next
+  step is to ask whether that file has anything in it, not to guess again.
+- **Laying the screens out — mostly DONE 2026-09-13.** The owner picked the
+  left rail from two mockups; song, Settings and Edit are rebuilt around it and
+  the window is 1180x820. Takes, Calibrate and About are deliberately left as
+  they are — each is a short header over one long list, already using the full
+  width. Offer to match them if he wants consistency for its own sake.
 - **Animations, requested 2026-09-12.** "The kinda animation you might see in
   very stable very expensive software by big companies." Best candidates, in
   order: screen cross-fades, the playhead row easing between rows, a pulse on
   the queued section, a reroll sweeping in, knobs easing when a take is
-  recalled. **Do the stall first** — all of this lands on the message thread,
-  which is exactly the thread already suspected of stalling.
+  recalled. The frame budget turned out to be cheap (4.5 ms of 33), so this is
+  affordable - but the PLAYHEAD easing runs continuously in the exact place the
+  stall would live, so do the self-contained ones first and leave that one
+  until the stall is understood.
 - **Latching section loop** — click once and a section repeats until told
   otherwise. The jump-offset machinery already supports it.
 - **Live following** — Ghostband comping behind what you play. The largest

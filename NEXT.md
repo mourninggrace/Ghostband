@@ -6,17 +6,20 @@ useless for the one job it has: telling whoever picks this up next what is true
 right now. The history is in `docs/archive/NEXT-through-session-13.md`, and
 nobody has to read it.
 
-**Last touched 2026-09-12, end of session 17.**
+**Last touched 2026-09-13, end of session 18.**
 
 ## State
 
 - **v0.3.0 released.** Tagged, published, and the asset's checksum verified by
   downloading it back from GitHub.
-- **Session 17's work is committed but NOT installed and NOT released.** The
-  owner had to leave before Gig Performer could be closed, so what is in his
-  VST3 folder is still v0.3.0. First job next session: ask him to close GP5,
-  run `Install.bat`, and let him try the ROWS selector.
-- **322 checks** pass on every build.
+- **Everything through session 18 is installed and hash-verified**, but NOT
+  released. v0.3.0 is still the last tag and a fair amount has landed since:
+  the mix knobs, the ROWS selector, the stall detector, and the rail layout.
+  A release is worth offering.
+- **The window is 1180x820, minimum 1020x820.** Both numbers are load-bearing:
+  the minimum is set by the two-column Settings screen, not by the song screen,
+  and the harness's `kMinW`/`kMinH` must move with it.
+- **329 checks** pass on every build.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
@@ -85,37 +88,94 @@ sequence under that lock either. The audio thread takes it with a TRY-lock, so i
 does not wait - it skips the block and sends nothing. `getTrackerCells` binary
 searches the window instead.
 
-## THERE IS A SECOND STALL, AND IT IS NOT FIXED
+## THERE IS A SECOND STALL. IT IS INSTRUMENTED, NOT FIXED
 
-Reported 2026-09-12, session 17, and **nothing has been done about it yet**:
+Reported 2026-09-12:
 
 > "sometimes the ghostband UI is frozen, playhead not moving, screen not
 > changing, but audio is still heard like normal and then suddenly it will start
 > working normally again"
 
-**This is not the session 16 deadlock.** That one takes the whole host down and
-never recovers. This one leaves the audio thread running normally and releases
-on its own after a while, which rules out a deadlock and points at the message
-thread being *starved or blocked for seconds at a time* — the editor's 30 Hz
-timer not getting to run, or getting stuck behind something slow.
+**Not the session 16 deadlock.** That took the host down and never recovered.
+This keeps the audio thread running and releases on its own, so the message
+thread is being starved or blocked for seconds, not deadlocked.
 
-Suspects, in the order worth checking:
+**It was measured before anything was built** (`--timing` in the harness), and
+the result killed the theory that was written here last session:
 
-1. **The editor's timer spinning on `sequenceLock`.** It is a `juce::SpinLock`,
-   so the message thread BUSY-WAITS rather than sleeping. A regeneration holds
-   it while it rebuilds forty thousand events; on a big plan that is not
-   instant, and every 33 ms the timer wakes up and burns CPU fighting for it.
-   Recovering "suddenly" is exactly what finishing a long hold looks like.
-2. **`refreshFromProcessor` doing real work at timer rate.** Anything that
-   rebuilds a list, re-reads a profile, or touches the filesystem in there will
-   stall the same way.
-3. **A `stateLock` hold on the message thread** while a background regeneration
-   has it.
+```
+regenerate (a reroll)        1.221 ms
+getTrackerCells  bar         0.040 ms
+full repaint  16th           4.392 ms
+```
 
-The cheap first move is instrumentation, not a guess: time each timer callback
-and record the worst one seen, then show it beside the latency reading. Six
-theories died by measurement on the Shreddage fault, and one manual page settled
-it. Measure first.
+Against a 33 ms budget. Nothing Ghostband does per frame can produce a
+multi-second freeze, and the editor's timer is not spending its time in our
+code. So there is nothing to fix by reasoning, and six wrong theories on the
+Shreddage register is enough of a lesson about doing it anyway.
+
+**The plugin catches it itself now.** `GhostbandEditor::noteTimerTick` records
+three numbers whenever the timer misses its slot by more than 250 ms:
+
+| measure | what it tells you |
+|---|---|
+| the GAP between callbacks | long gap + short work = we were never called. Someone else's message thread |
+| the WORK inside one callback | long work = ours |
+| `processor.audioBlocks` delta | still climbing = only the window was stuck; flat = the whole plugin was held up |
+
+Shown in the footer beside the latency, explained in its tooltip as a
+conclusion rather than as numbers, and appended to
+`%APPDATA%\Ghostband\stalls.log` — because the window that would show it is
+the thing that was frozen.
+
+**Next session: ask whether that file has anything in it.** Also worth knowing
+whether it correlates with the ROWS setting; 16th repaints four times as often
+as bar, and if the stall only ever appears there, that is the answer.
+
+## Session 18: the rail, and catching the stall instead of guessing at it
+
+Three screens rebuilt around a fixed 320px rail after the owner picked one of
+two mocked-up directions - **mocked first, built second**, which is the standing
+correction from session 15 and it worked: he chose in one message.
+
+- **Song.** Controls in the rail, grid takes the rest. 802x572 where it was
+  760x461. The five mix knobs became five ROWS, which is what finally gives a
+  knob that cannot work a whole line to say why on.
+- **Settings.** Two columns. It was one narrow column in a 1180-wide window.
+- **Edit.** The form is a rail too. Its six rows had ended at six different x
+  positions because each was as wide as its own contents - which is precisely
+  what "things seem cock eyed" was.
+- Takes, Calibrate and About are left alone: a short header over one long list,
+  already using the full width, and they look right at the new size.
+
+The property that is easy to miss and worth protecting: **only the grid resizes
+now.** Every control keeps its position at every window size.
+
+**Three faults found by LOOKING at rendered snapshots**, which is what NEXT.md
+has told every reader to do since session 15:
+
+1. Every middle dot in the interface rendered as `A-`. `juce::String`'s
+   CONSTRUCTOR from a `const char*` decodes UTF-8; its `operator+` and
+   `operator+=` decode the same bytes as Latin-1. Wrong since the mix labels
+   were written. Use `juce::String::fromUTF8`, never `+ "\xNN"`.
+2. The About screen was ruled through the middle by a hairline. It is the only
+   screen with no status block, so it never calls `layOutFooter`, so
+   `footerRule` kept whatever the LAST screen set. Painted onto the canvas, so
+   invisible to every child-component check.
+3. Shortening the window handed the theme picker an 8-pixel-tall box - the same
+   fault, in the same place, as the one whose comment sits three lines above it.
+   `removeFromBottom (jmin (74, jmax (0, h - 60)))` protects the LIST by
+   shrinking the CONTROLS. **A list can scroll and a combo box cannot, so when
+   they compete for the last pixels the list is what gives.**
+
+Two checks were weaker than they read:
+
+- The zero-size check tested "not zero", which is not the property that matters.
+  A control a person has to hit with a mouse now needs 16 pixels; labels keep
+  the floor of 4, because an 11-pixel caption is a legitimate thing.
+- The overlap check ran at 600x720 - below every floor the window has ever had,
+  testing a layout that cannot occur. Both layout checks and the snapshots now
+  run at the window's real minimum, from one pair of constants.
 
 ## Session 17: nothing vanishes, and the row is yours to set
 
