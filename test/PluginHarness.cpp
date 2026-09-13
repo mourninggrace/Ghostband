@@ -141,6 +141,86 @@ void layoutAudit (GhostbandProcessor& proc, const juce::String& planPath)
     delete ed;
 }
 
+// Times what the message thread actually does, so "the window froze for a
+// while" can be attributed rather than guessed at. Run with "--timing [plan]".
+// Not a test: a stopwatch.
+void timingAudit (GhostbandProcessor& proc, const juce::String& planPath)
+{
+    if (planPath.isNotEmpty())
+        proc.loadPlan (juce::File (planPath));
+
+    const auto ms = [] (std::function<void()> f, int reps)
+    {
+        const double t0 = juce::Time::getMillisecondCounterHiRes();
+        for (int i = 0; i < reps; ++i) f();
+        return (juce::Time::getMillisecondCounterHiRes() - t0) / reps;
+    };
+
+    const int beat = proc.getBeatTicks();
+    const int bar  = proc.getBarTicks();
+    const std::vector<int> channels {
+        proc.channelDrums.load(), proc.channelBass.load(), proc.channelGuitar.load(),
+        proc.channelGuitar2.load(), proc.channelPiano.load() };
+
+    std::cout << "\nwhat the message thread does, per call, in ms\n";
+    std::cout << "  (the editor's timer runs 30 times a second, so anything\n"
+                 "   above ~5 ms here is a visible cost and above ~33 ms is a\n"
+                 "   timer that cannot keep up)\n\n";
+
+    const auto line = [] (const char* what, double v)
+    {
+        std::cout << "  " << juce::String (what).paddedRight (' ', 34)
+                  << juce::String (v, 3).paddedLeft (' ', 9) << " ms"
+                  << (v > 33.0 ? "   <-- CANNOT KEEP UP"
+                               : v > 5.0 ? "   <-- visible" : "")
+                  << "\n";
+    };
+
+    line ("regenerate (a reroll)",      ms ([&] { proc.regenerate(); }, 10));
+    line ("getSections (copies)",       ms ([&] { auto s = proc.getSections(); (void) s; }, 200));
+    line ("getBeatTicks",               ms ([&] { (void) proc.getBeatTicks(); }, 2000));
+    line ("getStatus",                  ms ([&] { auto s = proc.getStatus(); (void) s; }, 200));
+
+    const char* names[4] = { "getTrackerCells  bar", "getTrackerCells  beat",
+                             "getTrackerCells  8th", "getTrackerCells  16th" };
+    const int perRow[4]  = { bar, beat, juce::jmax (1, beat / 2), juce::jmax (1, beat / 4) };
+    for (int z = 0; z < 4; ++z)
+    {
+        const int rows = 48;
+        line (names[z], ms ([&] { auto c = proc.getTrackerCells (0, rows, channels, perRow[z]);
+                                  (void) c; }, 200));
+    }
+
+    // The one that actually paints. Text rendering is the expensive part of a
+    // tracker and it scales with the row count, so the finest zoom is the one
+    // worth knowing about.
+    if (auto* ed = proc.createEditorIfNeeded())
+    {
+        auto* gbEd = dynamic_cast<GhostbandEditor*> (ed);
+        if (gbEd != nullptr) gbEd->showScreenForSnapshot (0);
+        ed->setSize (800, 960);
+
+        juce::Image img (juce::Image::ARGB, ed->getWidth(), ed->getHeight(), true);
+        for (int z = 0; z < 4; ++z)
+        {
+            proc.trackerZoom.store (z);
+            static const char* pn[4] = { "full repaint  bar", "full repaint  beat",
+                                         "full repaint  8th", "full repaint  16th" };
+            line (pn[z], ms ([&]
+            {
+                juce::Graphics g (img);
+                ed->paintEntireComponent (g, true);
+            }, 20));
+        }
+        proc.trackerZoom.store (0);
+
+        proc.editorBeingDeleted (ed);
+        delete ed;
+    }
+
+    std::cout << "\n";
+}
+
 } // namespace
 
 int main (int argc, char** argv)
@@ -167,6 +247,12 @@ int main (int argc, char** argv)
     if (argc > 1 && juce::String (argv[1]) == "--audit")
     {
         layoutAudit (proc, argc > 2 ? juce::String (argv[2]) : juce::String());
+        return 0;
+    }
+
+    if (argc > 1 && juce::String (argv[1]) == "--timing")
+    {
+        timingAudit (proc, argc > 2 ? juce::String (argv[2]) : juce::String());
         return 0;
     }
 
@@ -3316,6 +3402,83 @@ int main (int argc, char** argv)
             // the wrong reason.
             proc.loadPlan (juce::File (planPath));
         }
+    }
+
+    // ---- the stall detector catches a stall ---------------------------------
+    // There is no fix in this yet, on purpose. The owner reported the window
+    // freezing while the music kept playing, it has not recurred, and every
+    // piece of Ghostband's own frame was MEASURED and is fast - a full repaint
+    // is under 5 ms, a whole reroll 1.2 ms. So there is nothing to fix by
+    // reasoning about it, and six wrong theories on the Shreddage fault is
+    // enough of a lesson. The plugin has to catch it in the act.
+    //
+    // What has to work is the bookkeeping between two ticks, and a real timer
+    // cannot be made to miss its slot on demand - so the callback is driven by
+    // hand with a real delay between the calls.
+    {
+        const juce::File testLog = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                       .getChildFile ("ghostband-harness")
+                                       .getChildFile ("stalls.log");
+        testLog.deleteFile();
+        GhostbandProcessor::setStallLogFileForTesting (testLog);
+
+        if (auto* ed = proc.createEditorIfNeeded())
+        {
+            auto* gbEd = dynamic_cast<GhostbandEditor*> (ed);
+            if (gbEd != nullptr)
+            {
+                gbEd->showScreenForSnapshot (0);
+                ed->setSize (800, 960);
+
+                // Two ticks close together: normal, and nothing is recorded.
+                gbEd->runTimerForTesting();
+                juce::Thread::sleep (20);
+                gbEd->runTimerForTesting();
+
+                check (gbEd->stallCountForTesting() == 0,
+                       "a timer running on time records no stall",
+                       juce::String (gbEd->stallCountForTesting()));
+
+                // Now a real gap, and the audio thread kept running through it.
+                const unsigned before = proc.audioBlocks.load();
+                proc.audioBlocks.fetch_add (17);
+                juce::Thread::sleep (400);
+                gbEd->runTimerForTesting();
+
+                check (gbEd->stallCountForTesting() == 1,
+                       "a gap in the timer is caught",
+                       juce::String (gbEd->stallCountForTesting()) + " recorded");
+
+                // The whole point of collecting three numbers rather than one.
+                // A gap while the audio thread kept working means the window
+                // was starved, NOT that the plugin was slow - and saying which
+                // is the difference between a diagnosis and a shrug.
+                const juce::String detail = gbEd->stallDetailForTesting();
+                check (detail.contains ("audio kept running")
+                           || detail.contains ("only the window was stuck"),
+                       "and it says the audio kept running while the window did not",
+                       detail.upToFirstOccurrenceOf ("\n", false, false));
+
+                check (proc.audioBlocks.load() == before + 17,
+                       "the audio block counter is what told it so",
+                       juce::String (proc.audioBlocks.load() - before) + " blocks");
+
+                // Written down as well as shown, because the window that would
+                // show it is the thing that was frozen, and the session may be
+                // closed before anyone looks.
+                check (testLog.existsAsFile() && testLog.loadFileAsString().contains ("gap "),
+                       "the stall is written to a log that outlives the session",
+                       testLog.existsAsFile() ? testLog.loadFileAsString().trim()
+                                              : juce::String ("no file"));
+            }
+
+            proc.editorBeingDeleted (ed);
+            delete ed;
+        }
+
+        // Never leave a test pointing at a real file.
+        GhostbandProcessor::setStallLogFileForTesting ({});
+        testLog.deleteFile();
     }
 
     // ---- one row of the tracker is as much music as you asked for -----------

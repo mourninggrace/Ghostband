@@ -317,6 +317,14 @@ public:
     void pressRollForTesting();
     int  rerollSelectionSizeForTesting() const;
 
+    // The stall detector, driven the way the clock drives it. There is no way
+    // to make a real timer miss its slot on demand, and the piece that has to
+    // work is the bookkeeping between two ticks - so the harness calls the same
+    // callback with a real delay between the calls.
+    void runTimerForTesting();
+    int  stallCountForTesting() const;
+    juce::String stallDetailForTesting() const;
+
 private:
     void changeListenerCallback (juce::ChangeBroadcaster*) override;
     void timerCallback() override;
@@ -628,6 +636,52 @@ private:
     // adding the delay is most of the diagnosis.
     juce::Label      latencyLabel;
     void updateLatencyReadout();
+
+    //==========================================================================
+    // Catching the stall.
+    //
+    // Reported 2026-09-12: "sometimes the ghostband UI is frozen, playhead not
+    // moving, screen not changing, but audio is still heard like normal and
+    // then suddenly it will start working normally again." It has not recurred
+    // since, and every part of Ghostband's own frame was measured and is fast -
+    // a full repaint is under 5 ms and a whole reroll is 1.2 ms - so there is
+    // nothing here to fix by reasoning. The plugin has to catch it in the act.
+    //
+    // The measurement that matters is the GAP BETWEEN CALLBACKS, not the time
+    // spent inside one, because the two have opposite causes:
+    //
+    //   long gap, short work   the timer was not called. The message thread was
+    //                          busy elsewhere - the host's, not ours.
+    //   long work              we did something slow. Ours to fix.
+    //
+    // And the audio block counter separates "the window froze" from "everything
+    // froze". Three numbers, and between them they say which of those it was.
+    struct Stall
+    {
+        double  gapMs      = 0.0;   // how long the timer went uncalled
+        double  workMs     = 0.0;   // how long the PREVIOUS callback took
+        int     audioBlocks = 0;    // blocks the audio thread ran during the gap
+        int     screen     = 0;
+        bool    playing    = false;
+        juce::String at;            // wall clock, so it can be matched to what you were doing
+    };
+
+    void noteTimerTick();           // called at the top and bottom of timerCallback
+    juce::String stallSummary() const;
+    juce::String stallDetail() const;
+
+    std::vector<Stall> stalls;
+    double   lastTimerStartMs = 0.0;
+    double   lastTimerWorkMs  = 0.0;
+    unsigned lastAudioBlocks  = 0;
+    double   worstGapMs       = 0.0;
+
+    // 33 ms is the expected spacing. A quarter of a second is seven frames
+    // missed, which is past anything a person reads as smooth and well past
+    // normal scheduling jitter, so it catches real stalls without filling the
+    // log with noise from a busy moment.
+    static constexpr double stallThresholdMs = 250.0;
+    static constexpr size_t maxStallsKept    = 24;
 
     // Dial moves are debounced rather than regenerating on every pixel: the
     // audio thread try-locks the sequence, and swapping it sixty times a second

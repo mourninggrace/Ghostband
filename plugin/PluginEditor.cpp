@@ -2306,15 +2306,134 @@ void GhostbandEditor::updateLatencyReadout()
     if (blockSize > 0)
         text += "   buffer " + juce::String (blockSize);
 
+    // A stall the owner has already seen and I have not - so when one happens,
+    // the plugin has to be the thing that says so. Riding along on the latency
+    // reading rather than taking its own corner, because a permanent slot for
+    // something that is normally empty is a permanent question.
+    text += stallSummary();
+
     if (text == lastLatencyText)
         return;
 
     lastLatencyText = text;
     latencyLabel.setText (text, juce::dontSendNotification);
+
+    // Only when the text changed, which for the tooltip means only when a stall
+    // was added - rebuilding a paragraph thirty times a second to say the same
+    // thing would be its own small version of the fault being measured.
+    //
+    // setColour is a no-op when the colour has not moved, so this is safe here
+    // even though a theme change will have repainted it in the meantime.
+    latencyLabel.setColour (juce::Label::textColourId,
+                            stalls.empty() ? ghost::dim : ghost::warn);
+    latencyLabel.setTooltip (stallDetail());
 }
+
+// Records a gap in the timer, if there was one, and starts the clock on this
+// callback. See the note on Stall in the header for why the gap and the work
+// are measured separately.
+void GhostbandEditor::noteTimerTick()
+{
+    const double now = juce::Time::getMillisecondCounterHiRes();
+    const unsigned blocks = processor.audioBlocks.load (std::memory_order_relaxed);
+
+    if (lastTimerStartMs > 0.0)
+    {
+        const double gap = now - lastTimerStartMs;
+        worstGapMs = juce::jmax (worstGapMs, gap);
+
+        if (gap > stallThresholdMs)
+        {
+            Stall s;
+            s.gapMs       = gap;
+            s.workMs      = lastTimerWorkMs;
+            s.audioBlocks = static_cast<int> (blocks - lastAudioBlocks);
+            s.screen      = static_cast<int> (screen);
+            s.playing     = processor.transportRunning.load();
+            s.at          = juce::Time::getCurrentTime().toString (false, true, false);
+
+            stalls.push_back (s);
+            if (stalls.size() > maxStallsKept)
+                stalls.erase (stalls.begin());
+
+            // Appended to a file as well as kept in memory, because the window
+            // that would show it is the thing that was frozen, and the session
+            // it happened in may be closed before anyone looks. Writing here is
+            // safe: this runs AFTER the stall, and by definition rarely.
+            const juce::File log = GhostbandProcessor::stallLogFile();
+            log.getParentDirectory().createDirectory();
+            log.appendText (s.at + "  gap " + juce::String (s.gapMs, 0) + " ms"
+                            + "   previous callback " + juce::String (s.workMs, 1) + " ms"
+                            + "   audio blocks during gap " + juce::String (s.audioBlocks)
+                            + "   screen " + juce::String (screenName (s.screen))
+                            + (s.playing ? "   playing" : "   stopped")
+                            + "\n");
+        }
+    }
+
+    lastTimerStartMs = now;
+    lastAudioBlocks  = blocks;
+}
+
+// What the footer says. Short, because it shares a line with the latency.
+juce::String GhostbandEditor::stallSummary() const
+{
+    if (stalls.empty())
+        return {};
+
+    return "   \xc2\xb7   " + juce::String (static_cast<int> (stalls.size()))
+         + (stalls.size() == 1 ? " stall" : " stalls")
+         + ", worst " + juce::String (worstGapMs / 1000.0, 1) + "s";
+}
+
+// The whole story, in the tooltip, phrased as a conclusion rather than as
+// numbers - the point of measuring was to be able to say which it was.
+juce::String GhostbandEditor::stallDetail() const
+{
+    if (stalls.empty())
+        return "How long the plugin adds to your rig, which is nothing: Ghostband "
+               "writes MIDI and reports no latency. The buffer is your host's.\n\n"
+               "If the window ever freezes while the music keeps playing, a note "
+               "about it appears here and is written to stalls.log.";
+
+    juce::String s = "The window stopped updating "
+                   + juce::String (static_cast<int> (stalls.size()))
+                   + (stalls.size() == 1 ? " time" : " times") + " this session.\n\n";
+
+    for (size_t i = stalls.size(); i-- > 0 && stalls.size() - i <= 6;)
+    {
+        const Stall& st = stalls[i];
+
+        // The whole reason all three numbers are collected. A gap with the
+        // audio thread still running says the message thread was starved; a
+        // gap with a long previous callback says we did it to ourselves.
+        const juce::String blame =
+            st.workMs > stallThresholdMs / 2.0
+                ? "Ghostband's own work was slow - this one is ours."
+                : st.audioBlocks > 0
+                    ? "The audio kept running, so only the window was stuck - "
+                      "something else on the host's message thread."
+                    : "Audio stopped too, so the whole plugin was held up.";
+
+        s << st.at << "   froze for " << juce::String (st.gapMs / 1000.0, 1) << "s on the "
+          << screenName (st.screen) << " screen"
+          << (st.playing ? " while playing.\n" : " while stopped.\n")
+          << "    " << blame << "\n";
+    }
+
+    s << "\nAlso written to stalls.log beside your takes.";
+    return s;
+}
+
+void GhostbandEditor::runTimerForTesting()        { timerCallback(); }
+int  GhostbandEditor::stallCountForTesting() const { return static_cast<int> (stalls.size()); }
+juce::String GhostbandEditor::stallDetailForTesting() const { return stallDetail(); }
 
 void GhostbandEditor::timerCallback()
 {
+    noteTimerTick();
+    const double workStart = juce::Time::getMillisecondCounterHiRes();
+
     updateLatencyReadout();
     refreshTracker();
 
@@ -2393,6 +2512,9 @@ void GhostbandEditor::timerCallback()
         dialsDirty = false;
         processor.regenerate();
     }
+
+    // Last, so it measures everything above it.
+    lastTimerWorkMs = juce::Time::getMillisecondCounterHiRes() - workStart;
 }
 
 void GhostbandEditor::styleButton (juce::TextButton& b, bool primary)
@@ -3544,7 +3666,10 @@ void GhostbandEditor::resized()
     // Immediately left of the donate button, right-aligned against it, so the
     // reading sits in the bottom right corner on every screen and never moves.
     footerRail.removeFromRight (12);
-    latencyLabel.setBounds (footerRail.removeFromRight (190));
+    // Wide enough for the latency, the buffer AND a stall note - the note only
+    // appears when something went wrong, and a reading that gets truncated
+    // exactly when it has something to say would be worse than not having it.
+    latencyLabel.setBounds (footerRail.removeFromRight (juce::jmin (340, footerRail.getWidth())));
 
     r = r.reduced (20, 14);
 

@@ -205,6 +205,30 @@ public:
                                               const std::vector<int>& channels,
                                               int ticksPerRow = 0) const;
 
+    // Counts calls to processBlock, and exists purely so a UI freeze can be
+    // ATTRIBUTED rather than guessed at.
+    //
+    // The report was "the UI is frozen, playhead not moving, but audio is still
+    // heard like normal, and then suddenly it works again". If this counter
+    // keeps climbing across a gap in the editor's timer, the audio thread was
+    // running the whole time and only the MESSAGE thread was stuck - which
+    // rules out every explanation involving a lock the audio thread holds, and
+    // points at the host's message thread instead of at ours. If it stops
+    // climbing too, the whole plugin stopped and it is a different fault.
+    //
+    // Relaxed ordering: this is a diagnostic, and making the audio thread pay
+    // for a memory barrier to service a readout would be its own bug.
+    std::atomic<unsigned> audioBlocks { 0 };
+
+    // Where a stall report is written, beside the takes and the learned
+    // controls, so it can be found and sent without hunting.
+    static juce::File stallLogFile();
+
+    // Same reason as the learned-controls and takes overrides: a test run must
+    // not append to the owner's real log. Forgetting this once already rewrote
+    // the channels of every instrument on this machine.
+    static void setStallLogFileForTesting (const juce::File& f);
+
     struct Diagnostics
     {
         int    blocks        = 0;
@@ -227,12 +251,16 @@ public:
     std::atomic<int> editorHeight { 960 };
 
     // How much music one tracker row covers: 0 bar, 1 beat, 2 eighth, 3
-    // sixteenth. One row per beat is the middle of the range and the default,
-    // but which one is right depends entirely on what you are looking for -
-    // a bar per row to read the shape of an arrangement, a sixteenth per row to
-    // see where a hat actually sits. That is not a decision to make on someone
-    // else's behalf, so it is a control rather than a constant.
-    std::atomic<int> trackerZoom { 1 };
+    // sixteenth. Which one is right depends entirely on what you are looking
+    // for - a bar per row to read the shape of an arrangement, a sixteenth per
+    // row to see where a hat actually sits. That is not a decision to make on
+    // someone else's behalf, so it is a control rather than a constant.
+    //
+    // A BAR is the default, chosen by the owner after trying all four. It is
+    // also the cheapest: a quarter as many rows as a beat and a sixteenth as
+    // many as a 16th, so the grid repaints least often on the setting most
+    // people will open on.
+    std::atomic<int> trackerZoom { 0 };
     static constexpr int numTrackerZooms = 4;
 
     // Play at the song's own tempo rather than the host's.

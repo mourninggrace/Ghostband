@@ -815,6 +815,29 @@ void GhostbandProcessor::setLearnedControlsFileForTesting (const juce::File& f)
     learnedControlsOverride() = f;
 }
 
+// Beside the takes and the learned controls, because a report nobody can find
+// is a report nobody sends.
+static juce::File& stallLogOverride()
+{
+    static juce::File f;
+    return f;
+}
+
+void GhostbandProcessor::setStallLogFileForTesting (const juce::File& f)
+{
+    stallLogOverride() = f;
+}
+
+juce::File GhostbandProcessor::stallLogFile()
+{
+    if (stallLogOverride() != juce::File())
+        return stallLogOverride();
+
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+               .getChildFile ("Ghostband")
+               .getChildFile ("stalls.log");
+}
+
 juce::File GhostbandProcessor::learnedControlsFile()
 {
     if (learnedControlsOverride() != juce::File())
@@ -2442,6 +2465,11 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     // the input is dropped for now; live following will consume it later.
     midi.clear();
 
+    // Diagnostic only, and relaxed on purpose - see the declaration. It is what
+    // lets the editor say "audio kept running while the window was stuck"
+    // rather than leaving that as the owner's impression.
+    audioBlocks.fetch_add (1, std::memory_order_relaxed);
+
     const int numSamples = buffer.getNumSamples();
     if (numSamples <= 0)
         return;
@@ -2970,7 +2998,7 @@ void GhostbandProcessor::setStateInformation (const void* data, int sizeInBytes)
     editorHeight.store (juce::jlimit (820, 2200, xml->getIntAttribute ("editorH", 960)));
     usePlanTempo.store (xml->getBoolAttribute ("planTempo", true));
     trackerZoom.store (juce::jlimit (0, numTrackerZooms - 1,
-                                     xml->getIntAttribute ("trackerZoom", 1)));
+                                     xml->getIntAttribute ("trackerZoom", 0)));
 
     const auto level = [&xml] (const char* key)
     {
