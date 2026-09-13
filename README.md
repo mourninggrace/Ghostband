@@ -12,7 +12,7 @@ instrument.
 
 ### Download
 
-**[Ghostband 0.3.0 for Windows](https://github.com/mourninggrace/Ghostband/releases/latest)**
+**[Ghostband 0.4.0 for Windows](https://github.com/mourninggrace/Ghostband/releases/latest)**
 — unzip and drop the `Ghostband.vst3` folder into
 `C:\Program Files\Common Files\VST3\`, then rescan plugins in your host.
 
@@ -29,6 +29,10 @@ songs and driver profiles are already inside it.
 > stopping the host, but it cannot start a transport that is not moving.
 >
 > This is the single most common reason a fresh install appears to do nothing.
+>
+> When a song reaches its end Ghostband parks the playhead back at bar 1 and
+> pauses itself, so playing it again is one button rather than a trip to the
+> host's transport.
 
 
 ![The Ghostband song screen](docs/screenshots/song.png)
@@ -241,13 +245,72 @@ Teach is deliberately too fast to read.
 - **BPM** — the tempo the song is written at. See *Tempo, and whose it is*.
 - **Takes** — save the performance you are hearing under a name, and get it
   back later. See *Keeping a performance you liked*.
-- **Mix** — one knob per part. A knob is only drawn for a part whose volume
-  something can actually reach; SSD5's cannot be reached by any controller, so
-  there is no drums knob. A knob with no taught level control is dimmed and
-  labelled CC7, because a guess should not look identical to a connection.
+- **Rows** — how much music one row of the grid covers: a bar, a beat, an
+  eighth or a sixteenth. Nothing about the music changes, only how closely you
+  are looking at it. A bar per row reads the shape of an arrangement and marks a
+  busy cell `×7`; a sixteenth per row shows exactly where a hi-hat sits.
+- **Mix** — one knob per part, always all five, always in the same places. A
+  knob that cannot do anything is greyed with the reason written on it:
+  `not in song` when the song has no such part, `no reach` when the
+  instrument's volume cannot be addressed from outside at all (SSD5's cannot,
+  so put a gain plugin after it in your host), and `CC7` when the knob is
+  guessing with a controller most instruments ignore — teach that instrument
+  its volume control in Settings and it becomes real.
 
-The section list lights up and a playhead line tracks the song as it plays, so
-you can see which section you are hearing.
+  None of them are ever hidden. A control that vanishes is indistinguishable
+  from one that is broken, and one silent absence makes every other control
+  suspect.
+
+### Reading the grid, and editing it
+
+The song screen is a **tracker**: one row per bar by default, one column per
+player, and the contents are what Ghostband is actually *sending* — the note,
+how hard it is played, and any articulation landing there. Sections run across
+the top, each as wide as it is long; click one to jump there on the next bar
+line, ctrl-click to add it to a reroll.
+
+No two neighbouring rows are the same shade, so you can count along and read a
+value across a line without losing your place. The downbeat is strongest, beats
+sit in the middle, and every fourth bar is marked as a phrase edge.
+
+**Click any row** and a strip opens under the grid on that bar:
+
+    BAR 3   intro     CHORD [Em]   FEEL [straight]
+                      Reroll section | Open in editor | Close
+
+What it offers is what is *authored*. A note in the grid is the output of a seed
+and a plan, so there is nowhere to put a hand-placed one and no way to keep it
+through a reroll — but the chord under a bar and the feel of its section are
+exactly what decide those notes, and changing either is heard immediately.
+
+Editing one bar of a section whose chords were chosen automatically pins the
+whole section to what it was already playing and changes only that bar.
+Otherwise its other bars would be free to move the next time the song
+regenerated, which is not what anybody means by changing one chord.
+
+### The change log
+
+Every change goes in `%APPDATA%\Ghostband\changes.log` as it happens, with
+what it was before:
+
+    2026-09-13 15:48:49  chord at bar 3 of intro   Dm -> Bb
+    2026-09-13 15:10:54  bass level                100% -> 80%
+
+A knob dragged across its range is one line, not one per pixel. **Show log
+folder** in Settings opens the folder, which also holds your takes, your taught
+mappings, and the stall log below.
+
+### If the window ever freezes
+
+Ghostband times itself. If its interface stops updating for more than a
+quarter of a second, it records three things: how long the gap was, how much of
+that time Ghostband itself spent working, and whether the audio thread kept
+running through it. Between them those say whether it was Ghostband, your host,
+or the whole plugin — and the reading appears beside the latency in the bottom
+right, with the verdict in words when you hover it.
+
+It is written to `%APPDATA%\Ghostband\stalls.log` too, because the window that
+would show it is the thing that was frozen.
 
 ### Keeping a performance you liked
 
