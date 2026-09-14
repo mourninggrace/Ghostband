@@ -121,6 +121,19 @@ public:
         double        seconds = 0.0;
         int           drumHits  = 0;
         int           bassNotes = 0;
+
+        // WHAT IS WRONG WITH THE SONG ITSELF, as distinct from what is wrong
+        // with the instruments (which is what `message` carries).
+        //
+        // SongPlan::validate has always produced these - an unreadable chord, a
+        // section whose `plays` names nothing, a chord cycle that does not
+        // divide into the bars - and only the command line ever showed them.
+        // Inside the plugin a mistyped chord silently becomes the key's root
+        // and a mistyped `plays` silently produces a silent section, with
+        // nothing on screen to say why. That is the worst kind of fault: the
+        // song is wrong, the plugin is behaving exactly as designed, and there
+        // is no thread to pull.
+        juce::StringArray planWarnings;
     };
 
     void loadPlan (const juce::File& planFile);
@@ -379,6 +392,20 @@ public:
     // also the cheapest: a quarter as many rows as a beat and a sixteenth as
     // many as a 16th, so the grid repaints least often on the setting most
     // people will open on.
+    // How long a beat is, published whenever the song is rebuilt.
+    //
+    // getBeatTicks used to take stateLock for the time signature and then
+    // sequenceLock for the bar length - two separate acquisitions, deliberately
+    // not nested (see THE LOCK ORDER RULE), which fixed the deadlock and left a
+    // subtler fault behind: a regenerate landing between them returns a
+    // numerator from one song and a bar length from another. Harmless on screen
+    // and wrong, and it cost two lock acquisitions thirty times a second.
+    //
+    // Both numbers are known together at the moment the sequence is swapped, so
+    // publishing the answer is cheaper than computing it from two sources that
+    // can disagree.
+    std::atomic<int> beatTicksForUi { 96 };
+
     std::atomic<int> trackerZoom { 0 };
     static constexpr int numTrackerZooms = 4;
 
@@ -535,6 +562,13 @@ public:
     void moveSection (int index, int delta);
 
     bool savePlan (const juce::File& target, juce::String& error);
+    // Whether the song has been changed since it was last written to disk.
+    //
+    // The flag was set by every edit and read by nothing - six writers, no
+    // readers, which is a promise the code makes and does not keep. It matters
+    // because edits live only in memory: change a chord, load another song, and
+    // the change is gone with no warning and nothing on screen that could have
+    // warned you.
     bool planHasUnsavedEdits() const { return planDirty; }
     juce::String planAsText() const;
 

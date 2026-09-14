@@ -3877,7 +3877,23 @@ void GhostbandEditor::refreshFromProcessor()
 {
     const auto s = processor.getStatus();
 
-    planLabel.setText (s.planName, juce::dontSendNotification);
+    // The song's name, and whether it has been changed since it was saved.
+    //
+    // Section edits, chord edits and the strip under the grid all change the
+    // plan in memory only. Loading another song throws those away without
+    // asking, so the one place that can warn anybody is the line carrying the
+    // song's name - which is on the song screen and the editor both.
+    const bool unsaved = processor.planHasUnsavedEdits();
+
+    planLabel.setText (unsaved ? s.planName + "   \xe2\x80\xa2 unsaved edits"
+                               : s.planName,
+                       juce::dontSendNotification);
+    planLabel.setColour (juce::Label::textColourId, unsaved ? ghost::warn : ghost::text);
+    planLabel.setTooltip (unsaved
+        ? "This song has been changed since it was last saved. Edits live in memory "
+          "only - loading another song, or a preset, throws them away. Save or "
+          "Save as... on the Edit song screen keeps them."
+        : "The song currently loaded.");
     headlineLabel.setText (s.headline, juce::dontSendNotification);
 
     if (s.ok)
@@ -3900,11 +3916,45 @@ void GhostbandEditor::refreshFromProcessor()
     // wrong, which left "STATUS" sitting on the footer with nothing beside it -
     // reading as a value that failed to load rather than as good news. Now that
     // every profile can actually be marked verified, blank is the common case.
-    statusLabel.setText (s.message.isNotEmpty() ? s.message
-                                                : juce::String ("all profiles verified"),
+    // What is wrong with the SONG comes first, because it is the one the reader
+    // can do something about and the one nothing else on screen hints at.
+    //
+    // A mistyped chord silently becomes the key's root; a mistyped `plays`
+    // silently produces a silent section. Both are the engine behaving exactly
+    // as designed, which is why neither leaves a mark anywhere else - and until
+    // now these warnings existed and were only ever printed by the command-line
+    // renderer, which nobody running the plugin is looking at.
+    const int problems = s.planWarnings.size();
+
+    juce::String caption = s.message;
+    if (problems > 0)
+    {
+        const juce::String note = juce::String (problems)
+                                + (problems == 1 ? " thing to fix in this song: "
+                                                 : " things to fix in this song: ")
+                                + s.planWarnings[0];
+
+        caption = caption.isNotEmpty() ? note + "     " + caption : note;
+    }
+
+    statusLabel.setText (caption.isNotEmpty() ? caption
+                                              : juce::String ("all profiles verified"),
                          juce::dontSendNotification);
     statusLabel.setColour (juce::Label::textColourId,
-                           s.unverifiedProfiles || ! s.ok ? ghost::warn : ghost::dim);
+                           problems > 0 || s.unverifiedProfiles || ! s.ok ? ghost::warn
+                                                                         : ghost::dim);
+
+    // The first one is on the line; the rest are one hover away. A footer line
+    // is not the place for five sentences, and truncating them would leave the
+    // reader knowing something was wrong and not what.
+    statusLabel.setTooltip (problems == 0
+        ? "Anything wrong with the loaded song or its instruments appears here."
+        : "This song has " + juce::String (problems)
+              + (problems == 1 ? " problem:\n\n" : " problems:\n\n")
+              + s.planWarnings.joinIntoString ("\n")
+              + "\n\nGhostband still plays it - an unreadable chord falls back to the "
+                "key's own root, and a section that names no part stays silent. These "
+                "are the reasons it might not sound the way you wrote it.");
 
     juce::String profiles = "drums: " + s.drumProfile + "    bass: " + s.bassProfile;
     // Which instrument is in each slot, beside the slot. The rows name a part

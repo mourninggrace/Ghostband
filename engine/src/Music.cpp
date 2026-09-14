@@ -166,11 +166,29 @@ Chord parseChord (const std::string& text)
     c.rootPc = pitchClassFromName (text.substr (0, split), ok);
     if (! ok) return c;
 
-    const std::string suffix = lower (text.substr (split));
+    const std::string raw    = text.substr (split);
+    const std::string suffix = lower (raw);
+
+    // CASE MATTERS FOR EXACTLY ONE PAIR, and lowercasing first destroyed it.
+    //
+    // "M7" is major seventh and "m7" is minor seventh - the two chords furthest
+    // apart in the vocabulary. The list below tested `suffix == "M7"` AFTER
+    // lowercasing, so that branch could never be reached, and "CM7" fell
+    // through to the `m7` branch one line down and played as C MINOR seven.
+    // A major seventh coming out minor is not a subtle mis-voicing.
+    //
+    // None of the thirty-four shipped songs uses either spelling, so correcting
+    // it moves no note in any of them - checked before changing it.
+    if (raw == "M7" || raw == "Maj7" || raw == "MAJ7")
+    {
+        c.quality = ChordQuality::Major7;
+        c.valid   = true;
+        return c;
+    }
 
     if      (suffix.empty())                              c.quality = ChordQuality::Major;
     else if (suffix == "5")                               c.quality = ChordQuality::Power;
-    else if (suffix == "maj7" || suffix == "M7")          c.quality = ChordQuality::Major7;
+    else if (suffix == "maj7")                            c.quality = ChordQuality::Major7;
     else if (suffix == "m7"   || suffix == "min7")        c.quality = ChordQuality::Minor7;
     else if (suffix == "7")                               c.quality = ChordQuality::Dominant7;
     else if (suffix == "m"    || suffix == "min"
@@ -179,7 +197,15 @@ Chord parseChord (const std::string& text)
     else if (suffix == "aug"  || suffix == "+")           c.quality = ChordQuality::Augmented;
     else if (suffix == "sus2")                            c.quality = ChordQuality::Sus2;
     else if (suffix == "sus"  || suffix == "sus4")        c.quality = ChordQuality::Sus4;
-    else                                                  c.quality = ChordQuality::Major;
+    else
+    {
+        // Played as a major triad on the right root, and REPORTED. See the note
+        // on Chord::qualityUnderstood: this used to be silent, so "Em7b5"
+        // became E major with nothing said - and because the chord was still
+        // marked valid, validate() had nothing to complain about either.
+        c.quality = ChordQuality::Major;
+        c.qualityUnderstood = false;
+    }
 
     c.valid = true;
     return c;

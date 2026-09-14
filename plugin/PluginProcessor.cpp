@@ -416,6 +416,13 @@ void GhostbandProcessor::loadPlan (const juce::File& file)
     flushPending.store (true);
     rewindPending.store (true);
 
+    // Read the song's own complaints before adopting it. Cheap - it walks the
+    // sections once - and it is the only thing that can tell somebody their
+    // chord was a typo rather than their instrument being misconfigured.
+    juce::StringArray warnings;
+    for (const std::string& w : loaded.faults())
+        warnings.add (juce::String (w));
+
     {
         const juce::ScopedLock sl (stateLock);
         plan     = loaded;
@@ -431,7 +438,21 @@ void GhostbandProcessor::loadPlan (const juce::File& file)
         juce::String profileError;
         resolveProfiles (profileError);
         status.message = profileError;
+        status.planWarnings = warnings;
     }
+
+    // A freshly loaded song has no unsaved edits, whatever the last one had.
+    // The flag was only ever cleared by SAVING, so an edit made before loading
+    // another song left the new one permanently marked as edited - which was
+    // invisible while nothing read the flag, and would have been the first
+    // thing anybody noticed now that something does.
+    planDirty = false;
+
+    // Worth a line each in the change log as well as on screen - "why did the
+    // chorus go silent" is a question asked days later, and the answer should
+    // not depend on having had the window open at the time.
+    for (const juce::String& w : warnings)
+        logChange ("song warning   " + w);
 
     regenerate();
 }
@@ -729,7 +750,12 @@ void GhostbandProcessor::teachControl (int part, int cc)
     // one - and a MIDI Learn cannot tell a legitimate message from the sweep it
     // is waiting for. It takes the first thing it hears. So for as long as a
     // Teach is in flight, nothing else is allowed to speak.
-    teachingUntil.store (juce::Time::getMillisecondCounter() + 2500);
+    // The 64-bit counter, because the 32-bit one wraps every 49.7 days and the
+    // arithmetic below it is unsigned: near the wrap, `counter + 2500` lands at
+    // a tiny number, the comparison in sendLevels goes false immediately, and
+    // the guard that stops the mix knobs talking over a MIDI Learn silently
+    // does nothing. Astronomically unlikely and free to remove.
+    teachingUntil.store (static_cast<juce::int64> (juce::Time::getMillisecondCounterHiRes()) + 2500);
 
     const double sr = juce::jmax (8000.0, getSampleRate());
 
@@ -1996,7 +2022,7 @@ void GhostbandProcessor::sendLevels()
     }
 
     // Not a word while a Teach is in flight. See teachControl.
-    if (juce::Time::getMillisecondCounter() < static_cast<juce::uint32> (teachingUntil.load()))
+    if (static_cast<juce::int64> (juce::Time::getMillisecondCounterHiRes()) < teachingUntil.load())
         return;
 
     // Nothing to say unless something actually moved. A repeat of what the
@@ -2641,6 +2667,19 @@ void GhostbandProcessor::regenerate()
         status.message = status.unverifiedProfiles
                        ? "Profiles are unverified - calibrate before trusting the mapping."
                        : juce::String();
+
+        // HERE rather than only in loadPlan, because the song can be changed
+        // without being loaded. Editing a chord in the structure editor or in
+        // the strip under the grid goes straight to regenerate, and warnings
+        // computed at load time would then describe the song as it was when it
+        // was opened - which is worse than none, because they would be wrong
+        // about the thing somebody had just typed.
+        //
+        // Cheap: it walks the sections comparing a few strings, against a
+        // regenerate that renders the whole song in about a millisecond.
+        status.planWarnings.clear();
+        for (const std::string& w : working.faults())
+            status.planWarnings.add (juce::String (w));
     }
 
     // The instruments behind the parts may have just changed, and the knobs are
@@ -2740,6 +2779,11 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
     // Published for the audio thread, which can no longer read the plan itself.
     // Here because every path that changes the tempo ends in a regenerate.
     planBpmForAudio.store (planToUse.bpm);
+
+    // And for the interface, which asks how long a beat is thirty times a
+    // second. Both halves of that answer are in hand right here; working it out
+    // later from two separately locked values was where they could disagree.
+    beatTicksForUi.store (beat);
 }
 
 //==============================================================================
@@ -3202,26 +3246,26 @@ int GhostbandProcessor::getSequencePitchSum (int channel) const
 
 int GhostbandProcessor::getBeatTicks() const
 {
-    // NEVER BOTH AT ONCE. This held stateLock and then took sequenceLock, while
-    // processBlock takes sequenceLock and then stateLock - a lock-order
-    // inversion, and a deadlock the moment they interleaved.
+    // NO LOCKS AT ALL NOW, and that is the third version of this function.
     //
-    // It froze Gig Performer solid: the audio thread blocked on stateLock while
-    // holding sequenceLock, and the message thread SPUN on sequenceLock while
-    // holding stateLock. A spinning message thread is an unresponsive host, so
-    // it does not even present as a hang in the audio - the whole application
-    // stops answering. Called thirty times a second by the tracker, so it was
-    // only ever a matter of minutes.
+    // The first held stateLock and then took sequenceLock, while processBlock
+    // took sequenceLock and then stateLock - a lock-order inversion, and a
+    // deadlock the moment they interleaved. It froze Gig Performer solid: the
+    // audio thread blocked on stateLock while holding sequenceLock, and the
+    // message thread SPUN on sequenceLock while holding stateLock. A spinning
+    // message thread is an unresponsive host, so it did not even present as an
+    // audio glitch - the whole application stopped answering. See THE LOCK
+    // ORDER RULE in NEXT.md.
     //
-    // Two separate acquisitions, neither nested inside the other.
-    int n = 4;
-    {
-        const juce::ScopedLock sl (stateLock);
-        n = juce::jmax (1, plan.timeSigNumerator);
-    }
-
-    const juce::SpinLock::ScopedLockType lock (sequenceLock);
-    return juce::jmax (1, barTicks / n);
+    // The second took the two locks separately, never nested. That fixed the
+    // deadlock and left a smaller fault: a regenerate landing between the two
+    // acquisitions returns a time signature from one song and a bar length from
+    // another.
+    //
+    // This one reads the answer, which is published as a single value at the
+    // moment both halves of it are known. Nothing to interleave, and two fewer
+    // lock acquisitions on a path the tracker hits thirty times a second.
+    return juce::jmax (1, beatTicksForUi.load());
 }
 
 std::vector<GhostbandProcessor::TrackerCell>

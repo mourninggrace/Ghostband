@@ -329,6 +329,18 @@ std::string SongPlan::toJson() const
 
 std::vector<std::string> SongPlan::validate() const
 {
+    return collectWarnings (true);
+}
+
+std::vector<std::string> SongPlan::faults() const
+{
+    return collectWarnings (false);
+}
+
+// `includeAdvice` adds the observations that may be entirely intended. See the
+// note on faults() in the header.
+std::vector<std::string> SongPlan::collectWarnings (bool includeAdvice) const
+{
     std::vector<std::string> warnings;
 
     bool keyOk = false;
@@ -362,15 +374,23 @@ std::vector<std::string> SongPlan::validate() const
 
         for (const std::string& ch : s.chords)
         {
-            if (! parseChord (ch).valid)
-                warnings.push_back ("section \"" + s.name + "\": cannot read chord \"" + ch + "\"");
+            const Chord parsed = parseChord (ch);
+
+            if (! parsed.valid)
+                warnings.push_back ("section \"" + s.name + "\": cannot read chord \"" + ch
+                                    + "\", so it falls back to the key");
+            else if (! parsed.qualityUnderstood)
+                warnings.push_back ("section \"" + s.name + "\": \"" + ch
+                                    + "\" - the root is fine but the rest of the name is not one "
+                                      "Ghostband knows, so it plays as a plain major triad");
         }
 
         // A shorter chord list repeating over the bars is normal and intended -
         // "Em C D" over eight bars means keep going round. Only say something
         // when the cycle does not divide evenly, because then the progression
         // lands somewhere different each time through and that is usually a typo.
-        if (! s.chords.empty()
+        if (includeAdvice
+            && ! s.chords.empty()
             && static_cast<int> (s.chords.size()) < s.bars
             && s.bars % static_cast<int> (s.chords.size()) != 0)
         {

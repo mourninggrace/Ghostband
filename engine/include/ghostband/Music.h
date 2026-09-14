@@ -20,6 +20,19 @@ struct Chord
     bool         valid   = false;
     std::string  text;                           // as written, for markers and logs
 
+    // The ROOT was read but the rest of the name was not understood.
+    //
+    // "Em7b5" and "C7#9" are real chords this parser has no quality for. It
+    // plays them as plain majors on the right root, which is a reasonable thing
+    // to do and a terrible thing to do SILENTLY - a half-diminished coming out
+    // major is the opposite chord. `valid` cannot carry this, because an
+    // invalid chord makes the renderer throw the root away as well and fall
+    // back to the key, which would be a worse answer than a major triad in the
+    // right place.
+    //
+    // So: play it, and let validate() say so.
+    bool qualityUnderstood = true;
+
     // Semitones above the root. Power chords report no third.
     int thirdSemitones() const;                  // -1 when the chord has no third
     int fifthSemitones() const;

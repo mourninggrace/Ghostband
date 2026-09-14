@@ -126,7 +126,24 @@ struct SongPlan
     std::string toJson() const;
 
     // Non-fatal problems worth telling the user about before they hit play.
+    // Everything worth saying about the song: things that are WRONG, and things
+    // that are merely unusual. What the command line prints.
     std::vector<std::string> validate() const;
+
+    // Only the things that are wrong.
+    //
+    // The two are separate because the plugin puts this on screen, and a
+    // warning that fires on correct music is one nobody reads. "4 chords do not
+    // divide evenly into 7 bars" is a typo in a rock song and the entire point
+    // of a prog one - preset-prog-2 does it in seven sections deliberately, and
+    // preset-emo once. Reporting those as faults would have meant two of the
+    // thirty-four shipped songs opening with a warning about nothing.
+    std::vector<std::string> faults() const;
+
+private:
+    std::vector<std::string> collectWarnings (bool includeAdvice) const;
+
+public:
 };
 
 // "verse2" -> "verse". Lets the plan name sections naturally without also

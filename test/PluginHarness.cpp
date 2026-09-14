@@ -3790,6 +3790,191 @@ int main (int argc, char** argv)
         bak.deleteFile();
     }
 
+    // ---- a song's own problems reach the screen ----------------------------
+    // SongPlan::validate has produced these since it was written, and only the
+    // command-line renderer ever printed them. Inside the plugin a mistyped
+    // chord silently becomes the KEY's root and a `plays` naming nothing
+    // silently produces a silent section - the engine behaving exactly as
+    // designed, which is why neither leaves a mark anywhere else on screen.
+    //
+    // Found by an external audit of the codebase, and the only finding in it
+    // that was both real and worth the change.
+    {
+        const juce::File bad = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                   .getChildFile ("ghostband-harness")
+                                   .getChildFile ("typos.json");
+        bad.getParentDirectory().createDirectory();
+        bad.replaceWithText (
+            "{\n"
+            "  \"name\": \"Typos\",\n"
+            "  \"key\": \"E\", \"mode\": \"natural_minor\", \"bpm\": 120,\n"
+            "  \"style\": \"hard_rock\",\n"
+            "  \"sections\": [\n"
+            "    { \"name\": \"verse1\", \"bars\": 4, \"intensity\": 0.5,\n"
+            "      \"plays\": \"drums+bass\", \"feel\": \"straight\", \"fill\": \"auto\",\n"
+            "      \"chords\": [\"Em\", \"Em7b5\", \"C\", \"Xq\"] }\n"
+            "  ]\n"
+            "}\n");
+
+        proc.loadPlan (bad);
+        const auto st = proc.getStatus();
+
+        check (st.ok, "a song with a typo in it still loads and plays", st.message);
+
+        // TWO different faults, reported differently on purpose.
+        //
+        // "Em7b5" is a real chord with a root Ghostband reads and a quality it
+        // has no voicing for, so it PLAYS - a major triad on E - and says so.
+        // Silently, that was a half-diminished coming out as its opposite.
+        //
+        // "Xq" is not a note at all, so the root goes too and the bar falls
+        // back to the key. A different sentence, because it is a different
+        // thing to have to go and fix.
+        bool namedTheQuality = false, namedTheJunk = false;
+        for (const juce::String& w : st.planWarnings)
+        {
+            if (w.contains ("Em7b5")) namedTheQuality = true;
+            if (w.contains ("Xq"))    namedTheJunk    = true;
+        }
+
+        check (namedTheQuality,
+               "a chord whose quality is not understood is reported by name",
+               st.planWarnings.isEmpty() ? juce::String ("nothing reported")
+                                         : st.planWarnings.joinIntoString ("; "));
+
+        check (namedTheJunk, "and so is one that is not a chord at all",
+               st.planWarnings.joinIntoString ("; "));
+
+        // The one the audit pointed at, and the one it got wrong about which
+        // branch produced it: case. "M7" is a major seventh; the parser
+        // lowercased the suffix before testing it, so the M7 branch was
+        // unreachable and CM7 matched "m7" one line below - major seven playing
+        // as minor seven.
+        check (gb::parseChord ("CM7").quality == gb::ChordQuality::Major7,
+               "CM7 is a major seventh, not a minor one");
+        check (gb::parseChord ("Cm7").quality == gb::ChordQuality::Minor7,
+               "and Cm7 is still a minor seventh");
+        check (gb::parseChord ("Cmaj7").quality == gb::ChordQuality::Major7,
+               "and Cmaj7 still works as it always did");
+
+        // It has to reach the WINDOW, not just the struct. The whole fault was
+        // a warning that existed and was never shown.
+        if (auto* ed = proc.createEditorIfNeeded())
+        {
+            auto* gbEd = dynamic_cast<GhostbandEditor*> (ed);
+            if (gbEd != nullptr)
+            {
+                gbEd->showScreenForSnapshot (0);
+                ed->setSize (kMinW, kMinH);
+
+                juce::String onScreen;
+                for (int i = 0; i < ed->getNumChildComponents(); ++i)
+                    if (auto* l = dynamic_cast<juce::Label*> (ed->getChildComponent (i)))
+                        if (l->isVisible() && l->getText().contains ("to fix in this song"))
+                            onScreen = l->getText();
+
+                check (onScreen.isNotEmpty(),
+                       "and it is on screen rather than only in the struct",
+                       onScreen.isEmpty() ? juce::String ("the status line says nothing")
+                                          : onScreen);
+            }
+
+            proc.editorBeingDeleted (ed);
+            delete ed;
+        }
+
+        // And a clean song must say nothing, or the warning becomes wallpaper.
+        proc.loadPlan (juce::File (planPath));
+        check (proc.getStatus().planWarnings.isEmpty(),
+               "a song with nothing wrong reports nothing",
+               proc.getStatus().planWarnings.joinIntoString ("; "));
+
+        // INCLUDING THE ONES THAT DO SOMETHING UNUSUAL ON PURPOSE.
+        //
+        // "4 chords do not divide evenly into 7 bars" is a typo in a rock song
+        // and the entire point of a prog one. preset-prog-2 does it in seven
+        // sections deliberately; surfacing that as a fault would have meant two
+        // of the thirty-four shipped songs opening with a warning about
+        // nothing, and a warning that fires on correct music is one nobody
+        // reads. The observation still exists - the command line prints it -
+        // it is just not a fault.
+        {
+            const juce::File prog ("C:/Projects/Ghostband/plans/preset-prog-2.json");
+            if (prog.existsAsFile())
+            {
+                proc.loadPlan (prog);
+                check (proc.getStatus().planWarnings.isEmpty(),
+                       "a song whose odd bar counts are the point reports no faults",
+                       proc.getStatus().planWarnings.joinIntoString ("; "));
+
+                gb::SongPlan p;
+                std::string err;
+                if (gb::SongPlan::load (prog.getFullPathName().toStdString(), p, err))
+                    check (! p.validate().empty() && p.faults().empty(),
+                           "though the observation is still there for the command line",
+                           juce::String (static_cast<int> (p.validate().size()))
+                               + " notes, " + juce::String (static_cast<int> (p.faults().size()))
+                               + " faults");
+
+                proc.loadPlan (juce::File (planPath));
+            }
+        }
+
+        bad.deleteFile();
+    }
+
+    // ---- an edited song says it is unsaved ---------------------------------
+    // The flag behind this existed with six writers and no readers. Edits live
+    // in memory only, so loading another song throws them away - silently,
+    // until now.
+    {
+        check (! proc.planHasUnsavedEdits(),
+               "a freshly loaded song is not marked as edited");
+
+        auto edit = proc.getSectionEdit (0);
+        edit.chords = "Em C G D";
+        proc.applySectionEdit (0, edit);
+
+        check (proc.planHasUnsavedEdits(),
+               "editing a section marks the song as unsaved");
+
+        // Reloading from disk is the same as never having edited it.
+        proc.loadPlan (juce::File (planPath));
+        check (! proc.planHasUnsavedEdits(),
+               "and loading a song again clears the mark");
+    }
+
+    // ---- how long a beat is, without two locks to disagree ------------------
+    // getBeatTicks took stateLock for the time signature and sequenceLock for
+    // the bar length, deliberately not nested (that nesting was the deadlock
+    // that froze the host). Separate acquisitions cannot deadlock and CAN
+    // disagree: a regenerate between them returns a numerator from one song and
+    // a bar length from another. It is published as one value now.
+    {
+        const int beat = proc.getBeatTicks();
+        const int bar  = proc.getBarTicks();
+
+        check (beat > 0 && bar > 0 && bar % beat == 0,
+               "a bar is a whole number of beats",
+               juce::String (bar) + " / " + juce::String (beat));
+
+        // It must follow the song, not sit on a constant that happens to fit.
+        const int wasNumerator = bar / beat;
+        check (wasNumerator >= 2 && wasNumerator <= 16,
+               "and the beat length matches the time signature",
+               juce::String (wasNumerator) + " beats to the bar");
+
+        // Hammering it against a running audio thread must never disagree with
+        // the bar length, which is what the two-lock version could do.
+        bool everWrong = false;
+        for (int i = 0; i < 2000; ++i)
+        {
+            const int b = proc.getBeatTicks();
+            if (b <= 0 || proc.getBarTicks() % b != 0) everWrong = true;
+        }
+        check (! everWrong, "and it stays consistent under repeated reads");
+    }
+
     // ---- mappings can be put back to what the profile says ------------------
     // Only a CC can drift: the store holds controller numbers and the profile
     // supplies everything else, every load. So the reset undoes exactly two
