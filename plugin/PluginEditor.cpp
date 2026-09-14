@@ -834,6 +834,19 @@ void TrackerView::setSelection (const std::vector<int>& indices)
     repaint();
 }
 
+void TrackerView::setQueuedPulse (float p)
+{
+    if (std::abs (p - queuedPulse) < 0.01f)
+        return;
+
+    queuedPulse = p;
+
+    // ONLY THE RIBBON. Repainting the whole view at 60 Hz to pulse one section
+    // header would cost more than every other animation in the window put
+    // together - the grid below is hundreds of pieces of text.
+    repaint (0, 0, getWidth(), headerHeight);
+}
+
 void TrackerView::setCells (std::vector<GhostbandProcessor::TrackerCell> c, int firstTick,
                             int rowTicksIn, int beat, int barTicksIn)
 {
@@ -964,18 +977,29 @@ void TrackerView::paint (juce::Graphics& g)
                                          static_cast<int> (i)) != selection.end();
         const bool hovered  = static_cast<int> (i) == hoverIndex;
 
-        const juce::Colour lit = selected ? ghost::colours::warn
-                                          : (playing ? partColour (0) : ghost::colours::dim);
+        // WAITING FOR THE BAR LINE. A jump does not happen when you click it -
+        // it happens on the next bar, which at one row per bar can be seconds
+        // away. Statically lit, that looked like the click had selected
+        // something; breathing, it looks like what it is.
+        const bool queued = static_cast<int> (i) == queuedIndex;
 
-        g.setColour ((playing || selected) ? lit.withAlpha (dark ? 0.16f : 0.14f)
-                                           : ghost::colours::cardRaised);
+        const juce::Colour lit = queued ? ghost::colours::accent
+                                        : (selected ? ghost::colours::warn
+                                                    : (playing ? partColour (0)
+                                                               : ghost::colours::dim));
+
+        const float base = dark ? 0.16f : 0.14f;
+        const float fill = queued ? base + queuedPulse * (dark ? 0.34f : 0.26f) : base;
+
+        g.setColour ((playing || selected || queued) ? lit.withAlpha (fill)
+                                                     : ghost::colours::cardRaised);
         g.fillRect (box);
 
-        g.setColour ((playing || selected || hovered) ? lit
-                                                      : ghost::colours::line);
-        g.drawRect (box, (playing || selected) ? 1.4f : 0.7f);
+        g.setColour ((playing || selected || queued || hovered) ? lit
+                                                                : ghost::colours::line);
+        g.drawRect (box, (playing || selected || queued) ? 1.4f : 0.7f);
 
-        g.setColour ((playing || selected) ? lit : ghost::colours::dim);
+        g.setColour ((playing || selected || queued) ? lit : ghost::colours::dim);
         g.setFont (small);
         g.drawText (juce::String (sections[i].name).toUpperCase(), box.reduced (4, 0),
                     juce::Justification::centredLeft, false);
@@ -1927,6 +1951,13 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         // thing that just changed.
         screen = Screen::Song;
         updateModeVisibility();
+        // The three dials are most of what a take IS - the same song played
+        // differently - so seeing which of them moved is the answer to "what
+        // was different about that one". They jumped before, which shows the
+        // result and not the change.
+        easeDialsTo (processor.complexity.load(), processor.humanize.load(),
+                     processor.fills.load());
+
         statusLabel.setText ("Recalled take \"" + name + "\".",
                              juce::dontSendNotification);
     };
@@ -2493,6 +2524,12 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     // and so an offline render of the editor shows it too.
     updateLatencyReadout();
 
+    // Above everything, and it never takes a click. Added last so it is already
+    // in front; toFront on each fade keeps it there when other components are
+    // brought forward.
+    addChildComponent (veil);
+    veil.setAlwaysOnTop (true);
+
     startTimerHz (30);
 }
 
@@ -2815,6 +2852,123 @@ void GhostbandEditor::pollChangeLog()
     logged = now;
 }
 
+//==============================================================================
+// Everything moving, advanced by one frame. Returns false when nothing is left
+// to move, which is what stops the clock.
+bool GhostbandEditor::advanceAnimations (int deltaMs)
+{
+    bool busy = false;
+
+    if (veil.isVisible())
+    {
+        const bool moving = veil.alpha.advance (deltaMs);
+        veil.repaint();
+
+        // HIDDEN once it is transparent, not merely painted as nothing. It
+        // covers the entire window, so a transparent-but-visible veil sits on
+        // top of every control on every screen - which is invisible to the eye
+        // and very visible to an overlap check, and would have been a real
+        // component in front of the interface for the rest of the session.
+        if (! moving)
+            veil.setVisible (false);
+
+        busy = busy || moving;
+    }
+
+    // The dials show where they are GOING while they move, without telling the
+    // processor anything - it already holds the final value. dontSendNotification
+    // is what keeps this cosmetic: the callback that writes back to the
+    // processor never runs, so an animation cannot become an edit.
+    if (dialsAnimating)
+    {
+        const bool c = dialComplexity.advance (deltaMs);
+        const bool h = dialHumanize.advance (deltaMs);
+        const bool f = dialFills.advance (deltaMs);
+
+        complexitySlider.setValue (dialComplexity.value(), juce::dontSendNotification);
+        humanizeSlider.setValue   (dialHumanize.value(),   juce::dontSendNotification);
+        fillsSlider.setValue      (dialFills.value(),      juce::dontSendNotification);
+
+        dialsAnimating = c || h || f;
+        busy = busy || dialsAnimating;
+    }
+
+    // A queued jump is waiting for a bar line, which at one row per bar can be
+    // several seconds off. A slow triangle rather than a sine: the turn at the
+    // top is visible, and that is what makes it read as a pulse rather than as
+    // a light that is slightly the wrong brightness.
+    if (processor.queuedSection.load() >= 0)
+    {
+        queuedPhase += deltaMs / 900.0f;
+        while (queuedPhase > 2.0f) queuedPhase -= 2.0f;
+
+        tracker.setQueuedPulse (queuedPhase < 1.0f ? queuedPhase : 2.0f - queuedPhase);
+        busy = true;
+    }
+    else if (queuedPhase != 0.0f)
+    {
+        queuedPhase = 0.0f;
+        tracker.setQueuedPulse (0.0f);
+    }
+
+    return busy;
+}
+
+void GhostbandEditor::settleAnimations()
+{
+    veil.alpha.set (0.0f);
+    veil.setVisible (false);
+
+    if (dialsAnimating)
+    {
+        dialComplexity.set (static_cast<float> (processor.complexity.load()));
+        dialHumanize.set   (static_cast<float> (processor.humanize.load()));
+        dialFills.set      (static_cast<float> (processor.fills.load()));
+
+        complexitySlider.setValue (dialComplexity.value(), juce::dontSendNotification);
+        humanizeSlider.setValue   (dialHumanize.value(),   juce::dontSendNotification);
+        fillsSlider.setValue      (dialFills.value(),      juce::dontSendNotification);
+        dialsAnimating = false;
+    }
+
+    queuedPhase = 0.0f;
+    tracker.setQueuedPulse (0.0f);
+    animator.stopTimer();
+}
+
+void GhostbandEditor::beginScreenFade()
+{
+    // From fully covered. 150 ms, which is long enough to be seen as a
+    // transition and short enough that nobody waiting to click something has to
+    // wait for it - the veil does not take mouse events, so the new screen is
+    // live throughout.
+    veil.alpha.set (1.0f);
+    veil.alpha.moveTo (0.0f, 150);
+    veil.setVisible (true);
+    veil.toFront (false);
+    animator.wake();
+}
+
+void GhostbandEditor::easeDialsTo (double complexity, double humanize, double fills)
+{
+    // 260 ms: longer than a screen change on purpose. The point is not the
+    // motion, it is being able to SEE which of the three moved and by how much,
+    // and at 150 ms two of them moving slightly is a flicker.
+    dialComplexity.set (static_cast<float> (complexitySlider.getValue()));
+    dialHumanize.set   (static_cast<float> (humanizeSlider.getValue()));
+    dialFills.set      (static_cast<float> (fillsSlider.getValue()));
+
+    dialComplexity.moveTo (static_cast<float> (complexity), 260);
+    dialHumanize.moveTo   (static_cast<float> (humanize),   260);
+    dialFills.moveTo      (static_cast<float> (fills),      260);
+
+    if (dialComplexity.busy() || dialHumanize.busy() || dialFills.busy())
+    {
+        dialsAnimating = true;
+        animator.wake();
+    }
+}
+
 void GhostbandEditor::timerCallback()
 {
     noteTimerTick();
@@ -2902,6 +3056,10 @@ void GhostbandEditor::timerCallback()
         lastQueued = queued;
         sectionList.setQueued (queued);
         arrangement.setQueued (queued);
+
+        // The pulse lives on the animation clock, which is asleep whenever
+        // nothing is moving - so queuing a jump has to start it.
+        if (queued >= 0) animator.wake();
         tracker.setQueued (queued);
     }
 
@@ -2987,6 +3145,20 @@ void GhostbandEditor::changeListenerCallback (juce::ChangeBroadcaster*)
 
 void GhostbandEditor::updateModeVisibility()
 {
+    // ONE HOOK FOR TEN CALL SITES. Every `screen = Screen::X` in this file is
+    // followed by a call to this, which makes it the only place a screen change
+    // can be noticed without adding the same line to all of them and then
+    // forgetting it on the eleventh.
+    //
+    // Skipped when nothing actually changed - this is also called to refresh
+    // visibility within a screen, and fading the window every time a control
+    // appeared would be motion for its own sake.
+    if (screen != lastShownScreen)
+    {
+        lastShownScreen = screen;
+        beginScreenFade();
+    }
+
     // Three screens share the window; exactly one set of controls is visible.
     // Spelled as initializer_list<Component*> because the members are all
     // different types and a bare braced list has nothing to deduce from.
@@ -3480,6 +3652,10 @@ void GhostbandEditor::showScreenForSnapshot (int index)
     // debugging session: a playback test reported the transport as not running
     // and the playhead as frozen, and the cause was a screenshot loop three
     // hundred lines earlier finishing on the Takes screen.
+    // No fade for a screen the harness asked for. Every layout check and every
+    // rendered snapshot walks the screens, and a fade in progress would put a
+    // full-window veil over each of them - blank images, and an overlap report
+    // naming every control in the window.
     const int wanted = juce::jlimit (0, numScreens - 1, index);
 
     if (wanted == 1) processor.enterCalibration();
@@ -3495,6 +3671,10 @@ void GhostbandEditor::showScreenForSnapshot (int index)
         default: screen = Screen::Song;      break;
     }
     updateModeVisibility();
+
+    // Settled, not mid-fade. A check or a snapshot must see the window as it
+    // ends up, and the veil is a full-window component until its fade finishes.
+    settleAnimations();
 }
 
 double GhostbandEditor::controlUnitsToNorm (const juce::String& type, int positions, int typed)
@@ -4228,6 +4408,11 @@ void GhostbandEditor::resized()
         processor.editorWidth.store (getWidth());
         processor.editorHeight.store (getHeight());
     }
+
+    // The whole window, header included: a screen change moves the header's
+    // buttons too, and a fade that stopped short of them would draw attention
+    // to the one part that did not move.
+    veil.setBounds (getLocalBounds());
 
     auto r = getLocalBounds();
     r.removeFromTop (62);

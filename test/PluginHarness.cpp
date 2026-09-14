@@ -227,6 +227,19 @@ void timingAudit (GhostbandProcessor& proc, const juce::String& planPath)
         ed->setSize (kMinW, kMinH);
 
         juce::Image img (juce::Image::ARGB, ed->getWidth(), ed->getHeight(), true);
+
+        // WARM UP FIRST. The first paint of a session caches glyphs, builds the
+        // image's graphics context and touches every colour lookup once, and
+        // whichever measurement happens to go first absorbs all of it. That put
+        // three milliseconds on "bar" purely for being measured first, which
+        // reads as the default zoom being the expensive one when it is the
+        // cheapest - a quarter as many rows as a beat.
+        for (int i = 0; i < 5; ++i)
+        {
+            juce::Graphics g (img);
+            ed->paintEntireComponent (g, true);
+        }
+
         for (int z = 0; z < 4; ++z)
         {
             proc.trackerZoom.store (z);
@@ -3788,6 +3801,71 @@ int main (int argc, char** argv)
 
         prof.deleteFile();
         bak.deleteFile();
+    }
+
+    // ---- motion costs nothing when nothing is moving -----------------------
+    // The interface animates a screen change, a queued jump and the three dials
+    // on a take recall. All three run on a 60 Hz clock that must SLEEP the rest
+    // of the time - the editor's own timer already reads the sequence thirty
+    // times a second for the grid, and a second timer spinning behind it for no
+    // reason would be exactly the kind of thing this plugin has spent two
+    // sessions proving it does not do.
+    {
+        // The curve first, on its own, because everything else depends on it
+        // arriving exactly rather than approximately.
+        Eased e;
+        e.set (0.0f);
+        e.moveTo (1.0f, 100);
+
+        check (e.busy(), "an eased value that has been given a target is moving");
+
+        float last = e.value();
+        bool wentBackwards = false;
+        for (int i = 0; i < 20 && e.busy(); ++i)
+        {
+            e.advance (10);
+            if (e.value() < last - 0.0001f) wentBackwards = true;
+            last = e.value();
+        }
+
+        check (! wentBackwards, "and it only ever moves towards its target");
+
+        // EXACTLY, not nearly. A knob that settles at 0.998 of where it was
+        // told to go is a knob showing the wrong number for the rest of the
+        // session, and the value on screen is what somebody reads back.
+        check (! e.busy() && std::abs (e.value() - 1.0f) < 0.0001f,
+               "and it arrives exactly on its target and stops",
+               juce::String (e.value(), 6));
+
+        // A change too small to see is not worth a timer.
+        Eased tiny;
+        tiny.set (0.5f);
+        tiny.moveTo (0.5f, 100);
+        check (! tiny.busy(), "a value told to go where it already is does not animate");
+
+        // And the window itself: settled means settled.
+        if (auto* ed = proc.createEditorIfNeeded())
+        {
+            auto* gbEd = dynamic_cast<GhostbandEditor*> (ed);
+            if (gbEd != nullptr)
+            {
+                ed->setSize (kMinW, kMinH);
+
+                // showScreenForSnapshot settles deliberately - a check or a
+                // rendered image must see the window as it ends up, not a frame
+                // of it on the way there.
+                gbEd->showScreenForSnapshot (3);      // settings
+                check (gbEd->animationsIdleForTesting(),
+                       "switching screens for a snapshot leaves nothing moving");
+
+                gbEd->showScreenForSnapshot (0);      // song
+                check (gbEd->animationsIdleForTesting(),
+                       "and nothing is left covering the window afterwards");
+            }
+
+            proc.editorBeingDeleted (ed);
+            delete ed;
+        }
     }
 
     // ---- a song's own problems reach the screen ----------------------------

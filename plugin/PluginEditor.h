@@ -25,6 +25,127 @@ namespace ghost
     inline juce::Colour& warn       = colours::warn;
 }
 
+//==============================================================================
+// One number easing towards another.
+//
+// The whole of the animation system, because the thing that makes motion read
+// as expensive is not what moves - it is the CURVE and the LENGTH. Linear
+// motion looks mechanical at any duration; 400 ms of anything looks slow; and
+// a thing that animates while you are dragging it feels broken. So: one eased
+// value, a short default, and callers that snap rather than animate when the
+// change is the user's own hand.
+struct Eased
+{
+    // No motion at all. For setting a starting point, and for any change the
+    // user made themselves - a knob should follow the mouse exactly.
+    void set (float v) noexcept       { current = from = target = v; moving = false; }
+
+    void moveTo (float v, int ms) noexcept
+    {
+        if (std::abs (v - target) < 0.0001f && moving) return;   // already going there
+        if (std::abs (v - current) < 0.0001f) { set (v); return; }
+
+        from      = current;
+        target    = v;
+        elapsedMs = 0;
+        durationMs = juce::jmax (1, ms);
+        moving    = true;
+    }
+
+    // Advances by one frame. Returns true while there is still motion left, so
+    // the clock driving it knows when it can stop.
+    bool advance (int deltaMs) noexcept
+    {
+        if (! moving) return false;
+
+        elapsedMs += deltaMs;
+        if (elapsedMs >= durationMs) { set (target); return false; }
+
+        const float t = static_cast<float> (elapsedMs) / static_cast<float> (durationMs);
+
+        // Cubic ease-out: fast at the start, settling at the end. The one curve
+        // that reads as a thing ARRIVING rather than being dragged - which is
+        // what almost every interface movement is.
+        const float e = 1.0f - std::pow (1.0f - t, 3.0f);
+
+        current = from + (target - from) * e;
+        return true;
+    }
+
+    float value() const noexcept { return current; }
+    bool  busy()  const noexcept { return moving; }
+
+private:
+    float current = 0.0f, from = 0.0f, target = 0.0f;
+    int   elapsedMs = 0, durationMs = 1;
+    bool  moving = false;
+};
+
+// Drives every Eased in the window, and RUNS ONLY WHILE SOMETHING IS MOVING.
+//
+// The editor already has a 30 Hz timer doing data refresh, and animation wants
+// 60 to look smooth. Raising that one would double the cost of reading the
+// sequence for the grid thirty times a second in order to make a 160 ms fade
+// look better, which is the wrong trade every time nothing is fading.
+//
+// So this is separate, it starts when something is given a target, and it stops
+// itself the moment everything has arrived. At rest it costs nothing at all.
+class AnimationClock : public juce::Timer
+{
+public:
+    explicit AnimationClock (std::function<bool (int)> step) : advanceAll (std::move (step)) {}
+
+    void wake()
+    {
+        if (! isTimerRunning())
+        {
+            lastMs = juce::Time::getMillisecondCounter();
+            startTimerHz (60);
+        }
+    }
+
+    void timerCallback() override
+    {
+        const juce::uint32 now = juce::Time::getMillisecondCounter();
+
+        // Measured rather than assumed. A timer that misses its slot - which on
+        // this owner's machine happens for whole seconds at a time, and not
+        // because of us - would otherwise animate in slow motion afterwards.
+        const int delta = juce::jlimit (1, 100, static_cast<int> (now - lastMs));
+        lastMs = now;
+
+        if (! advanceAll (delta))
+            stopTimer();
+    }
+
+private:
+    std::function<bool (int)> advanceAll;
+    juce::uint32 lastMs = 0;
+};
+
+// A screen change, drawn.
+//
+// Covers the content area in the background colour and fades out, so the new
+// screen emerges rather than replacing the old one between two frames. A true
+// cross-fade would need a snapshot of the outgoing screen held in an image; at
+// 160 ms nobody can tell the difference, and this costs one filled rectangle.
+class ScreenVeil : public juce::Component
+{
+public:
+    ScreenVeil() { setInterceptsMouseClicks (false, false); }
+
+    void paint (juce::Graphics& g) override
+    {
+        const float a = alpha.value();
+        if (a <= 0.002f) return;
+
+        g.setColour (ghost::colours::background.withAlpha (juce::jlimit (0.0f, 1.0f, a)));
+        g.fillAll();
+    }
+
+    Eased alpha;
+};
+
 // Read-only view of the arrangement, with the section currently sounding lit up.
 // Sections are edited in the plan JSON, which is where a chart belongs; this is
 // for seeing what you are hearing, which is most of what makes a reroll
@@ -226,6 +347,9 @@ public:
     void setQueued   (int index);
     void setSelection (const std::vector<int>& indices);
 
+    // 0..1. Repaints only the ribbon, not the grid.
+    void setQueuedPulse (float p);
+
     // Filled by the editor's timer from the processor, because the view must
     // not reach into the audio thread's sequence itself.
     void setCells (std::vector<GhostbandProcessor::TrackerCell> c, int firstTick,
@@ -268,6 +392,12 @@ private:
     std::vector<int> selection;
 
     int editedTick = -1;
+    // 0..1, driven by the editor's animation clock while a section is queued.
+    // A jump waits for the next bar line, which can be several seconds away at
+    // one row per bar - long enough that a static highlight reads as "selected"
+    // rather than as "about to happen".
+    float queuedPulse = 0.0f;
+
     int firstRowTick = 0;
     // How much music one row covers. Equal to beatTicks at the default zoom,
     // a whole bar at the coarsest and a sixteenth at the finest - so every
@@ -332,6 +462,13 @@ public:
     int  trackerEditBarForTesting() const;
     juce::String trackerChordForTesting() const;
     void typeTrackerChordForTesting (const juce::String& chord);
+
+    // Nothing moving, and nothing left on screen that was only there to move.
+    // The veil covers the whole window, so "idle" has to mean it is gone.
+    bool animationsIdleForTesting() const
+    {
+        return ! animator.isTimerRunning() && ! veil.isVisible();
+    }
 
     void pressRollForTesting();
     int  rerollSelectionSizeForTesting() const;
@@ -786,6 +923,47 @@ private:
     // Long enough that a knob dragged across its range is one line, short
     // enough that the log keeps up with somebody working.
     static constexpr int logSettleMs = 500;
+
+    //==========================================================================
+    // Motion. See Eased and AnimationClock at the top of this file.
+    //
+    // Three things move, and each was chosen because it makes something
+    // CLEARER, not because it makes it livelier:
+    //
+    //   the screen change   so you can see that you moved, rather than
+    //                       inferring it from the content having changed
+    //   a queued section    so waiting for the bar line looks like waiting
+    //                       rather than like nothing having happened
+    //   the three dials     so recalling a take shows you WHICH of them moved,
+    //                       which is the whole question a take answers
+    //
+    // Nothing animates while the user is holding it: a knob under the mouse
+    // follows the mouse exactly.
+    bool advanceAnimations (int deltaMs);
+    void beginScreenFade();
+
+    // Everything moving, put where it was going, now.
+    //
+    // For the harness and the snapshots, which must see the settled window
+    // rather than a frame of one - and for the veil, which is a full-window
+    // component that must not exist as a visible thing once its fade is done.
+    // It covers the whole window by design, so leaving it visible makes it
+    // overlap every control on every screen.
+    void settleAnimations();
+    void easeDialsTo (double complexity, double humanize, double fills);
+
+    ScreenVeil veil;
+    Eased      dialComplexity, dialHumanize, dialFills;
+    bool       dialsAnimating = false;
+
+    // Rises and falls while a jump is waiting for the bar line.
+    float queuedPhase = 0.0f;
+
+    // What the window is currently SHOWING, as opposed to what `screen` has
+    // just been set to. The difference between the two is a screen change.
+    Screen lastShownScreen = Screen::Song;
+
+    AnimationClock animator { [this] (int ms) { return advanceAnimations (ms); } };
 
     void noteTimerTick();           // called at the top and bottom of timerCallback
     juce::String stallSummary() const;
