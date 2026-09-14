@@ -146,6 +146,51 @@ public:
     Eased alpha;
 };
 
+// A die, and it tumbles.
+//
+// Drawn rather than an image so it takes the theme's colours like everything
+// else, and because a die is six dots in a square - there is nothing an image
+// would add except a file to keep in step with ten palettes.
+//
+// The tumble is the one place in this interface where motion is decoration
+// rather than explanation, and that is the point of it: the dice exists for
+// fun, and a fun control that does not move is a button with a picture on it.
+class DiceButton : public juce::Button
+{
+public:
+    DiceButton() : juce::Button ("Dice") {}
+
+    void paintButton (juce::Graphics& g, bool hovered, bool down) override;
+
+    // Its own, because a Button has no right-click callback and adding a mouse
+    // listener for one control would put a mouseDown on the whole editor.
+    void mouseDown (const juce::MouseEvent& e) override
+    {
+        if (e.mods.isPopupMenu())
+        {
+            if (onRightClick) onRightClick();
+            return;
+        }
+
+        juce::Button::mouseDown (e);
+    }
+
+    std::function<void()> onRightClick;
+
+    // 0 at rest. While rolling it winds up past 1, and the face shown is chosen
+    // from it - so the die changes number as it turns rather than cutting to
+    // its answer at the end.
+    Eased tumble;
+
+    // What it lands on. Set when the roll finishes so the face left on screen
+    // is the one it stopped at rather than whatever the last frame computed.
+    int face = 5;
+
+private:
+    void drawPips (juce::Graphics& g, juce::Rectangle<float> r, int pips,
+                   juce::Colour c) const;
+};
+
 // Read-only view of the arrangement, with the section currently sounding lit up.
 // Sections are edited in the plan JSON, which is where a chart belongs; this is
 // for seeing what you are hearing, which is most of what makes a reroll
@@ -539,6 +584,12 @@ private:
     juce::TextButton loadButton   { "Load plan..." };
     juce::TextButton reloadButton { "Reload" };
     juce::TextButton rollButton   { "Roll" };
+
+    // Everything at once, for the fun of it. Click rolls the character of this
+    // song; ctrl-click picks a different preset first. Right-click puts the
+    // last roll back - one step, and it exists because rolling past a good one
+    // with no way back is the thing that would make this frustrating.
+    DiceButton diceButton;
 
     // Ghostband's own transport. The host's is usually left running for a whole
     // session, so stopping the band and stopping the host are different things.

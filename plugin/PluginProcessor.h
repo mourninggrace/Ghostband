@@ -148,6 +148,33 @@ public:
     // taking a new global seed, which is the old behaviour.
     void rerollSections (const std::vector<int>& indices);
 
+    //==========================================================================
+    // THE DICE. Everything at once, for the fun of it.
+    //
+    // Roll changes the performance; this changes the whole character - the
+    // seed, the three dials, the tempo, the key, the mode, the style and the
+    // bass tuning. `alsoNewSong` picks a different preset first, so it is "a
+    // different song, played differently" rather than "this song, differently".
+    //
+    // RANDOM WITHIN MUSICAL BOUNDS, not uniform. A tempo drawn evenly from
+    // 40..250 is nonsense most of the time; one drawn from what the style is
+    // actually played at is a surprise you might keep. The whole point is to
+    // land somewhere you would not have typed, often enough to be worth
+    // pressing twice.
+    //
+    // Returns false when there was nothing to roll.
+    bool rollTheDice (bool alsoNewSong);
+
+    // One step back, and it exists BECAUSE of the dice.
+    //
+    // Rolling past something good with no way back is the one thing that would
+    // make this frustrating rather than fun, and it is the sharp end of the
+    // project having no undo at all. The state before the last roll is kept in
+    // memory - the whole song as text, exactly as a take stores it - so this
+    // puts it back note for note.
+    bool undoTheDice();
+    bool canUndoTheDice() const;
+
     Status                         getStatus() const;
     std::vector<gb::SectionReport> getSections() const;
     juce::File                     getPlanFile() const;
@@ -809,6 +836,14 @@ private:
     // plugin ever holds, the file has already been read and closed, and the
     // difference between the two is invisible from either one on its own.
     std::map<std::string, gb::ControlSet> profileControls;
+
+    // What the song was before the last dice roll: the plan as text plus the
+    // three dials and the seed, which is precisely what a take carries. Empty
+    // until something has been rolled.
+    juce::String diceUndoJson;
+    int          diceUndoSeed = 1;
+    double       diceUndoComplexity = 0.5, diceUndoHumanize = 0.5, diceUndoFills = 0.62;
+    juce::File   diceUndoFile;
 
     // And the channel, for exactly the same reason.
     //

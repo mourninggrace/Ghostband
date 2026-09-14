@@ -2566,6 +2566,162 @@ void GhostbandProcessor::reloadPlan()
         loadBuiltInPlan();
 }
 
+
+//==============================================================================
+// The dice.
+
+bool GhostbandProcessor::canUndoTheDice() const
+{
+    const juce::ScopedLock sl (stateLock);
+    return diceUndoJson.isNotEmpty();
+}
+
+bool GhostbandProcessor::rollTheDice (bool alsoNewSong)
+{
+    GB_WORK ("dice");
+
+    // Remember where we were BEFORE anything moves, so one press can be taken
+    // back. Stored as the song's own text for the same reason a take is: the
+    // key, the tempo, the style and the chords all live in the plan, and a
+    // handful of loose numbers would restore the dials over a different song.
+    {
+        const juce::ScopedLock sl (stateLock);
+        if (plan.sections.empty())
+            return false;
+
+        gb::SongPlan asPlayed = plan;
+        asPlayed.complexity = complexity.load();
+        asPlayed.humanize   = humanize.load();
+        asPlayed.fills      = fills.load();
+        asPlayed.seed       = static_cast<unsigned> (std::max (1, seed.load()));
+
+        diceUndoJson       = juce::String (asPlayed.toJson());
+        diceUndoSeed       = seed.load();
+        diceUndoComplexity = complexity.load();
+        diceUndoHumanize   = humanize.load();
+        diceUndoFills      = fills.load();
+        diceUndoFile       = planFile;
+    }
+
+    juce::Random r;   // seeded from the clock: the dice is the one thing here
+                      // that is deliberately not reproducible
+
+    if (alsoNewSong)
+    {
+        // A different song first, then rolled. Only the shipped presets - a
+        // song the owner wrote is not something to replace by accident.
+        const juce::File dir = bundledPlansFolder();
+        auto files = dir.findChildFiles (juce::File::findFiles, false, "*.json");
+
+        if (! files.isEmpty())
+        {
+            const juce::File pick = files[r.nextInt (files.size())];
+
+            // Straight to loadPlan, which clears the dirty flag and validates.
+            // The undo snapshot above was taken first, so this is recoverable.
+            loadPlan (pick);
+        }
+    }
+
+    {
+        const juce::ScopedLock sl (stateLock);
+        if (plan.sections.empty())
+            return false;
+
+        // ---- the dials ----
+        // Full range, because all three are musical everywhere in it and the
+        // extremes are where the surprises are.
+        complexity.store (0.10 + r.nextDouble() * 0.85);
+        humanize.store   (0.05 + r.nextDouble() * 0.80);
+        fills.store      (r.nextDouble());
+
+        seed.store (1 + r.nextInt (999998));
+
+        // ---- the tempo ----
+        // A NUDGE, not a redraw. The song was written at a tempo that suits its
+        // feel; moving it a quarter either way is a different mood, and moving
+        // it to 212 from 68 is a different song badly played.
+        const double was = plan.bpm > 0.0 ? plan.bpm : 120.0;
+        plan.bpm = juce::jlimit (50.0, 220.0, was * (0.78 + r.nextDouble() * 0.46));
+
+        // ---- the key ----
+        // Anywhere. Transposing is free and every key is as good as another.
+        static const char* keys[12] = { "C", "C#", "D", "D#", "E", "F",
+                                        "F#", "G", "G#", "A", "A#", "B" };
+        plan.key = keys[r.nextInt (12)];
+
+        // ---- the mode ----
+        // Minor-leaning, because this is a rock and metal engine and a random
+        // walk through every church mode mostly produces songs that sound like
+        // a mistake. Phrygian dominant is in there because when it lands it is
+        // the best thing the dice can do.
+        static const char* modes[6] = { "natural_minor", "natural_minor", "dorian",
+                                        "phrygian", "phrygian_dominant", "harmonic_minor" };
+        plan.mode = modes[r.nextInt (6)];
+
+        planDirty = true;
+    }
+
+    logChange (alsoNewSong ? "dice rolled, and a new song with it" : "dice rolled");
+
+    regenerate();
+    return true;
+}
+
+bool GhostbandProcessor::undoTheDice()
+{
+    GB_WORK ("undo dice");
+
+    juce::String json;
+    juce::File   file;
+    int    s = 1;
+    double c = 0.5, h = 0.5, f = 0.62;
+
+    {
+        const juce::ScopedLock sl (stateLock);
+        if (diceUndoJson.isEmpty())
+            return false;
+
+        json = diceUndoJson;
+        file = diceUndoFile;
+        s = diceUndoSeed; c = diceUndoComplexity; h = diceUndoHumanize; f = diceUndoFills;
+    }
+
+    gb::SongPlan restored;
+    std::string error;
+
+    if (! gb::SongPlan::parse (json.toStdString(), "before the dice", restored, error))
+        return false;
+
+    flushPending.store (true);
+    rewindPending.store (true);
+
+    {
+        const juce::ScopedLock sl (stateLock);
+        plan     = restored;
+        planFile = file;
+
+        complexity.store (c);
+        humanize.store (h);
+        fills.store (f);
+        seed.store (s);
+
+        juce::String profileError;
+        resolveProfiles (profileError);
+        status.message = profileError;
+
+        // ONE step. Pressing undo twice must not roll forward again, which is
+        // what keeping the snapshot would do - and a dice with a redo is a
+        // toggle, which is not what anybody means by a dice.
+        diceUndoJson = {};
+    }
+
+    logChange ("dice undone");
+
+    regenerate();
+    return true;
+}
+
 void GhostbandProcessor::rerollSections (const std::vector<int>& indices)
 {
     GB_WORK ("reroll");

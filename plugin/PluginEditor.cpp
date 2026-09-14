@@ -1275,6 +1275,48 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 
     reloadButton.onClick = [this] { processor.reloadPlan(); };
 
+    addAndMakeVisible (diceButton);
+
+    diceButton.onRightClick = [this]
+    {
+        if (processor.undoTheDice())
+        {
+            easeAllKnobsToProcessor();
+            statusLabel.setText ("Put back where it was before the last roll.",
+                                 juce::dontSendNotification);
+        }
+        else
+        {
+            statusLabel.setText ("Nothing to put back - roll the dice first.",
+                                 juce::dontSendNotification);
+        }
+    };
+
+    diceButton.onClick = [this]
+    {
+        const bool alsoSong = juce::ModifierKeys::getCurrentModifiers().isCtrlDown()
+                           || juce::ModifierKeys::getCurrentModifiers().isCommandDown();
+
+        if (processor.rollTheDice (alsoSong))
+        {
+            // The tumble, and the face it lands on. Chosen here rather than in
+            // the paint so the number left on screen is stable - a face
+            // computed from the animation's last frame changes every repaint.
+            diceButton.face = 1 + juce::Random::getSystemRandom().nextInt (6);
+            diceButton.tumble.set (1.0f);
+            diceButton.tumble.moveTo (0.0f, 620);
+            animator.wake();
+
+            // Every knob on the screen has just moved. Travelling shows which.
+            easeAllKnobsToProcessor();
+
+            statusLabel.setText (alsoSong
+                                   ? "A different song, rolled. Right-click the dice to put it back."
+                                   : "Rolled. Right-click the dice to put it back.",
+                                 juce::dontSendNotification);
+        }
+    };
+
     rollButton.onClick = [this]
     {
         // With sections selected, reroll only those - the rest of the song is
@@ -2331,6 +2373,17 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
                           "Documents\\Ghostband\\Songs.");
         tip (reloadButton,"Re-read this song from disk, throwing away unsaved edits. Useful if you "
                           "have been editing the JSON in a text editor.");
+        tip (diceButton,  "EVERYTHING AT ONCE, for the fun of it. Roll gives you a different "
+                          "performance of the same song; the dice changes the song's whole "
+                          "character - the seed, all three dials, the tempo, the key and the "
+                          "mode. Ctrl-click and it picks a different preset first, so it is a "
+                          "different song played differently.\n\n"
+                          "It rolls within musical bounds rather than at random: the tempo is "
+                          "nudged rather than redrawn, and the modes it picks from are the ones "
+                          "this engine plays well.\n\n"
+                          "RIGHT-CLICK TO PUT IT BACK. One step, which is there so you can roll "
+                          "freely without losing the one you liked.");
+
         tip (rollButton,  "A different performance of the SAME song - same chords, same structure, "
                           "different playing. Ctrl-click sections first to reroll only those; "
                           "every other section is provably untouched.");
@@ -2779,6 +2832,79 @@ int  GhostbandEditor::stallCountForTesting() const { return static_cast<int> (st
 juce::String GhostbandEditor::stallDetailForTesting() const { return stallDetail(); }
 
 //==============================================================================
+void DiceButton::drawPips (juce::Graphics& g, juce::Rectangle<float> r, int pips,
+                           juce::Colour c) const
+{
+    // Positions on a three-by-three grid, as a real die has them.
+    static const char* layouts[7] = {
+        "         ",   // 0, never drawn
+        "    o    ",
+        "o       o",
+        "o   o   o",
+        "o o   o o",
+        "o o o o o",
+        "o oo oo o"
+    };
+
+    const juce::String map (layouts[juce::jlimit (1, 6, pips)]);
+    const float cell = r.getWidth() / 3.0f;
+    const float dot  = juce::jmax (2.0f, cell * 0.34f);
+
+    g.setColour (c);
+    for (int i = 0; i < 9; ++i)
+    {
+        if (map[i] != 'o') continue;
+
+        const float cx = r.getX() + cell * (0.5f + static_cast<float> (i % 3));
+        const float cy = r.getY() + cell * (0.5f + static_cast<float> (i / 3));
+        g.fillEllipse (cx - dot * 0.5f, cy - dot * 0.5f, dot, dot);
+    }
+}
+
+void DiceButton::paintButton (juce::Graphics& g, bool hovered, bool down)
+{
+    const float t = tumble.value();
+    const bool  rolling = t > 0.001f;
+
+    auto area = getLocalBounds().toFloat().reduced (2.0f);
+    const float size = juce::jmin (area.getWidth(), area.getHeight());
+    area = juce::Rectangle<float> (size, size).withCentre (area.getCentre());
+
+    // Two and a half turns, easing to a stop. The face changes with the angle,
+    // so it reads as a die coming to rest rather than a square spinning.
+    const float angle = t * juce::MathConstants<float>::twoPi * 2.5f;
+    const float shrink = 1.0f - 0.12f * std::sin (t * juce::MathConstants<float>::pi);
+
+    const int shown = rolling
+                        ? 1 + (static_cast<int> (t * 17.0f) % 6)
+                        : juce::jlimit (1, 6, face);
+
+    juce::Graphics::ScopedSaveState state (g);
+    g.addTransform (juce::AffineTransform::rotation (angle, area.getCentreX(), area.getCentreY())
+                        .scaled (shrink, shrink, area.getCentreX(), area.getCentreY()));
+
+    const float glow = rolling ? std::sin (t * juce::MathConstants<float>::pi) : 0.0f;
+
+    g.setColour (ghost::colours::cardRaised.brighter (down ? 0.10f : (hovered ? 0.06f : 0.0f)));
+    g.fillRoundedRectangle (area, size * 0.22f);
+
+    if (glow > 0.01f)
+    {
+        g.setColour (ghost::colours::red.withAlpha (0.55f * glow));
+        g.drawRoundedRectangle (area.reduced (0.6f), size * 0.22f, 2.4f);
+    }
+    else
+    {
+        g.setColour (hovered ? ghost::colours::accent.withAlpha (0.65f) : ghost::colours::line);
+        g.drawRoundedRectangle (area.reduced (0.6f), size * 0.22f, 1.2f);
+    }
+
+    drawPips (g, area.reduced (size * 0.17f), shown,
+              rolling ? ghost::colours::text
+                      : (hovered ? ghost::colours::text : ghost::colours::silver));
+}
+
+//==============================================================================
 bool GhostbandEditor::LogSnapshot::operator== (const LogSnapshot& o) const
 {
     for (int i = 0; i < 5; ++i)
@@ -2900,6 +3026,13 @@ bool GhostbandEditor::advanceAnimations (int deltaMs)
 
     // The slide first: it changes the LAYOUT, so it has to land before anything
     // repaints against it.
+    if (diceButton.tumble.busy())
+    {
+        diceButton.tumble.advance (deltaMs);
+        diceButton.repaint();
+        busy = true;
+    }
+
     if (contentSlide.busy() || stripSlide.busy())
     {
         contentSlide.advance (deltaMs);
@@ -3477,6 +3610,7 @@ void GhostbandEditor::updateModeVisibility()
              &zoomBox, &zoomLabel,
              &modeBox, &modeLabel,
              &tempoLabel, &transportLabel, &summaryLabel, &playPauseButton, &bandLabel,
+             &diceButton,
              &bpmLabel, &bpmEditor, &rollHintLabel,
              &mixLabel, &levelDrums, &levelBass, &levelGuitar, &levelGuitar2, &levelPiano,
              &levelDrumsLabel, &levelBassLabel, &levelGuitarLabel,
@@ -5194,7 +5328,13 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
         auto row = rail.removeFromTop (26);
         seedEditor.setBounds (row.removeFromLeft (96));
         row.removeFromLeft (8);
+
+        // The die is square and sits at the end of the row, so it reads as its
+        // own thing rather than as a second Roll.
+        auto dice = row.removeFromRight (30);
+        row.removeFromRight (8);
         rollButton.setBounds (row);
+        diceButton.setBounds (dice.withSizeKeepingCentre (30, 30));
 
         rail.removeFromTop (10);
         bandLabel.setBounds (rail.removeFromTop (12));

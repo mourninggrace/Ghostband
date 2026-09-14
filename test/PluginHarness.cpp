@@ -3809,6 +3809,96 @@ int main (int argc, char** argv)
         bak.deleteFile();
     }
 
+    // ---- the dice, and the way back --------------------------------------
+    // It changes the song's whole character at once, which is the fun of it and
+    // also the danger: rolling past one you liked with no way back is what
+    // would make it frustrating rather than fun. So the undo is the part worth
+    // pinning, and it is pinned by FINGERPRINT rather than by the dials - the
+    // dials are what was rolled, and a song that came back with the right
+    // numbers over different notes would pass a check on them and be wrong.
+    {
+        proc.loadPlan (juce::File (planPath));
+
+        const auto fingerprint = [&proc]
+        {
+            juce::String f;
+            for (int ch = 1; ch <= 16; ++ch)
+            {
+                const int n = proc.getSequenceNoteOnCount (ch);
+                if (n > 0)
+                    f << ch << ":" << n << "/" << proc.getSequencePitchSum (ch) << " ";
+            }
+            return f.trim();
+        };
+
+        const juce::String before = fingerprint();
+        const int    wasSeed = proc.seed.load();
+        const double wasBpm  = proc.getPlanBpm();
+
+        check (before.isNotEmpty(), "there is a song to roll", before);
+        check (! proc.canUndoTheDice(), "and nothing to put back before the first roll");
+
+        check (proc.rollTheDice (false), "the dice rolls");
+
+        const juce::String after = fingerprint();
+        check (after != before, "and the song is genuinely different afterwards",
+               before + "   ->   " + after);
+
+        check (proc.seed.load() != wasSeed, "the seed moved",
+               juce::String (wasSeed) + " -> " + juce::String (proc.seed.load()));
+
+        // A NUDGE, NOT A REDRAW. A tempo drawn evenly from 40..250 is nonsense
+        // most of the time; the song was written at a tempo that suits its
+        // feel, and this has to stay recognisably that song.
+        const double nowBpm = proc.getPlanBpm();
+        check (nowBpm >= wasBpm * 0.7 && nowBpm <= wasBpm * 1.35,
+               "the tempo is nudged rather than redrawn",
+               juce::String (wasBpm, 0) + " -> " + juce::String (nowBpm, 0));
+
+        check (proc.canUndoTheDice(), "and there is now something to put back");
+
+        check (proc.undoTheDice(), "the undo runs");
+
+        check (fingerprint() == before,
+               "and it puts the song back note for note",
+               fingerprint() == before ? juce::String ("identical")
+                                       : before + "   got   " + fingerprint());
+
+        check (proc.seed.load() == wasSeed, "with the seed it had",
+               juce::String (proc.seed.load()));
+
+        // ONE step. Twice must not roll forward again - a dice with a redo is
+        // a toggle, which is not what anybody means by a dice.
+        check (! proc.canUndoTheDice(), "and one step is all there is");
+        check (! proc.undoTheDice(), "so pressing it again does nothing");
+
+        // Everything it touched has to leave a playable song behind, not just a
+        // different one. Rolled twenty times and checked each landing.
+        bool alwaysPlayable = true;
+        juce::String worst;
+        for (int i = 0; i < 20 && alwaysPlayable; ++i)
+        {
+            proc.rollTheDice (false);
+
+            const auto st = proc.getStatus();
+            const double bpm = proc.getPlanBpm();
+
+            if (! st.ok || st.drumHits <= 0 || bpm < 40.0 || bpm > 260.0)
+            {
+                alwaysPlayable = false;
+                worst = "ok=" + juce::String (st.ok ? 1 : 0)
+                      + " hits=" + juce::String (st.drumHits)
+                      + " bpm=" + juce::String (bpm, 0);
+            }
+        }
+
+        check (alwaysPlayable,
+               "twenty rolls all land on a song that plays",
+               alwaysPlayable ? juce::String ("all twenty") : worst);
+
+        proc.loadPlan (juce::File (planPath));
+    }
+
     // ---- the lit row is where the music is --------------------------------
     // The grid scrolls to keep the current row a third of the way down, so the
     // lit row IS a third of the way down almost all the time. Almost: the
