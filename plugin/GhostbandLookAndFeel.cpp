@@ -167,14 +167,78 @@ void GhostbandLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, in
     g.strokePath (value, juce::PathStrokeType (ring, juce::PathStrokeType::curved,
                                                juce::PathStrokeType::rounded));
 
+    // ---- the trail, and the flare ----
+    //
+    // Two properties the editor keeps on the slider while it is being moved.
+    // Properties rather than a wider signature, because drawRotarySlider is
+    // JUCE's and every other knob in the window goes through it unchanged.
+    //
+    //   ghost   where the knob WAS, lagging behind where it is
+    //   glow    1 while it is moving, easing to 0 once it stops
+    //
+    // The trail is the part that means something: a dial does not tell you how
+    // far you have moved it, only where it ended up, and on a knob with no
+    // numbers that is most of the question. The flare is the part that does
+    // not - it is there because he asked for eye candy, and because a control
+    // that answers the hand is worth feeling.
+    const float ghostPos = static_cast<float> (slider.getProperties()
+                               .getWithDefault ("ghost", sliderPos));
+    const float glow = juce::jlimit (0.0f, 1.0f,
+                           static_cast<float> (slider.getProperties()
+                               .getWithDefault ("glow", 0.0)));
+
+    if (slider.isEnabled() && glow > 0.01f)
+    {
+        const float ghostAngle = startAngle + ghostPos * (endAngle - startAngle);
+
+        // The arc between where it was and where it is, brightest at the moment
+        // of the move. Drawn OUTSIDE the ring so it reads as a wake rather than
+        // as part of the value.
+        if (std::abs (ghostAngle - angle) > 0.004f)
+        {
+            juce::Path trail;
+            trail.addCentredArc (centre.x, centre.y, arcRadius + ring * 0.82f,
+                                 arcRadius + ring * 0.82f, 0.0f,
+                                 juce::jmin (ghostAngle, angle),
+                                 juce::jmax (ghostAngle, angle), true);
+
+            g.setColour (colours::purple.withAlpha (0.88f * glow));
+            g.strokePath (trail, juce::PathStrokeType (ring * 0.7f,
+                                                       juce::PathStrokeType::curved,
+                                                       juce::PathStrokeType::rounded));
+        }
+
+        // And a halo on the value arc itself. Three strokes at falling alpha
+        // rather than a blur: a real blur would cost a full-size image and a
+        // convolution per frame per knob, which is a great deal of machinery
+        // for something on screen for half a second.
+        for (int i = 1; i <= 3; ++i)
+        {
+            const float spread = ring * (0.5f + i * 0.42f);
+            juce::Path halo;
+            halo.addCentredArc (centre.x, centre.y, arcRadius, arcRadius, 0.0f,
+                                startAngle, angle, true);
+
+            g.setColour (colours::red.withAlpha (0.26f * glow / static_cast<float> (i)));
+            g.strokePath (halo, juce::PathStrokeType (ring + spread,
+                                                      juce::PathStrokeType::curved,
+                                                      juce::PathStrokeType::rounded));
+        }
+    }
+
     // A short indicator tick, not a pointer across the whole face.
     const float inner = arcRadius - ring * 0.9f;
     const float outer = arcRadius - ring * 0.1f;
     juce::Path tick;
     tick.startNewSubPath (0.0f, -inner);
     tick.lineTo (0.0f, -outer);
-    g.setColour (slider.isEnabled() ? colours::text : colours::dim);
-    g.strokePath (tick, juce::PathStrokeType (2.0f, juce::PathStrokeType::curved,
+
+    // The tick brightens with the flare too, so the whole knob answers rather
+    // than one ring of it.
+    g.setColour (slider.isEnabled()
+                     ? colours::text.brighter (0.45f * glow)
+                     : colours::dim);
+    g.strokePath (tick, juce::PathStrokeType (2.0f + glow, juce::PathStrokeType::curved,
                                               juce::PathStrokeType::rounded),
                   juce::AffineTransform::rotation (angle).translated (centre));
 }

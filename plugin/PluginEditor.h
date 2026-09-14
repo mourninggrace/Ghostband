@@ -486,6 +486,10 @@ public:
     // only the second one matters.
     void setFadeForTesting (float alpha);
 
+    // Light every knob's trail, so a frame of it can be rendered and looked at.
+    // Eye candy that has never been seen is a guess about eye candy.
+    void setDialGlowForTesting (float glow, float ghostOffset);
+
     int  litTrackerRowForTesting() const { return tracker.litRow(); }
     int  visibleTrackerRowsForTesting() const { return tracker.visibleRows(); }
 
@@ -1015,6 +1019,35 @@ private:
     // slide's, because opening it is not a screen change - the grid above must
     // not move, only the strip.
     Eased stripSlide;
+
+    // Which way the screen comes in from. Going deeper - Song to Settings, to
+    // Edit, to Takes - it arrives from the right; coming back it arrives from
+    // the left, like the thing you left behind sliding back into place.
+    // Direction is most of why a transition reads as navigation rather than as
+    // a flicker.
+    float slideFrom = 0.0f;
+
+    //==========================================================================
+    // Every knob that can be turned, and how lit it is.
+    //
+    //   ghost  where it WAS, lagging behind by a couple of hundred milliseconds
+    //   glow   1 the instant it moves, easing back to 0 once it stops
+    //
+    // The lag is the part that means something. A knob with no number on it
+    // tells you where it ended up and not how far it travelled, and the trail
+    // between ghost and value is exactly that distance.
+    struct DialTrail
+    {
+        juce::Slider* slider = nullptr;
+        Eased ghost, glow;
+        double lastSeen = -1.0;
+    };
+
+    std::vector<DialTrail> trails;
+    bool trailsAnimating = false;
+
+    void registerTrail (juce::Slider& s);
+    void noticeDialMoves();
     int  slideOffsetPx() const { return juce::roundToInt (contentSlide.value()); }
     Eased      dialComplexity, dialHumanize, dialFills;
     bool       dialsAnimating = false;

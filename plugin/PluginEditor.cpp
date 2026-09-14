@@ -2555,6 +2555,14 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     // and so an offline render of the editor shows it too.
     updateLatencyReadout();
 
+    // Every knob that can be turned gets a trail. The three feel dials and the
+    // five mix knobs - not the editor's intensity slider, which is linear and
+    // sits in a form row where a halo would read as an error state.
+    for (juce::Slider* s : { &complexitySlider, &humanizeSlider, &fillsSlider,
+                             &levelDrums, &levelBass, &levelGuitar,
+                             &levelGuitar2, &levelPiano })
+        registerTrail (*s);
+
     // Above everything, and it never takes a click. Added last so it is already
     // in front; toFront on each fade keeps it there when other components are
     // brought forward.
@@ -2934,6 +2942,33 @@ bool GhostbandEditor::advanceAnimations (int deltaMs)
         busy = busy || dialsAnimating;
     }
 
+    if (trailsAnimating)
+    {
+        bool still = false;
+        for (DialTrail& t : trails)
+        {
+            if (t.slider == nullptr) continue;
+
+            const bool a = t.ghost.advance (deltaMs);
+            const bool b = t.glow.advance (deltaMs);
+
+            if (a || b || t.glow.value() > 0.0f)
+            {
+                // Read back by drawRotarySlider. Properties rather than a wider
+                // LookAndFeel signature, so every other knob in the window goes
+                // through the same unchanged drawing code.
+                t.slider->getProperties().set ("ghost", t.ghost.value());
+                t.slider->getProperties().set ("glow",  t.glow.value());
+                t.slider->repaint();
+            }
+
+            still = still || a || b;
+        }
+
+        trailsAnimating = still;
+        busy = busy || still;
+    }
+
     if (mixAnimating)
     {
         Eased*        eased[5] = { &mixDrums, &mixBass, &mixGuitar,
@@ -3000,6 +3035,19 @@ void GhostbandEditor::setFadeForTesting (float alpha)
     veil.repaint();
 }
 
+void GhostbandEditor::setDialGlowForTesting (float glow, float ghostOffset)
+{
+    for (DialTrail& t : trails)
+    {
+        if (t.slider == nullptr) continue;
+
+        const float v = static_cast<float> (t.slider->getValue());
+        t.slider->getProperties().set ("glow", glow);
+        t.slider->getProperties().set ("ghost", juce::jlimit (0.0f, 1.0f, v - ghostOffset));
+        t.slider->repaint();
+    }
+}
+
 void GhostbandEditor::settleAnimations()
 {
     veil.alpha.set (0.0f);
@@ -3048,17 +3096,66 @@ void GhostbandEditor::beginScreenFade()
     // which is already down to twelve per cent opacity at its halfway point -
     // seventy-five milliseconds of visible change, which is a flicker rather
     // than a transition, and was reported as no animation at all.
-    veil.alpha.set (0.92f);
-    veil.alpha.moveTo (0.0f, 220);
+    veil.alpha.set (0.96f);
+    veil.alpha.moveTo (0.0f, 300);
 
-    // And the part you actually see. Fourteen pixels of travel, settling on a
-    // cubic ease-out so it reads as arriving rather than sliding.
-    contentSlide.set (14.0f);
-    contentSlide.moveTo (0.0f, 220);
+    // FORTY-FOUR PIXELS, SIDEWAYS, AND IT KNOWS WHICH WAY.
+    //
+    // Fourteen pixels upward over 220 ms was still reported as too subtle, and
+    // the reason is that vertical travel of that size is indistinguishable from
+    // the layout simply being redrawn. Sideways is unmistakable, because
+    // nothing in this window ever moves sideways otherwise - and DIRECTION
+    // turns it from a flourish into navigation: deeper screens arrive from the
+    // right, and coming back to the song brings it in from the left, the way
+    // the thing you left behind would slide back into place.
+    slideFrom = (screen == Screen::Song) ? -44.0f : 44.0f;
+    contentSlide.set (slideFrom);
+    contentSlide.moveTo (0.0f, 300);
 
     veil.setVisible (true);
     veil.toFront (false);
     animator.wake();
+}
+
+void GhostbandEditor::registerTrail (juce::Slider& s)
+{
+    DialTrail t;
+    t.slider = &s;
+    t.ghost.set (static_cast<float> (s.getValue()));
+    t.glow.set (0.0f);
+    t.lastSeen = s.getValue();
+    trails.push_back (std::move (t));
+}
+
+// Polled, not hooked. Every one of these knobs already has an onValueChange
+// doing real work - storing to the processor, sending MIDI, marking dials dirty
+// - and threading a second responsibility through all of them is how the
+// eleventh one gets forgotten. Reading the values once a frame catches every
+// path including the ones that set a value without any callback at all, which
+// is exactly what the take-recall easing does.
+void GhostbandEditor::noticeDialMoves()
+{
+    for (DialTrail& t : trails)
+    {
+        if (t.slider == nullptr) continue;
+
+        const double now = t.slider->getValue();
+        if (std::abs (now - t.lastSeen) > 0.0001)
+        {
+            t.lastSeen = now;
+
+            // Straight to full, then fade. A flare that eased UP would be at
+            // half brightness by the time the hand had moved on.
+            t.glow.set (1.0f);
+            t.glow.moveTo (0.0f, 520);
+
+            // The ghost chases, slower than the hand. That gap IS the trail.
+            t.ghost.moveTo (static_cast<float> (now), 260);
+
+            trailsAnimating = true;
+            animator.wake();
+        }
+    }
 }
 
 void GhostbandEditor::beginThemeFade()
@@ -3221,6 +3318,9 @@ void GhostbandEditor::timerCallback()
     tempoLabel.setText (bpm > 0.0 ? juce::String (bpm, 1) + " bpm  (host)"
                                   : juce::String ("tempo from host"),
                         juce::dontSendNotification);
+
+    // Cheap: a double compare per knob, eight of them, thirty times a second.
+    noticeDialMoves();
 
     pollChangeLog();
 
@@ -4590,9 +4690,9 @@ void GhostbandEditor::resized()
 
     r = r.reduced (20, 14);
 
-    // The screen arrives from slightly below. Zero at rest, so this costs
-    // nothing once a transition has finished - see Eased.
-    r.translate (0, slideOffsetPx());
+    // The screen arrives from the side. Zero at rest, so this costs nothing
+    // once a transition has finished - see Eased.
+    r.translate (slideOffsetPx(), 0);
 
     // Header navigation sits in the header band itself, above everything else.
     {

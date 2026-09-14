@@ -5716,6 +5716,8 @@ int main (int argc, char** argv)
                 // reasoned about. A 150 ms cubic ease-out is already down to
                 // 12% opacity at its halfway point, which is a flicker rather
                 // than a transition - and that is not visible in any still.
+                shots.push_back ({ 0, 1180, 820, "-glow" });
+
                 for (int f = 0; f < 4; ++f)
                     shots.push_back ({ 0, 1180, 820, f == 0 ? "-fade-100"
                                                    : f == 1 ? "-fade-70"
@@ -5742,6 +5744,11 @@ int main (int argc, char** argv)
                                                : tag == "-fade-70"  ? 0.70f
                                                : tag == "-fade-40"  ? 0.40f
                                                : tag == "-fade-15"  ? 0.15f : 0.0f);
+
+                        // A frame of the knob trails, so they can be looked at
+                        // rather than imagined.
+                        gbEd->setDialGlowForTesting (tag == "-glow" ? 1.0f : 0.0f,
+                                                     tag == "-glow" ? 0.22f : 0.0f);
                     }
 
                     // The one shot that needs a gesture first.
