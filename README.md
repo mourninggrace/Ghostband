@@ -12,7 +12,7 @@ instrument.
 
 ### Download
 
-**[Ghostband 0.4.0 for Windows](https://github.com/mourninggrace/Ghostband/releases/latest)**
+**[Ghostband 0.5.0 for Windows](https://github.com/mourninggrace/Ghostband/releases/latest)**
 — unzip and drop the `Ghostband.vst3` folder into
 `C:\Program Files\Common Files\VST3\`, then rescan plugins in your host.
 
@@ -288,6 +288,22 @@ whole section to what it was already playing and changes only that bar.
 Otherwise its other bars would be free to move the next time the song
 regenerated, which is not what anybody means by changing one chord.
 
+### The dice
+
+Beside the seed, at the end of the Roll row. **Roll** gives you a different
+performance of the same song; **the dice changes the song's whole character** —
+the seed, all three dials, the tempo, the key and the mode. Ctrl-click and it
+picks a different preset first, so it is a different song played differently.
+
+It rolls within musical bounds rather than at random. The tempo is *nudged* — a
+quarter either way — because a tempo drawn evenly from 40 to 250 is nonsense
+most of the time and the song should stay recognisably itself. The modes it
+draws from lean minor, because this is a rock and metal engine.
+
+**Right-click the die to put it back.** One step, and it exists because rolling
+past one you liked with no way back is the thing that would make this
+frustrating rather than fun.
+
 ### The change log
 
 Every change goes in `%APPDATA%\Ghostband\changes.log` as it happens, with
@@ -299,6 +315,26 @@ what it was before:
 A knob dragged across its range is one line, not one per pixel. **Show log
 folder** in Settings opens the folder, which also holds your takes, your taught
 mappings, and the stall log below.
+
+### What the second guitar is told about the neck
+
+Shreddage samples every pitch on several strings and they do not sound the same.
+Left alone, the instrument places each note with its "play the chord" algorithm —
+right notes, wrong voicing for a lead line.
+
+Ghostband tells it where to play, per section, using the instrument's own
+keyswitches. Nothing has to be MIDI-learned for this to work.
+
+| section is | fretting mode | hand |
+|---|---|---|
+| soloing | Moving Lead — three octaves at one hand position, where the default gets two | fret 9 |
+| answering | Polyphonic — every note of the answer sounds, rather than triggering legato | fret 5 |
+| heavy | Polyphonic | fret 1, low and tight |
+
+Both blocks live in `profiles/shreddage-3-hydra.json` and deleting either turns
+it off. You will see these as notes in the grid's GTR 2 column — `A7` and
+similar, well above anything playable. That is what is on the wire, and the grid
+shows the wire.
 
 ### If the window ever freezes
 
