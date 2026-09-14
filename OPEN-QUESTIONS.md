@@ -3,7 +3,7 @@
 One file, so none of it has to be remembered. Answered items move to the bottom
 with a date rather than being deleted, so the same question is never asked twice.
 
-**Last updated 2026-09-13, end of session 19.**
+**Last updated 2026-09-14, end of session 20.**
 
 ---
 
@@ -52,12 +52,21 @@ Either way, `stalls.log` keeps score, and the footer turns amber when it
 happens. If the log ever shows a line where **ghostband** is a big number rather
 than 0.0, that one IS mine and I want to see it.
 
-### 0a. v0.4.0 is out
+### 0a. v0.5.0 is out
 
-https://github.com/mourninggrace/Ghostband/releases/tag/v0.4.0
+https://github.com/mourninggrace/Ghostband/releases/tag/v0.5.0
 
 Published, marked latest, installed on your machine, and the download's checksum
 verified by fetching it back from GitHub. Nothing is sitting unreleased.
+
+**Two things in it want your ears rather than your eyes:**
+
+- **The second guitar's neck position.** A solo section against a chorus is the
+  place to hear it - same notes, different strings, different voice. If the
+  answering parts now sound too separated, Polyphonic is the reason and one line
+  in `profiles/shreddage-3-hydra.json` turns it off.
+- **The dice.** Roll it a few times, then right-click to put one back. If the
+  tempo nudge feels too narrow or too wide, it is one number.
 
 ### 0b. The mix knobs, and the ROWS selector — try these first
 

@@ -10,14 +10,13 @@ nobody has to read it.
 
 ## State
 
-- **v0.4.0 released 2026-09-13.** Tagged, published, marked latest, installed,
-  and its checksum verified by downloading it back from GitHub.
-- **Session 20 is installed but NOT released.** The audit fixes, the animation
-  pass and Hydra's fretting modes have all landed since. A release is due.
+- **v0.5.0 released 2026-09-14.** Tagged, published, marked latest, installed,
+  and its checksum verified by downloading it back from GitHub. Nothing is
+  unreleased.
 - **The window is 1180x820, minimum 1020x820.** Both numbers are load-bearing:
   the minimum is set by the two-column Settings screen, not by the song screen,
   and the harness's `kMinW`/`kMinH` must move with it.
-- **387 checks** pass on every build, and all 34 plans are swept.
+- **400 checks** pass on every build, and all 34 plans are swept.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
@@ -146,7 +145,36 @@ with no exclusions (Kontakt streaming samples through a scanner is the classic
 cause of exactly this), and bisecting the rackspace would settle it. Both are
 written up in OPEN-QUESTIONS.
 
-## Session 20: an audit, motion, and where Hydra puts its hands
+## Session 20: an audit, motion, Hydra's neck, and a die
+
+Ended with **v0.5.0**.
+
+**THE DICE.** One click rolls the song's whole character - seed, all three
+dials, tempo, key, mode - and ctrl-click picks a different preset first. It
+rolls WITHIN MUSICAL BOUNDS: the tempo is nudged a quarter either way rather
+than redrawn, because a tempo drawn evenly from 40..250 is nonsense most of the
+time, and the modes lean minor because this is a rock engine.
+
+**Right-click puts it back, and that is the part that matters.** Rolling past
+one you liked with no way back is what would make it frustrating instead of
+fun, and it is the sharp end of this project having no undo. One step; the
+state is kept as the song's own text, which is what a take stores. Pinned by
+FINGERPRINT rather than by the dials - the dials are what was rolled, and a song
+returning with the right numbers over different notes would pass a check on them
+and be wrong.
+
+**HYDRA'S NECK, and it needed the manual twice.** See the section above for the
+fretting modes. Session 20 also added Set Hand (p28), which is unusual: ONE
+keyswitch note where the VELOCITY is the fret. Heavy work at fret 1, answers at
+5, solos at 9 - and Moving Lead ascends from wherever the hand is, so the two
+together are most of what separates a lead voice from a rhythm one.
+
+**Force String is deliberately NOT used.** The manual says it "sets up a
+keyswitch note for each string, plus a note to disable" without saying which
+note is which, and a switch that pins every note to the wrong string is a worse
+failure than not having it.
+
+## Session 20 details: the audit, and motion
 
 **An external audit reported 29 findings and most of the headline ones were
 not there** - the CRITICAL and three of eight HIGH describe code that does not

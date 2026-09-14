@@ -25,6 +25,11 @@ in fact done, and are noted at the bottom so nobody rediscovers them.
   that distinguishes every line; selectable row resolution; a change log; Reset
   to profile; a song that rewinds itself; the mix knobs stop vanishing; and a
   stall detector that says whether a freeze was Ghostband or the host.
+- **v0.5.0, 2026-09-14** — the dice and its one-step undo; Hydra told where on
+  the neck to play (fretting modes and hand position, both by keyswitch); motion
+  throughout the interface; the playhead lighting the right row at the start of
+  a song; CM7 no longer playing as C minor seven; a song's own problems reaching
+  the screen.
 
 `Release.bat` cuts one. It refuses a dirty tree or a failing build, and stages
 the profiles and preset songs INTO the bundle - the build output has neither, and
