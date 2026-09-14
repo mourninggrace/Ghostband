@@ -3196,6 +3196,12 @@ int main (int argc, char** argv)
                 gbEd->clickTrackerRowForTesting (2 * proc.getBarTicks());
                 ed->setSize (kMinW, kMinH);
 
+                // The strip arrives from below, so measure it where it lands.
+                // Mid-slide it really is over the transport line, and a check
+                // that caught that would be reporting the animation rather than
+                // the layout.
+                gbEd->settleAnimationsForTesting();
+
                 std::vector<juce::Component*> shown;
                 for (int i = 0; i < ed->getNumChildComponents(); ++i)
                 {
@@ -3803,6 +3809,67 @@ int main (int argc, char** argv)
         bak.deleteFile();
     }
 
+    // ---- the lit row is where the music is --------------------------------
+    // The grid scrolls to keep the current row a third of the way down, so the
+    // lit row IS a third of the way down almost all the time. Almost: the
+    // window cannot scroll above bar one, so for the first third of a screenful
+    // the playhead walks down through rows that are already on screen while the
+    // grid stays still.
+    //
+    // Lighting rows/3 regardless meant the highlight sat on bar 9 - or bar 17
+    // in a tall window - from the moment the song started and did not move
+    // until the song reached it. Reported in exactly those words: "it's like
+    // the playhead starts at 17 and doesn't start moving until the song passes
+    // 17". A still image cannot show it, because the row it lights looks
+    // perfectly reasonable.
+    {
+        proc.loadPlan (juce::File (planPath));
+
+        if (auto* ed = proc.createEditorIfNeeded())
+        {
+            auto* gbEd = dynamic_cast<GhostbandEditor*> (ed);
+            if (gbEd != nullptr)
+            {
+                gbEd->showScreenForSnapshot (0);
+                ed->setSize (kMinW, 1400);          // tall, where the fault was worst
+
+                // Bar one, transport running.
+                proc.transportRunning.store (true);
+                proc.playbackTick.store (0);
+                gbEd->runTimerForTesting();
+
+                check (gbEd->litTrackerRowForTesting() == 0,
+                       "at the start of a song the lit row is the FIRST row",
+                       juce::String (gbEd->litTrackerRowForTesting()));
+
+                // A few bars in, still before the grid can scroll.
+                const int bar = proc.getBarTicks();
+                proc.playbackTick.store (bar * 3);
+                gbEd->runTimerForTesting();
+
+                check (gbEd->litTrackerRowForTesting() == 3,
+                       "three bars in it is the fourth row, not a fixed one",
+                       juce::String (gbEd->litTrackerRowForTesting()));
+
+                // And once the song is deep enough that the grid scrolls, the
+                // lit row must still be the one holding the playhead's tick.
+                proc.playbackTick.store (bar * 30);
+                gbEd->runTimerForTesting();
+
+                const int lit = gbEd->litTrackerRowForTesting();
+                check (lit >= 0 && lit < gbEd->visibleTrackerRowsForTesting(),
+                       "and once the grid scrolls it is still on screen",
+                       juce::String (lit));
+
+                proc.transportRunning.store (false);
+                proc.playbackTick.store (0);
+            }
+
+            proc.editorBeingDeleted (ed);
+            delete ed;
+        }
+    }
+
     // ---- motion costs nothing when nothing is moving -----------------------
     // The interface animates a screen change, a queued jump and the three dials
     // on a take recall. All three run on a 60 Hz clock that must SLEEP the rest
@@ -3857,6 +3924,14 @@ int main (int argc, char** argv)
                 gbEd->showScreenForSnapshot (3);      // settings
                 check (gbEd->animationsIdleForTesting(),
                        "switching screens for a snapshot leaves nothing moving");
+
+                // AND THE REAL PATH DOES THE OPPOSITE. A button press must
+                // actually start something, or every check above is testing a
+                // feature that does not run - which is precisely what "i'm not
+                // seeing any animations whatsoever" would look like from here.
+                gbEd->changeScreenForTesting (0);     // song, the way a button does it
+                check (! gbEd->animationsIdleForTesting(),
+                       "changing screens the way a button does starts a fade");
 
                 gbEd->showScreenForSnapshot (0);      // song
                 check (gbEd->animationsIdleForTesting(),
@@ -5637,6 +5712,15 @@ int main (int argc, char** argv)
                 // it broke both times.
                 shots.push_back ({ 4, 1020, 1400, "-wide" });
 
+                // FRAMES OF THE FADE, so it can be looked at rather than
+                // reasoned about. A 150 ms cubic ease-out is already down to
+                // 12% opacity at its halfway point, which is a flicker rather
+                // than a transition - and that is not visible in any still.
+                for (int f = 0; f < 4; ++f)
+                    shots.push_back ({ 0, 1180, 820, f == 0 ? "-fade-100"
+                                                   : f == 1 ? "-fade-70"
+                                                   : f == 2 ? "-fade-40" : "-fade-15" });
+
                 // The song screen with the quick edit strip OPEN. It is only
                 // on screen after a click, so every other image in this set
                 // shows a layout that has never been looked at with it there.
@@ -5650,6 +5734,15 @@ int main (int argc, char** argv)
                     if (gbEd != nullptr) gbEd->showScreenForSnapshot (shot.screen);
 
                     ed->setSize (shot.w, shot.h);
+
+                    if (gbEd != nullptr)
+                    {
+                        const juce::String tag (shot.suffix);
+                        gbEd->setFadeForTesting (tag == "-fade-100" ? 1.00f
+                                               : tag == "-fade-70"  ? 0.70f
+                                               : tag == "-fade-40"  ? 0.40f
+                                               : tag == "-fade-15"  ? 0.15f : 0.0f);
+                    }
 
                     // The one shot that needs a gesture first.
                     if (gbEd != nullptr && juce::String (shot.suffix) == "-editing")

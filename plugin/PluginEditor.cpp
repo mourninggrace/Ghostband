@@ -1026,7 +1026,23 @@ void TrackerView::paint (juce::Graphics& g)
 
     // ---- rows ----
     const int rows = visibleRows();
-    const int cur  = juce::jlimit (0, rows - 1, rows / 3);
+    // WHERE THE PLAYHEAD ACTUALLY IS, worked out from its tick.
+    //
+    // This used to be a constant - rows/3 - because the grid scrolls to keep
+    // the current row a third of the way down, so the lit row IS a third of the
+    // way down almost all the time. Almost.
+    //
+    // At the start of a song it is not. The window cannot scroll above bar one,
+    // so `firstRowTick` is clamped at zero for the first third of a screenful
+    // and the playhead walks DOWN through those rows while the grid stays
+    // still. Lighting rows/3 through that meant the highlight sat on bar 9 - or
+    // bar 17 in a tall window - from the moment the song started, and did not
+    // move until the song reached it. Reported exactly that way: "it's like the
+    // playhead starts at 17 and doesn't start moving until the song passes 17".
+    //
+    // The same is true at the end, where the window cannot scroll past the last
+    // row either.
+    const int cur = litRow();
 
     for (int r = 0; r < rows; ++r)
     {
@@ -1245,7 +1261,15 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
                               {
                                   const juce::File f = fc.getResult();
                                   if (f.existsAsFile())
+                                  {
                                       processor.loadPlan (f);
+
+                                      // A different song replaces every dial
+                                      // and every level at once. Watching them
+                                      // travel is how you see what it brought
+                                      // with it.
+                                      easeAllKnobsToProcessor();
+                                  }
                               });
     };
 
@@ -1951,12 +1975,11 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         // thing that just changed.
         screen = Screen::Song;
         updateModeVisibility();
-        // The three dials are most of what a take IS - the same song played
+        // The dials are most of what a take IS - the same song played
         // differently - so seeing which of them moved is the answer to "what
         // was different about that one". They jumped before, which shows the
         // result and not the change.
-        easeDialsTo (processor.complexity.load(), processor.humanize.load(),
-                     processor.fills.load());
+        easeAllKnobsToProcessor();
 
         statusLabel.setText ("Recalled take \"" + name + "\".",
                              juce::dontSendNotification);
@@ -1996,7 +2019,15 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         themeBox.addItem (ghost::themeName (i), i + 1);
     themeBox.setSelectedId (processor.theme.load() + 1, juce::dontSendNotification);
 
-    themeBox.onChange = [this] { applyThemeChoice (themeBox.getSelectedId() - 1); };
+    themeBox.onChange = [this]
+    {
+        applyThemeChoice (themeBox.getSelectedId() - 1);
+
+        // Here rather than inside applyThemeChoice, which also runs while the
+        // window is being built from saved state - fading in on open would be
+        // an animation about nothing having happened.
+        beginThemeFade();
+    };
 
     reloadProfilesBtn.onClick = [this] { processor.reloadPlan(); };
 
@@ -2859,6 +2890,16 @@ bool GhostbandEditor::advanceAnimations (int deltaMs)
 {
     bool busy = false;
 
+    // The slide first: it changes the LAYOUT, so it has to land before anything
+    // repaints against it.
+    if (contentSlide.busy() || stripSlide.busy())
+    {
+        contentSlide.advance (deltaMs);
+        stripSlide.advance (deltaMs);
+        resized();
+        busy = true;
+    }
+
     if (veil.isVisible())
     {
         const bool moving = veil.alpha.advance (deltaMs);
@@ -2893,6 +2934,28 @@ bool GhostbandEditor::advanceAnimations (int deltaMs)
         busy = busy || dialsAnimating;
     }
 
+    if (mixAnimating)
+    {
+        Eased*        eased[5] = { &mixDrums, &mixBass, &mixGuitar,
+                                   &mixGuitar2, &mixPiano };
+        juce::Slider* to[5]    = { &levelDrums, &levelBass, &levelGuitar,
+                                   &levelGuitar2, &levelPiano };
+
+        bool still = false;
+        for (int i = 0; i < 5; ++i)
+        {
+            still = eased[i]->advance (deltaMs) || still;
+
+            // dontSendNotification, so an animation can never become an edit:
+            // the callback that writes back to the processor never runs, and
+            // the processor already holds the value being travelled to.
+            to[i]->setValue (eased[i]->value(), juce::dontSendNotification);
+        }
+
+        mixAnimating = still;
+        busy = busy || still;
+    }
+
     // A queued jump is waiting for a bar line, which at one row per bar can be
     // several seconds off. A slow triangle rather than a sine: the turn at the
     // top is visible, and that is what makes it read as a pulse rather than as
@@ -2914,10 +2977,40 @@ bool GhostbandEditor::advanceAnimations (int deltaMs)
     return busy;
 }
 
+void GhostbandEditor::changeScreenForTesting (int index)
+{
+    switch (juce::jlimit (0, numScreens - 1, index))
+    {
+        case 1:  screen = Screen::Calibrate; break;
+        case 2:  screen = Screen::Edit;      break;
+        case 3:  screen = Screen::Settings;  break;
+        case 4:  screen = Screen::About;     break;
+        case 5:  screen = Screen::Takes;     break;
+        default: screen = Screen::Song;      break;
+    }
+
+    updateModeVisibility();
+}
+
+void GhostbandEditor::setFadeForTesting (float alpha)
+{
+    veil.alpha.set (juce::jlimit (0.0f, 1.0f, alpha));
+    veil.setVisible (alpha > 0.0f);
+    veil.toFront (false);
+    veil.repaint();
+}
+
 void GhostbandEditor::settleAnimations()
 {
     veil.alpha.set (0.0f);
     veil.setVisible (false);
+
+    if (contentSlide.value() != 0.0f || stripSlide.value() != 0.0f)
+    {
+        contentSlide.set (0.0f);
+        stripSlide.set (0.0f);
+        resized();
+    }
 
     if (dialsAnimating)
     {
@@ -2931,6 +3024,19 @@ void GhostbandEditor::settleAnimations()
         dialsAnimating = false;
     }
 
+    if (mixAnimating)
+    {
+        juce::Slider*             to[5]  = { &levelDrums, &levelBass, &levelGuitar,
+                                             &levelGuitar2, &levelPiano };
+        const std::atomic<float>* now[5] = { &processor.levelDrums, &processor.levelBass,
+                                             &processor.levelGuitar, &processor.levelGuitar2,
+                                             &processor.levelPiano };
+        for (int i = 0; i < 5; ++i)
+            to[i]->setValue (now[i]->load(), juce::dontSendNotification);
+
+        mixAnimating = false;
+    }
+
     queuedPhase = 0.0f;
     tracker.setQueuedPulse (0.0f);
     animator.stopTimer();
@@ -2938,15 +3044,61 @@ void GhostbandEditor::settleAnimations()
 
 void GhostbandEditor::beginScreenFade()
 {
-    // From fully covered. 150 ms, which is long enough to be seen as a
-    // transition and short enough that nobody waiting to click something has to
-    // wait for it - the veil does not take mouse events, so the new screen is
-    // live throughout.
-    veil.alpha.set (1.0f);
-    veil.alpha.moveTo (0.0f, 150);
+    // 220 ms, up from 150. The first version was a cubic ease-out over 150 ms,
+    // which is already down to twelve per cent opacity at its halfway point -
+    // seventy-five milliseconds of visible change, which is a flicker rather
+    // than a transition, and was reported as no animation at all.
+    veil.alpha.set (0.92f);
+    veil.alpha.moveTo (0.0f, 220);
+
+    // And the part you actually see. Fourteen pixels of travel, settling on a
+    // cubic ease-out so it reads as arriving rather than sliding.
+    contentSlide.set (14.0f);
+    contentSlide.moveTo (0.0f, 220);
+
     veil.setVisible (true);
     veil.toFront (false);
     animator.wake();
+}
+
+void GhostbandEditor::beginThemeFade()
+{
+    // Shorter than a screen change and with no slide: nothing MOVED, so
+    // movement would be a lie about what just happened. The colours simply
+    // arrive.
+    veil.alpha.set (0.75f);
+    veil.alpha.moveTo (0.0f, 260);
+    veil.setVisible (true);
+    veil.toFront (false);
+    animator.wake();
+}
+
+void GhostbandEditor::easeAllKnobsToProcessor()
+{
+    easeDialsTo (processor.complexity.load(), processor.humanize.load(),
+                 processor.fills.load());
+
+    Eased*                   eased[5] = { &mixDrums, &mixBass, &mixGuitar,
+                                          &mixGuitar2, &mixPiano };
+    const std::atomic<float>* from[5] = { &processor.levelDrums, &processor.levelBass,
+                                          &processor.levelGuitar, &processor.levelGuitar2,
+                                          &processor.levelPiano };
+    juce::Slider*            to[5]    = { &levelDrums, &levelBass, &levelGuitar,
+                                          &levelGuitar2, &levelPiano };
+
+    bool any = false;
+    for (int i = 0; i < 5; ++i)
+    {
+        eased[i]->set (static_cast<float> (to[i]->getValue()));
+        eased[i]->moveTo (from[i]->load(), 260);
+        any = any || eased[i]->busy();
+    }
+
+    if (any)
+    {
+        mixAnimating = true;
+        animator.wake();
+    }
 }
 
 void GhostbandEditor::easeDialsTo (double complexity, double humanize, double fills)
@@ -3497,6 +3649,13 @@ void GhostbandEditor::openTrackerEdit (int tick)
     }
 
     trackerEditBar = bar;
+
+    // Arrives from below rather than appearing between two frames. Twenty
+    // pixels, which is most of its own height - enough that the eye catches it
+    // without the strip looking like it fell in from somewhere else.
+    stripSlide.set (20.0f);
+    stripSlide.moveTo (0.0f, 200);
+    animator.wake();
     tracker.setEditedTick (tick);
     refreshTrackerEdit();
     resized();
@@ -4431,6 +4590,10 @@ void GhostbandEditor::resized()
 
     r = r.reduced (20, 14);
 
+    // The screen arrives from slightly below. Zero at rest, so this costs
+    // nothing once a transition has finished - see Eased.
+    r.translate (0, slideOffsetPx());
+
     // Header navigation sits in the header band itself, above everything else.
     {
         auto nav = getLocalBounds().removeFromTop (62).reduced (20, 0);
@@ -5087,6 +5250,10 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
 
             auto strip = r.removeFromBottom (oneRow ? 28 : 62);
             r.removeFromBottom (8);
+
+            // Displaced while it arrives. The grid above keeps its own bounds -
+            // only the strip moves, so opening it does not shove the music.
+            strip.translate (0, juce::roundToInt (stripSlide.value()));
             trackerEditStrip = strip.expanded (8, 4);
 
             auto fields  = oneRow ? strip : strip.removeFromTop (26);

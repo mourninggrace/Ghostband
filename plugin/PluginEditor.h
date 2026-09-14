@@ -356,6 +356,16 @@ public:
                    int rowTicks, int beatTicks, int barTicks);
 
     int  visibleRows() const;
+
+    // Which row is lit, by the same arithmetic paint() uses. -1 when stopped.
+    // Exposed because the fault it exists to pin is invisible in a still: the
+    // highlight was on the RIGHT-LOOKING row for most of a song and the wrong
+    // one for the first third of a screenful.
+    int  litRow() const
+    {
+        return playheadTick >= 0 && rowTicks > 0
+                 ? (playheadTick - firstRowTick) / rowTicks : -1;
+    }
     int  firstTickWanted() const { return firstRowTick; }
 
     void paint (juce::Graphics& g) override;
@@ -465,6 +475,26 @@ public:
 
     // Nothing moving, and nothing left on screen that was only there to move.
     // The veil covers the whole window, so "idle" has to mean it is gone.
+    // A screen change the way a BUTTON makes one - not showScreenForSnapshot,
+    // which deliberately settles everything so checks and images see the window
+    // as it ends up. The difference between those two paths is exactly where an
+    // animation that never runs would hide.
+    void changeScreenForTesting (int index);
+
+    // Put the fade at a given point so a frame of it can be rendered and
+    // LOOKED AT. "It is running" and "you can see it" are different claims and
+    // only the second one matters.
+    void setFadeForTesting (float alpha);
+
+    int  litTrackerRowForTesting() const { return tracker.litRow(); }
+    int  visibleTrackerRowsForTesting() const { return tracker.visibleRows(); }
+
+    // Put everything where it is going, now. Any check that MEASURES the window
+    // has to call this after a gesture that starts motion, or it measures a
+    // frame of a transition - the quick-edit strip arrives from twenty pixels
+    // below, and mid-slide it genuinely does sit on top of the transport line.
+    void settleAnimationsForTesting() { settleAnimations(); }
+
     bool animationsIdleForTesting() const
     {
         return ! animator.isTimerRunning() && ! veil.isVisible();
@@ -952,7 +982,40 @@ private:
     void settleAnimations();
     void easeDialsTo (double complexity, double humanize, double fills);
 
+    // Every knob on the song screen, eased to wherever the processor now says
+    // it should be. For a plan load and a take recall: both replace the whole
+    // set at once, and watching them travel is how you see WHAT was replaced.
+    void easeAllKnobsToProcessor();
+
+    // A theme change repaints every pixel in the window at once, which is the
+    // one moment a plain cross-fade is exactly right - there is no layout
+    // change to communicate, only a new set of colours.
+    void beginThemeFade();
+
+    Eased mixDrums, mixBass, mixGuitar, mixGuitar2, mixPiano;
+    bool  mixAnimating = false;
+
     ScreenVeil veil;
+
+    // How far the content is displaced, in pixels, while a screen settles.
+    //
+    // OPACITY ALONE WAS NOT ENOUGH, and that is the whole lesson of the first
+    // attempt. A veil fading from the background colour over a dark theme is
+    // dark-on-dark: measurably there, perceptually nothing, and reported as
+    // "not seeing any animations whatsoever". Movement is what the eye actually
+    // catches - a dozen pixels of travel reads instantly where a fade of the
+    // same length does not.
+    //
+    // Applied to the content rectangle in resized(), so the header and the
+    // footer rail stay put and only the screen itself arrives. Chrome that
+    // slides with its content looks like the window is broken.
+    Eased contentSlide;
+
+    // The quick-edit strip arriving. Its own value rather than the content
+    // slide's, because opening it is not a screen change - the grid above must
+    // not move, only the strip.
+    Eased stripSlide;
+    int  slideOffsetPx() const { return juce::roundToInt (contentSlide.value()); }
     Eased      dialComplexity, dialHumanize, dialFills;
     bool       dialsAnimating = false;
 
