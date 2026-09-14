@@ -6,17 +6,18 @@ useless for the one job it has: telling whoever picks this up next what is true
 right now. The history is in `docs/archive/NEXT-through-session-13.md`, and
 nobody has to read it.
 
-**Last touched 2026-09-13, end of session 19.**
+**Last touched 2026-09-14, end of session 20.**
 
 ## State
 
 - **v0.4.0 released 2026-09-13.** Tagged, published, marked latest, installed,
-  and the asset's checksum verified by downloading it back from GitHub. Nothing
-  is unreleased.
+  and its checksum verified by downloading it back from GitHub.
+- **Session 20 is installed but NOT released.** The audit fixes, the animation
+  pass and Hydra's fretting modes have all landed since. A release is due.
 - **The window is 1180x820, minimum 1020x820.** Both numbers are load-bearing:
   the minimum is set by the two-column Settings screen, not by the song screen,
   and the harness's `kMinW`/`kMinH` must move with it.
-- **360 checks** pass on every build.
+- **387 checks** pass on every build, and all 34 plans are swept.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
@@ -144,6 +145,40 @@ to run: Windows Defender real-time protection and behaviour monitoring are on
 with no exclusions (Kontakt streaming samples through a scanner is the classic
 cause of exactly this), and bisecting the rackspace would settle it. Both are
 written up in OPEN-QUESTIONS.
+
+## Session 20: an audit, motion, and where Hydra puts its hands
+
+**An external audit reported 29 findings and most of the headline ones were
+not there** - the CRITICAL and three of eight HIGH describe code that does not
+exist. Every finding was checked one at a time and the verdicts are in
+`audit/VERDICT.md`, so nobody re-runs it against the same false positives.
+Six were real, and the best of them led somewhere the audit had not looked:
+`parseChord` tested `"M7"` AFTER lowercasing the suffix, so that branch was
+unreachable and **CM7 played as C minor seven**.
+
+**THE LESSON THAT KEEPS EARNING ITS KEEP: read the instrument's manual.**
+Asked whether Hydra's fretboard mapping could improve the second guitar. The
+premise was Keyboard Mode (p9), which DISABLES the string-selection algorithm -
+the opposite of useful. What is worth having is on p16: four keyswitches that
+set the Fretting Mode, which is Ghostband's own mechanism and needs no MIDI
+Learn. Moving Lead (116) gives a solo three octaves at one hand position where
+the default gives two; Polyphonic (117) makes every note of an answer sound
+rather than triggering legato. `profiles/shreddage-3-hydra.json` has a
+`fretting` block now, and deleting it turns the whole thing off.
+
+**Motion, and it took two attempts.** The first was a veil fading from the
+background colour - correct, measurable, and invisible, because dark-on-dark
+over 150 ms with a cubic ease-out is already at 12% opacity by its halfway
+point. Reported as no animation whatsoever, fairly. **Opacity was the wrong
+instrument**: the content now arrives 44 pixels SIDEWAYS over 300 ms and knows
+which way, and every turnable knob leaves a trail between where it was and
+where it is. The animation clock still sleeps when nothing is moving.
+
+**And a playhead bug the owner diagnosed exactly**: "it's like the playhead
+starts at 17 and doesn't start moving until the song passes 17". The grid keeps
+the current row a third of the way down, so paint() lit `rows/3` - true almost
+always, and false for the first third of a screenful, because the window cannot
+scroll above bar one. It is computed from the tick now.
 
 ## Session 19: editing the grid, and a release
 
