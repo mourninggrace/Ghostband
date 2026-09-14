@@ -583,6 +583,10 @@ public:
         for (const PhraseSwitch& s : leadArtics)
             if (! s.byControl() && s.note == note) return true;
 
+        // The hand-position note is a switch like any other, and it would
+        // otherwise be reported as a note the instrument cannot play.
+        if (handKeyswitch >= 0 && note == handKeyswitch) return true;
+
         return false;
     }
 
@@ -604,6 +608,19 @@ private:
     // Empty on any profile that does not declare one, which is every profile
     // but Hydra, and nothing is sent.
     std::vector<PhraseSwitch> frettingKeys;
+
+    // WHERE THE HAND SITS, per feel, as a fret number.
+    //
+    // Shreddage's "Set Hand" keyswitch is unusual and rather elegant: one note,
+    // and the VELOCITY is the fret. Manual p28 - "the hand position selected
+    // equals the velocity of the keyswitch note (velocity 1 = fret position 1,
+    // velocity 2 = position 2)". So this is not a PhraseSwitch like the others;
+    // it is one note plus a number per feel.
+    //
+    // 0 means do not send. Velocity 0 would be a note-off anyway, so fret 1 is
+    // the lowest thing that can be asked for, which is also the lowest fret.
+    int handKeyswitch = -1;
+    std::vector<int> handFrets;
 
     PhraseSwitch frettingFor (PhraseFeel f) const
     {

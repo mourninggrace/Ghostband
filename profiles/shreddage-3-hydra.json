@@ -364,6 +364,40 @@
     "busy":    117
   },
 
+  // ---- WHERE THE HAND SITS ----
+  //
+  // Manual p28, "Keyswitch Functions". Shreddage's Set Hand switch is unusual
+  // and rather elegant: ONE note, and the VELOCITY is the fret. "The hand
+  // position selected equals the velocity of the keyswitch note (velocity 1 =
+  // fret position 1, velocity 2 = position 2, etc.)"
+  //
+  // 10 (Bb-2) is where that menu sits by default, alongside Force String at 0
+  // and the two mode blocks at 108 and 114. If Set Hand has been moved or
+  // switched off in your copy, note 10 is far below anything sampled and simply
+  // does nothing - which is the safe way for this to be wrong.
+  //
+  // WHAT IT BUYS. Hand position decides which STRING a pitch is fretted on, and
+  // on this instrument that is a tone decision rather than a pitch one: the
+  // same note low on a high string is rounder than high on a low one. Combined
+  // with Moving Lead, which ascends from wherever the hand is, it is most of
+  // what separates a lead voice from a rhythm one.
+  //
+  //   heavy work low on the neck    open, muted, driving - thick and tight
+  //   answers a little higher       fills sit above the rhythm guitar
+  //   solos at the ninth            where a guitarist actually plays one
+  //
+  // Frets, not semitones. Deleting this block stops it being sent.
+  "hand_position_keyswitch": 10,
+  "hand_position": {
+    "open":    1,
+    "muted":   1,
+    "driving": 1,
+    "busy":    3,
+    "fills":   5,
+    "sparse":  7,
+    "solo":    9
+  },
+
   // ---- PER-NOTE GESTURES ----
   //
   // What a lead player does to ONE note, as opposed to how a whole section is

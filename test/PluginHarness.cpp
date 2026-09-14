@@ -5324,6 +5324,18 @@ int main (int argc, char** argv)
             check (fretting > 0,
                    "the second guitar is told where on the neck to play",
                    juce::String (fretting) + " fretting-mode keyswitches");
+
+            // And where the HAND sits, which is the same note every time with
+            // the fret as its velocity (manual p28). One note, so counting it
+            // is enough; the velocities are what differ and they are the
+            // profile's business.
+            const int ch11 = proc.channelGuitar2.load();
+            const int hand = proc.getSequenceNoteOnCount (ch11, 10)
+                           - proc.getSequenceNoteOnCount (ch11, 11);
+
+            check (hand > 0,
+                   "and where on the neck its hand should sit",
+                   juce::String (hand) + " hand-position keyswitches");
         }
 
         check (strays.isEmpty(),

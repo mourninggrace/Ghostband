@@ -438,6 +438,7 @@ bool BassProfile::load (const std::string& path, BassProfile& out, std::string& 
 PhraseProfile::PhraseProfile()
     : phraseKeys (kNumPhraseFeels),  // every feel unmapped: no note, no controller
       frettingKeys (kNumPhraseFeels),
+      handFrets (kNumPhraseFeels, 0),
       leadArtics (kNumLeadArtics)
 {
     // The default is a plain pitched instrument, voicing chords in a middle
@@ -1406,6 +1407,30 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
         }
     }
 
+    // Where the hand sits, per feel. One keyswitch note for all of them and a
+    // fret number each - see the note on handFrets.
+    out.handKeyswitch = clampInt (j.intOr ("hand_position_keyswitch", -1), -1, 127);
+
+    const Json& hand = j["hand_position"];
+    if (hand.isObject())
+    {
+        for (const std::string& key : hand.keys())
+        {
+            bool ok = false;
+            const PhraseFeel f = phraseFeelFromName (key, ok);
+            if (! ok)
+            {
+                error = path + ": unknown phrase feel \"" + key + "\" in \"hand_position\"";
+                return false;
+            }
+
+            // 1..24 frets. Clamped rather than rejected: a fret number out of
+            // range is a typo, and refusing to load the whole profile over one
+            // would take the instrument away for a mistake worth ignoring.
+            out.handFrets[static_cast<size_t> (f)] = clampInt (hand[key].asInt (0), 0, 24);
+        }
+    }
+
     // The per-note gestures, in the same two forms. Same parsing, deliberately:
     // on this instrument a gesture and a section style are selected by the same
     // mechanism, so describing them differently would be a distinction the
@@ -1599,11 +1624,11 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
     // goes first.
     for (const PhraseIntent& p : part.phrases)
     {
+        const int at = std::max (0, p.tick - phraseLeadTicks);
+
         const PhraseSwitch fret = frettingFor (p.feel);
         if (fret.mapped())
         {
-            const int at = std::max (0, p.tick - phraseLeadTicks);
-
             if (fret.byControl())
             {
                 track.addCC (at, channel, fret.cc, fret.value);
@@ -1613,6 +1638,19 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
                 track.addNoteOn  (at, channel, fret.note, phraseVelocity);
                 track.addNoteOff (at + std::max (1, phraseBlipTicks), channel, fret.note);
             }
+        }
+
+        // And where the hand sits, which is the same note every time with a
+        // different VELOCITY - the fret number. One tick later than the
+        // fretting mode so the two never land on the same tick: they latch, and
+        // an instrument reading two latching switches at one instant is a
+        // question nobody has asked it before.
+        const size_t fi = static_cast<size_t> (p.feel);
+        if (handKeyswitch >= 0 && fi < handFrets.size() && handFrets[fi] > 0)
+        {
+            const int hv = clampInt (handFrets[fi], 1, 127);
+            track.addNoteOn  (at + 1, channel, handKeyswitch, hv);
+            track.addNoteOff (at + 1 + std::max (1, phraseBlipTicks), channel, handKeyswitch);
         }
     }
 
