@@ -266,6 +266,12 @@ public:
     // The extremes actually written on a channel, or an inverted pair when the
     // channel is silent. Used to assert that nothing lands outside what the
     // instrument's profile says it can play.
+    // The lowest and highest notes a part actually PLAYS, with anything its
+    // profile declares as a keyswitch left out. An empty range when the part is
+    // silent. See PhraseProfile::isSwitchNote for why the two must be told
+    // apart: a keyswitch sits outside the playable range deliberately.
+    juce::Range<int> getPlayedNoteRange (int part) const;
+
     int getSequenceLowestNote  (int channel) const;
     int getSequenceHighestNote (int channel) const;
     int getSequencePitchSum   (int channel) const;

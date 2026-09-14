@@ -5282,9 +5282,18 @@ int main (int argc, char** argv)
                                                : proc.channelGuitar2.load();
                 if (ch < 1) continue;
 
-                const int lowest  = proc.getSequenceLowestNote (ch);
-                const int highest = proc.getSequenceHighestNote (ch);
-                if (lowest > highest) continue;   // part silent in this song
+                // MUSIC ONLY. A keyswitch sits outside the playable range on
+                // purpose - that is what stops it being heard - so asking for
+                // the lowest and highest NOTE-ON reports every one of them as a
+                // note the instrument cannot play. Hydra's fretting-mode
+                // switches at 114-117 made this check fail on all thirty-four
+                // plans at once, which is the right answer to the wrong
+                // question.
+                const auto played = proc.getPlayedNoteRange (part.index);
+                if (played.isEmpty()) continue;   // part silent in this song
+
+                const int lowest  = played.getStart();
+                const int highest = played.getEnd();
 
                 notesChecked += proc.getSequenceNoteOnCount (ch);
 
@@ -5299,6 +5308,23 @@ int main (int argc, char** argv)
         check (checkedPlans > 20, "every shipped plan was swept",
                juce::String (checkedPlans) + " plans, "
                    + juce::String (notesChecked) + " notes");
+
+        // AND THE SWITCHES ARE ACTUALLY GOING OUT. The filter above stops
+        // keyswitches being reported as stray notes; without this it would also
+        // hide a profile that had stopped sending them at all, which is the
+        // same silence the fretting modes are meant to end.
+        {
+            proc.loadPlan (juce::File (planPath));
+
+            int fretting = 0;
+            for (int n = 114; n <= 117; ++n)
+                fretting += proc.getSequenceNoteOnCount (proc.channelGuitar2.load(), n)
+                          - proc.getSequenceNoteOnCount (proc.channelGuitar2.load(), n + 1);
+
+            check (fretting > 0,
+                   "the second guitar is told where on the neck to play",
+                   juce::String (fretting) + " fretting-mode keyswitches");
+        }
 
         check (strays.isEmpty(),
                "no plan writes a note the instrument cannot play",

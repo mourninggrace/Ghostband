@@ -319,6 +319,51 @@
     "fills":   { "cc": 40, "value": 10, "keyswitch": 12 }
   },
 
+  // ---- WHERE ON THE NECK ----
+  //
+  // Manual p16, "Other Performance Keyswitches". These four set the Fretting
+  // Mode, which decides which STRING and FRET each note is placed on:
+  //
+  //     114  F#7  Natural       one hand position, ascends and descends strings
+  //     115  G7   Sweep         as Natural, but favours adjacent strings
+  //     116  G#7  Moving Lead   raises the hand as it climbs - three octaves at
+  //                             one position where Natural gets about two
+  //     117  A7   Polyphonic    as many strings at once as possible, so every
+  //                             note of a chord actually sounds
+  //
+  // WHY THIS IS WORTH SENDING. Hydra samples every pitch on several strings and
+  // they do not sound the same (manual p4). Until now Ghostband sent a pitch
+  // and let the instrument's default algorithm place it, which is the "play the
+  // chord" answer - correct notes, wrong voicing for a lead line.
+  //
+  // MOVING LEAD FOR THE SOLO is the one that earns its place. The manual is
+  // explicit: Natural "would play the last octave all on the last string, which
+  // is not ideal", and Moving Lead gives a three-octave reach instead of two.
+  // Guitar 2's solos are wide lines, and they were getting the two-octave
+  // answer every time.
+  //
+  // POLYPHONIC FOR THE ANSWERING PARTS, because the manual says it ensures
+  // every note of a chord is played "as opposed to triggering legato, fret
+  // changes, etc." That is a real trade and it is the right way round here:
+  // fills and comping want to be heard as separate notes, and the legato that
+  // makes a solo sing makes an answer mushy.
+  //
+  // NO SET-UP REQUIRED. These are keyswitches, not controllers - Ghostband's
+  // native mechanism - so nothing has to be MIDI-learned in Kontakt first.
+  // Sitting at 114-117 they are far above the playable range, which ends at 88.
+  //
+  // To turn this off, delete the block. The instrument then uses whatever
+  // Fretting Mode its patch is saved on, which is what it did before.
+  "fretting": {
+    "solo":    116,
+    "sparse":  116,
+    "fills":   117,
+    "open":    117,
+    "muted":   117,
+    "driving": 117,
+    "busy":    117
+  },
+
   // ---- PER-NOTE GESTURES ----
   //
   // What a lead player does to ONE note, as opposed to how a whole section is

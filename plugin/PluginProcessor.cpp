@@ -3214,6 +3214,45 @@ juce::String GhostbandProcessor::getSequenceControllers (int channel) const
     return out.trim();
 }
 
+juce::Range<int> GhostbandProcessor::getPlayedNoteRange (int part) const
+{
+    const gb::PhraseProfile* prof = nullptr;
+    int channel = 0;
+
+    {
+        const juce::ScopedLock sl (stateLock);
+        switch (part)
+        {
+            case 2: if (haveGuitar)  { prof = &guitarProfile;  channel = guitarProfile.channel;  } break;
+            case 3: if (havePiano)   { prof = &pianoProfile;   channel = pianoProfile.channel;   } break;
+            case 4: if (haveGuitar2) { prof = &guitar2Profile; channel = guitar2Profile.channel; } break;
+            default: break;
+        }
+    }
+
+    if (prof == nullptr || channel < 1)
+        return {};
+
+    int lowest = 128, highest = -1;
+    {
+        const juce::SpinLock::ScopedLockType lock (sequenceLock);
+        for (const TimedMessage& m : sequence)
+        {
+            if (! m.message.isNoteOn() || m.message.getChannel() != channel)
+                continue;
+
+            const int note = m.message.getNoteNumber();
+            if (prof->isSwitchNote (note))
+                continue;
+
+            lowest  = juce::jmin (lowest, note);
+            highest = juce::jmax (highest, note);
+        }
+    }
+
+    return lowest > highest ? juce::Range<int>() : juce::Range<int> (lowest, highest);
+}
+
 int GhostbandProcessor::getSequenceLowestNote (int channel) const
 {
     const juce::SpinLock::ScopedLockType lock (sequenceLock);

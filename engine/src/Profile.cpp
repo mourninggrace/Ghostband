@@ -437,6 +437,7 @@ bool BassProfile::load (const std::string& path, BassProfile& out, std::string& 
 
 PhraseProfile::PhraseProfile()
     : phraseKeys (kNumPhraseFeels),  // every feel unmapped: no note, no controller
+      frettingKeys (kNumPhraseFeels),
       leadArtics (kNumLeadArtics)
 {
     // The default is a plain pitched instrument, voicing chords in a middle
@@ -1373,6 +1374,38 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
         }
     }
 
+    // Where on the neck, per feel. Same two forms as everything else here.
+    const Json& fretting = j["fretting"];
+    if (fretting.isObject())
+    {
+        for (const std::string& key : fretting.keys())
+        {
+            bool ok = false;
+            const PhraseFeel f = phraseFeelFromName (key, ok);
+            if (! ok)
+            {
+                error = path + ": unknown phrase feel \"" + key + "\" in \"fretting\"";
+                return false;
+            }
+
+            const Json& value = fretting[key];
+            PhraseSwitch sw;
+
+            if (value.isObject())
+            {
+                sw.cc    = clampInt (value.intOr ("cc", -1), -1, 127);
+                sw.value = clampInt (value.intOr ("value", 0), 0, 127);
+                sw.note  = clampInt (value.intOr ("keyswitch", -1), -1, 127);
+            }
+            else if (! value.isNull())
+            {
+                sw.note = clampInt (value.asInt (-1), -1, 127);
+            }
+
+            out.frettingKeys[static_cast<size_t> (f)] = sw;
+        }
+    }
+
     // The per-note gestures, in the same two forms. Same parsing, deliberately:
     // on this instrument a gesture and a section style are selected by the same
     // mechanism, so describing them differently would be a distinction the
@@ -1554,6 +1587,33 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
     {
         const PhraseSwitch sw = switchFor (p.feel);
         if (sw.mapped()) { sectionArtic = sw; break; }
+    }
+
+    // AND WHERE ON THE NECK. Sent once, before anything else in the part, so
+    // the instrument has chosen its algorithm before the first note asks it to
+    // place one.
+    //
+    // Before the articulation rather than after: both are keyswitches on the
+    // same wire, and the fretting mode governs where every note of this section
+    // lands while the articulation governs how one sounds. The wider decision
+    // goes first.
+    for (const PhraseIntent& p : part.phrases)
+    {
+        const PhraseSwitch fret = frettingFor (p.feel);
+        if (fret.mapped())
+        {
+            const int at = std::max (0, p.tick - phraseLeadTicks);
+
+            if (fret.byControl())
+            {
+                track.addCC (at, channel, fret.cc, fret.value);
+            }
+            else
+            {
+                track.addNoteOn  (at, channel, fret.note, phraseVelocity);
+                track.addNoteOff (at + std::max (1, phraseBlipTicks), channel, fret.note);
+            }
+        }
     }
 
     // What the instrument was last told, so it is never told the same thing

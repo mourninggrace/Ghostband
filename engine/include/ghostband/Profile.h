@@ -566,8 +566,50 @@ public:
     // the harness needs one, and calibration will want to write one.
     void setKeyFor (PhraseFeel f, int note);
 
+    // Is this note a SWITCH rather than music?
+    //
+    // Public because the question is asked from outside: anything checking
+    // "did this instrument play something it cannot play" has to tell the two
+    // apart. A keyswitch sits outside the playable range deliberately - that is
+    // what stops it being heard - so a range check that cannot separate them
+    // reports every keyswitch as a fault, which is the right answer to the
+    // wrong question.
+    bool isSwitchNote (int note) const
+    {
+        for (const PhraseSwitch& s : phraseKeys)
+            if (! s.byControl() && s.note == note) return true;
+        for (const PhraseSwitch& s : frettingKeys)
+            if (! s.byControl() && s.note == note) return true;
+        for (const PhraseSwitch& s : leadArtics)
+            if (! s.byControl() && s.note == note) return true;
+
+        return false;
+    }
+
 private:
-    std::vector<PhraseSwitch> phraseKeys;   // indexed by PhraseFeel
+    std::vector<PhraseSwitch> phraseKeys;
+
+    // HOW THE INSTRUMENT SHOULD CHOOSE ITS STRINGS AND FRETS, per feel.
+    //
+    // A second switch alongside the articulation, and a genuinely different
+    // question: the articulation is how a note SOUNDS, this is where on the
+    // neck it is played. Shreddage samples every pitch on several strings and
+    // they do not sound the same, so a lead line placed by a "play the chord"
+    // algorithm is voiced wrong even when every note is right.
+    //
+    // Its own map because a feel needs both - a solo wants Sustain AND the
+    // fretting mode that gives a three-octave reach at one hand position, and
+    // there is nowhere in `phrases` to say the second thing.
+    //
+    // Empty on any profile that does not declare one, which is every profile
+    // but Hydra, and nothing is sent.
+    std::vector<PhraseSwitch> frettingKeys;
+
+    PhraseSwitch frettingFor (PhraseFeel f) const
+    {
+        const size_t i = static_cast<size_t> (f);
+        return i < frettingKeys.size() ? frettingKeys[i] : PhraseSwitch();
+    }   // indexed by PhraseFeel
     std::vector<PhraseSwitch> leadArtics;   // indexed by LeadArtic
 };
 
