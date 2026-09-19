@@ -12,7 +12,7 @@ instrument.
 
 ### Download
 
-**[Ghostband 0.5.0 for Windows](https://github.com/mourninggrace/Ghostband/releases/latest)**
+**[Ghostband 0.6.0 for Windows](https://github.com/mourninggrace/Ghostband/releases/latest)**
 — unzip and drop the `Ghostband.vst3` folder into
 `C:\Program Files\Common Files\VST3\`, then rescan plugins in your host.
 
@@ -139,15 +139,26 @@ They use the same generator as the solos — the same devices, the same phrasing
 because a fill that phrases differently from the solos in the same song does not
 sound like the same player. What changes is placement:
 
-- only at the end of a four-bar group, where the singer stops, plus the last bar
-  of the section for the run-up into what follows
-- **not** every one of those. Filling all four openings is a second solo
-- the **back half** of the bar. The riff gets the first two beats; the answer
-  comes after
+- **mostly** at the end of a four-bar group, where the singer stops, plus the
+  last bar of the section for the run-up into what follows. The second bar is a
+  real possibility, the third happens because it is unexpected, and the first is
+  rare enough to be a statement
+- **not** every one of those, and never two bars running. Filling every opening
+  is a second solo
+- out of the **front** of the bar. The riff gets the downbeat; the answer comes
+  after. Where exactly varies — the half bar, the last quarter for a short
+  answer, off the half for a push, and a **pickup that starts before the bar
+  line and resolves inside it**
 - softer, because it answers somebody rather than competing
 
+Until v0.6.0 both of those were absolutes — the fourth bar, dead on the half,
+every time — which made the *rhythm* of a fill identical in every song whatever
+the notes were. The tendency is what was worth keeping; the rule was what made
+it sound like an engine.
+
 The **Fills** dial sets how many of the offered openings get taken. 0 silences
-them across the whole song without editing a section.
+them across the whole song without editing a section. The **Intuition** dial
+sets how far from the obvious opening it is willing to stray.
 
 Where a song does *not* fill is as much the arrangement as where it does. None
 of the shipped presets fills its intro, its first verse, a bridge, a breakdown,
