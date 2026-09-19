@@ -345,8 +345,14 @@ running through it. Between them those say whether it was Ghostband, your host,
 or the whole plugin — and the reading appears beside the latency in the bottom
 right, with the verdict in words when you hover it.
 
-It is written to `%APPDATA%\Ghostband\stalls.log` too, because the window that
-would show it is the thing that was frozen.
+It is written to `%APPDATA%\Ghostband\stalls.log` too, with the date as well as
+the time, because the window that would show it is the thing that was frozen.
+
+**It only counts a gap while the window is actually on screen.** A plugin editor
+that a host has tucked behind a panel tab is still alive, and Windows throttles
+its timer to a flat 600 milliseconds — which looks exactly like a freeze to a
+detector and was never a freeze anybody saw. The first real log ran to 1,118
+lines, of which nine were real.
 
 ### Keeping a performance you liked
 

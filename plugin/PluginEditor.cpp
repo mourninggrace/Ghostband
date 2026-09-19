@@ -2707,9 +2707,15 @@ void GhostbandEditor::noteTimerTick()
     if (lastTimerStartMs > 0.0)
     {
         const double gap = now - lastTimerStartMs;
-        worstGapMs = juce::jmax (worstGapMs, gap);
 
-        if (gap > stallThresholdMs)
+        // Both of these are gated on the window actually being on screen. See
+        // the note beside windowIsOnScreen(): a hidden editor is throttled to a
+        // flat 600 ms by Windows, which is not a stall, and counting it would
+        // put a number in the footer that nothing on screen ever did.
+        if (windowIsOnScreen())
+            worstGapMs = juce::jmax (worstGapMs, gap);
+
+        if (gap > stallThresholdMs && windowIsOnScreen())
         {
             Stall s;
             s.gapMs        = gap;
@@ -2732,13 +2738,32 @@ void GhostbandEditor::noteTimerTick()
             // safe: this runs AFTER the stall, and by definition rarely.
             const juce::File log = GhostbandProcessor::stallLogFile();
             log.getParentDirectory().createDirectory();
+
+            // Rolled the way changes.log is rolled, and for the reason this
+            // session found: the file reached 170 kB in three days on noise
+            // nobody could see. The noise is gated out above, but a log with no
+            // ceiling is one new noise source away from eating a disc.
+            if (log.getSize() > 2 * 1024 * 1024)
+            {
+                const juce::File old = log.getSiblingFile (log.getFileName() + ".1");
+                old.deleteFile();
+                log.copyFileTo (old);
+                log.deleteFile();
+            }
             // The audio block figure only means something beside the block
             // size and rate, so both go in the line rather than having to be
             // remembered. 512 samples at 48k is 10.67 ms a block; if the blocks
             // account for the whole gap, the audio thread never missed one and
             // only the window was stuck.
             const double sr = processor.getSampleRate();
-            log.appendText (s.at + "  gap " + juce::String (s.gapMs, 0) + " ms"
+            // The FILE gets the day as well as the clock, in the same shape
+            // changes.log uses, so a stall can be lined up against what was
+            // being changed at the time. The first real log carried the time
+            // only, which made a line from three days ago indistinguishable
+            // from one five minutes old. s.at stays short because it is what
+            // the tooltip shows, and that is about this session.
+            log.appendText (juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H:%M:%S")
+                            + "  gap " + juce::String (s.gapMs, 0) + " ms"
                             + "   ghostband " + juce::String (s.ghostbandMs, 1) + " ms"
                             + " (worst " + juce::String (s.worstPieceMs, 1) + " ms "
                             + s.worstPiece + ")"
@@ -2827,7 +2852,22 @@ juce::String GhostbandEditor::stallDetail() const
     return s;
 }
 
-void GhostbandEditor::runTimerForTesting()        { timerCallback(); }
+void GhostbandEditor::runTimerForTesting()
+{
+    // A harness editor has no desktop peer, so isShowing() is false and the
+    // detector would never record anything. Saying so here keeps the gate under
+    // test rather than switching it off: the check that a HIDDEN window records
+    // nothing clears this flag and gets the real answer.
+    pretendOnScreenForTesting = true;
+    timerCallback();
+}
+
+void GhostbandEditor::runTimerOffScreenForTesting()
+{
+    pretendOnScreenForTesting = false;
+    timerCallback();
+}
+
 int  GhostbandEditor::stallCountForTesting() const { return static_cast<int> (stalls.size()); }
 juce::String GhostbandEditor::stallDetailForTesting() const { return stallDetail(); }
 

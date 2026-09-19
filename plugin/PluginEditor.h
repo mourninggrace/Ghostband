@@ -557,6 +557,10 @@ public:
     // work is the bookkeeping between two ticks - so the harness calls the same
     // callback with a real delay between the calls.
     void runTimerForTesting();
+
+    // The same tick with the window off screen, which is what a plugin editor
+    // is whenever the host has it behind a tab. Nothing should be recorded.
+    void runTimerOffScreenForTesting();
     int  stallCountForTesting() const;
     juce::String stallDetailForTesting() const;
 
@@ -1121,6 +1125,23 @@ private:
     double   lastTimerWorkMs  = 0.0;
     unsigned lastAudioBlocks  = 0;
     double   worstGapMs       = 0.0;
+
+    // A gap measured while the window is NOT ON SCREEN is not a freeze anybody
+    // saw, and logging it is worse than useless because it buries the ones that
+    // were real.
+    //
+    // The first log off a real rig proved it: 1,118 lines, of which 1,109 were
+    // recorded with the transport stopped and 1,104 of those were a gap of
+    // EXACTLY 600-601 ms. Ghostband's timer asks for 33 ms and no part of it
+    // asks for 600, so a flat 600 repeated a thousand times is something
+    // outside imposing a period - Windows throttling a window that is alive but
+    // hidden, which is what a plugin editor is whenever the host has it behind
+    // a panel tab. Nine lines in that file were real, and they were the point.
+    //
+    // Tests have no desktop peer, so nothing is ever showing and the detector
+    // would go permanently silent. They say so explicitly instead.
+    bool pretendOnScreenForTesting = false;
+    bool windowIsOnScreen() const { return pretendOnScreenForTesting || isShowing(); }
 
     // 33 ms is the expected spacing. A quarter of a second is seven frames
     // missed, which is past anything a person reads as smooth and well past

@@ -3,7 +3,7 @@
 One file, so none of it has to be remembered. Answered items move to the bottom
 with a date rather than being deleted, so the same question is never asked twice.
 
-**Last updated 2026-09-14, end of session 20.**
+**Last updated 2026-09-19, session 21.**
 
 ---
 
@@ -51,6 +51,29 @@ then the rest.
 Either way, `stalls.log` keeps score, and the footer turns amber when it
 happens. If the log ever shows a line where **ghostband** is a big number rather
 than 0.0, that one IS mine and I want to see it.
+
+**READ ON 2026-09-19, AND IT GOT SIX TIMES BETTER.** Your log had been running
+since the 13th, and it says:
+
+| | 2026-09-13 | since |
+|---|---|---|
+| worst single freeze | 11.6 s | **1.87 s** |
+| freezes while playing | 11 in 21 minutes | **9 in three days** |
+| ghostband's share | 0.0 ms | **0.0 ms** |
+
+**So: what did you do between the 13th and the 16th?** The Defender exclusions,
+the rackspace, a driver, a reboot — whatever it was, it took the worst case down
+by a factor of six and it is worth knowing which one, because the last 1.87
+seconds are presumably the same cause and more of the same medicine.
+
+**The other 1,109 lines were my instrument lying, and that is fixed.** 1,104 of
+them were a gap of exactly 600-601 ms with the transport stopped. Ghostband's
+timer asks for 33 ms and nothing in it asks for 600, so a flat 600 a thousand
+times over is Windows throttling a window that is alive but hidden behind one of
+Gig Performer's panel tabs. Not a freeze; nobody was looking at it. The detector
+now only counts a gap while the window is actually on screen, and the log lines
+carry the day as well as the clock, so they can be lined up against
+`changes.log`. Your existing log is the old format and can be deleted.
 
 ### 0a. v0.5.0 is out
 

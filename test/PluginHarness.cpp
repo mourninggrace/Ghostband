@@ -3738,6 +3738,43 @@ int main (int argc, char** argv)
                        "the stall is written to a log that outlives the session",
                        testLog.existsAsFile() ? testLog.loadFileAsString().trim()
                                               : juce::String ("no file"));
+
+                // AND THE DAY, not just the clock. The first log off a real rig
+                // carried the time only, so a line from three days earlier read
+                // exactly like one from five minutes ago and no stall could be
+                // lined up against what was being changed at the time.
+                check (testLog.loadFileAsString()
+                           .contains (juce::Time::getCurrentTime().formatted ("%Y-%m-%d")),
+                       "and the log line says which day it was",
+                       testLog.loadFileAsString().upToFirstOccurrenceOf ("gap", false, false).trim());
+
+                // A GAP WHILE THE WINDOW IS NOT ON SCREEN IS NOT A STALL.
+                //
+                // This is the single most valuable line in the detector, and it
+                // was learned the expensive way. The first real log ran to 1,118
+                // lines in three days; 1,109 of them were recorded with the
+                // transport stopped, and 1,104 of THOSE were a gap of exactly
+                // 600-601 ms. Ghostband's timer asks for 33 ms and nothing in it
+                // asks for 600, so a flat 600 a thousand times over is Windows
+                // throttling a window that is alive but hidden behind one of the
+                // host's panel tabs. Nine lines in that file were real, and they
+                // were the ones the noise buried.
+                {
+                    const int  before   = gbEd->stallCountForTesting();
+                    const auto sizeWas  = testLog.getSize();
+
+                    gbEd->runTimerOffScreenForTesting();
+                    juce::Thread::sleep (400);
+                    gbEd->runTimerOffScreenForTesting();
+
+                    check (gbEd->stallCountForTesting() == before,
+                           "a gap with the window off screen is not a stall anybody saw",
+                           juce::String (gbEd->stallCountForTesting() - before) + " recorded");
+
+                    check (testLog.getSize() == sizeWas,
+                           "and nothing of it reaches the log",
+                           juce::String (testLog.getSize() - sizeWas) + " bytes added");
+                }
             }
 
             proc.editorBeingDeleted (ed);
