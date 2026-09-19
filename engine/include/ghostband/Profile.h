@@ -574,20 +574,35 @@ public:
     // what stops it being heard - so a range check that cannot separate them
     // reports every keyswitch as a fault, which is the right answer to the
     // wrong question.
-    bool isSwitchNote (int note) const
+    bool isSwitchNote (int note) const { return switchKind (note) != SwitchKind::None; }
+
+    // WHAT KIND of switch, for anything that has to SHOW one.
+    //
+    // A keyswitch drawn as a note is a lie the grid tells: `A7` in the GTR 2
+    // column looks like a guitar playing a note two octaves above anything it
+    // owns. It is not music, it is an instruction on the same wire, and the
+    // only reason it looked like music is that nothing asked it what it was.
+    //
+    // Which one it is matters as much as that it is one, because they answer
+    // different questions - how a note sounds, where on the neck it is played,
+    // where the hand is - and the hand switch carries its fret in the VELOCITY,
+    // so it is the one case where the number beside a switch means something.
+    enum class SwitchKind { None = 0, Feel, Neck, Hand, Artic };
+
+    SwitchKind switchKind (int note) const
     {
         for (const PhraseSwitch& s : phraseKeys)
-            if (! s.byControl() && s.note == note) return true;
+            if (! s.byControl() && s.note == note) return SwitchKind::Feel;
         for (const PhraseSwitch& s : frettingKeys)
-            if (! s.byControl() && s.note == note) return true;
+            if (! s.byControl() && s.note == note) return SwitchKind::Neck;
         for (const PhraseSwitch& s : leadArtics)
-            if (! s.byControl() && s.note == note) return true;
+            if (! s.byControl() && s.note == note) return SwitchKind::Artic;
 
         // The hand-position note is a switch like any other, and it would
         // otherwise be reported as a note the instrument cannot play.
-        if (handKeyswitch >= 0 && note == handKeyswitch) return true;
+        if (handKeyswitch >= 0 && note == handKeyswitch) return SwitchKind::Hand;
 
-        return false;
+        return SwitchKind::None;
     }
 
 private:

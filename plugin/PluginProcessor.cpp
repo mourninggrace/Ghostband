@@ -3477,6 +3477,21 @@ GhostbandProcessor::getTrackerCells (int firstTick, int rows,
 
     const int lastTick = firstTick + rows * perRow;
 
+    // WHICH COLUMN CAN CARRY A KEYSWITCH, and which profile says so. Worked out
+    // once per call rather than per event: the loop below runs over every
+    // message in view, thirty times a second, against an audio thread that does
+    // not wait for this lock.
+    std::vector<const gb::PhraseProfile*> profFor (static_cast<size_t> (n), nullptr);
+
+    for (int c = 0; c < n; ++c)
+    {
+        const int ch = channels[static_cast<size_t> (c)];
+
+        if (haveGuitar  && ch == guitarProfile.channel)  profFor[(size_t) c] = &guitarProfile;
+        if (havePiano   && ch == pianoProfile.channel)   profFor[(size_t) c] = &pianoProfile;
+        if (haveGuitar2 && ch == guitar2Profile.channel) profFor[(size_t) c] = &guitar2Profile;
+    }
+
     const juce::SpinLock::ScopedLockType lock (sequenceLock);
 
     // BINARY SEARCH, not a full walk. This is called thirty times a second by
@@ -3509,6 +3524,33 @@ GhostbandProcessor::getTrackerCells (int firstTick, int rows,
 
         if (m.message.isNoteOn())
         {
+            const int note = m.message.getNoteNumber();
+            const gb::PhraseProfile* prof = profFor[static_cast<size_t> (col)];
+
+            const auto kind = prof != nullptr ? prof->switchKind (note)
+                                              : gb::PhraseProfile::SwitchKind::None;
+
+            if (kind != gb::PhraseProfile::SwitchKind::None)
+            {
+                // NOT MUSIC, and no longer counted as it. A switch goes out at
+                // a fixed velocity, so it used to beat any quieter note in the
+                // same cell for the one line a row has - showing an instruction
+                // where something was played, and showing it as a note two
+                // octaves above anything the instrument owns.
+                //
+                // It is not a hit either: `x3` on a row is how many times that
+                // part was struck, and wiring is not a strike.
+                ++cell.switchCount;
+
+                if (cell.switchKind == gb::PhraseProfile::SwitchKind::None)
+                {
+                    cell.switchKind  = kind;
+                    cell.switchValue = m.message.getVelocity();
+                }
+
+                continue;
+            }
+
             ++cell.hits;
 
             // The LOUDEST note on the beat wins the cell. A beat can carry a
@@ -3517,7 +3559,7 @@ GhostbandProcessor::getTrackerCells (int firstTick, int rows,
             // were listening for.
             if (m.message.getVelocity() > cell.velocity)
             {
-                cell.note     = m.message.getNoteNumber();
+                cell.note     = note;
                 cell.velocity = m.message.getVelocity();
             }
         }

@@ -324,6 +324,27 @@ public:
         // one row per BAR a cell can cover sixteen hi-hats, and a view that
         // showed one of them and no sign of the other fifteen would be lying.
         int hits     = 0;
+
+        // A KEYSWITCH IN THIS CELL, KEPT APART FROM THE MUSIC.
+        //
+        // It used to compete for `note`, and win: a switch goes out at a fixed
+        // velocity, so it beat any quieter note in the same cell and the grid
+        // showed an instruction where a note was played. It also read as one -
+        // `A7` in the GTR 2 column, two octaves above anything that instrument
+        // owns.
+        //
+        // So it gets its own field and its own drawing. `switchValue` is the
+        // velocity, which for the hand switch IS THE FRET and is the one case
+        // where the number beside a switch means something.
+        gb::PhraseProfile::SwitchKind switchKind = gb::PhraseProfile::SwitchKind::None;
+        int switchValue = 0;
+
+        // How many switches landed here, because more than one can. At a bar
+        // per row the fretting mode and the hand position share a cell - they
+        // are sent together, at the top of a section - and showing one of them
+        // with no sign of the other is the same lie the hit count exists to
+        // avoid. The view marks it rather than trying to fit both.
+        int switchCount = 0;
     };
 
     // `rows` rows starting at `firstTick`, for each channel given, row-major:

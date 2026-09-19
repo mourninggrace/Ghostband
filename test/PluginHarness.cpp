@@ -4834,6 +4834,60 @@ int main (int argc, char** argv)
                "a bar per row packs more into a cell than a sixteenth per row",
                juce::String (busiest (bar)) + " vs "
                    + juce::String (busiest (juce::jmax (1, beat / 4))));
+
+        // ---- A KEYSWITCH IS NOT A NOTE, AND THE GRID MUST NOT SAY IT IS ----
+        //
+        // "you'll see A7 and friends in the GTR 2 column - those are the
+        // keyswitches, not played notes". True at the time and defended as the
+        // grid showing the wire, which it is. It still read as the second
+        // guitar playing a note two octaves above anything it owns, and it was
+        // worse than cosmetic: a switch goes out at a FIXED velocity, so it won
+        // the one line a cell has and hid a quieter note that really was
+        // played.
+        //
+        // So a switch now has its own field, the note field is music only, and
+        // the hit count counts strikes rather than wiring.
+        {
+            int switchesSeen = 0, playedTooHigh = 0, hitsOnSwitchOnly = 0;
+
+            // THE WHOLE SONG, not the eight bars above. A keyswitch goes out at
+            // the top of a section, and the first eight bars of a song are one
+            // or two sections - so a window that size can legitimately contain
+            // none and the check would pass by seeing nothing, which is the
+            // failure mode a check like this exists to avoid.
+            const int rows = juce::jmax (1, proc.getStatus().bars);
+            const auto cells = proc.getTrackerCells (0, rows, channels, bar);
+
+            for (const auto& c : cells)
+            {
+                if (c.switchKind != gb::PhraseProfile::SwitchKind::None)
+                {
+                    ++switchesSeen;
+
+                    // A cell whose only event was a switch must report no hits.
+                    if (c.note < 0 && c.hits > 0)
+                        ++hitsOnSwitchOnly;
+                }
+
+                // Nothing in the NOTE field may sit above the top of a guitar
+                // neck. That is the shape the fault had, and it is the shape a
+                // regression would have.
+                if (c.note >= 104)
+                    ++playedTooHigh;
+            }
+
+            check (switchesSeen > 0,
+                   "the grid can see a keyswitch at all",
+                   juce::String (switchesSeen) + " cells carry one");
+
+            check (playedTooHigh == 0,
+                   "and a keyswitch never reaches the grid as a note that was played",
+                   juce::String (playedTooHigh) + " cells show an unplayable note");
+
+            check (hitsOnSwitchOnly == 0,
+                   "and wiring is not counted as a strike",
+                   juce::String (hitsOnSwitchOnly) + " cells count a switch as a hit");
+        }
     }
 
     // ---- a level control actually leaves the plugin --------------------------

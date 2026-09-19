@@ -1127,9 +1127,15 @@ void TrackerView::mouseMove (const juce::MouseEvent& e)
                              + "\" - " + juce::String (sections[(size_t) i].bars)
                              + " bars. Click to jump here on the next bar line. "
                                "Ctrl-click to add it to the reroll selection."
-                       : juce::String ("What Ghostband is actually sending: one row per beat, "
-                                       "one column per player. The note, how hard it is played, "
-                                       "and any articulation that lands on that beat."));
+                       : juce::String ("What Ghostband is actually sending, one column per "
+                                       "player: the note, how hard it is played, and how many "
+                                       "landed in the row.\n\n"
+                                       "Dim lowercase is WIRING rather than music - a control "
+                                       "change as cc7, or a keyswitch as feel, neck, artic or "
+                                       "fret. A keyswitch is an instruction to the instrument, "
+                                       "not a note it plays, which is why it is not drawn as "
+                                       "one. A trailing + means more than one landed in that "
+                                       "row; zoom in to separate them."));
     repaint();
 }
 
@@ -1217,6 +1223,34 @@ void TrackerView::paint (juce::Graphics& g)
     // ---- column headers ----
     const char* names[numParts] = { "DRUMS", "BASS", "GTR", "GTR 2", "PIANO" };
     const int colW = (getWidth() - 24 - barColumn) / numParts;
+
+    // THE CELL'S BUDGET, AND IT IS TIGHT.
+    //
+    // A column is about 114 pixels at the minimum window, and the old layout
+    // spent 96 of them on the note, the velocity and the hit count before the
+    // control change had anywhere to go - which is why a cc has never once
+    // shown WHICH controller it was. It drew "cc" and the number fell off the
+    // end, in every window size this plugin has ever had.
+    //
+    // So the three music fields are cut to what their text actually needs - a
+    // note name is three characters, a velocity three digits, a hit count three
+    // - and what that frees goes to the wiring, which now has room to say what
+    // it is.
+    const int kNoteW = 26;
+    const int kVelW  = 20;
+    const int kHitsW = 20;
+
+    // A real gutter before the next column. Four pixels put a right-aligned cc
+    // hard against the next column's note, so "cc9" and "D3" read as one thing
+    // belonging to one instrument when they belong to two.
+    const int kGutter = 12;
+
+    // And when a cell carries BOTH a keyswitch and a control change, the hit
+    // count yields its space rather than either of them being cut off. On a row
+    // where the wiring changed, how many times the part was struck is the least
+    // interesting number there.
+    const int kWireNarrow = juce::jmax (30, colW - kGutter - kNoteW - kVelW - kHitsW);
+    const int kWireWide   = juce::jmax (30, colW - kGutter - kNoteW - kVelW);
 
     g.setFont (small);
     g.setColour (ghost::colours::dim);
@@ -1405,7 +1439,68 @@ void TrackerView::paint (juce::Graphics& g)
             const auto& cell = cells[idx];
             const int x = 12 + barColumn + c * colW;
 
-            if (cell.note < 0 && cell.cc < 0)
+            // A KEYSWITCH IS DRAWN AS WIRING, NOT AS MUSIC.
+            //
+            // It used to appear as a note name - `A7` in the GTR 2 column, well
+            // above anything that instrument can play - because the grid shows
+            // what is on the wire and a switch is on the wire. True, and it
+            // still read as the guitar playing something absurd.
+            //
+            // So: lowercase, small, dim, and to the right of where a note would
+            // be, which is the same place a control change goes. What it SAYS
+            // is what it does rather than which note carries it, because the
+            // note number is the one thing about a keyswitch nobody needs.
+            //
+            // The hand switch shows its fret, since that is what its velocity
+            // means - the one case where a number beside a switch is not the
+            // MIDI plumbing showing through.
+            if (cell.switchKind != gb::PhraseProfile::SwitchKind::None)
+            {
+                juce::String label;
+                switch (cell.switchKind)
+                {
+                    case gb::PhraseProfile::SwitchKind::Neck:  label = "neck"; break;
+                    case gb::PhraseProfile::SwitchKind::Hand:
+                        label = "fret " + juce::String (cell.switchValue); break;
+                    case gb::PhraseProfile::SwitchKind::Artic: label = "artic"; break;
+                    case gb::PhraseProfile::SwitchKind::Feel:  label = "feel";  break;
+                    default: break;
+                }
+
+                // Its own slot, past the note, the velocity and the hit count,
+                // and clear of the control-change slot beyond it. A cell can
+                // hold a switch AND a note - a switch is sent just before the
+                // note it applies to - so it cannot share the note's pixels,
+                // and putting it after them is also the reading order: what was
+                // played, then how it was told to play it.
+                //
+                // Brackets rather than a glyph. The first pass used a small
+                // triangle, which the monospaced font substituted for something
+                // pointing the other way; square brackets are in every font
+                // there is and say "annotation" without having to be a symbol.
+                g.setFont (small);
+                g.setColour (ghost::colours::dim.withAlpha (isNow ? 0.95f : 0.55f));
+                const int wireW = cell.cc >= 0 ? kWireWide : kWireNarrow;
+
+                // A PLUS WHEN THERE IS MORE. The fretting mode and the hand
+                // position are sent together, so at a bar per row they share a
+                // cell; showing one with no sign of the other is the same lie
+                // the hit count exists to avoid. Zooming in separates them.
+                if (cell.switchCount > 1)
+                    label += "+";
+
+                // NO BRACKETS. They cost two characters out of a slot that is
+                // fifty-six pixels wide and has to hold a control change too -
+                // "[neck+]cc40" ran straight over itself. Lowercase dim text at
+                // the small size, where a note is bright monospace, is already
+                // the whole distinction; the brackets were saying a second time
+                // what the style says once.
+                g.drawText (label,
+                            x + colW - kGutter - wireW, y, wireW, rowHeight,
+                            juce::Justification::centredLeft, false);
+            }
+
+            if (cell.note < 0 && cell.cc < 0 && cell.switchKind == gb::PhraseProfile::SwitchKind::None)
             {
                 g.setFont (mono);
                 g.setColour (ghost::colours::dim.withAlpha (0.22f));
@@ -1424,24 +1519,31 @@ void TrackerView::paint (juce::Graphics& g)
                 g.setColour (isNow ? hue : hue.withAlpha (dark ? 0.55f : 0.72f));
                 g.setFont (mono);
                 g.drawText (juce::MidiMessage::getMidiNoteName (cell.note, true, true, 3),
-                            x, y, 44, rowHeight, juce::Justification::centredLeft, false);
+                            x, y, kNoteW, rowHeight, juce::Justification::centredLeft, false);
 
                 g.setColour ((isNow ? hue : hue.withAlpha (dark ? 0.42f : 0.55f))
                                  .withMultipliedSaturation (0.6f));
                 g.setFont (small);
-                g.drawText (juce::String (cell.velocity), x + 44, y, 26, rowHeight,
+                g.drawText (juce::String (cell.velocity), x + kNoteW, y, kVelW, rowHeight,
                             juce::Justification::centredLeft, false);
 
                 // One row can cover more than one note - always at a bar per
                 // row, sometimes at a beat. Showing the loudest and no sign of
                 // the rest would read as "one hit here", which is a lie the
                 // coarse zooms would tell on nearly every row.
-                if (cell.hits > 1)
+                // ...unless the wiring needed the room. A cell holding both a
+                // keyswitch and a control change borrows this slot to fit them
+                // (see kWireWide), and drawing here anyway is how "neck+" came
+                // out as "xck+" - the design was right and only half applied.
+                const bool wiringTookTheRoom =
+                    cell.switchKind != gb::PhraseProfile::SwitchKind::None && cell.cc >= 0;
+
+                if (cell.hits > 1 && ! wiringTookTheRoom)
                 {
                     g.setColour ((isNow ? hue : hue.withAlpha (dark ? 0.42f : 0.55f))
                                      .withMultipliedSaturation (0.35f));
                     g.drawText (juce::String::fromUTF8 ("\xc3\x97") + juce::String (cell.hits),
-                                x + 70, y, 26, rowHeight,
+                                x + kNoteW + kVelW, y, kHitsW, rowHeight,
                                 juce::Justification::centredLeft, false);
                 }
             }
@@ -1450,8 +1552,18 @@ void TrackerView::paint (juce::Graphics& g)
             {
                 g.setColour (ghost::colours::warn.withAlpha (isNow ? 1.0f : 0.6f));
                 g.setFont (small);
+                // Right-aligned in the same slot the keyswitch uses, which is
+                // why the switch is left-aligned: the two share a region and
+                // pass each other rather than overlapping. Before this they
+                // both drew from the same x, and the cc - drawn last - simply
+                // covered the switch, which is how "[neck]" first reached the
+                // screen as "ceck".
+                const bool withSwitch = cell.switchKind
+                                          != gb::PhraseProfile::SwitchKind::None;
+                const int  wireW = withSwitch ? kWireWide : kWireNarrow;
+
                 g.drawText ("cc" + juce::String (cell.cc),
-                            x + 96, y, colW - 100, rowHeight,
+                            x + colW - kGutter - wireW, y, wireW, rowHeight,
                             juce::Justification::centredRight, false);
             }
         }
