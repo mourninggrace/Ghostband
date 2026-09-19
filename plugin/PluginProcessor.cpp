@@ -88,6 +88,7 @@ void GhostbandProcessor::loadBuiltInPlan()
         complexity.store (plan.complexity);
         humanize.store   (plan.humanize);
         fills.store      (plan.fills);
+        intuition.store  (plan.intuition);
         seed.store       (static_cast<int> (plan.seed));
 
         // This was missing, and it is why the built-in song had no guitar or
@@ -433,6 +434,7 @@ void GhostbandProcessor::loadPlan (const juce::File& file)
         complexity.store (plan.complexity);
         humanize.store   (plan.humanize);
         fills.store      (plan.fills);
+        intuition.store  (plan.intuition);
         seed.store       (static_cast<int> (plan.seed));
 
         juce::String profileError;
@@ -1107,6 +1109,7 @@ std::vector<GhostbandProcessor::Take> GhostbandProcessor::readTakes() const
         t.complexity = juce::jlimit (0.0, 1.0, number (*o, "complexity", 0.5));
         t.humanize   = juce::jlimit (0.0, 1.0, number (*o, "humanize",   0.5));
         t.fills      = juce::jlimit (0.0, 1.0, number (*o, "fills",      0.62));
+    t.intuition  = juce::jlimit (0.0, 1.0, number (*o, "intuition",  0.5));
 
         // A take with no name cannot be picked out of a list, and one with no
         // song cannot be played. Neither is worth carrying forward.
@@ -1134,6 +1137,7 @@ bool GhostbandProcessor::writeTakes (const std::vector<Take>& takes) const
         o->setProperty ("complexity", t.complexity);
         o->setProperty ("humanize",   t.humanize);
         o->setProperty ("fills",      t.fills);
+        o->setProperty ("intuition",  t.intuition);
 
         // Last, and last for a reason: it is by far the longest value, and a
         // file anyone might open by hand reads better with the short fields at
@@ -1170,6 +1174,7 @@ bool GhostbandProcessor::saveTake (const juce::String& name, juce::String& error
     t.complexity = complexity.load();
     t.humanize   = humanize.load();
     t.fills      = fills.load();
+    t.intuition  = intuition.load();
 
     {
         const juce::ScopedLock sl (stateLock);
@@ -1183,6 +1188,7 @@ bool GhostbandProcessor::saveTake (const juce::String& name, juce::String& error
         asPlayed.complexity = t.complexity;
         asPlayed.humanize   = t.humanize;
         asPlayed.fills      = t.fills;
+        asPlayed.intuition  = t.intuition;
         asPlayed.seed       = static_cast<unsigned> (t.seed);
 
         t.songName = juce::String (asPlayed.title);
@@ -1261,6 +1267,7 @@ void GhostbandProcessor::recallTake (int index)
         complexity.store (t.complexity);
         humanize.store   (t.humanize);
         fills.store      (t.fills);
+        intuition.store  (t.intuition);
         seed.store       (t.seed);
 
         juce::String profileError;
@@ -2593,6 +2600,7 @@ bool GhostbandProcessor::rollTheDice (bool alsoNewSong)
         asPlayed.complexity = complexity.load();
         asPlayed.humanize   = humanize.load();
         asPlayed.fills      = fills.load();
+        asPlayed.intuition  = intuition.load();
         asPlayed.seed       = static_cast<unsigned> (std::max (1, seed.load()));
 
         diceUndoJson       = juce::String (asPlayed.toJson());
@@ -2600,6 +2608,7 @@ bool GhostbandProcessor::rollTheDice (bool alsoNewSong)
         diceUndoComplexity = complexity.load();
         diceUndoHumanize   = humanize.load();
         diceUndoFills      = fills.load();
+        diceUndoIntuition  = intuition.load();
         diceUndoFile       = planFile;
     }
 
@@ -2634,6 +2643,14 @@ bool GhostbandProcessor::rollTheDice (bool alsoNewSong)
         complexity.store (0.10 + r.nextDouble() * 0.85);
         humanize.store   (0.05 + r.nextDouble() * 0.80);
         fills.store      (r.nextDouble());
+
+        // INTUITION ROLLS TOO, but not across the whole range. Both ends of
+        // this dial are real sounds, and neither is where a random song wants
+        // to live: nought is a band that never once plays what it feels like,
+        // and one is a band that never plays the obvious thing, which is just
+        // as tiring. A quarter either side of the middle is a different
+        // disposition rather than a different species.
+        intuition.store  (0.25 + r.nextDouble() * 0.50);
 
         seed.store (1 + r.nextInt (999998));
 
@@ -2675,7 +2692,7 @@ bool GhostbandProcessor::undoTheDice()
     juce::String json;
     juce::File   file;
     int    s = 1;
-    double c = 0.5, h = 0.5, f = 0.62;
+    double c = 0.5, h = 0.5, f = 0.62, iq = 0.5;
 
     {
         const juce::ScopedLock sl (stateLock);
@@ -2685,6 +2702,7 @@ bool GhostbandProcessor::undoTheDice()
         json = diceUndoJson;
         file = diceUndoFile;
         s = diceUndoSeed; c = diceUndoComplexity; h = diceUndoHumanize; f = diceUndoFills;
+        iq = diceUndoIntuition;
     }
 
     gb::SongPlan restored;
@@ -2704,6 +2722,7 @@ bool GhostbandProcessor::undoTheDice()
         complexity.store (c);
         humanize.store (h);
         fills.store (f);
+        intuition.store (iq);
         seed.store (s);
 
         juce::String profileError;
@@ -2774,6 +2793,7 @@ void GhostbandProcessor::regenerate()
     working.complexity = complexity.load();
     working.humanize   = humanize.load();
     working.fills      = fills.load();
+    working.intuition  = intuition.load();
     working.seed       = static_cast<unsigned> (std::max (1, seed.load()));
 
     // Generation is pure arithmetic and completes in well under a millisecond
@@ -3586,6 +3606,7 @@ void GhostbandProcessor::getStateInformation (juce::MemoryBlock& destData)
     xml.setAttribute ("complexity", complexity.load());
     xml.setAttribute ("humanize",   humanize.load());
     xml.setAttribute ("fills",      fills.load());
+    xml.setAttribute ("intuition",  intuition.load());
     xml.setAttribute ("theme",      theme.load());
     xml.setAttribute ("seed",       seed.load());
     xml.setAttribute ("editorW",    editorWidth.load());
@@ -3620,6 +3641,8 @@ void GhostbandProcessor::setStateInformation (const void* data, int sizeInBytes)
     humanize.store   (xml->getDoubleAttribute ("humanize", 0.5));
     fills.store      (juce::jlimit (0.0, 1.0,
                           xml->getDoubleAttribute ("fills", 0.62)));
+    intuition.store  (juce::jlimit (0.0, 1.0,
+                          xml->getDoubleAttribute ("intuition", 0.5)));
 
     // applyTheme ignores an index it does not have, so a session saved by a
     // later build naming a theme this one lacks keeps the default rather than

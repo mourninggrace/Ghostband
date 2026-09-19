@@ -207,7 +207,11 @@ SectionGroove buildSectionGroove (const GrooveContext& ctx, Rng& rng)
         g.hatStep = (roll < wQuarter) ? 4 : ((roll < wQuarter + wEighth) ? 2 : 1);
     }
 
-    g.openHatOnAnd = (! g.useRide) && in > 0.30 && rng.chance (0.45);
+    // THE OPEN HAT ON THE AND is a drummer's decision rather than a pattern -
+    // it is the one thing in this groove that is pure feel. Rare at low
+    // intuition, better than even money at high.
+    g.openHatOnAnd = (! g.useRide) && in > 0.30
+                       && rng.chance (byIntuition (ctx.intuition, 0.12, 0.45, 0.72));
 
     // Ghost notes separate a groove from a drum machine, but they turn to mud at
     // high intensity where the backbeat should dominate.
@@ -524,7 +528,12 @@ void generateDrumBar (const GrooveContext& ctx,
 
             // The "e" and "a" of a beat are where ghosts actually sit.
             const double weight = (s % 2 == 1) ? 1.0 : 0.35;
-            if (rng.chance (groove.ghostDensity * weight))
+            // GHOST NOTES, which is where a drummer plays what they feel
+            // between the notes everybody hears. The density itself is still
+            // set by complexity and the groove; intuition decides how much of
+            // it actually gets played.
+            if (rng.chance (groove.ghostDensity * weight
+                              * byIntuition (ctx.intuition, 0.45, 1.0, 1.45)))
                 emit (out, barStartTick + t + static_cast<int> (rng.bipolar (jitterSnare)),
                       DrumVoice::Snare, 0.12 + rng.unit() * 0.14, kit);
         }
@@ -715,8 +724,15 @@ void generateBassBar (const GrooveContext& ctx,
 
         if (p == "lock_kick_octave" && (i % 2 == 1))
             pitch = root + 12;
-        else if (! metal && gap >= ctx.beatTicks && rng.chance (0.18) && i > 0)
-            pitch = fifth;                          // occasional fifth on long notes
+        // THE FIFTH ON A LONG NOTE is where a bass player's instinct shows
+        // with the least risk - it is the one substitution that cannot be wrong
+        // over a triad. At low intuition the root is held and nothing else is
+        // reached for, which is the sound of a bass locked to the kick and is
+        // exactly right for a lot of heavy music. At high intuition it happens
+        // nearly three times as often.
+        else if (! metal && gap >= ctx.beatTicks
+                 && rng.chance (byIntuition (ctx.intuition, 0.04, 0.18, 0.42)) && i > 0)
+            pitch = fifth;
 
         // Walk into a chord change with a chromatic approach note.
         //
@@ -809,7 +825,13 @@ void generateBassBar (const GrooveContext& ctx,
         // Dead notes fill the space between attacks at higher complexity. They
         // are pitched but choked, and they are most of what makes a bass line
         // sound played rather than programmed.
-        if (gap >= sixteenth * 2 && rng.chance (ctx.complexity * 0.30))
+        // AND THE DEAD NOTES BETWEEN ATTACKS, which is the other half of it -
+        // they are pitched but choked, and they are most of what makes a bass
+        // line sound played rather than programmed. Still scaled by complexity,
+        // because how BUSY the part is remains that dial's job; intuition only
+        // decides how much of that busyness is expressed as feel.
+        if (gap >= sixteenth * 2
+            && rng.chance (ctx.complexity * byIntuition (ctx.intuition, 0.12, 0.30, 0.48)))
         {
             BassIntent d;
             d.tick          = barStartTick + t + gap - sixteenth;

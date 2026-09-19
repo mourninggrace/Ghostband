@@ -17,6 +17,7 @@
 #include "ghostband/Render.h"
 #include "ghostband/SongPlan.h"
 
+#include <array>
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <algorithm>
@@ -1205,6 +1206,109 @@ int main (int argc, char** argv)
             check (inFrontHalf == 0,
                    "and never in the front of the bar, where the part it answers is",
                    juce::String (inFrontHalf) + " notes in the front third");
+
+            // ---- THE INTUITION DIAL, MEASURED AT BOTH ENDS ----------------
+            //
+            // The claim is that it decides how much the band plays what it
+            // feels like rather than what is obvious, and the claim has to be
+            // checkable or it is a knob with a story attached.
+            //
+            // Measured on the one thing the owner named: WHERE A FILL LANDS. At
+            // the bottom every fill is on the fourth bar, dead on the half -
+            // which is not a limitation, it is the tight literal band that end
+            // of the dial is for, and it happens to be exactly what this engine
+            // did before any of this existed. At the top they spread.
+            {
+                const auto placement = [&] (double iq)
+                {
+                    gb::SongPlan p = plan;
+                    p.intuition = iq;
+
+                    const gb::RenderResult rr =
+                        gb::renderPerformance (p, kit, bass, &gtr, nullptr, &gtr2);
+
+                    int onFourth = 0, onHalf = 0, total = 0;
+
+                    for (const gb::LeadIntent& n : rr.performance.guitar2.lead)
+                    {
+                        ++total;
+                        const int bar    = n.tick / barTicks;
+                        const int within = n.tick % barTicks;
+
+                        if ((bar + 1) % 4 == 0)                  ++onFourth;
+                        if (std::abs (within - barTicks / 2) < 40) ++onHalf;
+                    }
+
+                    return std::array<int, 3> { onFourth, onHalf, total };
+                };
+
+                const auto rigid = placement (0.0);
+                const auto loose = placement (1.0);
+
+                check (rigid[2] > 0 && loose[2] > 0,
+                       "the second guitar plays fills at both ends of the dial",
+                       juce::String (rigid[2]) + " notes at 0, "
+                           + juce::String (loose[2]) + " at 1");
+
+                // AT THE BOTTOM, NOTHING STRAYS. Every note on the fourth bar
+                // of a four-bar group - the whole of what the dial's low end
+                // promises, and the exact behaviour that was hard-coded until
+                // this session.
+                check (rigid[0] == rigid[2],
+                       "at no intuition a fill lands only on the fourth bar",
+                       juce::String (rigid[2] - rigid[0]) + " notes strayed");
+
+                // AND AT THE TOP, SOMETHING DOES. If this ever came out equal
+                // the dial would be doing nothing at the end where it is
+                // supposed to do the most, which is the failure a knob like
+                // this has.
+                check (loose[0] < loose[2],
+                       "at full intuition they stop being tied to it",
+                       juce::String (loose[2] - loose[0]) + " of "
+                           + juce::String (loose[2]) + " notes elsewhere");
+
+                // The same again for WHERE IN THE BAR, which was the other half
+                // of the complaint.
+                const double rigidHalf = rigid[2] > 0 ? rigid[1] / (double) rigid[2] : 0.0;
+                const double looseHalf = loose[2] > 0 ? loose[1] / (double) loose[2] : 0.0;
+
+                check (rigidHalf > looseHalf,
+                       "and a low dial crowds them onto the half bar more than a high one",
+                       juce::String (rigidHalf * 100.0, 0) + "% vs "
+                           + juce::String (looseHalf * 100.0, 0) + "%");
+            }
+
+            // AND THE MIDDLE CHANGES NOTHING, which is the promise that let
+            // this dial be added at all.
+            //
+            // Without it, adding a control would have rewritten all 34 preset
+            // songs on the day it landed and forced the two reference pins to
+            // be re-cut - and a pin you re-cut whenever it fails is not a pin.
+            // So the default is not "a sensible middle", it is THE OLD
+            // BEHAVIOUR, and this is what says so.
+            {
+                gb::SongPlan mid = plan;
+                mid.intuition = 0.5;
+
+                const gb::RenderResult a =
+                    gb::renderPerformance (plan, kit, bass, &gtr, nullptr, &gtr2);
+                const gb::RenderResult b =
+                    gb::renderPerformance (mid, kit, bass, &gtr, nullptr, &gtr2);
+
+                bool identical = a.performance.guitar2.lead.size()
+                                   == b.performance.guitar2.lead.size();
+
+                for (size_t i = 0; identical && i < a.performance.guitar2.lead.size(); ++i)
+                    identical = a.performance.guitar2.lead[i].tick
+                                    == b.performance.guitar2.lead[i].tick
+                             && a.performance.guitar2.lead[i].pitch
+                                    == b.performance.guitar2.lead[i].pitch;
+
+                check (identical,
+                       "and the dial's default is the old behaviour, note for note",
+                       juce::String ((int) a.performance.guitar2.lead.size()) + " vs "
+                           + juce::String ((int) b.performance.guitar2.lead.size()) + " notes");
+            }
 
             // Under, not over. The rhythm guitar is leading this section.
             const double avg = notes > 0 ? accentSum / notes : 1.0;

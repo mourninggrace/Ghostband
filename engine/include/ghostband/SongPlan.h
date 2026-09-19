@@ -93,6 +93,26 @@ struct SongPlan
     // field rather than a constant so a song can be busier or barer than that
     // without changing the engine.
     double   fills      = 0.62;
+
+    // HOW MUCH THE BAND PLAYS WHAT IT FEELS LIKE RATHER THAN WHAT IS OBVIOUS.
+    //
+    // Low: the expected note in the expected place, the same way every time -
+    // a fill lands on the fourth bar, dead on the half, drawn from the two or
+    // three devices anybody learns first. High: it anticipates the hole instead
+    // of waiting for it, varies an idea when it says it again, reaches for the
+    // chord rather than the scale, and goes outside the key and comes back.
+    //
+    // It reaches every instrument, not only the lead: the bass takes the fifth
+    // on a long note more often, the drums open the hat and lean on the ghost
+    // notes. The same disposition, applied where each part has a choice.
+    //
+    // NOT A QUALITY CONTROL. A tight, literal band is the right sound for
+    // plenty of music and it is what the low end gives you.
+    //
+    // 0.5 IS EXACTLY WHAT THE ENGINE DID BEFORE THIS EXISTED, which is what
+    // lets it be added without changing a single note of the 34 preset songs
+    // or moving the two reference pins. See byIntuition in Groove.h.
+    double   intuition  = 0.5;
     unsigned seed       = 1;
     std::string ending  = "hard_stop";      // hard_stop/ritard/cymbal_ring/fade
 

@@ -19,12 +19,45 @@ enum class Feel { Straight, HalfTime, DoubleTime, Blast };
 
 Feel feelFromString (const std::string& s);
 
+//==============================================================================
+// INTUITION, and the rule that makes it safe to add.
+//
+// The dial says how much the band plays what is obvious and how much it plays
+// what it feels like. Low: the expected note, in the expected place, the same
+// way every time. High: anticipates, varies a repeat, goes outside and comes
+// back. It is not "better" at one end - a tight, literal band is the right
+// sound for plenty of music - it is how much instinct is allowed to show.
+//
+// THE RULE IS THAT 0.5 IS EXACTLY WHAT THE ENGINE ALREADY DID.
+//
+// Every use of intuition goes through this function, and it returns `mid`
+// precisely at 0.5. That is what lets a control like this be added at all:
+// otherwise every one of the 34 preset songs would change the day it landed,
+// the two reference songs would need re-pinning, and the pins would stop being
+// able to say "nothing moved that we did not move". Instead the dial starts
+// where the engine already was, and the pins keep doing their job.
+//
+// So: `mid` is today's number, taken from the code it replaces. `low` and
+// `high` are the two ends, and neither is allowed to change what happens at the
+// default by a single note.
+inline double byIntuition (double iq, double low, double mid, double high)
+{
+    const double t = iq < 0.0 ? 0.0 : (iq > 1.0 ? 1.0 : iq);
+
+    return t < 0.5 ? low + (mid - low) * (t / 0.5)
+                   : mid + (high - mid) * ((t - 0.5) / 0.5);
+}
+
 struct GrooveContext
 {
     Feel        feel        = Feel::Straight;
     double      intensity   = 0.5;
     double      complexity  = 0.5;
     double      humanize    = 0.5;
+
+    // How much instinct is allowed to show. See byIntuition above: 0.5 is
+    // exactly what this engine did before the dial existed.
+    double      intuition   = 0.5;
     std::string style       = "hard_rock";
     std::string role        = "verse";
 

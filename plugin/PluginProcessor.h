@@ -261,6 +261,12 @@ public:
         double complexity = 0.5;
         double humanize   = 0.5;
         double fills      = 0.62;
+
+        // 0.5 in a take saved before the dial existed, which is also the value
+        // that reproduces what those takes actually sounded like. See
+        // gb::byIntuition: the default IS the old behaviour, so an old take
+        // recalls note for note without needing to know the field is missing.
+        double intuition  = 0.5;
     };
 
     std::vector<Take> getTakes() const;
@@ -782,6 +788,12 @@ public:
 
     std::atomic<double> fills { 0.62 };
 
+    // HOW MUCH THE BAND PLAYS WHAT IT FEELS LIKE rather than what is obvious,
+    // across every part rather than only the lead. See gb::byIntuition: 0.5 is
+    // exactly what the engine did before this existed, which is what lets the
+    // dial ship without changing a single preset song.
+    std::atomic<double> intuition { 0.5 };
+
     std::atomic<double> complexity { 0.5 };
     std::atomic<double> humanize   { 0.5 };
     std::atomic<int>    seed       { 1 };
@@ -864,6 +876,7 @@ private:
     juce::String diceUndoJson;
     int          diceUndoSeed = 1;
     double       diceUndoComplexity = 0.5, diceUndoHumanize = 0.5, diceUndoFills = 0.62;
+    double       diceUndoIntuition  = 0.5;
     juce::File   diceUndoFile;
 
     // And the channel, for exactly the same reason.

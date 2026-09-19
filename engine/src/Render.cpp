@@ -326,7 +326,8 @@ static void generateSolo (const SectionPlan& s,
                           PhrasePart& out,
                           SoloShape shape = SoloShape::Continuous,
                           double fillAmount = 0.62,
-                          uint32_t articSeed = 0u)
+                          uint32_t articSeed = 0u,
+                          double iq = 0.5)
 {
     if (chords.empty() || profile == nullptr || s.bars <= 0)
         return;
@@ -424,11 +425,17 @@ static void generateSolo (const SectionPlan& s,
             //   bar 2   a short one mid-phrase, the commonest of the others
             //   bar 3   early, and it works because it is unexpected
             //   bar 1   rare enough to be a statement when it happens
-            double want = lastBar        ? 1.00
-                        : inFour == 3    ? 1.00
-                        : inFour == 1    ? 0.24
-                        : inFour == 2    ? 0.14
-                                         : 0.06;
+            // AND HOW FAR FROM THE FOURTH BAR IT IS WILLING TO STRAY is what
+            // the intuition dial changes here. At the bottom the other three
+            // openings close entirely and a fill lands on the fourth bar or
+            // not at all - which is exactly what this code did before any of
+            // it existed, and is a perfectly good tight band. At the top they
+            // roughly double.
+            double want = lastBar     ? 1.00
+                        : inFour == 3 ? 1.00
+                        : inFour == 1 ? byIntuition (iq, 0.00, 0.24, 0.46)
+                        : inFour == 2 ? byIntuition (iq, 0.00, 0.14, 0.30)
+                                      : byIntuition (iq, 0.00, 0.06, 0.16);
 
             // FILLS still means what it meant: how much of the available room
             // is taken. It scales the openings rather than replacing them, so
@@ -500,15 +507,26 @@ static void generateSolo (const SectionPlan& s,
         // gallop is rhythm where the others are melody. LICK and LAND together
         // are now 43%, which still makes them the backbone without making them
         // the whole of it.
-        const int fillWeights[kNumDevices] = { hot ? 5 : 2,     // run
-                                               9,               // sequence
-                                               5,               // pedal
-                                               24,              // lick
-                                               19,              // land
-                                               14,              // neighbour
-                                               13,              // arpeggio
-                                               10,              // chromatic
-                                               hot ? 14 : 9 };  // gallop
+        //
+        // AND HOW WIDE THAT HAT IS is the second thing intuition changes. At
+        // the bottom it is lick, land and the occasional run - the three any
+        // player has on their first day, and the three this engine had before
+        // the vocabulary widened. The arpeggio, the chromatic approach and the
+        // gallop close entirely, because each of them is a choice rather than a
+        // reflex: reaching for the chord instead of the scale, or stepping
+        // outside the key on purpose, is not what a literal player does.
+        //
+        // At the top the reflexes give way to the choices.
+        const int fillWeights[kNumDevices] = {
+            (int) byIntuition (iq, hot ? 14.0 : 8.0, hot ? 5.0 : 2.0, hot ? 4.0 : 2.0), // run
+            (int) byIntuition (iq,  4.0,  9.0, 10.0),                                   // sequence
+            (int) byIntuition (iq,  0.0,  5.0,  7.0),                                   // pedal
+            (int) byIntuition (iq, 46.0, 24.0, 15.0),                                   // lick
+            (int) byIntuition (iq, 36.0, 19.0, 12.0),                                   // land
+            (int) byIntuition (iq,  0.0, 14.0, 16.0),                                   // neighbour
+            (int) byIntuition (iq,  0.0, 13.0, 18.0),                                   // arpeggio
+            (int) byIntuition (iq,  0.0, 10.0, 16.0),                                   // chromatic
+            (int) byIntuition (iq,  0.0, hot ? 14.0 : 9.0, hot ? 18.0 : 13.0) };        // gallop
 
         const int* w = answering ? fillWeights : weights;
 
@@ -578,13 +596,24 @@ static void generateSolo (const SectionPlan& s,
 
         if (answering)
         {
-            const int r = rng.below (100);
+            // AND WHICH OF THE FIVE, weighted by intuition. At the bottom it
+            // is the half bar every time - the obvious answer in the obvious
+            // place. At the top the pickup and the push get real share, which
+            // is where the sense of a player anticipating comes from.
+            const int wHalf    = (int) byIntuition (iq, 100.0, 38.0, 20.0);
+            const int wQuarter = (int) byIntuition (iq,   0.0, 24.0, 22.0);
+            const int wOffHalf = (int) byIntuition (iq,   0.0, 16.0, 22.0);
+            const int wEarly   = (int) byIntuition (iq,   0.0, 14.0, 18.0);
+            const int wPickup  = (int) byIntuition (iq,   0.0,  8.0, 18.0);
 
-            if      (r < 38) fillStart = slotsPerBar / 2;
-            else if (r < 62) fillStart = (slotsPerBar * 3) / 4;
-            else if (r < 78) fillStart = (slotsPerBar * 5) / 8;
-            else if (r < 92) fillStart = (slotsPerBar * 3) / 8;
-            else             fillStart = -(slotsPerBar / 8);
+            const int total = wHalf + wQuarter + wOffHalf + wEarly + wPickup;
+            int r = rng.below (total > 0 ? total : 1);
+
+            if      ((r -= wHalf)    < 0) fillStart = slotsPerBar / 2;
+            else if ((r -= wQuarter) < 0) fillStart = (slotsPerBar * 3) / 4;
+            else if ((r -= wOffHalf) < 0) fillStart = (slotsPerBar * 5) / 8;
+            else if ((r -= wEarly)   < 0) fillStart = (slotsPerBar * 3) / 8;
+            else                          fillStart = -(slotsPerBar / 8);
 
             // A pickup reaches backwards, so it cannot be the first bar of the
             // section - there is nothing behind it to reach into, and the tick
@@ -722,8 +751,15 @@ static void generateSolo (const SectionPlan& s,
                 // point of restating an idea is to go somewhere with it. Played
                 // literally, the lick was the single most recognisable thing in
                 // every song, which is exactly the complaint.
-                const int  shift    = rng.chance (0.55) ? (rng.chance (0.5) ? 1 : -1) : 0;
-                const bool moveLast = rng.chance (0.7);
+                // AND WHETHER IT VARIES AT ALL is the third thing intuition
+                // changes, and the one that most sounds like the difference
+                // between two players. At the bottom the motif repeats
+                // literally every time, which is what a beginner does and what
+                // this engine did until very recently. At the top it almost
+                // always goes somewhere.
+                const int  shift    = rng.chance (byIntuition (iq, 0.0, 0.55, 0.85))
+                                        ? (rng.chance (0.5) ? 1 : -1) : 0;
+                const bool moveLast = rng.chance (byIntuition (iq, 0.0, 0.70, 0.95));
 
                 for (int rep = 0; rep * span < slots; ++rep)
                 {
@@ -1332,7 +1368,8 @@ static void generatePhrasePart (const SectionPlan& s,
                                 uint32_t songSeed,
                                 Rng& rng,
                                 PhrasePart& out,
-                                double fillAmount)
+                                double fillAmount,
+                                double iq)
 {
     PhraseIntent pi;
     pi.tick   = sectionStartTick;
@@ -1372,7 +1409,7 @@ static void generatePhrasePart (const SectionPlan& s,
         generateSolo (s, chords, sectionStartTick, barTicks, keyPc, mode, style,
                       swing, profile, humanize, soloRng, out,
                       fills ? SoloShape::Answering : SoloShape::Continuous,
-                      fillAmount, sectionSeed);
+                      fillAmount, sectionSeed, iq);
         return;
     }
 
@@ -1648,6 +1685,7 @@ RenderResult renderPerformance (const SongPlan& plan,
         ctx.intensity   = s.intensity;
         ctx.complexity  = plan.complexity;
         ctx.humanize    = plan.humanize;
+        ctx.intuition   = plan.intuition;
         ctx.style       = plan.style;
         ctx.role        = s.role;
         ctx.beatTicks   = beatTicks;
@@ -1871,7 +1909,8 @@ RenderResult renderPerformance (const SongPlan& plan,
                                     plan.swing, profile,
                                     supports ? supportFeel (feel) : feel,
                                     plan.humanize, supports, throughSong,
-                                    sectionSeed, plan.seed, rng, out, plan.fills);
+                                    sectionSeed, plan.seed, rng, out, plan.fills,
+                                    plan.intuition);
                 count = static_cast<int> (out.chords.size() - before);
                 if (leadCount != nullptr)
                     *leadCount = static_cast<int> (out.lead.size() - leadBefore);

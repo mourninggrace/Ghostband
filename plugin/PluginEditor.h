@@ -687,9 +687,17 @@ private:
     // section edits.
     juce::Slider fillsSlider;
 
+    // HOW MUCH THE BAND PLAYS WHAT IT FEELS LIKE rather than what is obvious.
+    // Beside the other three because it is the same kind of thing - a
+    // disposition applied to the whole band - and not a quality control: both
+    // ends of it are real sounds. See gb::byIntuition for why the middle of
+    // this dial is exactly what the engine did before it existed.
+    juce::Slider intuitionSlider;
+
     juce::Label  complexityLabel;
     juce::Label  humanizeLabel;
     juce::Label  fillsLabel;
+    juce::Label  intuitionLabel;
 
     // Per-part level, sent as MIDI CC 7. Mixing normally belongs in the host,
     // but four knobs here saves wiring four gain blocks in the rackspace and is
@@ -1056,6 +1064,7 @@ private:
         juce::String plan, key, mode, style, tuning, theme, rows;
         int  seed = 0;
         int  complexity = 0, humanize = 0, fills = 0;   // per cent: below that is jitter
+        int  intuition  = 50;
         int  levels[5]   = { 0, 0, 0, 0, 0 };
         int  channels[5] = { 0, 0, 0, 0, 0 };
         bool paused = false;
@@ -1101,7 +1110,7 @@ private:
     // It covers the whole window by design, so leaving it visible makes it
     // overlap every control on every screen.
     void settleAnimations();
-    void easeDialsTo (double complexity, double humanize, double fills);
+    void easeDialsTo (double complexity, double humanize, double fills, double intuition);
 
     // Every knob on the song screen, eased to wherever the processor now says
     // it should be. For a plan load and a take recall: both replace the whole
@@ -1166,7 +1175,7 @@ private:
     void registerTrail (juce::Slider& s);
     void noticeDialMoves();
     int  slideOffsetPx() const { return juce::roundToInt (contentSlide.value()); }
-    Eased      dialComplexity, dialHumanize, dialFills;
+    Eased      dialComplexity, dialHumanize, dialFills, dialIntuition;
     bool       dialsAnimating = false;
 
     // Rises and falls while a jump is waiting for the bar line.

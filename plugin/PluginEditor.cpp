@@ -1941,7 +1941,8 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     // stays a slider, because it sits in a form row of text fields.
     for (juce::Slider* s : std::initializer_list<juce::Slider*> { &complexitySlider,
                                                                   &humanizeSlider,
-                                                                  &fillsSlider })
+                                                                  &fillsSlider,
+                                                                  &intuitionSlider })
     {
         s->setSliderStyle (juce::Slider::RotaryVerticalDrag);
         s->setRotaryParameters (juce::MathConstants<float>::pi * 1.2f,
@@ -1967,6 +1968,11 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     fillsSlider.onValueChange = [this]
     {
         processor.fills.store (fillsSlider.getValue());
+        markDialsDirty();
+    };
+    intuitionSlider.onValueChange = [this]
+    {
+        processor.intuition.store (intuitionSlider.getValue());
         markDialsDirty();
     };
 
@@ -2041,6 +2047,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     initLabel (complexityLabel, "COMPLEXITY", 15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (humanizeLabel,   "HUMANIZE",   15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (fillsLabel,      "FILLS",      15.0f, ghost::dim,   juce::Justification::centredLeft);
+    initLabel (intuitionLabel,  "INTUITION",  15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (seedLabel,       "SEED",       15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (planLabel,       "",           17.0f, ghost::text,  juce::Justification::centredLeft);
     initLabel (headlineLabel,   "",           15.5f, ghost::accent, juce::Justification::centredLeft);
@@ -2852,6 +2859,19 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         tip (humanizeSlider,   "How loose the timing and velocity are. 0 is a machine, dead on the "
                                "grid; high is a human having a good night. Too high starts to "
                                "sound drunk.");
+        tip (intuitionSlider,  "How much the band plays what it FEELS LIKE rather than what is "
+                               "obvious.\n\nLow: the expected note in the expected place, the same "
+                               "way every time - fills on the fourth bar, dead on the half, drawn "
+                               "from the two or three devices anybody learns first. The bass holds "
+                               "the root; the drums keep the hat shut.\n\nHigh: it anticipates the "
+                               "hole instead of waiting for it, varies an idea when it says it "
+                               "again, reaches for the chord rather than the scale, and steps "
+                               "outside the key and back. The bass takes the fifth; the drums lean "
+                               "on the ghost notes.\n\nNOT a quality control - a tight, literal band "
+                               "is the right sound for plenty of music, and that is what the low "
+                               "end is. The middle is exactly what Ghostband did before this dial "
+                               "existed, so leaving it there changes nothing.");
+
         tip (fillsSlider,      "How often the second guitar answers in the gaps. 0 silences the "
                                "answering across the whole song without editing a single section; "
                                "1 takes every opening it is offered.");
@@ -3021,6 +3041,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     // five mix knobs - not the editor's intensity slider, which is linear and
     // sits in a form row where a halo would read as an error state.
     for (juce::Slider* s : { &complexitySlider, &humanizeSlider, &fillsSlider,
+                             &intuitionSlider,
                              &levelDrums, &levelBass, &levelGuitar,
                              &levelGuitar2, &levelPiano })
         registerTrail (*s);
@@ -3363,7 +3384,7 @@ bool GhostbandEditor::LogSnapshot::operator== (const LogSnapshot& o) const
     return plan == o.plan && key == o.key && mode == o.mode && style == o.style
         && tuning == o.tuning && theme == o.theme && rows == o.rows
         && seed == o.seed && complexity == o.complexity && humanize == o.humanize
-        && fills == o.fills && paused == o.paused;
+        && fills == o.fills && intuition == o.intuition && paused == o.paused;
 }
 
 GhostbandEditor::LogSnapshot GhostbandEditor::takeLogSnapshot() const
@@ -3384,6 +3405,7 @@ GhostbandEditor::LogSnapshot GhostbandEditor::takeLogSnapshot() const
     s.complexity = juce::roundToInt (processor.complexity.load() * 100.0);
     s.humanize   = juce::roundToInt (processor.humanize.load()   * 100.0);
     s.fills      = juce::roundToInt (processor.fills.load()      * 100.0);
+    s.intuition  = juce::roundToInt (processor.intuition.load()  * 100.0);
     s.paused     = processor.paused.load();
 
     const std::atomic<float>* lv[5] = { &processor.levelDrums, &processor.levelBass,
@@ -3448,6 +3470,7 @@ void GhostbandEditor::pollChangeLog()
     p2.logChange ("complexity", juce::String (logged.complexity) + "%", juce::String (now.complexity) + "%");
     p2.logChange ("humanize",   juce::String (logged.humanize) + "%",   juce::String (now.humanize) + "%");
     p2.logChange ("fills",      juce::String (logged.fills) + "%",      juce::String (now.fills) + "%");
+    p2.logChange ("intuition",  juce::String (logged.intuition) + "%",  juce::String (now.intuition) + "%");
 
     if (logged.paused != now.paused)
         p2.logChange (now.paused ? "band paused" : "band playing again");
@@ -3515,12 +3538,14 @@ bool GhostbandEditor::advanceAnimations (int deltaMs)
         const bool c = dialComplexity.advance (deltaMs);
         const bool h = dialHumanize.advance (deltaMs);
         const bool f = dialFills.advance (deltaMs);
+        const bool i = dialIntuition.advance (deltaMs);
 
         complexitySlider.setValue (dialComplexity.value(), juce::dontSendNotification);
         humanizeSlider.setValue   (dialHumanize.value(),   juce::dontSendNotification);
         fillsSlider.setValue      (dialFills.value(),      juce::dontSendNotification);
+        intuitionSlider.setValue  (dialIntuition.value(),  juce::dontSendNotification);
 
-        dialsAnimating = c || h || f;
+        dialsAnimating = c || h || f || i;
         busy = busy || dialsAnimating;
     }
 
@@ -3652,10 +3677,12 @@ void GhostbandEditor::settleAnimations()
         dialComplexity.set (static_cast<float> (processor.complexity.load()));
         dialHumanize.set   (static_cast<float> (processor.humanize.load()));
         dialFills.set      (static_cast<float> (processor.fills.load()));
+        dialIntuition.set  (static_cast<float> (processor.intuition.load()));
 
         complexitySlider.setValue (dialComplexity.value(), juce::dontSendNotification);
         humanizeSlider.setValue   (dialHumanize.value(),   juce::dontSendNotification);
         fillsSlider.setValue      (dialFills.value(),      juce::dontSendNotification);
+        intuitionSlider.setValue  (dialIntuition.value(),  juce::dontSendNotification);
         dialsAnimating = false;
     }
 
@@ -3761,7 +3788,7 @@ void GhostbandEditor::beginThemeFade()
 void GhostbandEditor::easeAllKnobsToProcessor()
 {
     easeDialsTo (processor.complexity.load(), processor.humanize.load(),
-                 processor.fills.load());
+                 processor.fills.load(), processor.intuition.load());
 
     Eased*                   eased[5] = { &mixDrums, &mixBass, &mixGuitar,
                                           &mixGuitar2, &mixPiano };
@@ -3786,7 +3813,8 @@ void GhostbandEditor::easeAllKnobsToProcessor()
     }
 }
 
-void GhostbandEditor::easeDialsTo (double complexity, double humanize, double fills)
+void GhostbandEditor::easeDialsTo (double complexity, double humanize, double fills,
+                                   double intuition)
 {
     // 260 ms: longer than a screen change on purpose. The point is not the
     // motion, it is being able to SEE which of the three moved and by how much,
@@ -3794,12 +3822,15 @@ void GhostbandEditor::easeDialsTo (double complexity, double humanize, double fi
     dialComplexity.set (static_cast<float> (complexitySlider.getValue()));
     dialHumanize.set   (static_cast<float> (humanizeSlider.getValue()));
     dialFills.set      (static_cast<float> (fillsSlider.getValue()));
+    dialIntuition.set  (static_cast<float> (intuitionSlider.getValue()));
 
     dialComplexity.moveTo (static_cast<float> (complexity), 260);
     dialHumanize.moveTo   (static_cast<float> (humanize),   260);
     dialFills.moveTo      (static_cast<float> (fills),      260);
+    dialIntuition.moveTo  (static_cast<float> (intuition),  260);
 
-    if (dialComplexity.busy() || dialHumanize.busy() || dialFills.busy())
+    if (dialComplexity.busy() || dialHumanize.busy() || dialFills.busy()
+          || dialIntuition.busy())
     {
         dialsAnimating = true;
         animator.wake();
@@ -4065,8 +4096,8 @@ void GhostbandEditor::updateModeVisibility()
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &loadButton, &reloadButton, &rollButton, &calibrateButton, &editButton,
              &takesButton,
-             &complexitySlider, &humanizeSlider, &fillsSlider,
-             &fillsLabel, &complexityLabel,
+             &complexitySlider, &humanizeSlider, &fillsSlider, &intuitionSlider,
+             &fillsLabel, &complexityLabel, &intuitionLabel,
              &humanizeLabel, &seedEditor, &seedLabel, &keyBox, &styleBox,
              &tuningBox, &keyLabel, &styleLabel, &tuningLabel,
              &zoomBox, &zoomLabel,
@@ -5025,6 +5056,7 @@ void GhostbandEditor::refreshFromProcessor()
     complexitySlider.setValue (processor.complexity.load(), juce::dontSendNotification);
     humanizeSlider.setValue (processor.humanize.load(), juce::dontSendNotification);
     fillsSlider.setValue (processor.fills.load(), juce::dontSendNotification);
+    intuitionSlider.setValue (processor.intuition.load(), juce::dontSendNotification);
     seedEditor.setText (juce::String (processor.seed.load()), juce::dontSendNotification);
 
     // Not while it has focus, or the refresh overwrites what is being typed.
@@ -5764,16 +5796,24 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
 
     rail.removeFromTop (14);
 
-    // ---- the three feel dials, centred in the rail ----
+    // ---- the four feel dials, centred in the rail ----
+    //
+    // Four at eighty would be 344 across a 320-pixel rail, so they came down to
+    // seventy-four with a six-pixel gap: 314, and the labels still fit because
+    // COMPLEXITY was already the longest and was already inside eighty. A
+    // second row would have read as two groups, and these four are one thing -
+    // the band's disposition, as opposed to the song, which is above them.
     {
-        const int knobW = 80, gap = 8;
+        const int knobW = 74, gap = 6;
         auto row = rail.removeFromTop (76)
-                       .withSizeKeepingCentre (3 * knobW + 2 * gap, 76);
+                       .withSizeKeepingCentre (4 * knobW + 3 * gap, 76);
 
-        juce::Slider* dials[3] = { &complexitySlider, &humanizeSlider, &fillsSlider };
-        juce::Label*  names[3] = { &complexityLabel,  &humanizeLabel,  &fillsLabel  };
+        juce::Slider* dials[4] = { &complexitySlider, &humanizeSlider, &fillsSlider,
+                                   &intuitionSlider };
+        juce::Label*  names[4] = { &complexityLabel,  &humanizeLabel,  &fillsLabel,
+                                   &intuitionLabel  };
 
-        for (int i = 0; i < 3; ++i)
+        for (int i = 0; i < 4; ++i)
         {
             auto cell = row.removeFromLeft (knobW);
             names[i]->setBounds (cell.removeFromTop (12));
