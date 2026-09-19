@@ -282,6 +282,30 @@ int main (int argc, char** argv)
     testStore.deleteFile();
     GhostbandProcessor::setLearnedControlsFileForTesting (testStore);
 
+    // AND THE STALL LOG, FOR THE SAME REASON AND IT HAD THE SAME FAULT.
+    //
+    // The stall checks redirected this file around themselves and then reset it
+    // to {} - which pointed it back at the owner's real one for the whole rest
+    // of the run. Every editor this harness builds afterwards ticks a timer,
+    // and any sleep longer than the stall threshold wrote a line into
+    // %APPDATA%\Ghostband\stalls.log.
+    //
+    // Found by accident, while reading that very file to work out why a fix to
+    // the detector had not worked: fourteen lines in it shared not one line
+    // with the log the plugin had actually produced, and Gig Performer was not
+    // even running. Some of what I had been reasoning about was my own test
+    // suite.
+    //
+    // Redirected for the WHOLE RUN. The stall block below still points it at a
+    // file of its own, and now puts it back here rather than at nothing.
+    const juce::File harnessStallLog =
+        juce::File::getSpecialLocation (juce::File::tempDirectory)
+            .getChildFile ("ghostband-harness")
+            .getChildFile ("stalls-harness.log");
+
+    harnessStallLog.deleteFile();
+    GhostbandProcessor::setStallLogFileForTesting (harnessStallLog);
+
     // And the change log, for exactly the same reason. A test run must not
     // append a few hundred lines of invented history to the owner's record of
     // what he actually changed - a log nobody can trust is worse than no log.
@@ -4010,7 +4034,10 @@ int main (int argc, char** argv)
         }
 
         // Never leave a test pointing at a real file.
-        GhostbandProcessor::setStallLogFileForTesting ({});
+        // BACK TO THE HARNESS FILE, NOT TO NOTHING. Resetting to {} pointed
+        // this at the owner's real stall log for the remainder of the run - see
+        // the note in main().
+        GhostbandProcessor::setStallLogFileForTesting (harnessStallLog);
         testLog.deleteFile();
     }
 
