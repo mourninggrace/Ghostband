@@ -863,6 +863,196 @@ int TrackerView::visibleRows() const
     return juce::jmax (1, (getHeight() - headerHeight - 10) / rowHeight);
 }
 
+//==============================================================================
+void TrackerView::sweepIn()
+{
+    sweep = 0.0f;
+    repaint();
+}
+
+void TrackerView::settleMotion()
+{
+    // Everything arrives, now. Any check that MEASURES the grid has to be able
+    // to ask for this, and the band settling is the one that matters: settled,
+    // paintedRow and litRow() are the same number, which is what makes the
+    // exact one still the thing under test.
+    const int target = litRow();
+    paintedRow = target >= 0 ? static_cast<float> (target) : -1.0f;
+
+    sweep = -1.0f;
+    std::fill (ribbonFlare.begin(), ribbonFlare.end(), 0.0f);
+
+    // The boundary bookkeeping settles too, or the next frame notices a
+    // crossing that has already been settled past and flares after the fact.
+    flaringSection = -1;
+    for (size_t i = 0; i < sections.size(); ++i)
+        if (playheadTick >= sections[i].startTick && playheadTick < sections[i].endTick)
+            flaringSection = static_cast<int> (i);
+
+    repaint();
+}
+
+bool TrackerView::motionPending() const
+{
+    if (sweep >= 0.0f)
+        return true;
+
+    // A flare still BURNING, not a section that has ever flared. flaringSection
+    // is the boundary bookkeeping and it stays set for the whole time the
+    // playhead is inside a section - asking it here kept the clock awake for
+    // every frame of every song.
+    for (float f : ribbonFlare)
+        if (f > 0.0f)
+            return true;
+
+    // And a boundary crossed but not yet noticed, which is the frame the clock
+    // has to be awake FOR.
+    if (playheadTick >= 0)
+        for (size_t i = 0; i < sections.size(); ++i)
+            if (playheadTick >= sections[i].startTick && playheadTick < sections[i].endTick
+                && static_cast<int> (i) != flaringSection)
+                return true;
+
+    const int target = litRow();
+
+    // Stopped, and the band has already been put away.
+    if (target < 0)
+        return paintedRow >= 0.0f;
+
+    return paintedRow < 0.0f || std::abs (paintedRow - static_cast<float> (target)) > 0.01f;
+}
+
+// The rows two band positions between them cover, with a row of margin either
+// side for the leading edge. Rounded outwards, because a band sitting half way
+// down a row still dirties all of it.
+void TrackerView::repaintBand (float fromRow, float toRow)
+{
+    const float lo = juce::jmin (fromRow, toRow);
+    const float hi = juce::jmax (fromRow, toRow);
+
+    if (lo < 0.0f && hi < 0.0f)
+    {
+        repaint();      // the band was put away; where it was is unknown
+        return;
+    }
+
+    const int top = headerHeight + static_cast<int> (std::floor (lo)) * rowHeight - rowHeight;
+    const int bot = headerHeight + static_cast<int> (std::ceil  (hi)) * rowHeight + rowHeight * 2;
+
+    repaint (0, juce::jmax (0, top), getWidth(), juce::jmax (0, bot - top));
+}
+
+bool TrackerView::advanceMotion (int deltaMs)
+{
+    bool busy = false;
+    const float dt = static_cast<float> (deltaMs) / 1000.0f;
+
+    // ---- the lit band chasing the playhead ----
+    const int target = litRow();
+
+    if (target < 0)
+    {
+        paintedRow = -1.0f;
+    }
+    else if (paintedRow < 0.0f)
+    {
+        // First row of a song. Arrive, do not glide in from nowhere.
+        paintedRow = static_cast<float> (target);
+        repaintBand (paintedRow, paintedRow);
+    }
+    else if (std::abs (paintedRow - static_cast<float> (target)) > 0.01f)
+    {
+        // A JUMP IS NOT A STEP. Scrolling the grid, changing the zoom or
+        // restarting the song can move the lit row by a screenful, and easing
+        // across that reads as the highlight falling down the window rather
+        // than as the music moving. Anything past a couple of rows arrives at
+        // once; only a step glides.
+        const float was = paintedRow;
+
+        if (std::abs (paintedRow - static_cast<float> (target)) > 2.5f)
+        {
+            paintedRow = static_cast<float> (target);
+        }
+        else
+        {
+            // Exponential approach: fast off the mark, settling into the new
+            // row rather than stopping dead on it. Framerate-independent, so a
+            // missed frame does not make it lurch.
+            paintedRow += (static_cast<float> (target) - paintedRow)
+                            * juce::jmin (1.0f, dt * 16.0f);
+
+            if (std::abs (paintedRow - static_cast<float> (target)) <= 0.01f)
+                paintedRow = static_cast<float> (target);
+            else
+                busy = true;
+        }
+
+        // JUST THE ROWS THE BAND TOUCHED. A full repaint of this grid is 5 ms
+        // and the band moves at 60 Hz, so repainting all of it for a band
+        // crossing one row would spend a third of every frame redrawing five
+        // hundred cells that did not change - on the one machine in this
+        // project's history with a message thread that already struggles.
+        repaintBand (was, paintedRow);
+    }
+
+    // ---- the ribbon lighting as the playhead crosses into a section ----
+    ribbonFlare.resize (sections.size(), 0.0f);
+
+    int inSection = -1;
+    for (size_t i = 0; i < sections.size(); ++i)
+        if (playheadTick >= sections[i].startTick && playheadTick < sections[i].endTick)
+            inSection = static_cast<int> (i);
+
+    if (playheadTick >= 0 && inSection >= 0 && inSection != flaringSection)
+    {
+        // Crossed a boundary. The arrangement is the shape of the song and the
+        // moment it changes shape is the one worth marking.
+        flaringSection = inSection;
+        ribbonFlare[static_cast<size_t> (inSection)] = 1.0f;
+    }
+    else if (playheadTick < 0)
+    {
+        flaringSection = -1;
+    }
+
+    bool anyFlare = false;
+    for (float& f : ribbonFlare)
+    {
+        if (f > 0.0f)
+        {
+            // About a second to fall away, which is long enough to catch out of
+            // the corner of an eye and short enough to be gone before the
+            // section is old news.
+            f = juce::jmax (0.0f, f - dt * 1.1f);
+            anyFlare = anyFlare || f > 0.0f;
+        }
+    }
+
+    if (anyFlare)
+    {
+        busy = true;
+
+        // The ribbon only: eighteen pixels of the window, redrawn sixty times a
+        // second for a second, rather than the whole grid.
+        repaint (getLocalBounds().withHeight (headerHeight - 6));
+    }
+
+    // ---- a new arrangement sweeping in ----
+    if (sweep >= 0.0f)
+    {
+        sweep += dt * 2.4f;          // a little over four hundred milliseconds
+
+        if (sweep >= 1.0f)
+            sweep = -1.0f;
+        else
+            busy = true;
+
+        repaint();
+    }
+
+    return busy;
+}
+
 juce::Rectangle<int> TrackerView::ribbonFor (size_t index) const
 {
     if (index >= sections.size()) return {};
@@ -988,16 +1178,35 @@ void TrackerView::paint (juce::Graphics& g)
                                                     : (playing ? partColour (0)
                                                                : ghost::colours::dim));
 
+        // CROSSING INTO A SECTION, marked. Set to 1 the frame the playhead
+        // enters and decaying over a second, so the ribbon reports the shape of
+        // the song changing rather than just showing where the playhead is -
+        // which the block being lit at all already said.
+        const float flare = i < ribbonFlare.size() ? ribbonFlare[i] : 0.0f;
+
         const float base = dark ? 0.16f : 0.14f;
-        const float fill = queued ? base + queuedPulse * (dark ? 0.34f : 0.26f) : base;
+        float fill = queued ? base + queuedPulse * (dark ? 0.34f : 0.26f) : base;
+        fill += flare * (dark ? 0.40f : 0.30f);
 
         g.setColour ((playing || selected || queued) ? lit.withAlpha (fill)
                                                      : ghost::colours::cardRaised);
         g.fillRect (box);
 
+        // The flare spills past the block as well as filling it, because a
+        // ribbon block is eighteen pixels tall and brightening alone is easy to
+        // miss at the edge of vision. Two strokes, both fading.
+        if (flare > 0.01f)
+        {
+            for (int ring = 1; ring <= 2; ++ring)
+            {
+                g.setColour (lit.withAlpha (flare * 0.30f / static_cast<float> (ring)));
+                g.drawRect (box.expanded (ring * 2), 1.0f);
+            }
+        }
+
         g.setColour ((playing || selected || queued || hovered) ? lit
                                                                 : ghost::colours::line);
-        g.drawRect (box, (playing || selected || queued) ? 1.4f : 0.7f);
+        g.drawRect (box, (playing || selected || queued) ? 1.4f + flare * 1.2f : 0.7f);
 
         g.setColour ((playing || selected || queued) ? lit : ghost::colours::dim);
         g.setFont (small);
@@ -1044,9 +1253,28 @@ void TrackerView::paint (juce::Graphics& g)
     // row either.
     const int cur = litRow();
 
+    // WHERE THE BAND IS DRAWN, which is not quite where the playhead is.
+    //
+    // paintedRow chases cur over about a tenth of a second, so between rows the
+    // band straddles two of them. It is computed as a rectangle here and each
+    // row fills whatever part of itself the band covers - one loop, and the
+    // row's own text still lands on top of its own fill, which is the ordering
+    // the grid has always depended on.
+    //
+    // At rest the two agree exactly and this draws precisely what it used to.
+    const float bandTop = playheadTick >= 0 && paintedRow >= 0.0f
+                            ? static_cast<float> (headerHeight) + paintedRow * rowHeight
+                            : -1000.0f;
+    const float bandBot = bandTop + rowHeight;
+
     for (int r = 0; r < rows; ++r)
     {
         const int y = headerHeight + r * rowHeight;
+
+        // How much of this row the band covers, in pixels.
+        const float ovTop = juce::jmax (static_cast<float> (y), bandTop);
+        const float ovBot = juce::jmin (static_cast<float> (y + rowHeight), bandBot);
+        const bool  covered = ovBot - ovTop >= rowHeight - 0.5f;
         const int tick = firstRowTick + r * rowTicks;
 
         // Where this row sits in the bar, worked out in ticks rather than in
@@ -1059,20 +1287,9 @@ void TrackerView::paint (juce::Graphics& g)
         const bool onBeat   = subInBeat == 0;
         const bool isNow = playheadTick >= 0 && r == cur;
 
-        if (isNow)
+        if (covered)
         {
-            // The lit row. A gradient across it rather than a flat fill, which
-            // is the whole of the neon idea applied to the one thing that
-            // matters most: where you are.
-            juce::ColourGradient lit (partColour (0).withAlpha (dark ? 0.28f : 0.16f),
-                                      (float) 12, 0.0f,
-                                      partColour (3).withAlpha (dark ? 0.28f : 0.16f),
-                                      (float) getWidth() - 12, 0.0f, false);
-            g.setGradientFill (lit);
-            g.fillRect (12, y, getWidth() - 24, rowHeight);
-
-            g.setColour (partColour (0).withAlpha (dark ? 0.85f : 0.55f));
-            g.fillRect (12, y, getWidth() - 24, 1);
+            // Nothing: the band fills this row entirely, below.
         }
         else
         {
@@ -1115,11 +1332,35 @@ void TrackerView::paint (juce::Graphics& g)
             g.fillRect (12, y, getWidth() - 24, rowHeight);
         }
 
+        // THE BAND ITSELF, over whatever part of this row it covers. A gradient
+        // across it rather than a flat fill, which is the whole of the neon
+        // idea applied to the one thing that matters most: where you are.
+        if (ovBot > ovTop)
+        {
+            juce::ColourGradient lit (partColour (0).withAlpha (dark ? 0.28f : 0.16f),
+                                      (float) 12, 0.0f,
+                                      partColour (3).withAlpha (dark ? 0.28f : 0.16f),
+                                      (float) getWidth() - 12, 0.0f, false);
+            g.setGradientFill (lit);
+            g.fillRect (juce::Rectangle<float> (12.0f, ovTop,
+                                                (float) getWidth() - 24.0f, ovBot - ovTop));
+
+            // Its leading edge, drawn once wherever it falls rather than per
+            // row - it is the line the eye tracks, and it has to be able to sit
+            // between two rows or the travel is invisible.
+            if (bandTop >= (float) y - 0.5f && bandTop < (float) (y + rowHeight))
+            {
+                g.setColour (partColour (0).withAlpha (dark ? 0.85f : 0.55f));
+                g.fillRect (juce::Rectangle<float> (12.0f, bandTop,
+                                                    (float) getWidth() - 24.0f, 1.0f));
+            }
+        }
+
         // A hairline under every row regardless of its fill. Two rows that
         // happen to land on the same shade still read as two rows, and reading
         // a value ACROSS a row is the thing the grid exists for - a line to
         // follow is worth more than the shade it sits on.
-        if (! isNow)
+        if (! covered)
         {
             g.setColour (ghost::colours::line.withAlpha (0.35f));
             g.fillRect (12, y + rowHeight - 1, getWidth() - 24, 1);
@@ -1215,6 +1456,44 @@ void TrackerView::paint (juce::Graphics& g)
             }
         }
     }
+
+    // ---- a new arrangement sweeping in --------------------------------------
+    //
+    // A reroll changes every note in the grid and changes almost nothing about
+    // how the grid LOOKS: same columns, same density, same section names. The
+    // strongest feedback that anything happened was a number in the seed box,
+    // which is why a section reroll was once reported as the button doing
+    // nothing at all.
+    //
+    // Drawn as a veil that lifts off a finished grid rather than as an alpha
+    // threaded through forty setColour calls above - same effect, and the grid's
+    // drawing code does not have to know this exists.
+    if (sweep >= 0.0f)
+    {
+        const float top   = static_cast<float> (headerHeight);
+        const float h     = static_cast<float> (getHeight() - headerHeight);
+        const float front = top + sweep * h;
+        const float w     = static_cast<float> (getWidth()) - 24.0f;
+
+        if (front < top + h)
+        {
+            g.setColour (ghost::colours::card.withAlpha (0.94f));
+            g.fillRect (juce::Rectangle<float> (12.0f, front, w, top + h - front));
+        }
+
+        // The edge is the part the eye follows, so it gets a gradient ahead of
+        // it and a hard line on it.
+        juce::ColourGradient edge (ghost::colours::accent.withAlpha (0.0f),
+                                   0.0f, front - 30.0f,
+                                   ghost::colours::accent.withAlpha (0.45f),
+                                   0.0f, front, false);
+        g.setGradientFill (edge);
+        g.fillRect (juce::Rectangle<float> (12.0f, juce::jmax (top, front - 30.0f), w,
+                                            juce::jmin (30.0f, front - top)));
+
+        g.setColour (ghost::colours::accent.withAlpha (0.9f));
+        g.fillRect (juce::Rectangle<float> (12.0f, front, w, 1.5f));
+    }
 }
 
 //==============================================================================
@@ -1282,6 +1561,11 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         if (processor.undoTheDice())
         {
             easeAllKnobsToProcessor();
+
+            // The arrangement came back too, not just the dials.
+            tracker.sweepIn();
+            animator.wake();
+
             statusLabel.setText ("Put back where it was before the last roll.",
                                  juce::dontSendNotification);
         }
@@ -1309,6 +1593,10 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 
             // Every knob on the screen has just moved. Travelling shows which.
             easeAllKnobsToProcessor();
+
+            // And so has every note. The dials travelling says the settings
+            // changed; the sweep says the music did.
+            tracker.sweepIn();
 
             statusLabel.setText (alsoSong
                                    ? "A different song, rolled. Right-click the dice to put it back."
@@ -1341,6 +1629,12 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 
             processor.rerollSections (rerollSelection);
 
+            // And SHOW that it happened. See the note in TrackerView::paint:
+            // this is the case where the work was done and the plugin said
+            // nothing that could be seen.
+            tracker.sweepIn();
+            animator.wake();
+
             rollHintLabel.setText ("rerolled " + named.joinIntoString (", ")
                                        + " - counts on the right have moved",
                                    juce::dontSendNotification);
@@ -1353,6 +1647,9 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         processor.seed.store (next);
         seedEditor.setText (juce::String (next), juce::dontSendNotification);
         processor.regenerate();
+
+        tracker.sweepIn();
+        animator.wake();
     };
 
     sectionList.onSectionToggled = [this] (int index)
@@ -3182,6 +3479,11 @@ bool GhostbandEditor::advanceAnimations (int deltaMs)
         tracker.setQueuedPulse (0.0f);
     }
 
+    // The grid owns three of its own - the band chasing the playhead, a section
+    // flaring as the playhead crosses into it, and a new arrangement sweeping
+    // in - and advances them together, because they share a repaint.
+    busy = tracker.advanceMotion (deltaMs) || busy;
+
     return busy;
 }
 
@@ -3260,6 +3562,7 @@ void GhostbandEditor::settleAnimations()
 
     queuedPhase = 0.0f;
     tracker.setQueuedPulse (0.0f);
+    tracker.settleMotion();
     animator.stopTimer();
 }
 
@@ -3407,6 +3710,13 @@ void GhostbandEditor::timerCallback()
         sectionList.setPlayhead (tick);
         arrangement.setPlayhead (tick);
         tracker.setPlayhead (tick);
+
+        // The one source of motion in this window that starts without anybody
+        // pressing anything. The band has a new row to travel to, and a section
+        // boundary may just have been crossed - so the clock is woken here
+        // rather than by the gesture that started it, because there wasn't one.
+        if (tracker.motionPending())
+            animator.wake();
 
         // "stopped" alone is a status; this is an instruction. Ghostband
         // follows the host transport, so with it stopped nothing is sent and a

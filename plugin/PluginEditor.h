@@ -431,6 +431,39 @@ public:
     // scrolling under it.
     void setEditedTick (int tick);
 
+    //==========================================================================
+    // Motion the grid owns, advanced by the editor's clock rather than by a
+    // timer of its own - so it stops dead when nothing is moving, like
+    // everything else in this window.
+    //
+    // Returns true while something is still travelling, which is the contract
+    // AnimationClock uses to decide whether to keep running.
+    bool advanceMotion (int deltaMs);
+
+    // Whether anything WOULD move if the clock ran. The editor asks this after
+    // pushing a new playhead, because a playhead that has stepped to a new row
+    // is the one source of motion in here that starts without a button press.
+    bool motionPending() const;
+
+    // A new arrangement, swept in from the top. Called on a reroll or a dice
+    // roll: the notes change in place and every column looks broadly the same
+    // afterwards, so without this the strongest feedback that anything happened
+    // is a number in the seed box.
+    void sweepIn();
+
+    // Everything arrives at once. Called by the editor's settleAnimations(), so
+    // a check that measures the grid measures a settled one.
+    void settleMotion();
+
+    // For checks that measure rather than watch.
+    float paintedRowForTesting() const { return paintedRow; }
+    bool  sweepingForTesting()   const { return sweep >= 0.0f; }
+    float ribbonFlareForTesting (int i) const
+    {
+        return i >= 0 && static_cast<size_t> (i) < ribbonFlare.size()
+                 ? ribbonFlare[static_cast<size_t> (i)] : 0.0f;
+    }
+
     static constexpr int numParts     = 5;
     static constexpr int rowHeight    = 19;
     static constexpr int headerHeight = 52;
@@ -465,6 +498,35 @@ private:
     int playheadRow  = -1;
     int queuedIndex  = -1;
     int hoverIndex   = -1;
+
+    //==========================================================================
+    // THE LIT ROW, EASED.
+    //
+    // litRow() stays exact and is not touched. It is the thing a check pins and
+    // the thing that was wrong for four sessions - the highlight sitting on bar
+    // 17 while the song played from bar 1 - so the smoothing is a SEPARATE
+    // number used only for drawing. If these two ever disagree about anything
+    // other than a hundred milliseconds of travel, the exact one is right.
+    //
+    // -1 when stopped. Otherwise it chases litRow() and the band glides between
+    // rows instead of teleporting, which at a bar per row is a step every two
+    // seconds and reads as a flicker rather than as movement.
+    float paintedRow = -1.0f;
+
+    // A flare when the playhead ENTERS a section, decaying over about a second
+    // on top of the steady lit state. One entry per section rather than one for
+    // "the current one", so a song with two choruses flares twice rather than
+    // carrying a glow across from the first.
+    std::vector<float> ribbonFlare;
+    int flaringSection = -1;
+
+    // 0..1 while a new arrangement sweeps in, -1 at rest. Drawn as a veil that
+    // lifts rather than as an alpha threaded through every draw call in paint().
+    float sweep = -1.0f;
+
+    // Dirties only the rows a moving band touched. A full repaint of this grid
+    // is 5 ms and the band moves at 60 Hz.
+    void repaintBand (float fromRow, float toRow);
 };
 
 class GhostbandEditor : public juce::AudioProcessorEditor,

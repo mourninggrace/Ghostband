@@ -4070,6 +4070,126 @@ int main (int argc, char** argv)
         }
     }
 
+    // ---- the grid's own motion ---------------------------------------------
+    //
+    // THE ONE THING THESE HAVE TO PROTECT is that litRow() stays exact. The
+    // highlight sitting on the wrong row is this project's longest-lived visible
+    // fault - four sessions of it lighting bar 17 while the song played from bar
+    // one - and easing the band is precisely the kind of change that could
+    // quietly reintroduce it. So the eased number is allowed to differ from the
+    // exact one only while it is travelling, and never once it has settled.
+    {
+        TrackerView t;
+        t.setSize (900, 600);
+
+        std::vector<gb::SectionReport> secs (2);
+        secs[0].name = "intro";  secs[0].bars = 4;
+        secs[0].startTick = 0;      secs[0].endTick = 1536;
+        secs[1].name = "chorus"; secs[1].bars = 4;
+        secs[1].startTick = 1536;   secs[1].endTick = 3072;
+        t.setSections (secs);
+
+        // One row per bar, which is the default and the coarsest - a step every
+        // two seconds, which is the case a static highlight reads worst in.
+        t.setCells ({}, 0, 384, 96, 384);
+
+        t.setPlayhead (0);
+        t.advanceMotion (16);
+
+        check (std::abs (t.paintedRowForTesting() - (float) t.litRow()) < 0.0001f,
+               "the band starts exactly on the playhead's row, it does not glide in",
+               juce::String (t.paintedRowForTesting(), 4) + " vs " + juce::String (t.litRow()));
+
+        // A step of one row. It must MOVE rather than teleport, which means
+        // reporting itself busy and sitting between the two rows meanwhile.
+        t.setPlayhead (384);
+        const bool busy = t.advanceMotion (16);
+        const float mid = t.paintedRowForTesting();
+
+        check (busy && mid > 0.0f && mid < 1.0f,
+               "a step to the next row travels rather than teleporting",
+               juce::String (mid, 4));
+
+        // AND IT ARRIVES EXACTLY. A band that settles at 0.98 of a row is a
+        // highlight permanently half a row off, which is the original fault
+        // wearing a different hat.
+        int frames = 0;
+        while (t.advanceMotion (16) && frames < 200) ++frames;
+
+        check (frames < 200 && t.paintedRowForTesting() == (float) t.litRow(),
+               "and lands exactly on the exact row, then stops",
+               juce::String (t.paintedRowForTesting(), 6) + " vs "
+                   + juce::String (t.litRow()) + ", " + juce::String (frames) + " frames");
+
+        check (! t.motionPending(), "with nothing left pending to wake the clock for");
+
+        // A JUMP IS NOT A STEP. Restarting the song, scrolling, or changing the
+        // zoom can move the lit row by a screenful; easing across that reads as
+        // the highlight falling down the window rather than as music playing.
+        t.setPlayhead (384 * 12);
+        t.advanceMotion (16);
+
+        check (t.paintedRowForTesting() == (float) t.litRow(),
+               "a jump of many rows arrives at once instead of sliding down the window",
+               juce::String (t.paintedRowForTesting(), 4) + " vs " + juce::String (t.litRow()));
+
+        // Crossing into a section flares its block in the ribbon. The playhead
+        // being inside it was already drawn; this marks the MOMENT, which is
+        // the thing the shape of a song is made of.
+        t.setPlayhead (100);
+        t.advanceMotion (16);
+        const float before = t.ribbonFlareForTesting (1);
+
+        t.setPlayhead (1600);                 // into the chorus
+        t.advanceMotion (16);
+
+        check (before == 0.0f && t.ribbonFlareForTesting (1) > 0.5f,
+               "crossing into a section flares it in the ribbon",
+               juce::String (t.ribbonFlareForTesting (1), 3));
+
+        // And it fades out rather than staying lit, or the ribbon ends up with
+        // every section it has ever played permanently brightened.
+        for (int i = 0; i < 120 && t.ribbonFlareForTesting (1) > 0.0f; ++i)
+            t.advanceMotion (16);
+
+        check (t.ribbonFlareForTesting (1) == 0.0f,
+               "and fades back to the steady lit state within a second or so");
+
+        // The sweep: a reroll changes every note and almost nothing about how
+        // the grid looks, so this is the feedback that it happened.
+        check (! t.sweepingForTesting(), "nothing sweeps until something is rerolled");
+
+        t.sweepIn();
+        check (t.sweepingForTesting() && t.motionPending(),
+               "a reroll sweeps the new arrangement in");
+
+        frames = 0;
+        while (t.advanceMotion (16) && frames < 200) ++frames;
+
+        check (frames < 200 && ! t.sweepingForTesting(),
+               "and it finishes, leaving nothing over the grid",
+               juce::String (frames) + " frames");
+
+        // Stopping puts the band away entirely - there is no current row when
+        // nothing is playing, and a band left behind would claim there was.
+        t.setPlayhead (-1);
+        t.advanceMotion (16);
+
+        check (t.paintedRowForTesting() < 0.0f && t.litRow() < 0,
+               "and stopping puts the band away rather than leaving it somewhere",
+               juce::String (t.paintedRowForTesting(), 3));
+
+        // settleMotion is what every measuring check leans on: after it, the
+        // eased number and the exact one are the same number.
+        t.setPlayhead (384 * 3);
+        t.setPlayhead (384 * 4);
+        t.settleMotion();
+
+        check (t.paintedRowForTesting() == (float) t.litRow() && ! t.motionPending(),
+               "settling the grid makes the eased row and the exact row agree",
+               juce::String (t.paintedRowForTesting(), 4) + " vs " + juce::String (t.litRow()));
+    }
+
     // ---- a song's own problems reach the screen ----------------------------
     // SongPlan::validate has produced these since it was written, and only the
     // command-line renderer ever printed them. Inside the plugin a mistyped

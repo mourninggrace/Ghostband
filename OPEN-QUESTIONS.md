@@ -61,10 +61,11 @@ since the 13th, and it says:
 | freezes while playing | 11 in 21 minutes | **9 in three days** |
 | ghostband's share | 0.0 ms | **0.0 ms** |
 
-**So: what did you do between the 13th and the 16th?** The Defender exclusions,
-the rackspace, a driver, a reboot — whatever it was, it took the worst case down
-by a factor of six and it is worth knowing which one, because the last 1.87
-seconds are presumably the same cause and more of the same medicine.
+**What did you do between the 13th and the 16th? ASKED AND UNRECALLED,
+2026-09-19.** Whatever it was took the worst case down by a factor of six, and
+neither of us knows which change it was. Not worth chasing backwards — the clean
+log going forward is the better instrument, and if the remaining 1.87 seconds
+matter, bisecting the rackspace still answers it in ten minutes.
 
 **The other 1,109 lines were my instrument lying, and that is fixed.** 1,104 of
 them were a gap of exactly 600-601 ms with the transport stopped. Ghostband's
@@ -73,7 +74,9 @@ times over is Windows throttling a window that is alive but hidden behind one of
 Gig Performer's panel tabs. Not a freeze; nobody was looking at it. The detector
 now only counts a gap while the window is actually on screen, and the log lines
 carry the day as well as the clock, so they can be lined up against
-`changes.log`. Your existing log is the old format and can be deleted.
+`changes.log`. Your old-format log was moved aside to
+`stalls-old-format-to-20260916.log` rather than deleted, so the new one starts
+clean and nothing was thrown away.
 
 ### 0a. v0.5.0 is out
 
