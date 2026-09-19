@@ -376,11 +376,24 @@ right, with the verdict in words when you hover it.
 It is written to `%APPDATA%\Ghostband\stalls.log` too, with the date as well as
 the time, because the window that would show it is the thing that was frozen.
 
-**It only counts a gap while the window is actually on screen.** A plugin editor
-that a host has tucked behind a panel tab is still alive, and Windows throttles
-its timer to a flat 600 milliseconds — which looks exactly like a freeze to a
-detector and was never a freeze anybody saw. The first real log ran to 1,118
-lines, of which nine were real.
+**It only counts a gap where the host was actually running the plugin.** A
+plugin sitting in an inactive rackspace, or in a host whose audio engine is off,
+gets its timer throttled to a flat 600 milliseconds — which looks exactly like a
+freeze to a detector, and is nothing anybody could see, because nothing was
+sounding and nothing was moving. The first two logs ran to 1,748 lines between
+them, of which fourteen were real.
+
+The test is the audio block count, which is in every line: those blocks are
+counted on every buffer the host asks for, transport running or not, so **zero
+of them across a gap means the host never called Ghostband at all.** That is
+also the exact opposite of the fault this detector exists for — *"the playhead
+is not moving but audio is still heard like normal"* has audio blocks by
+definition.
+
+Ignored gaps are still counted, and the log says so in one line rather than six
+hundred. And **a gap Ghostband caused itself is always written down**, whatever
+the audio was doing: if you ever see a line where `ghostband` is a big number
+instead of 0.0, that one is mine.
 
 ### Keeping a performance you liked
 

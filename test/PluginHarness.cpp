@@ -3909,6 +3909,73 @@ int main (int argc, char** argv)
                        "and the log line says which day it was",
                        testLog.loadFileAsString().upToFirstOccurrenceOf ("gap", false, false).trim());
 
+                // A GAP WITH NO AUDIO IS NOT A FREEZE EITHER, AND THIS IS THE
+                // CHECK THE FIRST FIX SHOULD HAVE HAD.
+                //
+                // The first attempt gated on isShowing() and shipped on
+                // reasoning alone. The next log killed it in ninety minutes:
+                // 630 more lines, same flat 600 ms, the first of them ten
+                // minutes AFTER the fix was installed. The window was on
+                // screen; something else was imposing the period.
+                //
+                // The discriminator was in every line of the log the whole
+                // time. audioBlocks counts EVERY processBlock, transport or
+                // not, so zero across a gap means the host never called the
+                // plugin at all - it was in an inactive rackspace, or the audio
+                // engine was off. Nothing was sounding and nothing was moving.
+                //
+                // It is also the exact opposite of the reported fault, which
+                // was "the playhead is not moving but audio is still heard like
+                // normal". That has audio blocks by definition.
+                {
+                    const int  before  = gbEd->stallCountForTesting();
+                    const auto sizeWas = testLog.getSize();
+
+                    // A real gap, and deliberately NO blocks added.
+                    gbEd->runTimerForTesting();
+                    juce::Thread::sleep (400);
+                    gbEd->runTimerForTesting();
+
+                    check (gbEd->stallCountForTesting() == before,
+                           "a gap while the host was not processing us is not a freeze",
+                           juce::String (gbEd->stallCountForTesting() - before) + " recorded");
+
+                    // BUT IT IS NOT SILENTLY DROPPED. One summary line, so the
+                    // file says this is happening. A detector that hides what
+                    // it decided to ignore is how the last theory survived a
+                    // whole day unchallenged.
+                    check (testLog.getSize() > sizeWas,
+                           "and the log says so once, rather than not at all",
+                           juce::String (testLog.getSize() - sizeWas) + " bytes");
+
+                    check (testLog.loadFileAsString().contains ("not processing this plugin"),
+                           "naming what it was, not just that it happened");
+                }
+
+                // AND OUR OWN FAULT IS NEVER DROPPED, whatever the audio was
+                // doing. The gate above could hide a gap Ghostband caused
+                // itself if the host happened not to be running - and the one
+                // promise made to the owner about this file is that a line
+                // where ghostband is a big number IS ours and he will see it.
+                // The harness caught exactly this the moment the gate went in.
+                {
+                    const int before = gbEd->stallCountForTesting();
+
+                    gbEd->runTimerForTesting();
+                    {
+                        GB_WORK ("our own slow thing, with the host idle");
+                        juce::Thread::sleep (400);
+                    }
+                    gbEd->runTimerForTesting();
+
+                    check (gbEd->stallCountForTesting() > before,
+                           "but a gap WE caused is recorded even with no audio running",
+                           juce::String (gbEd->stallCountForTesting() - before) + " recorded");
+
+                    check (gbEd->stallDetailForTesting().contains ("our own slow thing"),
+                           "and it is still named");
+                }
+
                 // A GAP WHILE THE WINDOW IS NOT ON SCREEN IS NOT A STALL.
                 //
                 // This is the single most valuable line in the detector, and it

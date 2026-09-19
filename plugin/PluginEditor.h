@@ -1043,6 +1043,12 @@ private:
         juce::String worstPiece;    // and which piece that was
 
         int     audioBlocks = 0;    // blocks the audio thread ran during the gap
+
+        // What the window thought it was, at the moment of the gap. Evidence,
+        // not reasoning: the previous theory about these was argued from the
+        // code and was wrong, and nothing in the log could have shown that.
+        bool    showing    = true;
+        bool    foreground = true;
         int     screen     = 0;
         bool    playing    = false;
         juce::String at;            // wall clock, so it can be matched to what you were doing
@@ -1213,6 +1219,38 @@ private:
     // would go permanently silent. They say so explicitly instead.
     bool pretendOnScreenForTesting = false;
     bool windowIsOnScreen() const { return pretendOnScreenForTesting || isShowing(); }
+
+    // AND THAT GUESS WAS WRONG, WHICH THE NEXT LOG PROVED IN NINETY MINUTES.
+    //
+    // Gating on isShowing() changed nothing: 630 more lines arrived, every one
+    // of them the same flat 600 ms with the transport stopped, the first of
+    // them ten minutes AFTER the fix was installed. So the window was on
+    // screen and something else was imposing that period. One guess, confidently
+    // reasoned, confidently shipped, and wrong - the same mistake as believing
+    // the first variety metric instead of measuring what the ear reports.
+    //
+    // THE MEASURED DISCRIMINATOR IS THE AUDIO BLOCK COUNT, and it was in every
+    // line of the log the whole time.
+    //
+    // audioBlocks increments on EVERY processBlock, transport running or not.
+    // So zero blocks across a 600 ms gap does not mean "the band was stopped",
+    // it means THE HOST NEVER CALLED THE PLUGIN AT ALL - it was sitting in a
+    // rackspace that was not active, or in a host whose audio engine was off.
+    // A plugin nobody is processing is not a plugin whose window froze.
+    //
+    // And it is the exact opposite of the fault this detector exists for, which
+    // was reported as "the playhead is not moving but audio is still heard like
+    // normal". That fault has audio blocks by definition. Every one of the real
+    // stalls ever caught had them; not one of the 1,734 phantoms did.
+    //
+    // So the gate is now a fact rather than a theory. isShowing() is still
+    // consulted, because a genuinely hidden window cannot show anybody a
+    // freeze - but it is no longer load-bearing, and every line records what
+    // both of these thought, so if this reasoning is wrong too the next log
+    // says so instead of needing another round of guessing.
+    unsigned idleGaps      = 0;      // gaps with no audio: the host was not running us
+    double   idleGapMsTotal = 0.0;
+    unsigned idleLogged    = 0;      // how many summary lines have been written
 
     // 33 ms is the expected spacing. A quarter of a second is seven frames
     // missed, which is past anything a person reads as smooth and well past

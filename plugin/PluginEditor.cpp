@@ -3138,14 +3138,68 @@ void GhostbandEditor::noteTimerTick()
     {
         const double gap = now - lastTimerStartMs;
 
-        // Both of these are gated on the window actually being on screen. See
-        // the note beside windowIsOnScreen(): a hidden editor is throttled to a
-        // flat 600 ms by Windows, which is not a stall, and counting it would
-        // put a number in the footer that nothing on screen ever did.
-        if (windowIsOnScreen())
+        // WAS THE HOST EVEN RUNNING US? See the long note beside idleGaps.
+        //
+        // audioBlocks counts every processBlock, transport or no transport, so
+        // zero of them across the gap means the plugin was not being processed
+        // at all. Nothing was sounding, nothing was moving, and a window that
+        // is not being asked to do anything is not a window that froze.
+        //
+        // This is the discriminator that was in the log all along: every real
+        // stall ever caught had audio blocks, and not one of the 1,734 phantoms
+        // did.
+        const int blocksInGap = static_cast<int> (blocks - lastAudioBlocks);
+        const bool hostWasRunningUs = blocksInGap > 0;
+
+        // EXCEPT WHEN IT WAS US, and the harness caught this the moment the
+        // gate went in.
+        //
+        // A gap where GHOSTBAND held the message thread is ours whether or not
+        // the host was running audio, and dropping it would break the one
+        // promise made to the owner about this file: "if the log ever shows a
+        // line where ghostband is a big number rather than 0.0, that one IS
+        // mine and I want to see it". A gate that can hide our own fault is
+        // worse than no gate.
+        //
+        // One millisecond, because the figure is the total of every scope in
+        // the gap and a genuinely idle frame measures at zero.
+        const bool ourFault = gbdiag::Work::total > 1.0;
+        const bool worthRecording = hostWasRunningUs || ourFault;
+
+        if (windowIsOnScreen() && worthRecording)
             worstGapMs = juce::jmax (worstGapMs, gap);
 
-        if (gap > stallThresholdMs && windowIsOnScreen())
+        // Counted, never silently dropped. A summary line at one, fifty, five
+        // hundred and five thousand says this is happening and roughly how
+        // much, without writing six hundred lines that all say the same thing.
+        // Losing the signal entirely is how a detector becomes decoration.
+        if (gap > stallThresholdMs && windowIsOnScreen() && ! worthRecording)
+        {
+            ++idleGaps;
+            idleGapMsTotal += gap;
+
+            const unsigned marks[4] = { 1u, 50u, 500u, 5000u };
+            for (unsigned m : marks)
+            {
+                if (idleGaps == m && idleLogged < 4)
+                {
+                    ++idleLogged;
+
+                    const juce::File log = GhostbandProcessor::stallLogFile();
+                    log.getParentDirectory().createDirectory();
+                    log.appendText (juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H:%M:%S")
+                                    + "  " + juce::String (idleGaps)
+                                    + (idleGaps == 1 ? " gap" : " gaps")
+                                    + " while the host was not processing this plugin"
+                                    + " (" + juce::String (idleGapMsTotal / 1000.0, 1) + "s total)"
+                                    + "   NOT A FREEZE - nothing was sounding and nothing"
+                                      " was moving. See stalls.log's note in the README.\n");
+                    break;
+                }
+            }
+        }
+
+        if (gap > stallThresholdMs && windowIsOnScreen() && worthRecording)
         {
             Stall s;
             s.gapMs        = gap;
@@ -3153,7 +3207,9 @@ void GhostbandEditor::noteTimerTick()
             s.ghostbandMs  = gbdiag::Work::total;
             s.worstPieceMs = gbdiag::Work::worst;
             s.worstPiece   = gbdiag::Work::worstName;
-            s.audioBlocks  = static_cast<int> (blocks - lastAudioBlocks);
+            s.audioBlocks  = blocksInGap;
+            s.showing      = isShowing();
+            s.foreground   = juce::Process::isForegroundProcess();
             s.screen       = static_cast<int> (screen);
             s.playing      = processor.transportRunning.load();
             s.at           = juce::Time::getCurrentTime().toString (false, true, false);
@@ -3203,6 +3259,13 @@ void GhostbandEditor::noteTimerTick()
                             + (sr > 0.0 ? " at " + juce::String (sr / 1000.0, 1) + "k" : "")
                             + "   screen " + juce::String (screenName (s.screen))
                             + (s.playing ? "   playing" : "   stopped")
+                            // WHAT THE TWO GUESSES THOUGHT. Recorded rather
+                            // than reasoned about, because the last theory
+                            // about this was argued from the code, shipped,
+                            // and wrong. If the gate is wrong again these two
+                            // say so without another round of guessing.
+                            + (s.showing    ? "   showing" : "   hidden")
+                            + (s.foreground ? "   foreground" : "   background")
                             // In case the grid provokes it: 16th repaints four
                             // times as often as bar, so a stall that only ever
                             // happens on the fine settings is a different fault
