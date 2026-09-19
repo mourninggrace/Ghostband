@@ -238,10 +238,27 @@ Teach is deliberately too fast to read.
   **Ctrl-click sections first to reroll only those** — the rest of the song is
   provably untouched, because every section derives its own seed. The button says
   how many are selected.
-- **Complexity / Humanize / Fills** — regenerate on their own a moment after you
-  stop moving them. There is no Generate button to remember.
+- **Complexity / Humanize / Fills / Intuition** — regenerate on their own a
+  moment after you stop moving them. There is no Generate button to remember.
   **Fills** is how often the second guitar answers: 0 silences it across the
   whole song without editing a section, 1 takes every opening it is offered.
+- **Intuition** is how much the band plays what it *feels like* rather than what
+  is obvious, and it reaches every part rather than only the lead.
+
+  Low: the expected note in the expected place, the same way every time. Fills
+  land on the fourth bar, dead on the half, drawn from the two or three devices
+  anybody learns first. The bass holds the root; the drums keep the hat shut.
+
+  High: it anticipates the hole instead of waiting for it, varies an idea when
+  it says it again, reaches for the chord rather than the scale, and steps
+  outside the key and back. The bass takes the fifth; the drums lean on the
+  ghost notes.
+
+  **It is not a quality control.** A tight, literal band is the right sound for
+  plenty of music and that is what the low end is. And **the middle is exactly
+  what Ghostband did before the dial existed**, so leaving it alone changes
+  nothing — which is how it could be added without altering a single one of the
+  34 preset songs.
 - **BPM** — the tempo the song is written at. See *Tempo, and whose it is*.
 - **Takes** — save the performance you are hearing under a name, and get it
   back later. See *Keeping a performance you liked*.

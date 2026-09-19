@@ -3,7 +3,7 @@
 One file, so none of it has to be remembered. Answered items move to the bottom
 with a date rather than being deleted, so the same question is never asked twice.
 
-**Last updated 2026-09-19, session 21.**
+**Last updated 2026-09-19, end of session 21.**
 
 ---
 
@@ -77,6 +77,45 @@ carry the day as well as the clock, so they can be lined up against
 `changes.log`. Your old-format log was moved aside to
 `stalls-old-format-to-20260916.log` rather than deleted, so the new one starts
 clean and nothing was thrown away.
+
+### 0-new. THE LEAD GUITAR, AND THE DIAL - both want your ears
+
+**The complaint was right and it was structural.** Fills always sounded the
+same because they could only happen in one place, and the deck they were drawn
+from had about two cards in it:
+
+- a fill could only land on bar 4, 8, 12 or the last one
+- and always started exactly half way through that bar
+- and 83% of them were one of two devices, from a library of five cell shapes
+- and the most-used device, the lick, could ONLY ASCEND
+
+That last one measured at 57.6% of all lead phrases rising against 17.3%
+falling. Three and a half to one, in every song. It is now 26.6 / 26.6.
+
+**What to listen for:**
+
+1. **Do the fills still sound familiar?** Twenty-two cells, nine devices, five
+   places in the bar including a pickup that starts before the bar line. If
+   there is still a shape you keep hearing, tell me which and I will go after
+   it - the measurement tools for this now exist.
+2. **Does the lead play ENOUGH?** It plays about 16% fewer notes than it did.
+   That was a deliberate trade for more gesture and less scale-running, and
+   density is a judgement I cannot make from here.
+3. **INTUITION, at both ends.** Try 0.2 and 0.75 on the same song. Low should
+   be a tight locked band; high should anticipate. If the useful range feels
+   like it is all crammed into one corner of the dial, that is a curve, and it
+   is one function.
+
+### 0-new2. Switches are drawn as wiring now
+
+No more `A7` in the GTR 2 column. It reads `neck`, `fret 9`, `artic` or `feel`
+in dim lowercase - what the switch DOES, not which note carries it. A trailing
+`+` means more than one landed in that row; zoom in to separate them.
+
+That turned up something older: a column is about 114 pixels and the note,
+velocity and hit count were spending 96 of them, so a control change drew `cc`
+and its number fell off the end. **In every window size this plugin has ever
+had.** You could never tell cc7 from cc65. You can now.
 
 ### 0a. v0.5.0 is out
 

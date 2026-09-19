@@ -25,6 +25,12 @@ in fact done, and are noted at the bottom so nobody rediscovers them.
   that distinguishes every line; selectable row resolution; a change log; Reset
   to profile; a song that rewinds itself; the mix knobs stop vanishing; and a
   stall detector that says whether a freeze was Ghostband or the host.
+- **UNRELEASED, session 21** — the lead guitar's vocabulary widened from five
+  cell shapes and two devices to twenty-two and nine; the upward lean removed
+  from all four places it lived; fills no longer pinned to beat 3 of every 4th
+  bar; keyswitches drawn as wiring rather than as notes; the INTUITION dial.
+  Two latent bugs found on the way: a lead line could play two notes on one
+  tick, and a control change could never show its number.
 - **v0.5.0, 2026-09-14** — the dice and its one-step undo; Hydra told where on
   the neck to play (fretting modes and hand position, both by keyswitch); motion
   throughout the interface; the playhead lighting the right row at the start of

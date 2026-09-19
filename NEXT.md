@@ -6,17 +6,19 @@ useless for the one job it has: telling whoever picks this up next what is true
 right now. The history is in `docs/archive/NEXT-through-session-13.md`, and
 nobody has to read it.
 
-**Last touched 2026-09-14, end of session 20.**
+**Last touched 2026-09-19, session 21.**
 
 ## State
 
 - **v0.5.0 released 2026-09-14.** Tagged, published, marked latest, installed,
-  and its checksum verified by downloading it back from GitHub. Nothing is
-  unreleased.
+  and its checksum verified by downloading it back from GitHub.
+- **SESSION 21 IS INSTALLED BUT NOT RELEASED.** The lead guitar's vocabulary,
+  the fill placement, keyswitches drawn as wiring and the INTUITION dial have
+  all landed since. A release is due.
 - **The window is 1180x820, minimum 1020x820.** Both numbers are load-bearing:
   the minimum is set by the two-column Settings screen, not by the song screen,
   and the harness's `kMinW`/`kMinH` must move with it.
-- **403 checks** pass on every build, and all 34 plans are swept.
+- **425 checks** pass on every build, and all 34 plans are swept.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
