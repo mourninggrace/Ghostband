@@ -208,18 +208,96 @@ struct SoloStep
     int    length = 1;
     double accent = 0.8;
     bool   target = false;
+
+    // Semitones ADDED to whatever the degree resolves to, so a device can play
+    // a note the scale does not contain. Everything here works in scale degrees
+    // because that is what keeps a line in the key; a passing note that is
+    // deliberately outside it cannot be said that way, and chromatic approach
+    // is one of the plainest differences between a player who knows the scale
+    // and a player who knows the neck.
+    int    semis  = 0;
 };
 
-// Cells worth transposing. Shapes rather than intervals: the first is a plain
-// ascent, the later ones turn back on themselves, which is what stops a long
-// sequence from sounding like a scale played slowly. -99 ends a short cell.
-static const int kSoloCells[5][4] = {
-    { 0, 1, 2, -99 },
-    { 0, 1, 2, 3 },
-    { 0, 2, 1, -99 },
-    { 0, 1, 2, 1 },
-    { 0, 2, 1, 3 },
+// Cells worth transposing. Shapes rather than intervals: a plain ascent, and
+// others that turn back on themselves, which is what stops a long sequence from
+// sounding like a scale played slowly. -99 ends a short cell.
+//
+// THERE USED TO BE FIVE OF THESE. Reported, and correctly: "we need to mix up
+// the fills with the lead guitar as they always sound the same almost from song
+// to song". Five shapes, drawn by one device that fired eight per cent of the
+// time in a fill, is a very small deck however good the shuffling is - and the
+// shuffling was never the problem.
+//
+// Grouped by what they do, because a library this size is otherwise just a
+// list: ascents and descents to move, turns to stay put with shape, skips to
+// cover ground, and pivots that keep returning to one note.
+static constexpr int kCellWidth = 6;
+
+static const int kSoloCells[][kCellWidth] = {
+    // straight, the ones a line is spelled against
+    {  0,  1,  2, -99 },
+    {  0,  1,  2,  3, -99 },
+    {  2,  1,  0, -99 },
+    {  3,  2,  1,  0, -99 },
+    {  0,  1,  2,  3,  4, -99 },
+
+    // turns - the shape restates instead of continuing, which is the whole
+    // point of a sequence over a run
+    {  0,  2,  1, -99 },
+    {  0,  1,  2,  1, -99 },
+    {  0,  2,  1,  3, -99 },
+    {  1,  0,  2, -99 },
+    {  0,  1,  3,  2, -99 },
+    {  0,  3,  2,  4, -99 },
+    {  2,  0,  1, -99 },
+
+    // skips - thirds and fourths, which is how a guitarist covers the neck
+    {  0,  2,  4, -99 },
+    {  0,  3,  1, -99 },
+    {  0,  4,  2, -99 },
+    {  0,  2,  4,  2, -99 },
+    {  0,  3,  1,  4, -99 },
+
+    // pivots - one note kept coming back, so the ear has something to measure
+    // the rest against
+    {  0,  1,  0,  2, -99 },
+    {  0, -1,  0,  1, -99 },
+    {  0,  2,  0,  3, -99 },
+
+    // and two that fall, because a library of ascents is a library of one idea
+    {  0, -1, -2, -99 },
+    {  4,  2,  3,  1, -99 },
 };
+
+static constexpr int kNumCells = static_cast<int> (sizeof (kSoloCells) / sizeof (kSoloCells[0]));
+
+// The devices, named. They were bare integers in a switch and in two weight
+// arrays, which is survivable at five and a trap at nine - the arrays have to
+// stay in the same order as the switch and nothing said so.
+//
+// The first five are the original vocabulary. The last four were added because
+// the fills sounded the same song to song, and each one is a DIFFERENT KIND OF
+// STATEMENT rather than another way of running up the scale:
+//
+//   NEIGHBOUR   two adjacent notes hammered against each other into a landing.
+//               A hand rather than a line, and the one device here that a
+//               guitarist plays without moving.
+//   ARPEGGIO    the chord under the bar, spelled out. THE ONLY DEVICE THAT
+//               HEARS THE HARMONY - everything else is the scale, which is why
+//               everything else fits anywhere and therefore says nothing about
+//               where it is.
+//   CHROMATIC   a target approached from outside the key and resolved into it.
+//               The plainest audible difference between somebody who knows the
+//               scale and somebody who knows the neck.
+//   GALLOP      rhythm where the others are melody: one or two pitches in a
+//               driving figure with the holes deliberately left in.
+enum class Device
+{
+    Run = 0, Sequence, Pedal, Lick, Land,
+    Neighbour, Arpeggio, Chromatic, Gallop
+};
+
+static constexpr int kNumDevices = 9;
 
 // Two ways to use one vocabulary.
 //
@@ -340,7 +418,9 @@ static void generateSolo (const SectionPlan& s,
 
         // Every third or fourth phrase has to breathe, or the section is one
         // unbroken run and nothing inside it registers as an idea.
-        const bool mustLand = (lastDevice >= 0 && lastDevice != 4 && rng.chance (0.38));
+        const bool mustLand = (lastDevice >= 0
+                            && lastDevice != static_cast<int> (Device::Land)
+                            && rng.chance (0.38));
 
         // A weighted draw rather than an even one, because the devices are not
         // worth the same. RUN is deliberately the rarest: it is the one with no
@@ -351,11 +431,15 @@ static void generateSolo (const SectionPlan& s,
         // A quiet section trades runs and pedals for held notes; nothing else
         // about the vocabulary changes, because a slow player is not a
         // different player.
-        const int weights[5] = { hot ? 12 : 6,     // run
-                                 30,               // sequence
-                                 hot ? 16 : 8,     // pedal
-                                 26,               // lick
-                                 hot ? 16 : 40 };  // land
+        const int weights[kNumDevices] = { hot ? 12 : 6,     // run
+                                           24,               // sequence
+                                           hot ? 13 : 7,     // pedal
+                                           20,               // lick
+                                           hot ? 14 : 34,    // land
+                                           hot ? 14 : 7,     // neighbour
+                                           16,               // arpeggio
+                                           hot ? 11 : 7,     // chromatic
+                                           hot ? 13 : 6 };   // gallop
 
         // A fill has one bar and somebody else's part underneath it, so it
         // wants the devices with a shape and an ending. SEQUENCE and PEDAL are
@@ -367,29 +451,46 @@ static void generateSolo (const SectionPlan& s,
         // a stream - and a scale up the neck is the one device with no internal
         // shape, which the solo code already says about it. Three fills and all
         // three a scale ascent is what the first pass produced.
-        const int fillWeights[5] = { hot ? 5 : 2,     // run
-                                     8,               // sequence
-                                     4,               // pedal
-                                     46,              // lick
-                                     37 };            // land
+        // LICK AND LAND WERE 83% OF EVERY FILL IN EVERY SONG. Two devices, in
+        // the same half of the same bars, is the whole of why the fills were
+        // reported as sounding the same from song to song - and no amount of
+        // reseeding fixes a deck with two cards in it.
+        //
+        // The four new devices are weighted INTO the fill hat rather than
+        // merely allowed into it. Each is a different kind of statement: a
+        // neighbour figure is a hand rather than a line, an arpeggio is the one
+        // device that hears the chord underneath, a chromatic approach is the
+        // sound of somebody who knows the neck rather than the scale, and a
+        // gallop is rhythm where the others are melody. LICK and LAND together
+        // are now 43%, which still makes them the backbone without making them
+        // the whole of it.
+        const int fillWeights[kNumDevices] = { hot ? 5 : 2,     // run
+                                               9,               // sequence
+                                               5,               // pedal
+                                               24,              // lick
+                                               19,              // land
+                                               14,              // neighbour
+                                               13,              // arpeggio
+                                               10,              // chromatic
+                                               hot ? 14 : 9 };  // gallop
 
         const int* w = answering ? fillWeights : weights;
 
         const auto draw = [&]
         {
             int total = 0;
-            for (int i = 0; i < 5; ++i) total += w[i];
+            for (int i = 0; i < kNumDevices; ++i) total += w[i];
 
             int pick = rng.below (total);
-            for (int i = 0; i < 5; ++i)
+            for (int i = 0; i < kNumDevices; ++i)
             {
                 pick -= w[i];
                 if (pick < 0) return i;
             }
-            return 4;
+            return static_cast<int> (Device::Land);
         };
 
-        int device = mustLand ? 4 : draw();
+        int device = mustLand ? static_cast<int> (Device::Land) : draw();
 
         // Not the same device as either of the last two. Two sequences back to
         // back read as one long sequence that lost its way, and a pedal at both
@@ -399,11 +500,21 @@ static void generateSolo (const SectionPlan& s,
 
         // Never open with the breath. A solo that begins by resting for half a
         // bar and then running up to one held note has not started yet.
-        if (! answering && lastDevice < 0 && device == 4)
-            device = 1;
+        if (! answering && lastDevice < 0 && device == static_cast<int> (Device::Land))
+            device = static_cast<int> (Device::Sequence);
+
+        // A GESTURE GETS ONE BAR; AN IDEA CAN HAVE TWO.
+        //
+        // Land and Chromatic are both approaches into one note. Given two bars
+        // they still play their three or four notes at the very end of the
+        // second one - measured at slots 27..30 of 32 - so the first bar and a
+        // half is silence the phrase never asked for. That is how the lead
+        // ended up playing thirty per cent fewer notes than it used to.
+        const bool gesture = device == static_cast<int> (Device::Land)
+                          || device == static_cast<int> (Device::Chromatic);
 
         const int bars  = answering ? 1
-                        : ((device == 4) ? 1 : ((room >= 2 && rng.chance (0.7)) ? 2 : 1));
+                        : (gesture ? 1 : ((room >= 2 && rng.chance (0.7)) ? 2 : 1));
 
         // A fill lives in the BACK of its bar.
         //
@@ -438,9 +549,9 @@ static void generateSolo (const SectionPlan& s,
 
             case 1:   // SEQUENCE
             {
-                const int* cell = kSoloCells[rng.below (5)];
+                const int* cell = kSoloCells[rng.below (kNumCells)];
                 int len = 0;
-                while (len < 4 && cell[len] != -99) ++len;
+                while (len < kCellWidth && cell[len] != -99) ++len;
 
                 const int stepPer = rng.chance (0.5) ? 1 : -1;
                 int base = degree;
@@ -493,33 +604,252 @@ static void generateSolo (const SectionPlan& s,
                 {
                     // A short burst with a hole in it, which is what makes it a
                     // motif rather than a fragment of a run.
+                    // A MOTIF THAT ONLY EVER WENT UP.
+                    //
+                    // `d` was incremented, full stop - so every lick in every
+                    // song rose, and the lick is the most-used device there is.
+                    // Measured across 34 songs at four seeds it put 57.6% of
+                    // all lead phrases ascending against 17.3% descending, and
+                    // a line that always climbs is most of what "it all sounds
+                    // the same" actually means. A player's phrases are not
+                    // fifty-fifty either, but they are not three and a half to
+                    // one.
+                    //
+                    // So: a direction per motif, and one turn allowed inside
+                    // it. The turn matters as much as the direction - a figure
+                    // that goes up and comes back is a shape, where one that
+                    // only goes up is the top of a scale.
                     motif.clear();
                     const int len = 4 + rng.below (3);
+                    int dir = rng.chance (0.5) ? 1 : -1;
+                    const int turnAt = rng.chance (0.55) ? 1 + rng.below (std::max (1, len - 2))
+                                                         : 99;
                     int d = degree;
                     for (int i = 0, slot = 0; i < len; ++i)
                     {
-                        motif.push_back ({ slot, d, 1, i == 0 ? 0.86 : 0.70, false });
+                        motif.push_back ({ slot, d, 1, i == 0 ? 0.86 : 0.70, false, 0 });
                         slot += (rng.chance (0.75) ? 1 : 2);
-                        d    += (rng.chance (0.65) ? 1 : 2);
-                        if (d > voice.top) d -= scaleSize;
+
+                        if (i + 1 == turnAt) dir = -dir;
+                        d += dir * (rng.chance (0.65) ? 1 : 2);
+
+                        while (d > voice.top) d -= scaleSize;
+                        while (d < 0)         d += scaleSize;
                     }
                 }
 
                 const int span = motif.back().slot + 2;
+
+                // THE REPEAT IS NOT IDENTICAL, and this is the smallest change
+                // in this file that sounds most like a person.
+                //
+                // A motif played three times unchanged is a loop. What a player
+                // does is say it again and then say it differently - the third
+                // time ends somewhere else, or steps up a degree, because the
+                // point of restating an idea is to go somewhere with it. Played
+                // literally, the lick was the single most recognisable thing in
+                // every song, which is exactly the complaint.
+                const int  shift    = rng.chance (0.55) ? (rng.chance (0.5) ? 1 : -1) : 0;
+                const bool moveLast = rng.chance (0.7);
+
                 for (int rep = 0; rep * span < slots; ++rep)
-                    for (const SoloStep& m : motif)
+                {
+                    // The first statement is always literal - it has to be
+                    // heard as itself before a variation of it means anything.
+                    const int lift = rep == 0 ? 0 : shift * rep;
+
+                    for (size_t mi = 0; mi < motif.size(); ++mi)
                     {
+                        const SoloStep& m = motif[mi];
                         const int slot = rep * span + m.slot;
                         if (slot >= slots) break;
-                        steps.push_back ({ slot, m.degree, m.length, m.accent, false });
+
+                        int d = m.degree + lift;
+
+                        // And the last note of a later repeat goes somewhere
+                        // else, which is what turns a restatement into an idea
+                        // being developed rather than replayed.
+                        if (rep > 0 && moveLast && mi + 1 == motif.size())
+                            d += (rep % 2 == 0) ? 2 : -1;
+
+                        while (d > voice.top) d -= scaleSize;
+                        while (d < 0)         d += scaleSize;
+
+                        steps.push_back ({ slot, d, m.length, m.accent, false, 0 });
                     }
+                }
 
                 if (! steps.empty())
                     degree = steps.back().degree;
                 break;
             }
 
-            default:  // LAND
+            case 5:   // NEIGHBOUR
+            {
+                // Two notes hammered against each other and then let go into a
+                // landing. Unlike everything above it, the hand does not move -
+                // which is why it reads as a gesture rather than as a line, and
+                // why it works in the single bar a fill gets.
+                const int above = rng.chance (0.7) ? 1 : 2;
+                const int home  = std::max (0, std::min (voice.top - above, degree));
+                const int other = home + above;
+
+                // The landing takes the last quarter or so. A trill that runs
+                // to the bar line has not finished, it has stopped.
+                const int hold  = std::max (2, slots / 4);
+                const int shake = std::max (2, slots - hold);
+
+                for (int i = 0; i < shake; ++i)
+                    steps.push_back ({ i, (i % 2 == 0) ? home : other, 1,
+                                       i == 0 ? 0.88 : 0.62, false, 0 });
+
+                const int land = rng.chance (0.6) ? home
+                                                  : std::max (0, home - 2);
+                steps.push_back ({ shake, land, std::max (2, slots - shake), 0.92, true, 0 });
+                degree = land;
+                break;
+            }
+
+            case 6:   // ARPEGGIO
+            {
+                // THE CHORD, not the scale.
+                //
+                // Every other device here is spelled out of the mode, which is
+                // why every other device fits over any bar - and why none of
+                // them says anything about WHICH bar. This one reads the chord
+                // underneath and plays its notes, so it lands differently on a
+                // minor bar than on the major one four bars later even when the
+                // seed hands it exactly the same shape.
+                const Chord& c = chords[static_cast<size_t> (bar) % chords.size()];
+
+                const int wanted[4] = { c.rootPc,
+                                        (c.rootPc + std::max (0, c.thirdSemitones())) % 12,
+                                        (c.rootPc + c.fifthSemitones()) % 12,
+                                        (c.rootPc + std::max (0, c.seventhSemitones())) % 12 };
+
+                // Which degrees of this scale are chord tones. Worked out once
+                // over the playable range rather than searched per note.
+                std::vector<int> tones;
+                for (int d = 0; d <= voice.top; ++d)
+                {
+                    const int pc = ((voice.pitchFor (d) % 12) + 12) % 12;
+                    for (int wpc : wanted)
+                        if (pc == wpc) { tones.push_back (d); break; }
+                }
+
+                if (tones.size() < 2)
+                {
+                    // A chord this scale cannot spell. Fall through to a run
+                    // rather than emit nothing.
+                    for (int i = 0; i < slots; ++i)
+                        steps.push_back ({ i, std::min (voice.top, degree + i), 1, 0.70, false, 0 });
+                    break;
+                }
+
+                // Start from wherever the line already is, so the arpeggio
+                // arrives rather than jumping to the root every time.
+                size_t at = 0;
+                for (size_t i = 0; i < tones.size(); ++i)
+                    if (std::abs (tones[i] - degree) < std::abs (tones[at] - degree))
+                        at = i;
+
+                int dir = rng.chance (0.5) ? 1 : -1;
+                const bool skipping = rng.chance (0.35);   // every other tone: wider, hornier
+
+                for (int i = 0; i < slots; ++i)
+                {
+                    steps.push_back ({ i, tones[at], 1, i == 0 ? 0.84 : 0.70, false, 0 });
+
+                    const int move = skipping ? 2 : 1;
+                    if (dir > 0 && at + static_cast<size_t> (move) < tones.size())
+                        at += static_cast<size_t> (move);
+                    else if (dir < 0 && at >= static_cast<size_t> (move))
+                        at -= static_cast<size_t> (move);
+                    else
+                        dir = -dir;          // turn round at the end of the neck
+                }
+
+                degree = tones[at];
+                break;
+            }
+
+            case 7:   // CHROMATIC
+            {
+                // A target walked into from outside the key. The notes on the
+                // way are deliberately wrong and the one at the end is
+                // deliberately right, which is the whole effect - and it is
+                // only available because SoloStep can carry semitones.
+                // Two or three approach notes, and never so many that the
+                // note they are approaching does not fit in the phrase. Same
+                // fault NEIGHBOUR had: a landing that runs past the end of its
+                // own bar is a second guitarist playing over the next one.
+                const int steps_ = std::min (2 + rng.below (2),
+                                             std::max (1, slots - 1));
+                // A leading tone from below is genuinely the commoner of
+                // the two, so this one keeps a lean - just not the old one.
+                const bool fromBelow = rng.chance (0.55);
+
+                int target = std::max (0, std::min (voice.top, degree + (rng.below (5) - 2)));
+
+                // Approach notes sit on the TARGET's degree with a semitone
+                // offset, so they are a semitone apart from each other however
+                // the scale is spaced at that point in it.
+                const int start = std::max (0, slots - steps_ - 2);
+
+                for (int i = 0; i < steps_; ++i)
+                {
+                    const int away = steps_ - i;
+                    steps.push_back ({ start + i, target,
+                                       1, 0.66 + 0.04 * i, false,
+                                       fromBelow ? -away : away });
+                }
+
+                const int holdAt = start + steps_;
+                if (holdAt < slots)
+                    steps.push_back ({ holdAt, target,
+                                       std::max (1, slots - holdAt), 0.94, true, 0 });
+
+                degree = target;
+                break;
+            }
+
+            default:
+                if (device == static_cast<int> (Device::Gallop))
+                {
+                    // RHYTHM, where everything above is melody.
+                    //
+                    // One or two pitches and a figure with holes in it. A fill
+                    // does not have to be a line at all - a lot of what a
+                    // second guitarist actually plays is a rhythm answered back
+                    // at the riff, and a vocabulary made entirely of melodies
+                    // cannot say that however many shapes are in it.
+                    const int low  = std::max (0, degree - (rng.chance (0.5) ? 0 : 3));
+                    const int high = std::min (voice.top, low + (rng.chance (0.6) ? 3 : 5));
+
+                    // Gallop proper (note, rest, note-note) or the straight
+                    // three against four that goes with it.
+                    const bool triplet = rng.chance (0.45);
+
+                    for (int i = 0; i < slots; ++i)
+                    {
+                        const int inFigure = triplet ? (i % 3) : (i % 4);
+
+                        // The hole. Leaving it out is what makes the rest a
+                        // figure rather than a stream.
+                        if (! triplet && inFigure == 1)
+                            continue;
+
+                        const bool accentNote = inFigure == 0;
+                        steps.push_back ({ i, accentNote ? low : high, 1,
+                                           accentNote ? 0.90 : 0.64, false, 0 });
+                    }
+
+                    if (! steps.empty())
+                        degree = steps.back().degree;
+                    break;
+                }
+
+                // LAND
             {
                 // A fast approach, then one note held. The approach is what
                 // makes the held note sound arrived at rather than merely next.
@@ -534,7 +864,9 @@ static void generateSolo (const SectionPlan& s,
                 // this phrase is meant to be the held note, which is a sound;
                 // it was a rest, which is not.
                 const int  approach = 3 + rng.below (5);
-                const bool rising   = rng.chance (0.6);
+                // Not 0.6. Every device in this file leaned upward by
+                // default and they compounded - see the note in LICK.
+                const bool rising   = rng.chance (0.5);
                 const int  start    = rng.below (2);
 
                 int d = rising ? std::max (0, degree - approach)
@@ -600,7 +932,11 @@ static void generateSolo (const SectionPlan& s,
                 continue;
 
             const int clamped = std::max (0, std::min (voice.top, st.degree));
-            const int pitch   = voice.pitchFor (clamped);
+
+            // st.semis is how a device plays a note the scale does not contain.
+            // Clamped to the playable range like everything else - a chromatic
+            // approach that walks off the bottom of the neck is not one.
+            const int pitch   = voice.pitchFor (clamped) + st.semis;
             if (pitch < voice.lowest || pitch > voice.highest)
                 continue;
 
@@ -628,7 +964,8 @@ static void generateSolo (const SectionPlan& s,
         // A whole bar off is rare now. It was one in five, and a silent bar in
         // the middle of a solo at this tempo is a long time to wait - the held
         // note at the end of a LAND is where the air is supposed to come from.
-        if (! answering && device != 4 && room > bars + 2 && rng.chance (0.08))
+        if (! answering && device != static_cast<int> (Device::Land)
+              && room > bars + 2 && rng.chance (0.08))
             ++bar;
     }
 
@@ -767,11 +1104,33 @@ static void generateSolo (const SectionPlan& s,
     std::sort (out.lead.begin(), out.lead.end(),
                [] (const LeadIntent& a, const LeadIntent& b) { return a.tick < b.tick; });
 
-    for (size_t i = 0; i + 1 < out.lead.size(); ++i)
+    for (size_t i = 0; i + 1 < out.lead.size(); )
     {
         const int gap = out.lead[i + 1].tick - out.lead[i].tick;
-        if (gap > 0)
-            out.lead[i].durationTicks = std::min (out.lead[i].durationTicks, gap);
+
+        // TWO NOTES ON ONE TICK IS NOT A SHORT NOTE, IT IS TWO VOICES.
+        //
+        // This loop clamped a note to the gap before the next one and skipped
+        // the case where that gap was zero - which is the one case clamping
+        // cannot fix, because a duration of nought is not a note. So the pair
+        // survived, and a line that is one guitarist with one neck played a
+        // two-note chord.
+        //
+        // It sat here harmlessly until the vocabulary widened enough to reach
+        // it. Dropping one of the pair is the only answer available: keep the
+        // longer, because the shorter is the one about to be clamped to
+        // nothing anyway, and a held note is the one a phrase was built to
+        // arrive at.
+        if (gap <= 0)
+        {
+            const size_t drop = out.lead[i].durationTicks >= out.lead[i + 1].durationTicks
+                                  ? i + 1 : i;
+            out.lead.erase (out.lead.begin() + static_cast<long> (drop));
+            continue;
+        }
+
+        out.lead[i].durationTicks = std::min (out.lead[i].durationTicks, gap);
+        ++i;
     }
 }
 

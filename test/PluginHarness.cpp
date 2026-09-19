@@ -2336,7 +2336,39 @@ int main (int argc, char** argv)
                     }
                 }
 
-                check (monophonic, "one note at a time - a player has one voice");
+                // AND SAY WHICH, when it is not. "monophonic == false" sends
+                // you reading the whole generator; the offending pair names the
+                // device in one line.
+                // AND SAY WHICH, when it is not.
+                //
+                // "monophonic == false" sends you reading the whole generator.
+                // The offending pair names the fault in one line, and it earned
+                // its keep immediately: the pair it printed was two notes on
+                // the SAME tick, which is a different bug from a note held too
+                // long and is fixed in a different place.
+                juce::String clash;
+                for (size_t i = 0; i + 1 < lead.size() && clash.isEmpty(); ++i)
+                    if (lead[i].tick + lead[i].durationTicks > lead[i + 1].tick + 1)
+                        clash = "note " + juce::String (lead[i].pitch)
+                              + " at " + juce::String (lead[i].tick)
+                              + " for " + juce::String (lead[i].durationTicks)
+                              + " runs into " + juce::String (lead[i + 1].pitch)
+                              + " at " + juce::String (lead[i + 1].tick);
+
+                check (monophonic, "one note at a time - a player has one voice", clash);
+
+                // AND NEVER TWO ON THE SAME TICK, which the clamp above cannot
+                // fix and used to skip: a duration of nought is not a note, so
+                // the pair survived and a line that is one guitarist with one
+                // neck played a two-note chord. Checked separately from the
+                // overlap because it is a separate fault with a separate fix.
+                int sameTick = 0;
+                for (size_t i = 0; i + 1 < lead.size(); ++i)
+                    if (lead[i].tick == lead[i + 1].tick)
+                        ++sameTick;
+
+                check (sameTick == 0, "and never two notes on one tick",
+                       juce::String (sameTick) + " coincident pairs");
                 check (inRange, "and every note is inside the instrument's range");
                 check (steps > leaps, "it moves mostly by step rather than leaping",
                        juce::String (steps) + " steps, " + juce::String (leaps) + " leaps");
