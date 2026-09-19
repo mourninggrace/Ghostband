@@ -10,11 +10,9 @@ nobody has to read it.
 
 ## State
 
-- **v0.5.0 released 2026-09-14.** Tagged, published, marked latest, installed,
-  and its checksum verified by downloading it back from GitHub.
-- **SESSION 21 IS INSTALLED BUT NOT RELEASED.** The lead guitar's vocabulary,
-  the fill placement, keyswitches drawn as wiring and the INTUITION dial have
-  all landed since. A release is due.
+- **v0.6.0 released 2026-09-19.** Tagged, published, marked latest, installed,
+  and its checksum verified by downloading it back from GitHub. Nothing is
+  unreleased.
 - **The window is 1180x820, minimum 1020x820.** Both numbers are load-bearing:
   the minimum is set by the two-column Settings screen, not by the song screen,
   and the harness's `kMinW`/`kMinH` must move with it.
@@ -146,6 +144,58 @@ to run: Windows Defender real-time protection and behaviour monitoring are on
 with no exclusions (Kontakt streaming samples through a scanner is the classic
 cause of exactly this), and bisecting the rackspace would settle it. Both are
 written up in OPEN-QUESTIONS.
+
+## Session 21: the lead guitar, and a dial for instinct
+
+Ended with **v0.6.0**.
+
+**THE COMPLAINT WAS STRUCTURAL, AND THE CODE SAID SO ONCE IT WAS MEASURED.**
+"The fills and the lead guitar always sound the same almost from song to song."
+Five cell shapes, two devices making up 83% of every fill, and - the one that
+matters - the LICK COULD ONLY GO UP. Its motif incremented the degree, full
+stop, and the lick is the most-used device there is.
+
+Measured across 34 songs at four seeds: 57.6% of lead phrases ascending against
+17.3% descending. Three and a half to one. Now 26.6 / 26.6.
+
+**THE MEASUREMENT IS THE LESSON HERE.** The first metric tried was "distinct
+interval shapes as a fraction of phrases played", which moved from 71.3% to
+75.1% and said the change was marginal. It was the wrong metric: a lick
+transposed up a tone is a new shape and the same lick. What an ear calls
+sameness is CHARACTER - direction, interval class, phrase length - and measuring
+that found the ascending lean in one pass. When a number disagrees with the
+report, suspect the number.
+
+**AND THE RHYTHM OF A FILL WAS A METRONOME.** Bar 4, 8, 12 or the last, always
+starting exactly half way through. Twenty-two cells and nine devices do not help
+a metronome. Now: the fourth bar is the commonest rather than the only one,
+five start positions including a pickup that crosses the bar line, and never two
+bars running.
+
+**TWO CHECKS SAID "ONLY" AND "NEVER", AND WERE HALF THE REASON IT COULD NOT
+CHANGE.** Pinned exactly, they made the identical rhythm a requirement. A
+tendency is worth holding; an absolute is what makes an engine sound like an
+engine. They are majorities now, plus a new one that FAILS if fills land only on
+the fourth bar - the check that would have caught the original complaint.
+
+**INTUITION, and the rule that made it safe.** A fourth dial: how much the band
+plays what it feels like rather than what is obvious, reaching the lead, the
+bass and the drums. Every use goes through `gb::byIntuition`, which returns
+today's number precisely at 0.5 - so adding a control changed nothing about the
+34 presets and left both pins untouched. That rule is the reusable part: a new
+global control whose default is A SENSIBLE MIDDLE rewrites everything; one whose
+default is THE OLD BEHAVIOUR costs nothing to add.
+
+**TWO LATENT BUGS FELL OUT, both older than the work.** A lead line could play
+two notes on one tick - the monophonic pass clamped each note to the gap before
+the next and skipped the zero case, which is the one case clamping cannot fix.
+And a grid column is 114 pixels of which the note, velocity and hit count were
+spending 96, so a control change drew "cc" and its number fell off the end. In
+every window size this plugin has ever had.
+
+**A KEYSWITCH IS NOT A NOTE.** `A7` in the GTR 2 column was defended in the
+v0.5.0 notes as the grid showing the wire. It was also hiding real notes: a
+switch goes out at a fixed velocity and won the one line a cell has.
 
 ## Session 20: an audit, motion, Hydra's neck, and a die
 

@@ -3,7 +3,7 @@
 One file, so none of it has to be remembered. Answered items move to the bottom
 with a date rather than being deleted, so the same question is never asked twice.
 
-**Last updated 2026-09-19, end of session 21.**
+**Last updated 2026-09-19, end of session 21. v0.6.0 is out.**
 
 ---
 
@@ -117,21 +117,16 @@ velocity and hit count were spending 96 of them, so a control change drew `cc`
 and its number fell off the end. **In every window size this plugin has ever
 had.** You could never tell cc7 from cc65. You can now.
 
-### 0a. v0.5.0 is out
+### 0a. v0.6.0 is out
 
-https://github.com/mourninggrace/Ghostband/releases/tag/v0.5.0
+https://github.com/mourninggrace/Ghostband/releases/tag/v0.6.0
 
 Published, marked latest, installed on your machine, and the download's checksum
 verified by fetching it back from GitHub. Nothing is sitting unreleased.
 
-**Two things in it want your ears rather than your eyes:**
-
-- **The second guitar's neck position.** A solo section against a chorus is the
-  place to hear it - same notes, different strings, different voice. If the
-  answering parts now sound too separated, Polyphonic is the reason and one line
-  in `profiles/shreddage-3-hydra.json` turns it off.
-- **The dice.** Roll it a few times, then right-click to put one back. If the
-  tempo nudge feels too narrow or too wide, it is one number.
+Everything in section 0-new above is in it. v0.5.0's two questions - the second
+guitar's neck position and the dice's tempo nudge - are still open and still
+only answerable by ear.
 
 ### 0b. The mix knobs, and the ROWS selector — try these first
 
