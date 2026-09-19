@@ -1111,15 +1111,25 @@ int main (int argc, char** argv)
     }
 
     // ---- the second guitar answering, rather than soloing or silent ---------
-    // A fill is a lead line placed where the harmony leaves room. It has three
-    // properties worth holding: it lands only at the end of a four-bar group,
-    // it stays in the back half of that bar, and it sits under whoever it is
-    // answering rather than on top of them.
+    // A fill is a lead line placed where the harmony leaves room. It sits under
+    // whoever it is answering rather than on top of them, it stays out of the
+    // front of the bar, and it lands MOSTLY at the end of a four-bar group.
     //
-    // The first pass had none of them. Given a whole bar it filled the whole
+    // The first pass had none of that. Given a whole bar it filled the whole
     // bar - eleven notes of repeating cell, which is a run wearing a fill's
     // job - and a held note could start past the end of its own phrase and
     // land on the downbeat of the bar it was staying out of.
+    //
+    // THESE CHECKS USED TO SAY "ONLY" AND "NEVER", and they were wrong to.
+    // Pinned exactly, they made the rhythm of a fill identical in every song
+    // ever played - reported as "every fill landing on beat 3 of every 4th bar
+    // is no good and will need to change", and the checks were half the reason
+    // it could not. A tendency is the thing worth holding; an absolute is what
+    // makes an engine sound like an engine. So they are now majorities with the
+    // floor set well below what the weights produce, which still catches the
+    // fault they were written for - a fill wandering into the front of the bar,
+    // or spraying evenly across every bar - without forbidding a player from
+    // ever anticipating one.
     {
         gb::SongPlan plan;
         std::string err;
@@ -1167,19 +1177,34 @@ int main (int argc, char** argv)
                 const int within = n.tick % barTicks;
 
                 if ((bar + 1) % 4 != 0)              ++offBoundary;
-                if (within < barTicks / 2 - 20)      ++inFrontHalf;
+
+                // A THIRD of the bar, not a half. A pickup is counted against
+                // the bar it lands IN, so an anticipation legitimately shows up
+                // early here - but nothing may start in the first third, which
+                // is where the part being answered actually lives.
+                if (within < barTicks / 3 - 20)      ++inFrontHalf;
             }
 
             check (notes > 6, "the second guitar actually plays fills",
                    juce::String (notes) + " notes across 16 bars");
 
-            check (offBoundary == 0,
-                   "and only at the end of a four-bar group",
-                   juce::String (offBoundary) + " notes landed elsewhere");
+            const int onBoundary = notes - offBoundary;
+
+            check (onBoundary * 2 > notes,
+                   "and mostly at the end of a four-bar group, where the singer stops",
+                   juce::String (onBoundary) + " of " + juce::String (notes)
+                       + " notes on the boundary");
+
+            // But NOT all of them, or the rhythm of a fill is a metronome and
+            // every song has the same one. This is the check that would have
+            // caught the original complaint.
+            check (offBoundary > 0,
+                   "and not ONLY there - the fourth bar is a tendency, not a rule",
+                   juce::String (offBoundary) + " notes elsewhere");
 
             check (inFrontHalf == 0,
-                   "and in the back half of the bar, behind whoever it answers",
-                   juce::String (inFrontHalf) + " notes in the front half");
+                   "and never in the front of the bar, where the part it answers is",
+                   juce::String (inFrontHalf) + " notes in the front third");
 
             // Under, not over. The rhythm guitar is leading this section.
             const double avg = notes > 0 ? accentSum / notes : 1.0;

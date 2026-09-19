@@ -382,6 +382,12 @@ static void generateSolo (const SectionPlan& s,
     // which reads as the same idea twice however far apart it lands.
     int lastDevice = -1, beforeThat = -1;
 
+    // Which bar last took a fill, so two cannot land in a row. See the
+    // placement note below: the openings are no longer only every fourth bar,
+    // and without this a 2 and a 3 next to each other would read as a part
+    // rather than as two answers.
+    int lastFillBar = -1;
+
     for (int bar = 0; bar < s.bars; )
     {
         const int room = s.bars - bar;
@@ -395,25 +401,55 @@ static void generateSolo (const SectionPlan& s,
         // The last bar of the section always counts, however the bars divide,
         // because the run-up into the next section is the other thing a second
         // guitarist reliably plays.
+        // THE FOURTH BAR IS NOT THE ONLY BAR. Reported after the vocabulary
+        // widened and the fills still read as the same thing: "every fill
+        // landing on beat 3 of every 4th bar is no good".
+        //
+        // Both halves of that were true and both were literal. A fill could
+        // only happen on bar 4, 8, 12 or the last one, and it always started
+        // exactly half way through - so the RHYTHM of when a fill arrives was
+        // identical in every song ever played, whatever the notes were. No
+        // amount of vocabulary fixes a metronome.
+        //
+        // The fourth bar stays the commonest by a long way, because it is where
+        // the singer actually stops. What changes is that it is no longer the
+        // only place, and that the other places are rare enough to read as
+        // choices rather than as a part.
         if (answering)
         {
-            const bool endOfFour  = ((bar + 1) % 4 == 0);
-            const bool lastBar    = (bar + 1 == s.bars);
+            const int  inFour  = bar % 4;
+            const bool lastBar = (bar + 1 == s.bars);
 
-            if (! endOfFour && ! lastBar)
+            //   bar 4   the phrase ends, the singer stops - the plain answer
+            //   bar 2   a short one mid-phrase, the commonest of the others
+            //   bar 3   early, and it works because it is unexpected
+            //   bar 1   rare enough to be a statement when it happens
+            double want = lastBar        ? 1.00
+                        : inFour == 3    ? 1.00
+                        : inFour == 1    ? 0.24
+                        : inFour == 2    ? 0.14
+                                         : 0.06;
+
+            // FILLS still means what it meant: how much of the available room
+            // is taken. It scales the openings rather than replacing them, so
+            // turning it down thins every position evenly instead of collapsing
+            // back to the fourth bar.
+            if (! lastBar)
+                want *= fillAmount;
+
+            // Never two bars running, except into the end of the section, where
+            // a run-up over the bar line is the point. Two adjacent answers are
+            // a part, and a part is the thing this is supposed to stay out of.
+            if (lastFillBar >= 0 && bar - lastFillBar < 2 && ! lastBar)
+                want = 0.0;
+
+            if (! rng.chance (want))
             {
                 ++bar;
                 continue;
             }
 
-            // And not every one of them. A fill in all four openings is a
-            // second solo; leaving some alone is what makes the ones that
-            // land read as answers rather than as a part.
-            if (! lastBar && ! rng.chance (fillAmount))
-            {
-                ++bar;
-                continue;
-            }
+            lastFillBar = bar;
         }
 
         // Every third or fourth phrase has to breathe, or the section is one
@@ -516,15 +552,52 @@ static void generateSolo (const SectionPlan& s,
         const int bars  = answering ? 1
                         : (gesture ? 1 : ((room >= 2 && rng.chance (0.7)) ? 2 : 1));
 
-        // A fill lives in the BACK of its bar.
+        // A fill lives in the BACK of its bar - but not always the same part of
+        // the back, which is the other half of "beat 3 of every 4th bar".
         //
-        // Given a whole bar it filled the whole bar - eleven notes of repeating
+        // Given a whole bar it filled the whole bar: eleven notes of repeating
         // cell, which is a run wearing a fill's job. An answer comes after the
-        // thing it answers: the singer or the riff has the first half, the
-        // second guitar gets the last two beats. Half a bar also puts a natural
-        // ceiling on the note count without capping it arbitrarily.
-        const int slotOffset = answering ? slotsPerBar / 2 : 0;
-        const int slots      = answering ? (slotsPerBar - slotOffset)
+        // thing it answers - the singer or the riff has the front of the bar,
+        // the second guitar gets what is left. That principle is right and it
+        // is kept. What was wrong was pinning it to exactly half, so every fill
+        // in every song began on the same beat and the ear learned it.
+        //
+        // Five places instead of one, and the plain one is still the commonest:
+        //
+        //   half bar     beat 3 of 4. The answer, and what this always did.
+        //   last quarter beat 4. A short answer - two or three notes, said and
+        //                gone, which is most of what a second guitarist plays.
+        //   off the half a push. Late enough to lean on the beat rather than
+        //                land on it, which is where the feel comes from.
+        //   early        three eighths in. A longer answer that starts under
+        //                the tail of the thing it is answering.
+        //   PICKUP       before the bar line, resolving inside the bar. The one
+        //                that most sounds like a player rather than a grid:
+        //                anticipating the hole instead of waiting for it.
+        int fillStart = slotsPerBar / 2;
+
+        if (answering)
+        {
+            const int r = rng.below (100);
+
+            if      (r < 38) fillStart = slotsPerBar / 2;
+            else if (r < 62) fillStart = (slotsPerBar * 3) / 4;
+            else if (r < 78) fillStart = (slotsPerBar * 5) / 8;
+            else if (r < 92) fillStart = (slotsPerBar * 3) / 8;
+            else             fillStart = -(slotsPerBar / 8);
+
+            // A pickup reaches backwards, so it cannot be the first bar of the
+            // section - there is nothing behind it to reach into, and the tick
+            // would land before the section starts.
+            if (fillStart < 0 && bar == 0)
+                fillStart = slotsPerBar / 2;
+        }
+
+        const int slotOffset = answering ? fillStart : 0;
+
+        // Never more than a bar's worth however early it starts, so a pickup is
+        // an anticipation rather than a licence to play through the whole bar.
+        const int slots      = answering ? std::min (slotsPerBar, slotsPerBar - fillStart)
                                          : bars * slotsPerBar;
 
         steps.clear();
