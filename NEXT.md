@@ -6,20 +6,22 @@ useless for the one job it has: telling whoever picks this up next what is true
 right now. The history is in `docs/archive/NEXT-through-session-13.md`, and
 nobody has to read it.
 
-**Last touched 2026-09-24, session 22.**
+**Last touched 2026-09-24, session 23.**
 
 ## State
 
 - **v2.0.0 released 2026-09-24** (first cut as v0.7.0 the same day and
   renumbered at the owner's request - the planner was v2's headline). Tagged,
-  published, marked latest, and its checksum verified by downloading it back from GitHub. Nothing is unreleased.
-- **The AI planner is built and shipped** (optional, own key, Claude Opus 5.5 at
-  medium). The one part never exercised by the suite is the real network call;
-  the owner's first real song is its first run.
+  published, marked latest, and its checksum verified by downloading it back from GitHub.
+- **Unreleased on `main`:** the planner status-line fixes from session 23
+  (in CHANGELOG under Unreleased). Installed on the owner's machine; not yet a release.
+- **The AI planner works for real.** First live call 2026-09-24: "Slow Burn Iron",
+  23 s, 3,588 in / 2,261 out (about 6¢), served by claude-opus-5-5 with no
+  fallback. The owner: "awesome so far".
 - **The window is 1180x820, minimum 1020x820.** Both numbers are load-bearing:
   the minimum is set by the two-column Settings screen, not by the song screen,
   and the harness's `kMinW`/`kMinH` must move with it.
-- **477 checks** pass on every build, and all 34 plans are swept.
+- **479 checks** pass on every build, and all 34 plans are swept.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
@@ -154,6 +156,27 @@ to run: Windows Defender real-time protection and behaviour monitoring are on
 with no exclusions (Kontakt streaming samples through a scanner is the classic
 cause of exactly this), and bisecting the rackspace would settle it. Both are
 written up in OPEN-QUESTIONS.
+
+## Session 23: the planner's first real song, and a line you could not read
+
+The first live planner call worked first time: 23 seconds, about 6¢, and the
+owner liked the song. The only fault was on screen.
+
+- **The explanation was cut off.** `writeStatus` is one 18px line in the rail and
+  the planner writes one or two sentences. Making it taller was tried first: six
+  lines is 68px, and at the 820px minimum that pushed the GTR 2 and PIANO mix
+  rows to zero height (the zero-size check caught it). The owner chose from three
+  mockups: **one line, cut at a word with "... more", and a click opens a
+  `CallOutBox` with all of it.** `WriteStatusLine` in PluginEditor.h holds the
+  full text; `fitWriteStatus()` fits it with the label's own font.
+- **A refusal flashed and vanished.** `startWriting()` set the label directly and
+  the next timer tick's `refreshPlannerControls()` overwrote it with an empty
+  line. Refusals and the undo messages are now kept in `writeNote` and shown by
+  the refresh itself, until the next write.
+- Two new checks, both about what the owner can actually read: a refusal
+  survives a refresh; a two-sentence explanation shows as one unsquashed line
+  ending in "... more", and a click opens all of it. The fitting check failed
+  against the old layout (6 lines needed, 1 available) before it was trusted.
 
 ## Session 22: the planner ships, and the guitar stops muting itself
 

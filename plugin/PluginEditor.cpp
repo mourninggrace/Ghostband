@@ -1689,12 +1689,15 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
             easeAllKnobsToProcessor();
             tracker.sweepIn();
             animator.wake();
-            writeStatus.setText ("Put back where it was before.", juce::dontSendNotification);
+            writeNote = "Put back where it was before.";
+            writeNoteIsWarning = false;
         }
         else
         {
-            writeStatus.setText ("Nothing to put back.", juce::dontSendNotification);
+            writeNote = "Nothing to put back.";
+            writeNoteIsWarning = false;
         }
+        refreshPlannerControls();
     };
     addAndMakeVisible (writeButton);
 
@@ -2099,7 +2102,8 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 
     // The planner's two labels, here because this is where initLabel exists.
     initLabel (writeStatus, "", 13.0f, ghost::dim, juce::Justification::centredLeft);
-    writeStatus.setMinimumHorizontalScale (0.8f);
+    writeStatus.setMinimumHorizontalScale (1.0f);   // cut at a word, never squashed
+    writeStatus.onClick = [this] { openWriteStatus(); };
     initLabel (plannerKeyLabel, "API KEY", 15.0f, ghost::dim, juce::Justification::centredLeft);
 
     initLabel (mixLabel,          "MIX",    15.0f, ghost::dim, juce::Justification::centredLeft);
@@ -4020,16 +4024,16 @@ void GhostbandEditor::refreshPlannerControls()
         line = "Add an API key in Settings to write songs.";
     else if (st.busy)
         line = "writing... " + juce::String ((juce::Time::getMillisecondCounter() - st.startedMs) / 1000u) + "s";
+    else if (writeNote.isNotEmpty())
+        line = writeNote;
     else if (st.anyResult)
         line = st.message;
 
-    if (writeStatus.getText() != line)
-    {
-        writeStatus.setText (line, juce::dontSendNotification);
-        writeStatus.setTooltip (line);
-        writeStatus.setColour (juce::Label::textColourId,
-                               st.anyResult && ! st.lastOk && ! st.busy ? ghost::warn : ghost::dim);
-    }
+    const bool warn = haveKey && ! st.busy
+                      && (writeNote.isNotEmpty() ? writeNoteIsWarning : (st.anyResult && ! st.lastOk));
+
+    if (writeStatus.full != line)
+        showWriteStatus (line, warn ? ghost::warn : ghost::dim);
 
     plannerKeyEditor.setTextToShowWhenEmpty (haveKey ? "saved, encrypted for this Windows user"
                                                      : "paste your Anthropic API key",
@@ -4040,14 +4044,70 @@ void GhostbandEditor::refreshPlannerControls()
 void GhostbandEditor::startWriting()
 {
     juce::String whyNot;
-    if (! processor.writeSong (writeRequest.getText(), whyNot))
+    // The refusal is kept, not just shown: the timer repaints this line every
+    // tick and would otherwise wipe it before it could be read.
+    const bool started = processor.writeSong (writeRequest.getText(), whyNot);
+    writeNote          = started ? juce::String() : whyNot;
+    writeNoteIsWarning = ! started;
+    refreshPlannerControls();
+}
+
+void GhostbandEditor::showWriteStatus (const juce::String& line, juce::Colour colour)
+{
+    writeStatus.full = line;
+    writeStatus.setColour (juce::Label::textColourId, colour);
+    fitWriteStatus();
+}
+
+// Cut at the last whole word that leaves room for "... more". Measured with the
+// font the label draws with, so what is shown is exactly what fits.
+void GhostbandEditor::fitWriteStatus()
+{
+    const juce::String& full = writeStatus.full;
+    const juce::Font font = getLookAndFeel().getLabelFont (writeStatus);
+    const float room = (float) writeStatus.getBorderSize().subtractedFrom (writeStatus.getLocalBounds()).getWidth();
+    const juce::String tail ("... more");
+
+    juce::String shown = full;
+    bool cut = false;
+
+    if (room > 0.0f && juce::GlyphArrangement::getStringWidth (font, full) > room)
     {
-        writeStatus.setText (whyNot, juce::dontSendNotification);
-        writeStatus.setColour (juce::Label::textColourId, ghost::warn);
-        return;
+        cut = true;
+        juce::String head = full;
+        while (head.isNotEmpty()
+               && juce::GlyphArrangement::getStringWidth (font, head.trimEnd() + tail) > room)
+        {
+            const int space = head.trimEnd().lastIndexOfChar (' ');
+            head = space > 0 ? head.substring (0, space) : juce::String();
+        }
+        shown = head.trimEnd().trimCharactersAtEnd (".,;:-") + tail;
     }
 
-    refreshPlannerControls();
+    writeStatus.shortened = cut;
+    writeStatus.setText (shown, juce::dontSendNotification);
+    writeStatus.setTooltip (cut ? "Click to read all of it." : juce::String());
+    writeStatus.setMouseCursor (cut ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
+}
+
+// The whole line, wrapped, in a bubble pointing at it.
+void GhostbandEditor::openWriteStatus()
+{
+    const int width = 320;
+    auto text = std::make_unique<juce::Label>();
+    text->setText (writeStatus.full, juce::dontSendNotification);
+    text->setFont (getLookAndFeel().getLabelFont (writeStatus));
+    text->setColour (juce::Label::textColourId, juce::Colours::white.withAlpha (0.9f));
+    text->setJustificationType (juce::Justification::topLeft);
+    text->setMinimumHorizontalScale (1.0f);
+
+    // Word wrap loses up to a word per line; a quarter of a line each is generous.
+    const juce::Font font = text->getFont();
+    const int lines = 1 + (int) (juce::GlyphArrangement::getStringWidth (font, writeStatus.full)
+                                 / ((float) (width - 10) * 0.75f));
+    text->setSize (width, 4 + (int) std::ceil (font.getHeight() * (float) (lines + 1)));
+
+    juce::CallOutBox::launchAsynchronously (std::move (text), writeStatus.getBounds(), this);
 }
 
 void GhostbandEditor::timerCallback()
@@ -5997,6 +6057,7 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
         row.removeFromRight (6);
         writeRequest.setBounds (row);
         writeStatus.setBounds (rail.removeFromTop (18));
+        fitWriteStatus();
 
         rail.removeFromTop (4);
         planLabel.setBounds (rail.removeFromTop (22));

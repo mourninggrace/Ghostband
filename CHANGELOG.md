@@ -5,6 +5,24 @@ measured, not estimated; where something could not be measured yet, it says so.
 
 Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/releases).
 
+## [Unreleased]
+
+### Fixed
+- **The planner's explanation is readable in full.** The line under **Write** was
+  one line wide, so a two-sentence explanation was cut off mid-word with no way
+  to read the rest. Text too long for the line now ends in "... more" at a whole
+  word, and clicking it opens the whole explanation in a bubble. Nothing is
+  squashed and nothing moves.
+- **A refusal to write no longer vanishes.** When Write said no (an empty box, a
+  key that could not be read), the reason was shown and wiped by the next screen
+  refresh a fraction of a second later, too fast to read. It now stays until the
+  next write, and so do the right-click "put back" messages.
+
+### Measured
+- **What a written song costs.** The first real planner song took 23 seconds
+  and used 3,588 tokens in and 2,261 out: about 6¢ at Claude Opus 5.5's
+  $4 / $20 per million tokens (September 2026 prices).
+
 ## [2.0.0] — 2026-09-24
 
 Version 2, because its headline — the AI planner — was always planned as version 2's. First published as 0.7.0 the same day with identical content, then renumbered.

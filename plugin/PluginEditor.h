@@ -615,9 +615,22 @@ public:
 
     // The planner's controls as the owner would see them.
     bool         writeEnabledForTesting() const { return writeButton.isEnabled(); }
-    juce::String writeStatusForTesting()  const { return writeStatus.getText(); }
+    juce::String writeStatusForTesting()  const { return writeStatus.full; }
+    juce::String writeStatusShownForTesting() const { return writeStatus.getText(); }
     juce::String writeTooltipForTesting()       { return writeButton.getTooltip(); }
     void         refreshPlannerForTesting()     { refreshPlannerControls(); }
+    void         pressWriteForTesting (const juce::String& request) { writeRequest.setText (request, false); startWriting(); }
+    void         showWriteStatusForTesting (const juce::String& line) { showWriteStatus (line, ghost::dim); }
+
+    // Whether the shown line fits its one line at its width, never squashed.
+    bool writeStatusFitsForTesting()
+    {
+        const juce::Font font = getLookAndFeel().getLabelFont (writeStatus);
+        const auto area = writeStatus.getBorderSize().subtractedFrom (writeStatus.getLocalBounds());
+        return writeStatus.getMinimumHorizontalScale() >= 1.0f
+            && juce::GlyphArrangement::getStringWidth (font, writeStatus.getText()) <= (float) area.getWidth();
+    }
+    bool writeStatusOpensForTesting() const { return writeStatus.shortened && writeStatus.onClick != nullptr; }
     int  rerollSelectionSizeForTesting() const;
 
     // The stall detector, driven the way the clock drives it. There is no way
@@ -692,7 +705,29 @@ private:
 
     juce::TextEditor writeRequest;
     WriteButton      writeButton;
-    juce::Label      writeStatus;
+    // ONE LINE, AND NOTHING IN IT LOST. Text too long for the line is cut at a
+    // word and ends "... more"; a click opens the whole of it. The planner's
+    // explanation is one or two sentences and the rail has room for one line.
+    class WriteStatusLine : public juce::Label
+    {
+    public:
+        juce::String full;          // what the line says, before it was fitted
+        bool         shortened = false;
+        std::function<void()> onClick;
+
+        void mouseUp (const juce::MouseEvent& e) override
+        {
+            if (shortened && onClick && ! e.mods.isPopupMenu()) onClick();
+        }
+    };
+
+    WriteStatusLine  writeStatus;
+    juce::String     writeNote;                    // a line Write itself put up - a refusal, an undo;
+    bool             writeNoteIsWarning = false;   // kept until the next write
+
+    void showWriteStatus (const juce::String& line, juce::Colour colour);
+    void fitWriteStatus();
+    void openWriteStatus();
 
     // Settings: where the key goes in. There is no field that shows it back -
     // the placeholder says whether one is saved, and that is all.

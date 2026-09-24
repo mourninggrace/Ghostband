@@ -4907,6 +4907,30 @@ int main (int argc, char** argv)
 
                 check (gbEd->writeEnabledForTesting(),
                        "and with one, it is live");
+
+                // A REFUSAL STAYS UP. It used to be painted once and wiped by
+                // the next timer tick, a flash too quick to read.
+                gbEd->pressWriteForTesting ("");
+                gbEd->refreshPlannerForTesting();
+                check (gbEd->writeStatusForTesting().contains ("Say what you want"),
+                       "a refusal to write stays on screen past the next refresh",
+                       gbEd->writeStatusForTesting());
+
+                // NONE OF THE EXPLANATION IS LOST. The planner is asked for one or
+                // two sentences; the first real one was cut off mid-word with
+                // no way to read the rest.
+                const juce::String twoSentences =
+                    "The song opens with just piano and clean guitar, then adds the rhythm section "
+                    "a verse at a time so the build is slow and the weight arrives late. The last "
+                    "chorus runs straight into a hard stop on the downbeat, with nothing after it.";
+                gbEd->showWriteStatusForTesting (twoSentences);
+                check (gbEd->writeStatusFitsForTesting()
+                           && gbEd->writeStatusShownForTesting().endsWith ("... more")
+                           && gbEd->writeStatusOpensForTesting()
+                           && gbEd->writeStatusForTesting() == twoSentences,
+                       "and a two-sentence explanation shows as one unsquashed line ending in more, "
+                       "and a click opens all of it",
+                       gbEd->writeStatusShownForTesting());
             }
 
             keyProc.editorBeingDeleted (ed);

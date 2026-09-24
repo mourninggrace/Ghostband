@@ -314,7 +314,8 @@ take.
 
 The line under the box counts the seconds while it works; a chart can take a
 minute. When it arrives it **replaces the current song straight away**, and the
-model's one-sentence account of what it did appears under the box.
+model's account of what it did appears under the box. If it is longer than the
+line, it ends in **... more** — click it to read all of it.
 **Right-click Write to put the previous song back** — the same one step the dice
 has.
 
@@ -342,8 +343,10 @@ on every build.
 your own Anthropic account per song. If the model's safety filters decline a
 request, Anthropic re-runs it on another model inside the same call rather than
 returning nothing. The change log records the tokens every song used, which is the
-way to see the real cost on your account — the price per song has not been
-measured on a real request at the time of writing, so no figure is quoted here.
+way to see the real cost on your account. For scale: the first real song took
+23 seconds and used 3,588 tokens in and 2,261 out, about 6¢ at Claude Opus 5.5's
+September 2026 prices ($4 in / $20 out per million tokens). A longer or more
+detailed request costs more.
 
 **When it goes wrong,** the line under the box says why in plain words — the key
 was not accepted, the account is rate-limited or out of credit, Anthropic is busy,

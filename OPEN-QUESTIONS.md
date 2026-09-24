@@ -3,7 +3,7 @@
 One file, so none of it has to be remembered. Answered items move to the bottom
 with a date rather than being deleted, so the same question is never asked twice.
 
-**Last updated 2026-09-24, end of session 22. v2.0.0 is out.**
+**Last updated 2026-09-24, end of session 23. v2.0.0 is out; the planner has written its first real song.**
 
 ---
 
@@ -92,11 +92,9 @@ clean and nothing was thrown away.
 
 ### 00. THE PLANNER, AND WHAT THE GUITAR DOES NOW - v2.0.0
 
-**Your first real song is the planner's first real run.** Everything but the
-network call is checked on every build; the call itself needs your key. Worth
-telling me: what the status line said, how long it took, and the planner line in
-the change log (Settings -> Show log folder) - it records the tokens, which is
-the only way to know what a song actually costs.
+**Answered 2026-09-24: the planner works.** Your first song, "Slow Burn Iron",
+took 23 seconds and cost about 6¢. The explanation line under Write is now
+cut at a word with "... more"; click it to read all of it.
 
 **Three things for your ears:**
 

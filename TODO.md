@@ -12,9 +12,6 @@ in [BACKLOG.md](BACKLOG.md); the questions only the owner can answer are in
 These are built and measured. Whether they are *right* is a judgement only ears
 can make.
 
-- [ ] **The first real planner song** — what it wrote, how long it took, and what
-      it cost. The change log records the tokens; the price per song has not been
-      measured yet.
 - [ ] **The fills-section arpeggio** — too busy, too present, or right? Half notes
       when quiet, quarters in the middle, eighths when loud: two numbers to move.
 - [ ] **Do the lead guitar's fills still sound familiar** from song to song?
@@ -72,3 +69,9 @@ Decided, with the reason, so they are not re-proposed.
 - **Per-note lead gestures on the Hydra** until its CC 40 is re-banded to carry
   them — values chosen for one layout and read under another were the whole of the
   v2.0.0 palm-mute bug.
+
+## Done
+
+- [x] **The first real planner song** *(2026-09-24)* — "Slow Burn Iron", 23 s,
+      3,588 in / 2,261 out, about 6¢. The owner's verdict: "awesome so far".
+      Its explanation was cut off on screen; fixed with "... more" and a click.
