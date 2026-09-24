@@ -447,6 +447,12 @@ public:
     // key, or one already running. The result arrives on the message thread.
     bool writeSong (const juce::String& request, juce::String& whyNot);
 
+    // EXACTLY WHAT IS SENT, apart from the key: the owner's words, the song on
+    // screen as context, and which parts this rig has. Public so the harness
+    // can read it - "what does this send to a third party" is a question with
+    // a checkable answer, and it is checked.
+    gb::PlannerBrief makePlannerBrief (const juce::String& request) const;
+
     struct PlannerStatus
     {
         bool         busy      = false;

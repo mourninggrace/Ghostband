@@ -619,6 +619,41 @@ private:
 };
 
 //==============================================================================
+gb::PlannerBrief GhostbandProcessor::makePlannerBrief (const juce::String& requestText) const
+{
+    gb::PlannerBrief brief;
+    brief.request = requestText.trim().toStdString();
+    {
+        const juce::ScopedLock sl (stateLock);
+
+        gb::SongPlan asPlayed = plan;
+        asPlayed.complexity = complexity.load();
+        asPlayed.humanize   = humanize.load();
+        asPlayed.fills      = fills.load();
+        asPlayed.intuition  = intuition.load();
+
+        // NOT THE PROFILE PATHS. A plan names its instrument profiles by full
+        // file path - C:\Users\<name>\... for anything taught or copied in - and
+        // this text goes to Anthropic. The model has no use for where a driver
+        // file lives, the merge takes the rig from the song on screen and not
+        // from anything the model writes, and a person's Windows username is
+        // not the model's business. Found while writing the manual's account of
+        // what is sent, which is the only reason it did not ship.
+        asPlayed.drumProfile.clear();
+        asPlayed.bassProfile.clear();
+        asPlayed.guitarProfile.clear();
+        asPlayed.guitar2Profile.clear();
+        asPlayed.pianoProfile.clear();
+
+        brief.currentPlanJson = asPlayed.toJson();
+        brief.hasGuitar  = haveGuitar;
+        brief.hasGuitar2 = haveGuitar2;
+        brief.hasPiano   = havePiano;
+    }
+
+    return brief;
+}
+
 bool GhostbandProcessor::writeSong (const juce::String& requestText, juce::String& whyNot)
 {
     GB_WORK ("write song");
@@ -649,22 +684,7 @@ bool GhostbandProcessor::writeSong (const juce::String& requestText, juce::Strin
         return false;
     }
 
-    gb::PlannerBrief brief;
-    brief.request = requestText.trim().toStdString();
-    {
-        const juce::ScopedLock sl (stateLock);
-
-        gb::SongPlan asPlayed = plan;
-        asPlayed.complexity = complexity.load();
-        asPlayed.humanize   = humanize.load();
-        asPlayed.fills      = fills.load();
-        asPlayed.intuition  = intuition.load();
-
-        brief.currentPlanJson = asPlayed.toJson();
-        brief.hasGuitar  = haveGuitar;
-        brief.hasGuitar2 = haveGuitar2;
-        brief.hasPiano   = havePiano;
-    }
+    const gb::PlannerBrief brief = makePlannerBrief (requestText);
 
     const gb::PlannerRequest request = gb::buildPlannerRequest (brief, gb::PlannerSettings());
 

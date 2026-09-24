@@ -4917,6 +4917,52 @@ int main (int argc, char** argv)
         check (! keyProc.hasPlannerKey() && ! GhostbandProcessor::plannerKeyFile().existsAsFile(),
                "and Clear really deletes it");
 
+        // ---- WHAT LEAVES THE MACHINE ------------------------------------
+        //
+        // The song on screen goes as context, and a plan names its instrument
+        // profiles by full path - C:\Users\<name>\... for anything taught or
+        // copied. That sent a Windows username to a third party with every
+        // request until the manual's account of what is sent was written and
+        // the question asked. The model needs the song, not where its driver
+        // files live.
+        {
+            const gb::PlannerBrief brief = keyProc.makePlannerBrief ("a doom song");
+            const std::string body = gb::buildPlannerRequest (brief, gb::PlannerSettings()).body;
+
+            // As a PATH COMPONENT, not as a bare substring. A username can be
+            // an ordinary word or part of one - on the machine this was written
+            // on it is a prefix of "string", which the output schema says fifty
+            // times - so the first version of this check failed on the schema
+            // and would have been "fixed" by weakening the wrong thing. What
+            // leaks a username is a path, so a path is what is looked for,
+            // with every separator the JSON can carry.
+            const std::string user = juce::SystemStats::getLogonName().toStdString();
+            std::string found;
+
+            if (! user.empty())
+                for (const std::string& sep : { std::string ("\\\\"), std::string ("\\"), std::string ("/") })
+                {
+                    const std::string needle = "Users" + sep + user;
+                    const size_t at = body.find (needle);
+                    if (at != std::string::npos && found.empty())
+                        found = body.substr (at > 20 ? at - 20 : 0, 60);
+                }
+
+            for (const char* marker : { ".json", "Program Files", "Documents", "AppData" })
+            {
+                const size_t at = body.find (marker);
+                if (at != std::string::npos && found.empty())
+                    found = body.substr (at > 30 ? at - 30 : 0, 70);
+            }
+
+            check (found.empty(),
+                   "what is sent to Anthropic carries no file paths and no Windows username",
+                   found.empty() ? juce::String ("clean") : "found: ..." + juce::String (found) + "...");
+
+            check (brief.request == "a doom song" && ! brief.currentPlanJson.empty(),
+                   "but it does carry the request and the song, which is the point of it");
+        }
+
         // ---- a finished chart ------------------------------------------
         // The same canned answer the engine's half is checked with, applied the
         // way a real one is: saved as a file, loaded through the same path as
