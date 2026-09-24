@@ -3,7 +3,7 @@
 One file, so none of it has to be remembered. Answered items move to the bottom
 with a date rather than being deleted, so the same question is never asked twice.
 
-**Last updated 2026-09-19, end of session 21. v0.6.0 is out.**
+**Last updated 2026-09-24, end of session 22. v0.7.0 is out.**
 
 ---
 
@@ -71,12 +71,42 @@ matter, bisecting the rackspace still answers it in ten minutes.
 them were a gap of exactly 600-601 ms with the transport stopped. Ghostband's
 timer asks for 33 ms and nothing in it asks for 600, so a flat 600 a thousand
 times over is Windows throttling a window that is alive but hidden behind one of
-Gig Performer's panel tabs. Not a freeze; nobody was looking at it. The detector
-now only counts a gap while the window is actually on screen, and the log lines
-carry the day as well as the clock, so they can be lined up against
-`changes.log`. Your old-format log was moved aside to
+Gig Performer's panel tabs. Not a freeze; nobody was looking at it.
+
+**CORRECTED 2026-09-19, the same day: that explanation was wrong.** The first
+fix gated on "is the window on screen", and the next 90 minutes of your log
+killed it - 630 more lines of the same flat 600 ms, starting ten minutes after
+the fix was installed. The real discriminator was in every line all along: the
+**audio block count**. It ticks on every buffer the host asks for, transport or
+not, so zero blocks across a gap means the host was not running the plugin at
+all. The detector now counts only gaps where the host was running it, still
+records any gap Ghostband causes itself, summarises the ignored ones in a line
+instead of six hundred, and every line carries the day as well as the clock and
+what the window thought it was (showing/hidden, foreground/background) - so if
+this reasoning is wrong too, the next log says so.
+
+Also found then: the test suite had been writing into your `stalls.log`. It no
+longer does, and a full test run leaves your file byte-identical. Your old-format log was moved aside to
 `stalls-old-format-to-20260916.log` rather than deleted, so the new one starts
 clean and nothing was thrown away.
+
+### 00. THE PLANNER, AND WHAT THE GUITAR DOES NOW - v0.7.0
+
+**Your first real song is the planner's first real run.** Everything but the
+network call is checked on every build; the call itself needs your key. Worth
+telling me: what the status line said, how long it took, and the planner line in
+the change log (Settings -> Show log folder) - it records the tokens, which is
+the only way to know what a song actually costs.
+
+**Three things for your ears:**
+
+- **The fills-section arpeggio.** Between answers the second guitar now picks the
+  chord softly instead of going silent. Half notes when quiet, quarters in the
+  middle, eighths when loud. Too busy or too present is two numbers.
+- **Solos.** Mostly eighths and quarters now, with fast runs as bursts. If they
+  have swung too far from shred, the weights are one table.
+- **No more palm muting on lead notes.** If you still hear any in a solo, that is
+  a different cause and I want to know.
 
 ### 0-new. THE LEAD GUITAR, AND THE DIAL - both want your ears
 
@@ -117,7 +147,14 @@ velocity and hit count were spending 96 of them, so a control change drew `cc`
 and its number fell off the end. **In every window size this plugin has ever
 had.** You could never tell cc7 from cc65. You can now.
 
-### 0a. v0.6.0 is out
+### 0a. v0.7.0 is out
+
+https://github.com/mourninggrace/Ghostband/releases/tag/v0.7.0
+
+Published, marked latest, and the download's checksum verified by fetching it
+back from GitHub.
+
+### 0a-old. v0.6.0 is out
 
 https://github.com/mourninggrace/Ghostband/releases/tag/v0.6.0
 

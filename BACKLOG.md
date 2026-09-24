@@ -25,6 +25,12 @@ in fact done, and are noted at the bottom so nobody rediscovers them.
   that distinguishes every line; selectable row resolution; a change log; Reset
   to profile; a song that rewinds itself; the mix knobs stop vanishing; and a
   stall detector that says whether a freeze was Ghostband or the host.
+- **v0.5.0, 2026-09-14** — the dice and its one-step undo; Hydra told where on
+  the neck to play (fretting modes and hand position, both by keyswitch); motion
+  throughout the interface; the playhead lighting the right row at the start of
+  a song; CM7 no longer playing as C minor seven; a song's own problems reaching
+  the screen.
+
 - **v0.6.0, 2026-09-19** — the lead guitar's vocabulary widened from five cell
   shapes and two devices to twenty-two and nine; the upward lean removed from
   all four places it lived (57.6%/17.3% ascending to 26.6%/26.6%); fills no
@@ -34,11 +40,15 @@ in fact done, and are noted at the bottom so nobody rediscovers them.
   the lit row easing, a section flaring as the playhead crosses it, a reroll
   sweeping in. Two latent bugs found on the way: a lead line could play two
   notes on one tick, and a control change could never show its number.
-- **v0.5.0, 2026-09-14** — the dice and its one-step undo; Hydra told where on
-  the neck to play (fretting modes and hand position, both by keyswitch); motion
-  throughout the interface; the playhead lighting the right row at the start of
-  a song; CM7 no longer playing as C minor seven; a song's own problems reaching
-  the screen.
+- **v0.7.0, 2026-09-24** - the AI planner (optional, own key, Claude Opus 5.5
+  at medium effort, key encrypted with DPAPI, written songs kept as files, no
+  file paths or username sent); fills sections that play a soft arpeggio between
+  answers instead of going silent (77% -> 4% silent); solos that ring (median
+  note a sixteenth -> an eighth); the Hydra profile's gesture block emptied (10.7%
+  of lead notes had been palm muted, staccato or a power chord); the stall
+  detector gated on the host actually running the plugin; the test suite no
+  longer writes the owner's stall log. CHANGELOG, TODO, the manual and a
+  screenshot script added.
 
 `Release.bat` cuts one. It refuses a dirty tree or a failing build, and stages
 the profiles and preset songs INTO the bundle - the build output has neither, and
@@ -49,7 +59,11 @@ substantial batch of changes, rather than per commit. Bump `project(Ghostband
 VERSION ...)` in `CMakeLists.txt`, commit, run `Release.bat`, then
 `gh release create`.
 
-## VERSION 2 is led by the AI PLANNER
+## VERSION 2 is led by the AI PLANNER - SHIPPED EARLY, IN v0.7.0
+
+Built on 2026-09-24, ahead of the v2 it was planned for, because the owner had a
+key and asked for it. It keeps every constraint below. The notes stay as the
+record of why it is shaped the way it is.
 
 Decided 2026-09-07. The owner is keen on it and it is explicitly a v2 feature,
 not something to squeeze into 0.x. Written up for readers in the README under

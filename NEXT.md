@@ -6,17 +6,19 @@ useless for the one job it has: telling whoever picks this up next what is true
 right now. The history is in `docs/archive/NEXT-through-session-13.md`, and
 nobody has to read it.
 
-**Last touched 2026-09-19, session 21.**
+**Last touched 2026-09-24, session 22.**
 
 ## State
 
-- **v0.6.0 released 2026-09-19.** Tagged, published, marked latest, installed,
-  and its checksum verified by downloading it back from GitHub. Nothing is
-  unreleased.
+- **v0.7.0 released 2026-09-24.** Tagged, published, marked latest, and its
+  checksum verified by downloading it back from GitHub. Nothing is unreleased.
+- **The AI planner is built and shipped** (optional, own key, Claude Opus 5.5 at
+  medium). The one part never exercised by the suite is the real network call;
+  the owner's first real song is its first run.
 - **The window is 1180x820, minimum 1020x820.** Both numbers are load-bearing:
   the minimum is set by the two-column Settings screen, not by the song screen,
   and the harness's `kMinW`/`kMinH` must move with it.
-- **425 checks** pass on every build, and all 34 plans are swept.
+- **477 checks** pass on every build, and all 34 plans are swept.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
@@ -26,13 +28,20 @@ nobody has to read it.
 - 34 preset songs, 14 driver profiles, 10 colour themes.
 - Working tree clean, `main` pushed.
 
-## The three files that matter
+## The files that matter
 
 | file | what it is |
 |---|---|
 | [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) | anything needing the owner — read this first |
-| [BACKLOG.md](BACKLOG.md) | the engineering list |
-| [README.md](README.md) | the manual, and it is current |
+| [TODO.md](TODO.md) | the living list, including what is deliberately not being done |
+| [BACKLOG.md](BACKLOG.md) | the engineering notes behind it |
+| [CHANGELOG.md](CHANGELOG.md) | what changed in each release — update it in the same commit |
+| [docs/MANUAL.md](docs/MANUAL.md) | the manual, and it is current |
+| [README.md](README.md) | the front page: badges, hero, highlights, honest limits |
+
+**Screenshots come from `tools\screenshots.ps1`**, which renders the real editor
+through the harness. When the UI changes, run it and commit what it writes. The
+README's check-count badge is a number and has to be moved by hand.
 
 ## How to verify a change
 
@@ -144,6 +153,45 @@ to run: Windows Defender real-time protection and behaviour monitoring are on
 with no exclusions (Kontakt streaming samples through a scanner is the classic
 cause of exactly this), and bisecting the rackspace would settle it. Both are
 written up in OPEN-QUESTIONS.
+
+## Session 22: the planner ships, and the guitar stops muting itself
+
+Ended with **v0.7.0**.
+
+**THE PALM MUTING WAS A PROFILE BUG, TWO WEEKS OLD.** The Hydra's per-note
+gestures carried CC 40 values for a six-band layout set up on the morning of
+2026-09-07; the controller was re-banded to five section articulations that day,
+the note above the block was rewritten to say "declared empty" - and the block
+was never emptied. Under the real layout a rake was a palm mute, a pinch was a
+staccato and a tap was a POWER CHORD: 10.7% of lead notes, always the exposed
+ones. Found by reading the profile against its own comments, then MEASURED before
+being fixed. **Lesson: when a comment and the data under it disagree, the data is
+what runs.**
+
+**SOLOS STREAMED; FILLS SECTIONS WENT DEAD.** Measured in seconds, the two
+complaints were different problems. Solos were 5% silent but half sixteenths and
+2% a beat or longer - so each phrase now picks a pulse. Fills sections were 77%
+silent with gaps up to 44.7 s - so between answers the second guitar picks a
+soft arpeggio of the chord (`LeadIntent::bed`), breaking off before each answer.
+The pulse weights are NAMED BY STRIDE: on a shuffle one step is already an
+eighth, and weights written as note values made the blues solo 60% quarters.
+
+**THE PLANNER.** Engine half pure and checked on canned responses; plugin half
+with a DPAPI-encrypted key (no getter anywhere), a cancellable WebInputStream on
+its own thread, a weak-referenced callback, and written songs saved as ordinary
+plan files in Documents\Ghostband\Songs\Written then loaded through loadPlan.
+Model chosen by the owner: `claude-opus-5-5`, effort `medium` set explicitly.
+
+**A PRIVACY LEAK FOUND BY WRITING THE MANUAL.** The song sent as context carried
+its profile file paths. Found while writing "what is sent"; stripped in
+`makePlannerBrief`, and checked - the check was made to FAIL with the leak put
+back before it was trusted.
+
+**THREE WAYS A CHECK LIED, ALL CAUGHT:** a check with a side effect in its
+arguments (MSVC evaluates right to left, so the detail printed pre-undo state); a
+username that is a prefix of the word "string" (search for a PATH, not a
+substring); and a restored source file whose older timestamp made the build skip
+it, so the "restored" binary still had the bug. **Touch a file you restore.**
 
 ## Session 21: the lead guitar, and a dial for instinct
 

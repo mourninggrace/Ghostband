@@ -1,0 +1,128 @@
+# Changelog
+
+What changed in each release of Ghostband, newest first. Every number here was
+measured, not estimated; where something could not be measured yet, it says so.
+
+Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/releases).
+
+## [0.7.0] — 2026-09-24
+
+### Added
+- **Write a song with the AI planner** *(optional)*. Describe a song in a sentence
+  on the song screen and Claude Opus 5.5 writes the chart — sections, chords, key,
+  tempo, style, the intensity curve and who plays where. It replaces the current
+  song at once; right-click **Write** puts the old one back. Needs your own
+  Anthropic API key, stored with Windows' per-user encryption and never shown,
+  logged or saved into a song. Every written song is kept as an ordinary song file
+  in `Documents\Ghostband\Songs\Written`. Nothing is sent without a key, and what
+  is sent carries no file paths and no Windows username — checked on every build.
+- **Fills sections no longer go silent.** Between its answers the second guitar
+  picks a soft arpeggio of the chord, breaking off just before each answer.
+  Silent 77% of the time → 4%; longest silence 44.7 s → 3.2 s.
+- `docs/MANUAL.md`, this changelog, `TODO.md`, and `tools/screenshots.ps1`, which
+  regenerates every screenshot from the real plugin.
+
+### Changed
+- **Solos ring instead of streaming.** Each phrase picks a pulse — mostly eighths
+  and quarters, with fast runs as bursts. Typical solo note a sixteenth → an
+  eighth; notes a beat or longer 2% → 21%.
+- **No whole-bar rests in the middle of a solo.**
+- The README is a front page now; the full manual moved to `docs/MANUAL.md`.
+
+### Fixed
+- **Palm mutes, staccatos and even power chords on lead notes.** The Shreddage
+  Hydra profile sent per-note gestures on a controller layout the instrument had
+  been re-banded away from; 10.7% of every lead note landed on the wrong
+  articulation, always the most exposed ones. The lead now plays 100% sustain.
+- **The stall detector logged hundreds of phantom freezes.** It now counts a gap
+  only when the host was actually running the plugin, still records any gap
+  Ghostband causes itself, dates every line, and rolls its log at 2 MB.
+- The test suite no longer writes into the owner's stall log.
+
+## [0.6.0] — 2026-09-19
+
+### Added
+- **The Intuition dial** — how much the band plays what it feels like rather than
+  what is obvious, reaching the lead, the bass and the drums. Its middle is exactly
+  the previous behaviour, so no existing song changed.
+- The lit row eases between rows, a section flares as the playhead crosses into it,
+  and a reroll sweeps the new arrangement in.
+
+### Changed
+- **The lead guitar's vocabulary** widened from five cell shapes and two devices to
+  twenty-two and nine, and the lick varies when it repeats. Phrases ascending vs
+  descending: 57.6% / 17.3% → 26.6% / 26.6%.
+- **Fills are no longer pinned to beat 3 of every 4th bar** — the fourth bar is the
+  commonest place, not the only one, and a fill can start before the bar line.
+- Keyswitches are drawn in the grid as what they do (`neck`, `fret 9`) instead of as
+  notes, and a control change shows its number.
+
+### Fixed
+- A lead line could play two notes on one tick.
+- A held note could run past the end of its phrase into the next.
+
+## [0.5.0] — 2026-09-14
+
+### Added
+- **The dice** — rolls the whole song's character; right-click puts it back.
+- The Shreddage lead is told where on the neck to play: fretting modes and hand
+  position, both by keyswitch.
+- Motion throughout the interface.
+
+### Fixed
+- The playhead lit the wrong row at the start of a song.
+- `CM7` played as C minor seven.
+- A song's own problems (an unreadable chord, a silent section) now reach the screen.
+
+## [0.4.0] — 2026-09-13
+
+### Added
+- The rail layout and a 1180 × 820 landscape window.
+- Click a grid row to edit that bar's chord and its section's feel.
+- Selectable row resolution, row shading that tells every line apart, a change
+  log, Reset to profile, and a song that rewinds itself at the end.
+- A stall detector that says whether a freeze was Ghostband or the host.
+
+### Fixed
+- The mix knobs no longer vanish when a part cannot be reached; they grey out and
+  say why.
+
+## [0.3.0] — 2026-09-12
+
+### Added
+- The tracker song screen, tooltips on all 92 controls, and the Neon theme.
+
+### Fixed
+- A deadlock that could freeze the host.
+
+## [0.2.2] — 2026-09-11
+
+### Fixed
+- The second guitar plays in its actual range: 166 notes across 19 presets
+  recovered from a dead region.
+
+## [0.2.1] — 2026-09-11
+
+### Fixed
+- The structure editor's guitar 2 toggle.
+
+## [0.2.0] — 2026-09-07
+
+### Added
+- Takes, colour themes that actually work, one guitar tone per song, and songs
+  saved outside Program Files.
+
+## [0.1.0] — 2026-09-07
+
+The first public build. Until then the only way in was cloning with submodules
+and owning Visual Studio.
+
+[0.7.0]: https://github.com/mourninggrace/Ghostband/releases/tag/v0.7.0
+[0.6.0]: https://github.com/mourninggrace/Ghostband/releases/tag/v0.6.0
+[0.5.0]: https://github.com/mourninggrace/Ghostband/releases/tag/v0.5.0
+[0.4.0]: https://github.com/mourninggrace/Ghostband/releases/tag/v0.4.0
+[0.3.0]: https://github.com/mourninggrace/Ghostband/releases/tag/v0.3.0
+[0.2.2]: https://github.com/mourninggrace/Ghostband/releases/tag/v0.2.2
+[0.2.1]: https://github.com/mourninggrace/Ghostband/releases/tag/v0.2.1
+[0.2.0]: https://github.com/mourninggrace/Ghostband/releases/tag/v0.2.0
+[0.1.0]: https://github.com/mourninggrace/Ghostband/releases/tag/v0.1.0
