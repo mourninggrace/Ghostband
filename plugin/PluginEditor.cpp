@@ -1668,6 +1668,75 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 
     addAndMakeVisible (diceButton);
 
+    // ---- the AI planner ----
+    writeRequest.setTextToShowWhenEmpty ("write a song: slow doom, blast-beat ending...",
+                                         ghost::dim);
+    writeRequest.setColour (juce::TextEditor::backgroundColourId, ghost::background);
+    writeRequest.setColour (juce::TextEditor::outlineColourId, ghost::line);
+    writeRequest.setColour (juce::TextEditor::focusedOutlineColourId, ghost::accent.withAlpha (0.6f));
+    writeRequest.setColour (juce::TextEditor::textColourId, ghost::text);
+    writeRequest.setFont (juce::Font (juce::FontOptions (15.0f)));
+    writeRequest.setJustification (juce::Justification::centredLeft);
+    writeRequest.onReturnKey = [this] { startWriting(); };
+    addAndMakeVisible (writeRequest);
+
+    styleButton (writeButton, true);
+    writeButton.onClick = [this] { startWriting(); };
+    writeButton.onRightClick = [this]
+    {
+        if (processor.undoTheDice())
+        {
+            easeAllKnobsToProcessor();
+            tracker.sweepIn();
+            animator.wake();
+            writeStatus.setText ("Put back where it was before.", juce::dontSendNotification);
+        }
+        else
+        {
+            writeStatus.setText ("Nothing to put back.", juce::dontSendNotification);
+        }
+    };
+    addAndMakeVisible (writeButton);
+
+    // ---- the planner's key, in Settings ----
+    plannerKeyEditor.setPasswordCharacter ((juce::juce_wchar) 0x2022);
+    plannerKeyEditor.setColour (juce::TextEditor::backgroundColourId, ghost::background);
+    plannerKeyEditor.setColour (juce::TextEditor::outlineColourId, ghost::line);
+    plannerKeyEditor.setColour (juce::TextEditor::focusedOutlineColourId, ghost::accent.withAlpha (0.6f));
+    plannerKeyEditor.setColour (juce::TextEditor::textColourId, ghost::text);
+    plannerKeyEditor.setFont (juce::Font (juce::FontOptions (15.0f)));
+    plannerKeyEditor.setJustification (juce::Justification::centredLeft);
+    addChildComponent (plannerKeyEditor);
+
+    for (juce::TextButton* b : { &plannerKeySave, &plannerKeyClear })
+    {
+        styleButton (*b, false);
+        addChildComponent (*b);
+    }
+
+    plannerKeySave.onClick = [this]
+    {
+        const bool ok = processor.setPlannerKey (plannerKeyEditor.getText());
+
+        // CLEARED EITHER WAY. The key is never left sitting in a text field,
+        // where it would be readable by anything that can read this window.
+        plannerKeyEditor.clear();
+        plannerKeyEditor.setText ({}, juce::dontSendNotification);
+
+        statusLabel.setText (ok ? "Key saved, encrypted for this Windows user."
+                                : "The key could not be saved.",
+                             juce::dontSendNotification);
+        refreshPlannerControls();
+    };
+    plannerKeyEditor.onReturnKey = [this] { plannerKeySave.triggerClick(); };
+
+    plannerKeyClear.onClick = [this]
+    {
+        processor.clearPlannerKey();
+        plannerKeyEditor.clear();
+        refreshPlannerControls();
+    };
+
     diceButton.onRightClick = [this]
     {
         if (processor.undoTheDice())
@@ -2027,6 +2096,11 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         themedLabels.push_back ({ &l, &c });
         addAndMakeVisible (l);
     };
+
+    // The planner's two labels, here because this is where initLabel exists.
+    initLabel (writeStatus, "", 13.0f, ghost::dim, juce::Justification::centredLeft);
+    writeStatus.setMinimumHorizontalScale (0.8f);
+    initLabel (plannerKeyLabel, "API KEY", 15.0f, ghost::dim, juce::Justification::centredLeft);
 
     initLabel (mixLabel,          "MIX",    15.0f, ghost::dim, juce::Justification::centredLeft);
     initLabel (levelDrumsLabel,   "DRUMS",  14.0f,  ghost::dim, juce::Justification::centred);
@@ -2979,6 +3053,19 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
                            "profile file. Usually zero, and not a problem when it is not - a "
                            "taught CC is a fact about your rack. It matters when a profile has "
                            "been corrected since you taught it.");
+        tip (writeRequest,     "Describe a song in your own words - a style, a mood, a length, what "
+                               "happens in it. \"Slow doom that builds to a blast-beat ending\" is "
+                               "plenty. To change the song on screen instead, say so: \"same song, "
+                               "but a bigger last chorus\".");
+        tip (writeButton,      "Writes the song. Needs your own Anthropic API key in Settings; it "
+                               "replaces the current song straight away, and right-click puts the "
+                               "old one back.");
+        tip (plannerKeyEditor, "Your own Anthropic API key, from the Anthropic console. It is saved "
+                               "encrypted for this Windows user and is never shown again, logged, "
+                               "or written into a song or a take.");
+        tip (plannerKeySave,   "Encrypts the key for this Windows user and saves it. The field is "
+                               "cleared either way.");
+        tip (plannerKeyClear,  "Deletes the saved key. Nothing is sent anywhere without one.");
         tip (openDataFolder, "Opens the folder holding the change log, the stall log, your takes "
                              "and your taught mappings. changes.log records every change you "
                              "make, with the date and time and what it was before.");
@@ -3051,6 +3138,11 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     // brought forward.
     addChildComponent (veil);
     veil.setAlwaysOnTop (true);
+
+    // The planner's controls in their real state from the FIRST frame. Left to
+    // the timer, the Write button drew lit for a thirtieth of a second with no
+    // key saved - and in a snapshot, which is taken before any tick, for good.
+    refreshPlannerControls();
 
     startTimerHz (30);
 }
@@ -3900,12 +3992,71 @@ void GhostbandEditor::easeDialsTo (double complexity, double humanize, double fi
     }
 }
 
+//==============================================================================
+// THE PLANNER'S CONTROLS.
+//
+// Refreshed on the timer because a request finishes on its own time, and the
+// elapsed seconds while it runs are the only sign anything is happening - a
+// chart at high effort can take a minute, and a button that sits greyed out for
+// a minute with nothing moving reads as a hang.
+void GhostbandEditor::refreshPlannerControls()
+{
+    const bool haveKey = processor.hasPlannerKey();
+    const GhostbandProcessor::PlannerStatus st = processor.getPlannerStatus();
+
+    // NEVER HIDDEN. With no key the button is there, greyed, and says why - a
+    // control that simply is not there reads as a bug, not as a setting.
+    writeButton.setEnabled (haveKey && ! st.busy);
+    writeButton.setButtonText (st.busy ? "..." : "Write");
+    writeButton.setTooltip (! haveKey
+        ? "Add an Anthropic API key in Settings to write songs. It is your own key "
+          "and your own account; Ghostband never sends anything without one."
+        : "Writes a new song from what you typed, using the song on screen as "
+          "context if you ask for a change to it. It replaces the current song "
+          "straight away; right-click here to put the old one back.");
+
+    juce::String line;
+    if (! haveKey)
+        line = "Add an API key in Settings to write songs.";
+    else if (st.busy)
+        line = "writing... " + juce::String ((juce::Time::getMillisecondCounter() - st.startedMs) / 1000u) + "s";
+    else if (st.anyResult)
+        line = st.message;
+
+    if (writeStatus.getText() != line)
+    {
+        writeStatus.setText (line, juce::dontSendNotification);
+        writeStatus.setTooltip (line);
+        writeStatus.setColour (juce::Label::textColourId,
+                               st.anyResult && ! st.lastOk && ! st.busy ? ghost::warn : ghost::dim);
+    }
+
+    plannerKeyEditor.setTextToShowWhenEmpty (haveKey ? "saved, encrypted for this Windows user"
+                                                     : "paste your Anthropic API key",
+                                             ghost::dim);
+    plannerKeyClear.setEnabled (haveKey);
+}
+
+void GhostbandEditor::startWriting()
+{
+    juce::String whyNot;
+    if (! processor.writeSong (writeRequest.getText(), whyNot))
+    {
+        writeStatus.setText (whyNot, juce::dontSendNotification);
+        writeStatus.setColour (juce::Label::textColourId, ghost::warn);
+        return;
+    }
+
+    refreshPlannerControls();
+}
+
 void GhostbandEditor::timerCallback()
 {
     noteTimerTick();
     const double workStart = juce::Time::getMillisecondCounterHiRes();
 
     updateLatencyReadout();
+    refreshPlannerControls();
     refreshTracker();
 
     // Playhead.
@@ -4122,6 +4273,7 @@ void GhostbandEditor::updateModeVisibility()
              &learnPart, &learnHeading, &learnHelp,
              &ctlAdd, &ctlRemove, &ctlTeach, &ctlSave, &ctlReset, &ctlDiffLabel,
              &openDataFolder, &ctlName,
+             &plannerKeyLabel, &plannerKeyEditor, &plannerKeySave, &plannerKeyClear,
              &ctlFollows, &ctlType, &ctlPositions, &ctlViewport,
              &ctlNameLabel, &ctlFollowsLabel, &ctlTypeLabel, &ctlPositionsLabel,
              &ctlPositionsHint, &ctlValue, &ctlValueLabel, &ctlValueHint,
@@ -4167,6 +4319,7 @@ void GhostbandEditor::updateModeVisibility()
              &modeBox, &modeLabel,
              &tempoLabel, &transportLabel, &summaryLabel, &playPauseButton, &bandLabel,
              &diceButton,
+             &writeRequest, &writeButton, &writeStatus,
              &bpmLabel, &bpmEditor, &rollHintLabel,
              &mixLabel, &levelDrums, &levelBass, &levelGuitar, &levelGuitar2, &levelPiano,
              &levelDrumsLabel, &levelBassLabel, &levelGuitarLabel,
@@ -5461,7 +5614,7 @@ void GhostbandEditor::resized()
         // ---- left: the channels, and the things that are set once ----
         {
             // Fixed rows off the bottom BEFORE anything above them is measured.
-            auto bottom = left.removeFromBottom (66);
+            auto bottom = left.removeFromBottom (66 + 38);
 
             juce::ComboBox* boxes[5]  = { &chDrums, &chBass, &chGuitar, &chPiano, &chGuitar2 };
             juce::Label*    labels[5] = { &chDrumsLabel, &chBassLabel, &chGuitarLabel,
@@ -5508,6 +5661,16 @@ void GhostbandEditor::resized()
             resetSizeButton.setBounds (row.removeFromLeft (150));
             row.removeFromLeft (8);
             openDataFolder.setBounds (row.removeFromLeft (140));
+
+            // The planner's key: last, because it is set once and then left.
+            bottom.removeFromTop (10);
+            row = bottom.removeFromTop (28);
+            plannerKeyLabel.setBounds (row.removeFromLeft (60));
+            plannerKeyEditor.setBounds (row.removeFromLeft (220));
+            row.removeFromLeft (8);
+            plannerKeySave.setBounds (row.removeFromLeft (84));
+            row.removeFromLeft (6);
+            plannerKeyClear.setBounds (row.removeFromLeft (64));
         }
 
         // ---- right: teaching Ghostband an instrument's own knobs ----
@@ -5827,9 +5990,17 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
         row.removeFromLeft (6);
         calibrateButton.setBounds (row.removeFromLeft (104));
 
-        rail.removeFromTop (10);
+        // ---- write a song ----
+        rail.removeFromTop (8);
+        row = rail.removeFromTop (26);
+        writeButton.setBounds (row.removeFromRight (70));
+        row.removeFromRight (6);
+        writeRequest.setBounds (row);
+        writeStatus.setBounds (rail.removeFromTop (18));
+
+        rail.removeFromTop (4);
         planLabel.setBounds (rail.removeFromTop (22));
-        rail.removeFromTop (10);
+        rail.removeFromTop (8);
     }
 
     // ---- the song ----

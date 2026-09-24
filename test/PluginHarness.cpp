@@ -317,6 +317,21 @@ int main (int argc, char** argv)
     testChangeLog.deleteFile();
     GhostbandProcessor::setChangeLogFileForTesting (testChangeLog);
 
+    // THE PLANNER'S KEY AND THE WRITTEN-SONGS FOLDER, redirected for the whole
+    // run before a single processor exists. The stall log reached the owner's
+    // real file because it was redirected around one block and reset to
+    // nothing afterwards; a test that saved a key over the owner's real one
+    // would be the same fault with a bill attached.
+    const juce::File harnessDir = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                      .getChildFile ("ghostband-harness");
+    const juce::File harnessKey = harnessDir.getChildFile ("planner-key.bin");
+    harnessKey.deleteFile();
+    GhostbandProcessor::setPlannerKeyFileForTesting (harnessKey);
+
+    const juce::File harnessSongs = harnessDir.getChildFile ("songs");
+    harnessSongs.deleteRecursively();
+    GhostbandProcessor::setUserSongsFolderForTesting (harnessSongs);
+
     GhostbandProcessor proc;
 
     if (argc > 1 && juce::String (argv[1]) == "--audit")
@@ -4832,6 +4847,142 @@ int main (int argc, char** argv)
                    juce::String ((int) rr.performance.drums.size()) + " drum hits, "
                        + juce::String ((int) rr.performance.bass.size()) + " bass notes");
         }
+    }
+
+    // ---- THE AI PLANNER, the plugin's half --------------------------------
+    //
+    // Everything except the network: the key store, what the controls say with
+    // and without a key, and what a finished chart does to the song. The
+    // request itself is the engine's half and is checked above on canned
+    // answers; the socket is the one part only a real key can exercise.
+    {
+        // ---- the key ---------------------------------------------------
+        GhostbandProcessor::plannerKeyFile().deleteFile();
+
+        GhostbandProcessor keyProc;
+        check (! keyProc.hasPlannerKey(), "with no key saved, there is no key");
+
+        juce::String why;
+        check (! keyProc.writeSong ("a doom song", why)
+                   && why.contains ("Settings")
+                   && ! keyProc.getPlannerStatus().busy,
+               "and asking for a song says to add one - without touching the network",
+               why);
+
+        const juce::String fakeKey = "sk-ant-harness-0123456789abcdefghij";
+        check (keyProc.setPlannerKey (fakeKey) && keyProc.hasPlannerKey(),
+               "a key can be saved");
+
+        // ENCRYPTED ON DISK. Not a byte of it readable in the file.
+        juce::MemoryBlock onDisk;
+        GhostbandProcessor::plannerKeyFile().loadFileAsData (onDisk);
+        const std::string raw (static_cast<const char*> (onDisk.getData()), onDisk.getSize());
+
+        check (onDisk.getSize() > 0 && raw.find ("sk-ant") == std::string::npos
+                   && raw.find ("0123456789") == std::string::npos,
+               "and the file on disk does not contain it",
+               juce::String ((int) onDisk.getSize()) + " bytes");
+
+        // NOT LOGGED. That a key was saved, never what it was.
+        const juce::String log = GhostbandProcessor::changeLogFile().loadFileAsString();
+        check (log.contains ("planner key saved") && ! log.contains ("sk-ant"),
+               "and the change log says a key was saved without saying what it was");
+
+        // An editor with no key: the button is THERE, greyed, and says why.
+        GhostbandProcessor::plannerKeyFile().deleteFile();
+        if (auto* ed = keyProc.createEditorIfNeeded())
+        {
+            if (auto* gbEd = dynamic_cast<GhostbandEditor*> (ed))
+            {
+                gbEd->refreshPlannerForTesting();
+
+                check (! gbEd->writeEnabledForTesting()
+                           && gbEd->writeTooltipForTesting().contains ("Settings")
+                           && gbEd->writeStatusForTesting().contains ("Settings"),
+                       "with no key, Write is greyed rather than hidden, and says where the key goes",
+                       gbEd->writeStatusForTesting());
+
+                keyProc.setPlannerKey (fakeKey);
+                gbEd->refreshPlannerForTesting();
+
+                check (gbEd->writeEnabledForTesting(),
+                       "and with one, it is live");
+            }
+
+            keyProc.editorBeingDeleted (ed);
+            delete ed;
+        }
+
+        keyProc.clearPlannerKey();
+        check (! keyProc.hasPlannerKey() && ! GhostbandProcessor::plannerKeyFile().existsAsFile(),
+               "and Clear really deletes it");
+
+        // ---- a finished chart ------------------------------------------
+        // The same canned answer the engine's half is checked with, applied the
+        // way a real one is: saved as a file, loaded through the same path as
+        // every other song, with one step back.
+        GhostbandProcessor songProc;
+        const std::string before = songProc.getPlanFile().getFileName().toStdString();
+        const int barsBefore = songProc.getStatus().bars;
+
+        const std::string chart = R"({ "title": "Harness Written", "explanation": "Built to be checked.",
+            "key": "A", "mode": "phrygian", "bpm": 96, "time_signature": [4, 4],
+            "style": "doom", "bass_tuning": "drop_c", "ending": "ritard",
+            "sections": [
+              { "name": "intro",  "bars": 4, "intensity": 0.3, "feel": "half_time", "chords": ["A5","Bb5"],
+                "plays": "drums+bass+guitar", "guitar": "open", "guitar2": "silent", "piano": "silent",
+                "lead": "guitar", "fill": "small" },
+              { "name": "verse1", "bars": 8, "intensity": 0.55, "feel": "half_time", "chords": ["A5","F5","G5","A5"],
+                "plays": "full", "guitar": "muted", "guitar2": "fills", "piano": "sparse",
+                "lead": "guitar", "fill": "auto" },
+              { "name": "solo",   "bars": 8, "intensity": 0.9, "feel": "straight", "chords": ["A5","Bb5"],
+                "plays": "full", "guitar": "driving", "guitar2": "solo", "piano": "silent",
+                "lead": "guitar2", "fill": "big" } ] })";
+
+        const std::string answer = R"({ "model": "claude-opus-5", "stop_reason": "end_turn",
+            "usage": { "input_tokens": 3100, "output_tokens": 1400 },
+            "content": [ { "type": "text", "text": )" + gb::jsonQuote (chart) + " } ] }";
+
+        const gb::PlannerResult written = gb::parsePlannerResponse (200, answer);
+        juce::String applyError;
+
+        check (written.ok && songProc.applyWrittenSong (written, applyError),
+               "a finished chart becomes the song", applyError);
+
+        const auto sections = songProc.getSections();
+        check (sections.size() == 3 && songProc.getStatus().bars == 20,
+               "with the chart's own sections and length",
+               juce::String ((int) sections.size()) + " sections, "
+                   + juce::String (songProc.getStatus().bars) + " bars");
+
+        // SAVED AS A SONG, so Reload, Takes and the file browser treat it like
+        // any other - and a chart that cost money to write is not lost.
+        const juce::File file = songProc.getPlanFile();
+        check (file.existsAsFile()
+                   && file.getParentDirectory() == GhostbandProcessor::writtenSongsFolder()
+                   && file.getFileName().startsWith ("Harness Written"),
+               "and it is saved as a song in the Written folder", file.getFullPathName());
+
+        // AND IT PLAYS: the whole song, through processBlock, like any other.
+        check (songProc.getStatus().drumHits > 20 && songProc.getStatus().bassNotes > 10,
+               "and it plays like any other song",
+               juce::String (songProc.getStatus().drumHits) + " drum hits");
+
+        // ONE STEP BACK, the same one the dice has.
+        //
+        // The undo happens on its own line, BEFORE the check. It used to be
+        // inside the check's arguments, and argument order is unspecified - on
+        // this compiler the detail string was read first, so a passing check
+        // printed the written song's name as though the undo had not happened.
+        // A check whose own output contradicts it is not one to trust.
+        const bool undone = songProc.undoTheDice();
+        const juce::String after = songProc.getPlanFile().getFileName();
+
+        check (undone && after.toStdString() == before
+                   && songProc.getStatus().bars == barsBefore,
+               "and one step back puts the previous song back",
+               "\"" + after + "\", " + juce::String (songProc.getStatus().bars) + " bars; was \""
+                   + juce::String (before) + "\", " + juce::String (barsBefore));
     }
 
     // ---- a song's own problems reach the screen ----------------------------

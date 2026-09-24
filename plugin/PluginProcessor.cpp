@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "SecretStore.h"
 
 #include "ghostband/Groove.h"
 #include "ghostband/MidiFile.h"
@@ -109,7 +110,13 @@ void GhostbandProcessor::loadBuiltInPlan()
     regenerate();
 }
 
-GhostbandProcessor::~GhostbandProcessor() = default;
+GhostbandProcessor::~GhostbandProcessor()
+{
+    // A request in flight when the host closes. The job cancels its own
+    // socket and stops - it is never killed mid-read, and it never calls back
+    // into a processor that is being destroyed.
+    plannerJob.reset();
+}
 
 void GhostbandProcessor::prepareToPlay (double, int) {}
 void GhostbandProcessor::releaseResources() {}
@@ -393,6 +400,371 @@ gbdiag::Scope::~Scope()
 {
     if (counting)
         Work::add (name, juce::Time::getMillisecondCounterHiRes() - start);
+}
+
+//==============================================================================
+// Remember where we were BEFORE anything moves, so one press can be taken back.
+// Stored as the song's own text for the same reason a take is: the key, the
+// tempo, the style and the chords all live in the plan, and a handful of loose
+// numbers would restore the dials over a different song.
+//
+// Shared by the dice and the planner: both replace the whole song, and both
+// deserve exactly one step back.
+bool GhostbandProcessor::rememberForUndo()
+{
+    const juce::ScopedLock sl (stateLock);
+    if (plan.sections.empty())
+        return false;
+
+    gb::SongPlan asPlayed = plan;
+    asPlayed.complexity = complexity.load();
+    asPlayed.humanize   = humanize.load();
+    asPlayed.fills      = fills.load();
+    asPlayed.intuition  = intuition.load();
+    asPlayed.seed       = static_cast<unsigned> (std::max (1, seed.load()));
+
+    diceUndoJson       = juce::String (asPlayed.toJson());
+    diceUndoSeed       = seed.load();
+    diceUndoComplexity = complexity.load();
+    diceUndoHumanize   = humanize.load();
+    diceUndoFills      = fills.load();
+    diceUndoIntuition  = intuition.load();
+    diceUndoFile       = planFile;
+    return true;
+}
+
+//==============================================================================
+// THE PLANNER'S KEY.
+
+static juce::File& plannerKeyOverride()
+{
+    static juce::File f;
+    return f;
+}
+
+void GhostbandProcessor::setPlannerKeyFileForTesting (const juce::File& f)
+{
+    plannerKeyOverride() = f;
+}
+
+juce::File GhostbandProcessor::plannerKeyFile()
+{
+    if (plannerKeyOverride() != juce::File())
+        return plannerKeyOverride();
+
+    return changeLogFile().getSiblingFile ("planner-key.bin");
+}
+
+bool GhostbandProcessor::setPlannerKey (const juce::String& key)
+{
+    const std::string plain = key.trim().toStdString();
+    if (plain.empty())
+        return false;
+
+    std::string cipher;
+    if (! gbsecret::protect (plain, cipher))
+        return false;
+
+    const juce::File f = plannerKeyFile();
+    f.getParentDirectory().createDirectory();
+
+    if (! f.replaceWithData (cipher.data(), cipher.size()))
+        return false;
+
+    // That a key was set, never what it was.
+    logChange ("planner key saved");
+    return true;
+}
+
+void GhostbandProcessor::clearPlannerKey()
+{
+    if (plannerKeyFile().deleteFile())
+        logChange ("planner key removed");
+}
+
+bool GhostbandProcessor::hasPlannerKey() const
+{
+    return plannerKeyFile().existsAsFile() && plannerKeyFile().getSize() > 0;
+}
+
+static bool readPlannerKey (std::string& key)
+{
+    juce::MemoryBlock mb;
+    if (! GhostbandProcessor::plannerKeyFile().loadFileAsData (mb) || mb.getSize() == 0)
+        return false;
+
+    const std::string cipher (static_cast<const char*> (mb.getData()), mb.getSize());
+    return gbsecret::unprotect (cipher, key) && ! key.empty();
+}
+
+//==============================================================================
+static juce::File& userSongsOverride()
+{
+    static juce::File f;
+    return f;
+}
+
+void GhostbandProcessor::setUserSongsFolderForTesting (const juce::File& f)
+{
+    userSongsOverride() = f;
+}
+
+juce::File GhostbandProcessor::writtenSongsFolder()
+{
+    const juce::File base = userSongsOverride() != juce::File() ? userSongsOverride()
+                                                                  : userSongsFolder();
+    const juce::File dir = base.getChildFile ("Written");
+    dir.createDirectory();
+    return dir;
+}
+
+//==============================================================================
+// THE JOB. One request, on its own thread.
+//
+// It holds the key only as long as the request does, it can be cancelled from
+// the message thread mid-read, and it reports back through a weak reference -
+// so a host closing with a request in flight neither waits five minutes nor
+// calls into a processor that no longer exists.
+class GhostbandProcessor::PlannerJob : public juce::Thread
+{
+public:
+    PlannerJob (GhostbandProcessor& p, gb::PlannerRequest r, std::string k, juce::String asked)
+        : juce::Thread ("Ghostband planner"),
+          owner (&p), request (std::move (r)), key (std::move (k)), asked (std::move (asked))
+    {
+    }
+
+    ~PlannerJob() override
+    {
+        signalThreadShouldExit();
+        {
+            const juce::ScopedLock sl (streamLock);
+            if (stream != nullptr)
+                stream->cancel();
+        }
+        stopThread (10000);
+        wipeKey();
+    }
+
+    void run() override
+    {
+        juce::String headers;
+        for (const auto& h : request.headers)
+            headers << juce::String (h.first) << ": " << juce::String (h.second) << "\r\n";
+
+        // The one place the key is ever written anywhere: this header.
+        headers << "x-api-key: " << juce::String (key) << "\r\n";
+        wipeKey();
+
+        juce::URL url (juce::String (request.url));
+        url = url.withPOSTData (juce::MemoryBlock (request.body.data(), request.body.size()));
+
+        auto web = std::make_unique<juce::WebInputStream> (url, true);
+        web->withExtraHeaders (headers)
+            .withCustomRequestCommand ("POST")
+            // Five minutes. A chart at high effort thinks before it writes, and
+            // on Windows this also sets the RECEIVE timeout - too short, and a
+            // slow but healthy answer is cut off and reported as a failure.
+            .withConnectionTimeout (300000)
+            .withNumRedirectsToFollow (0);
+
+        {
+            const juce::ScopedLock sl (streamLock);
+            stream = web.get();
+        }
+
+        int status = 0;
+        std::string body;
+
+        if (! threadShouldExit() && web->connect (nullptr))
+        {
+            status = web->getStatusCode();
+            body   = web->readEntireStreamAsString().toStdString();
+        }
+
+        {
+            const juce::ScopedLock sl (streamLock);
+            stream = nullptr;
+        }
+
+        if (threadShouldExit())
+            return;
+
+        const gb::PlannerResult result = gb::parsePlannerResponse (status, body);
+
+        juce::WeakReference<GhostbandProcessor> safe (owner);
+        const juce::String askedFor = asked;
+
+        juce::MessageManager::callAsync ([safe, result, askedFor]
+        {
+            if (auto* p = safe.get())
+                p->plannerFinished (result, askedFor);
+        });
+    }
+
+private:
+    void wipeKey()
+    {
+        std::fill (key.begin(), key.end(), '\0');
+        key.clear();
+    }
+
+    GhostbandProcessor* owner;
+    gb::PlannerRequest  request;
+    std::string         key;
+    juce::String        asked;
+
+    juce::CriticalSection streamLock;
+    juce::WebInputStream* stream = nullptr;
+};
+
+//==============================================================================
+bool GhostbandProcessor::writeSong (const juce::String& requestText, juce::String& whyNot)
+{
+    GB_WORK ("write song");
+
+    if (requestText.trim().isEmpty())
+    {
+        whyNot = "Say what you want first - a style, a mood, a length.";
+        return false;
+    }
+
+    {
+        const juce::ScopedLock sl (plannerLock);
+        if (plannerStatus.busy)
+        {
+            whyNot = "Already writing one.";
+            return false;
+        }
+    }
+
+    // THE KEY IS CHECKED BEFORE ANY NETWORK IS TOUCHED. No key, no request -
+    // not a request that fails at Anthropic's end.
+    std::string key;
+    if (! readPlannerKey (key))
+    {
+        whyNot = hasPlannerKey()
+                   ? "The saved key could not be read on this Windows account. Enter it again in Settings."
+                   : "Add an Anthropic API key in Settings to write songs.";
+        return false;
+    }
+
+    gb::PlannerBrief brief;
+    brief.request = requestText.trim().toStdString();
+    {
+        const juce::ScopedLock sl (stateLock);
+
+        gb::SongPlan asPlayed = plan;
+        asPlayed.complexity = complexity.load();
+        asPlayed.humanize   = humanize.load();
+        asPlayed.fills      = fills.load();
+        asPlayed.intuition  = intuition.load();
+
+        brief.currentPlanJson = asPlayed.toJson();
+        brief.hasGuitar  = haveGuitar;
+        brief.hasGuitar2 = haveGuitar2;
+        brief.hasPiano   = havePiano;
+    }
+
+    const gb::PlannerRequest request = gb::buildPlannerRequest (brief, gb::PlannerSettings());
+
+    // The previous job is finished (busy was false) - releasing it joins a
+    // thread that has already returned.
+    plannerJob.reset();
+    plannerJob = std::make_unique<PlannerJob> (*this, request, std::move (key), requestText.trim());
+
+    {
+        const juce::ScopedLock sl (plannerLock);
+        plannerStatus.busy      = true;
+        plannerStatus.message   = "writing...";
+        plannerStatus.startedMs = juce::Time::getMillisecondCounter();
+    }
+
+    logChange ("asked the planner for   " + requestText.trim());
+    plannerJob->startThread();
+    stateChanged.sendChangeMessage();
+    return true;
+}
+
+GhostbandProcessor::PlannerStatus GhostbandProcessor::getPlannerStatus() const
+{
+    const juce::ScopedLock sl (plannerLock);
+    return plannerStatus;
+}
+
+void GhostbandProcessor::plannerFinished (const gb::PlannerResult& result, const juce::String&)
+{
+    juce::String applyError;
+    const bool applied = result.ok && applyWrittenSong (result, applyError);
+
+    {
+        const juce::ScopedLock sl (plannerLock);
+        plannerStatus.busy         = false;
+        plannerStatus.anyResult    = true;
+        plannerStatus.lastOk       = applied;
+        plannerStatus.servedBy     = juce::String (result.servedBy);
+        plannerStatus.inputTokens  = result.inputTokens;
+        plannerStatus.outputTokens = result.outputTokens;
+        plannerStatus.message      = ! result.ok  ? juce::String (result.error)
+                                   : ! applied    ? applyError
+                                                  : juce::String (result.explanation);
+    }
+
+    if (! result.ok)
+        logChange ("planner failed   " + juce::String (result.error));
+
+    stateChanged.sendChangeMessage();
+}
+
+bool GhostbandProcessor::applyWrittenSong (const gb::PlannerResult& result, juce::String& error)
+{
+    GB_WORK ("apply written song");
+
+    if (! result.ok)
+    {
+        error = juce::String (result.error);
+        return false;
+    }
+
+    rememberForUndo();
+
+    gb::SongPlan current;
+    {
+        const juce::ScopedLock sl (stateLock);
+        current = plan;
+        current.complexity = complexity.load();
+        current.humanize   = humanize.load();
+        current.fills      = fills.load();
+        current.intuition  = intuition.load();
+        current.seed       = static_cast<unsigned> (std::max (1, seed.load()));
+    }
+
+    const gb::SongPlan merged = gb::mergeChart (current, result.plan);
+
+    // Saved as a file first, then loaded through the same path as every other
+    // song. The written song is then a song like any other: Reload re-reads it,
+    // it can be edited in a text editor, it can be a take - and a chart that
+    // cost money to write is never lost to the next roll.
+    const juce::String stamp = juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H%M%S");
+    const juce::String title = juce::File::createLegalFileName (juce::String (merged.title)).trim();
+    const juce::File file = writtenSongsFolder().getChildFile ((title.isEmpty() ? juce::String ("Written")
+                                                                                : title)
+                                                               + " " + stamp + ".json");
+
+    if (! file.replaceWithText (juce::String (merged.toJson())))
+    {
+        error = "Could not save the written song to " + file.getFullPathName();
+        return false;
+    }
+
+    logChange ("song written by the planner   " + juce::String (merged.title)
+               + (result.servedBy.empty() ? juce::String()
+                                          : "   (" + juce::String (result.servedBy) + ", "
+                                              + juce::String (result.inputTokens) + " in / "
+                                              + juce::String (result.outputTokens) + " out)"));
+
+    loadPlan (file);
+    return true;
 }
 
 void GhostbandProcessor::loadPlan (const juce::File& file)
@@ -2587,30 +2959,8 @@ bool GhostbandProcessor::rollTheDice (bool alsoNewSong)
 {
     GB_WORK ("dice");
 
-    // Remember where we were BEFORE anything moves, so one press can be taken
-    // back. Stored as the song's own text for the same reason a take is: the
-    // key, the tempo, the style and the chords all live in the plan, and a
-    // handful of loose numbers would restore the dials over a different song.
-    {
-        const juce::ScopedLock sl (stateLock);
-        if (plan.sections.empty())
-            return false;
-
-        gb::SongPlan asPlayed = plan;
-        asPlayed.complexity = complexity.load();
-        asPlayed.humanize   = humanize.load();
-        asPlayed.fills      = fills.load();
-        asPlayed.intuition  = intuition.load();
-        asPlayed.seed       = static_cast<unsigned> (std::max (1, seed.load()));
-
-        diceUndoJson       = juce::String (asPlayed.toJson());
-        diceUndoSeed       = seed.load();
-        diceUndoComplexity = complexity.load();
-        diceUndoHumanize   = humanize.load();
-        diceUndoFills      = fills.load();
-        diceUndoIntuition  = intuition.load();
-        diceUndoFile       = planFile;
-    }
+    if (! rememberForUndo())
+        return false;
 
     juce::Random r;   // seeded from the clock: the dice is the one thing here
                       // that is deliberately not reproducible

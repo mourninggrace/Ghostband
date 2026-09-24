@@ -612,6 +612,12 @@ public:
     }
 
     void pressRollForTesting();
+
+    // The planner's controls as the owner would see them.
+    bool         writeEnabledForTesting() const { return writeButton.isEnabled(); }
+    juce::String writeStatusForTesting()  const { return writeStatus.getText(); }
+    juce::String writeTooltipForTesting()       { return writeButton.getTooltip(); }
+    void         refreshPlannerForTesting()     { refreshPlannerControls(); }
     int  rerollSelectionSizeForTesting() const;
 
     // The stall detector, driven the way the clock drives it. There is no way
@@ -656,6 +662,47 @@ private:
     // last roll back - one step, and it exists because rolling past a good one
     // with no way back is the thing that would make this frustrating.
     DiceButton diceButton;
+
+    //==========================================================================
+    // THE AI PLANNER, on the song screen - chosen by the owner over a screen of
+    // its own and a pop-up, 2026-09-24: "on the song screen", and a written song
+    // replaces the current one at once with one step back rather than asking
+    // first.
+    //
+    // One row - a text box whose placeholder says what it is for, and a Write
+    // button - with a status line under it. The rail had fifty pixels to spare,
+    // and a heading above a box that already says "write a song" was spending
+    // twelve of them on saying it twice.
+    class WriteButton : public juce::TextButton
+    {
+    public:
+        WriteButton() : juce::TextButton ("Write") {}
+
+        // Right-click puts the previous song back - the same one step the dice
+        // has, and for the same reason: replacing a song with no way back is
+        // what would make this frustrating rather than fun.
+        void mouseDown (const juce::MouseEvent& e) override
+        {
+            if (e.mods.isPopupMenu()) { if (onRightClick) onRightClick(); return; }
+            juce::TextButton::mouseDown (e);
+        }
+
+        std::function<void()> onRightClick;
+    };
+
+    juce::TextEditor writeRequest;
+    WriteButton      writeButton;
+    juce::Label      writeStatus;
+
+    // Settings: where the key goes in. There is no field that shows it back -
+    // the placeholder says whether one is saved, and that is all.
+    juce::Label      plannerKeyLabel;
+    juce::TextEditor plannerKeyEditor;
+    juce::TextButton plannerKeySave  { "Save key" };
+    juce::TextButton plannerKeyClear { "Clear" };
+
+    void refreshPlannerControls();
+    void startWriting();
 
     // Ghostband's own transport. The host's is usually left running for a whole
     // session, so stopping the band and stopping the host are different things.

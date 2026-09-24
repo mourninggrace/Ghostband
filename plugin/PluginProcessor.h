@@ -2,6 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include "ghostband/Planner.h"
 #include "ghostband/Profile.h"
 #include "ghostband/Render.h"
 #include "ghostband/SongPlan.h"
@@ -416,6 +417,55 @@ public:
     // not append to the owner's real log. Forgetting this once already rewrote
     // the channels of every instrument on this machine.
     static void setStallLogFileForTesting (const juce::File& f);
+
+    //==========================================================================
+    // THE AI PLANNER, the plugin's half. gb::Planner is the engine's half and
+    // is pure; this is the part with a key, a thread and a socket.
+    //
+    // The three rules from the backlog hold here too: with no key nothing runs
+    // and nothing else changes; the key is the owner's own; and the request is
+    // made on its own thread, so playback never waits on a network.
+
+    // THE KEY, encrypted for this Windows user (see SecretStore). There is
+    // deliberately no getter: the key goes from the store into one request
+    // header inside the job and nowhere else - not the editor, not a log, not
+    // a plan, not a take.
+    static juce::File plannerKeyFile();
+    static void setPlannerKeyFileForTesting (const juce::File& f);
+
+    bool setPlannerKey (const juce::String& key);
+    void clearPlannerKey();
+    bool hasPlannerKey() const;
+
+    // Written songs are saved as ordinary plan files in here, so Reload, Takes
+    // and the file browser all treat them like any other song - and so a song
+    // somebody paid for is never lost to a reroll.
+    static juce::File writtenSongsFolder();
+    static void setUserSongsFolderForTesting (const juce::File& f);
+
+    // Starts a request. False, with a reason in `whyNot`, when it cannot: no
+    // key, or one already running. The result arrives on the message thread.
+    bool writeSong (const juce::String& request, juce::String& whyNot);
+
+    struct PlannerStatus
+    {
+        bool         busy      = false;
+        bool         lastOk    = false;
+        bool         anyResult = false;
+        juce::String message;            // the explanation, or what went wrong
+        juce::String servedBy;
+        int          inputTokens  = 0;
+        int          outputTokens = 0;
+        juce::uint32 startedMs    = 0;
+    };
+
+    PlannerStatus getPlannerStatus() const;
+
+    // What a finished request does: the chart becomes the song, keeping this
+    // rig's plugins, seed and dials, saved as a file and loaded through the
+    // same path as every other song - with one step back, the same one the dice
+    // has. Public because the harness drives it with canned charts.
+    bool applyWrittenSong (const gb::PlannerResult& result, juce::String& error);
 
     struct Diagnostics
     {
@@ -977,5 +1027,20 @@ private:
     // from zero at each transport start.
     double planTick = 0.0;
 
+    //==========================================================================
+    // The planner's job. Its own thread; see PlannerJob in the .cpp.
+    class PlannerJob;
+    std::unique_ptr<PlannerJob> plannerJob;
+
+    mutable juce::CriticalSection plannerLock;
+    PlannerStatus                 plannerStatus;
+
+    void plannerFinished (const gb::PlannerResult& result, const juce::String& request);
+
+    // The dice's one step back, shared: anything that replaces the whole song
+    // records where it was first. False when there is no song to remember.
+    bool rememberForUndo();
+
+    JUCE_DECLARE_WEAK_REFERENCEABLE (GhostbandProcessor)
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GhostbandProcessor)
 };

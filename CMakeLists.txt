@@ -99,6 +99,7 @@ if (EXISTS "${GHOSTBAND_JUCE_PATH}/CMakeLists.txt")
         plugin/PluginProcessor.cpp
         plugin/PluginEditor.cpp
         plugin/GhostbandLookAndFeel.cpp
+        plugin/SecretStore.cpp
     )
 
     target_compile_definitions(GhostbandPlugin PUBLIC
@@ -147,6 +148,7 @@ if (EXISTS "${GHOSTBAND_JUCE_PATH}/CMakeLists.txt")
         plugin/PluginProcessor.cpp
         plugin/PluginEditor.cpp
         plugin/GhostbandLookAndFeel.cpp
+        plugin/SecretStore.cpp
     )
 
     target_include_directories(ghostband_plugin_test PRIVATE plugin)
