@@ -29,6 +29,7 @@ add_library(ghostband_engine STATIC
     engine/src/Profile.cpp
     engine/src/Groove.cpp
     engine/src/Render.cpp
+    engine/src/Planner.cpp
 )
 
 target_include_directories(ghostband_engine PUBLIC engine/include)

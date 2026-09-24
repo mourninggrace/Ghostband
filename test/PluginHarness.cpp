@@ -14,6 +14,8 @@
 
 #include "ghostband/Groove.h"
 #include "ghostband/MidiFile.h"
+#include "ghostband/Json.h"
+#include "ghostband/Planner.h"
 #include "ghostband/Render.h"
 #include "ghostband/SongPlan.h"
 
@@ -4443,6 +4445,227 @@ int main (int argc, char** argv)
         check (t.paintedRowForTesting() == (float) t.litRow() && ! t.motionPending(),
                "settling the grid makes the eased row and the exact row agree",
                juce::String (t.paintedRowForTesting(), 4) + " vs " + juce::String (t.litRow()));
+    }
+
+    // ---- THE AI PLANNER, the half that needs no key -------------------------
+    //
+    // Everything here runs on canned responses. No network, no account, no
+    // cost - which is the reason the planner was split so the engine half is
+    // pure: every sentence an owner could ever see from it can be produced and
+    // checked here, including the ones for a rejected key, a refusal, a server
+    // that is down and a chart that is half nonsense.
+    {
+        // ---- the request -------------------------------------------------
+        gb::PlannerBrief brief;
+        brief.request = "a slow doom song that ends in a blast beat";
+
+        const gb::PlannerSettings settings;
+        const gb::PlannerRequest  req = gb::buildPlannerRequest (brief, settings);
+
+        std::string perr;
+        const gb::Json body = gb::Json::parse (req.body, perr);
+
+        check (perr.empty() && body.isObject(),
+               "the planner's request is valid JSON", juce::String (perr));
+
+        check (body.stringOr ("model", "") == "claude-opus-5",
+               "and asks for the current Opus by default",
+               juce::String (body.stringOr ("model", "?")));
+
+        check (body["thinking"].stringOr ("type", "") == "adaptive"
+                   && body["output_config"].stringOr ("effort", "") == "high",
+               "with adaptive thinking at high effort");
+
+        check (body["output_config"]["format"].stringOr ("type", "") == "json_schema"
+                   && body["output_config"]["format"]["schema"].isObject(),
+               "and its answer held to a JSON schema, so it is a chart or nothing");
+
+        check (body.stringOr ("fallbacks", "") == "default",
+               "and a declined request re-runs on another model rather than failing");
+
+        bool version = false, beta = false, keyHeader = false;
+        for (const auto& h : req.headers)
+        {
+            if (h.first == "anthropic-version" && h.second == "2023-06-01") version = true;
+            if (h.first == "anthropic-beta" && h.second == "server-side-fallback-2026-07-01") beta = true;
+            if (juce::String (h.first).equalsIgnoreCase ("x-api-key")) keyHeader = true;
+        }
+
+        check (version && beta, "with the version header and the fallback beta");
+
+        // THE KEY NEVER PASSES THROUGH THE ENGINE. Not a header here, not a
+        // byte of the body. The plugin adds the one header that carries it at
+        // the moment of sending, which keeps the places a key can leak to one.
+        check (! keyHeader && req.body.find ("sk-ant") == std::string::npos,
+               "and the engine never sees the API key at all");
+
+        // The user's own words, with everything people actually type into a
+        // text box. They have to arrive as the same words, not a broken request.
+        {
+            gb::PlannerBrief awkward;
+            awkward.request = "a \"heavy\" song\nwith C:\\paths, a\ttab, and caf\xc3\xa9 \xf0\x9f\xa4\x98";
+
+            const gb::PlannerRequest r2 = gb::buildPlannerRequest (awkward, settings);
+            std::string e2;
+            const gb::Json b2 = gb::Json::parse (r2.body, e2);
+            const std::string sent = b2["messages"][0].stringOr ("content", "");
+
+            check (e2.empty() && sent.find (awkward.request) != std::string::npos,
+                   "quotes, newlines, backslashes and emoji arrive exactly as typed",
+                   juce::String (e2));
+        }
+
+        // A chart that hands a verse to a piano nobody loaded is a silent verse.
+        {
+            gb::PlannerBrief noPiano = brief;
+            noPiano.hasPiano = false;
+
+            const gb::PlannerRequest r3 = gb::buildPlannerRequest (noPiano, settings);
+            std::string e3;
+            const std::string sent = gb::Json::parse (r3.body, e3)["messages"][0].stringOr ("content", "");
+
+            check (sent.find ("a piano") == std::string::npos
+                       && sent.find ("a lead guitar") != std::string::npos,
+                   "the model is told which parts this rig actually has");
+        }
+
+        std::string se;
+        check (gb::Json::parse (gb::plannerOutputSchema(), se).isObject() && se.empty(),
+               "the output schema is itself valid JSON", juce::String (se));
+
+        // ---- the response ------------------------------------------------
+        // A chart as the model would write it, wrapped the way the API wraps it.
+        const auto chartJson = [] (const std::string& bpm, const std::string& firstChord,
+                                   const std::string& sectionsOverride)
+        {
+            const std::string sections = ! sectionsOverride.empty() ? sectionsOverride :
+                R"([ { "name": "intro", "bars": 4, "intensity": 0.3, "feel": "half_time",
+                       "chords": [")" + firstChord + R"(", "C"], "plays": "drums+bass+guitar",
+                       "guitar": "open", "guitar2": "silent", "piano": "silent",
+                       "lead": "guitar", "fill": "small" },
+                     { "name": "verse1", "bars": 8, "intensity": 0.5, "feel": "straight",
+                       "chords": ["Em", "C", "D", "Em"], "plays": "full",
+                       "guitar": "muted", "guitar2": "fills", "piano": "sparse",
+                       "lead": "guitar", "fill": "auto" },
+                     { "name": "chorus1", "bars": 8, "intensity": 0.85, "feel": "straight",
+                       "chords": ["C", "G", "D", "Em"], "plays": "full",
+                       "guitar": "driving", "guitar2": "fills", "piano": "open",
+                       "lead": "both", "fill": "big" } ])";
+
+            return std::string (R"({ "title": "Planned", "explanation": "A slow build into a loud chorus.",
+                "key": "E", "mode": "natural_minor", "bpm": )") + bpm + R"(,
+                "time_signature": [4, 4], "style": "doom", "bass_tuning": "drop_c",
+                "ending": "cymbal_ring", "sections": )" + sections + " }";
+        };
+
+        const auto wrap = [] (const std::string& stop, const std::string& text)
+        {
+            return std::string (R"({ "id": "msg_x", "type": "message", "role": "assistant",
+                "model": "claude-opus-5", "stop_reason": ")") + stop + R"(",
+                "usage": { "input_tokens": 1800, "output_tokens": 950 },
+                "content": [ { "type": "thinking", "thinking": "" },
+                             { "type": "text", "text": )" + gb::jsonQuote (text) + " } ] }";
+        };
+
+        const gb::PlannerResult good = gb::parsePlannerResponse (200, wrap ("end_turn", chartJson ("72", "Em", "")));
+
+        check (good.ok && good.plan.sections.size() == 3,
+               "a good answer loads as a three-section song",
+               juce::String (good.error) + " " + juce::String ((int) good.plan.sections.size()));
+
+        check (good.plan.style == "doom" && good.plan.bassTuning == "drop_c"
+                   && good.plan.sections[0].feel == "half_time"
+                   && good.plan.sections[1].guitar2Phrase == "fills",
+               "and every field lands where the same key in a hand-written plan would");
+
+        check (good.explanation == "A slow build into a loud chorus."
+                   && good.servedBy == "claude-opus-5"
+                   && good.inputTokens == 1800 && good.outputTokens == 950,
+               "with the model's own explanation, who answered, and what it cost");
+
+        // A PERSON'S TYPO IS FORGIVEN; SO IS A MODEL'S. Same loader, same rule:
+        // an unreadable chord plays as the key and is reported, and the other
+        // eleven sections are not thrown away over it.
+        const gb::PlannerResult typo = gb::parsePlannerResponse (200, wrap ("end_turn", chartJson ("72", "Xq", "")));
+        bool mentioned = false;
+        for (const auto& n : typo.notes) if (n.find ("Xq") != std::string::npos) mentioned = true;
+
+        check (typo.ok && mentioned,
+               "a chart with an unreadable chord still loads, and says which chord");
+
+        const gb::PlannerResult fast = gb::parsePlannerResponse (200, wrap ("end_turn", chartJson ("400", "Em", "")));
+        check (fast.ok && fast.plan.bpm == 250.0 && ! fast.notes.empty(),
+               "an impossible tempo is clamped and reported, not fatal",
+               juce::String (fast.plan.bpm));
+
+        // THE STOP REASON IS READ BEFORE THE CONTENT. A refusal and a
+        // truncation both arrive as a perfectly good 200.
+        const gb::PlannerResult refused = gb::parsePlannerResponse (200, wrap ("refusal", ""));
+        check (! refused.ok && refused.error.find ("declined") != std::string::npos,
+               "a declined request says so rather than loading nothing",
+               juce::String (refused.error));
+
+        const gb::PlannerResult cut = gb::parsePlannerResponse (200, wrap ("max_tokens", "{ \"title\": \"half"));
+        check (! cut.ok && cut.error.find ("ran out of room") != std::string::npos,
+               "a chart cut off mid-way is refused rather than half-loaded",
+               juce::String (cut.error));
+
+        const gb::PlannerResult notJson = gb::parsePlannerResponse (200, wrap ("end_turn", "Here is your song!"));
+        check (! notJson.ok, "an answer that is not a chart is refused",
+               juce::String (notJson.error));
+
+        const gb::PlannerResult empty = gb::parsePlannerResponse (200, wrap ("end_turn", chartJson ("72", "Em", "[]")));
+        check (! empty.ok, "a chart with no sections is refused", juce::String (empty.error));
+
+        // EVERY FAILURE AN OWNER CAN SEE, in words they can act on.
+        const std::string err401 = R"({"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}})";
+        const std::string err429 = R"({"type":"error","error":{"type":"rate_limit_error","message":"rate limited"}})";
+        const std::string err529 = R"({"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}})";
+
+        check (gb::parsePlannerResponse (401, err401).error.find ("API key") != std::string::npos,
+               "a rejected key is named as the key");
+        check (gb::parsePlannerResponse (429, err429).error.find ("credit") != std::string::npos,
+               "a rate limit mentions that it may be the account's credit");
+        check (gb::parsePlannerResponse (529, err529).error.find ("busy") != std::string::npos,
+               "an overloaded server is Anthropic's problem and says to try again");
+        check (gb::parsePlannerResponse (0, "").error.find ("internet") != std::string::npos,
+               "no connection at all is said plainly, with the band still playing");
+
+        // ---- the merge ---------------------------------------------------
+        // The model writes the song. It does not choose the plugins, the seed
+        // or the performer's dials - a chart that silently reset humanize
+        // would change something nobody asked it to.
+        {
+            gb::SongPlan current;
+            std::string ce;
+            gb::SongPlan::load ("C:/Projects/Ghostband/plans/demo-metal.json", current, ce);
+            current.seed = 4242;  current.humanize = 0.83;  current.intuition = 0.2;
+            current.transpose = 3;
+
+            const gb::SongPlan merged = gb::mergeChart (current, good.plan);
+
+            check (merged.drumProfile == current.drumProfile
+                       && merged.guitar2Profile == current.guitar2Profile
+                       && merged.seed == 4242 && merged.humanize == 0.83 && merged.intuition == 0.2,
+                   "a planned song keeps this rig's plugins, seed and dials");
+
+            check (merged.style == "doom" && merged.bpm == 72.0 && merged.sections.size() == 3
+                       && merged.transpose == 0,
+                   "and takes the chart's style, tempo and sections, with no stale transpose");
+
+            // And it PLAYS. The whole point of the plan being the handoff is
+            // that nothing downstream has to know where it came from.
+            gb::DrumProfile pk;  gb::BassProfile pb;  std::string pe;
+            gb::DrumProfile::load (merged.drumProfile, pk, pe);
+            gb::BassProfile::load (merged.bassProfile, pb, pe);
+
+            const gb::RenderResult rr = gb::renderPerformance (merged, pk, pb, nullptr, nullptr, nullptr);
+
+            check (rr.performance.drums.size() > 20 && rr.performance.bass.size() > 10,
+                   "and a planned song renders like any other song",
+                   juce::String ((int) rr.performance.drums.size()) + " drum hits, "
+                       + juce::String ((int) rr.performance.bass.size()) + " bass notes");
+        }
     }
 
     // ---- a song's own problems reach the screen ----------------------------
