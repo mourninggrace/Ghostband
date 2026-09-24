@@ -40,7 +40,7 @@ in fact done, and are noted at the bottom so nobody rediscovers them.
   the lit row easing, a section flaring as the playhead crosses it, a reroll
   sweeping in. Two latent bugs found on the way: a lead line could play two
   notes on one tick, and a control change could never show its number.
-- **v0.7.0, 2026-09-24** - the AI planner (optional, own key, Claude Opus 5.5
+- **v2.0.0, 2026-09-24** (first cut as v0.7.0, renumbered) - the AI planner (optional, own key, Claude Opus 5.5
   at medium effort, key encrypted with DPAPI, written songs kept as files, no
   file paths or username sent); fills sections that play a soft arpeggio between
   answers instead of going silent (77% -> 4% silent); solos that ring (median
@@ -59,10 +59,9 @@ substantial batch of changes, rather than per commit. Bump `project(Ghostband
 VERSION ...)` in `CMakeLists.txt`, commit, run `Release.bat`, then
 `gh release create`.
 
-## VERSION 2 is led by the AI PLANNER - SHIPPED EARLY, IN v0.7.0
+## VERSION 2 is led by the AI PLANNER - SHIPPED IN v2.0.0
 
-Built on 2026-09-24, ahead of the v2 it was planned for, because the owner had a
-key and asked for it. It keeps every constraint below. The notes stay as the
+Built on 2026-09-24, as the headline of version 2, as planned. It keeps every constraint below. The notes stay as the
 record of why it is shaped the way it is.
 
 Decided 2026-09-07. The owner is keen on it and it is explicitly a v2 feature,

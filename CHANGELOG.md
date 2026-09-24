@@ -5,7 +5,9 @@ measured, not estimated; where something could not be measured yet, it says so.
 
 Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/releases).
 
-## [0.7.0] — 2026-09-24
+## [2.0.0] — 2026-09-24
+
+Version 2, because its headline — the AI planner — was always planned as version 2's. First published as 0.7.0 the same day with identical content, then renumbered.
 
 ### Added
 - **Write a song with the AI planner** *(optional)*. Describe a song in a sentence
@@ -117,7 +119,7 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
 The first public build. Until then the only way in was cloning with submodules
 and owning Visual Studio.
 
-[0.7.0]: https://github.com/mourninggrace/Ghostband/releases/tag/v0.7.0
+[2.0.0]: https://github.com/mourninggrace/Ghostband/releases/tag/v2.0.0
 [0.6.0]: https://github.com/mourninggrace/Ghostband/releases/tag/v0.6.0
 [0.5.0]: https://github.com/mourninggrace/Ghostband/releases/tag/v0.5.0
 [0.4.0]: https://github.com/mourninggrace/Ghostband/releases/tag/v0.4.0

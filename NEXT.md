@@ -10,8 +10,9 @@ nobody has to read it.
 
 ## State
 
-- **v0.7.0 released 2026-09-24.** Tagged, published, marked latest, and its
-  checksum verified by downloading it back from GitHub. Nothing is unreleased.
+- **v2.0.0 released 2026-09-24** (first cut as v0.7.0 the same day and
+  renumbered at the owner's request - the planner was v2's headline). Tagged,
+  published, marked latest, and its checksum verified by downloading it back from GitHub. Nothing is unreleased.
 - **The AI planner is built and shipped** (optional, own key, Claude Opus 5.5 at
   medium). The one part never exercised by the suite is the real network call;
   the owner's first real song is its first run.
@@ -156,7 +157,7 @@ written up in OPEN-QUESTIONS.
 
 ## Session 22: the planner ships, and the guitar stops muting itself
 
-Ended with **v0.7.0**.
+Ended with **v2.0.0** (first cut as v0.7.0, renumbered).
 
 **THE PALM MUTING WAS A PROFILE BUG, TWO WEEKS OLD.** The Hydra's per-note
 gestures carried CC 40 values for a six-band layout set up on the morning of

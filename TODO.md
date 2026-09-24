@@ -5,7 +5,7 @@ deliberately not being done. The detailed engineering notes behind each item are
 in [BACKLOG.md](BACKLOG.md); the questions only the owner can answer are in
 [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md).
 
-*Last updated 2026-09-24, with v0.7.0.*
+*Last updated 2026-09-24, with v2.0.0.*
 
 ## Waiting on a listen
 
@@ -34,7 +34,7 @@ can make.
 - [ ] **`bigMoment` fires only on chorus and solo** — a musical judgement for the
       owner, not a bug.
 
-## Later — version 2
+## Later
 
 - [ ] **Live following** — comping behind what is actually played. Needs chord
       detection and tempo tracking; the largest unbuilt idea.
@@ -71,4 +71,4 @@ Decided, with the reason, so they are not re-proposed.
   switch that pins every note to the wrong string is worse than none.
 - **Per-note lead gestures on the Hydra** until its CC 40 is re-banded to carry
   them — values chosen for one layout and read under another were the whole of the
-  v0.7.0 palm-mute bug.
+  v2.0.0 palm-mute bug.

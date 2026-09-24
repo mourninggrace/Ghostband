@@ -98,7 +98,7 @@ sound like the same player. What changes is placement:
 underneath - half notes when the section is quiet, quarters in the middle,
 eighths when it is loud - low in its range and softer than the answers, and it
 **breaks off just before each answer** so the answer arrives as an entrance.
-Until v0.7.0 it played nothing at all between answers, which measured as silence
+Until v2.0.0 it played nothing at all between answers, which measured as silence
 77% of the time in a fills section, with gaps of up to 45 seconds. A guitar
 that drops out should do it for a second or two and for a reason, not leave
 empty space to do the talking.

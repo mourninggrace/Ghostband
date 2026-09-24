@@ -3,7 +3,7 @@
 One file, so none of it has to be remembered. Answered items move to the bottom
 with a date rather than being deleted, so the same question is never asked twice.
 
-**Last updated 2026-09-24, end of session 22. v0.7.0 is out.**
+**Last updated 2026-09-24, end of session 22. v2.0.0 is out.**
 
 ---
 
@@ -90,7 +90,7 @@ longer does, and a full test run leaves your file byte-identical. Your old-forma
 `stalls-old-format-to-20260916.log` rather than deleted, so the new one starts
 clean and nothing was thrown away.
 
-### 00. THE PLANNER, AND WHAT THE GUITAR DOES NOW - v0.7.0
+### 00. THE PLANNER, AND WHAT THE GUITAR DOES NOW - v2.0.0
 
 **Your first real song is the planner's first real run.** Everything but the
 network call is checked on every build; the call itself needs your key. Worth
@@ -147,9 +147,12 @@ velocity and hit count were spending 96 of them, so a control change drew `cc`
 and its number fell off the end. **In every window size this plugin has ever
 had.** You could never tell cc7 from cc65. You can now.
 
-### 0a. v0.7.0 is out
+### 0a. v2.0.0 is out
 
-https://github.com/mourninggrace/Ghostband/releases/tag/v0.7.0
+https://github.com/mourninggrace/Ghostband/releases/tag/v2.0.0
+
+Renumbered from v0.7.0 at your request - same content. The v0.7.0 release is
+still up; say if you want it deleted (that cannot be undone).
 
 Published, marked latest, and the download's checksum verified by fetching it
 back from GitHub.
