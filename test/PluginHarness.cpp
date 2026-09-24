@@ -1197,6 +1197,12 @@ int main (int argc, char** argv)
 
             for (const gb::LeadIntent& n : r.performance.guitar2.lead)
             {
+                // WHERE THE ANSWERS FALL, which is what these checks are about.
+                // The arpeggio the second guitar picks between answers is
+                // everywhere by design - that is the point of it - and counting
+                // it here would say every bar was an answer.
+                if (n.bed) continue;
+
                 ++notes;
                 accentSum += n.accent;
 
@@ -1225,9 +1231,31 @@ int main (int argc, char** argv)
             // But NOT all of them, or the rhythm of a fill is a metronome and
             // every song has the same one. This is the check that would have
             // caught the original complaint.
-            check (offBoundary > 0,
-                   "and not ONLY there - the fourth bar is a tendency, not a rule",
-                   juce::String (offBoundary) + " notes elsewhere");
+            //
+            // ACROSS SEEDS, because it is a tendency and one seed cannot test
+            // one. At the default dials a sixteen-bar section has roughly a one
+            // in three chance of every answer landing on a fourth bar anyway -
+            // this passed for a week on the luck of a single seed, and failed
+            // the day the solo's random stream moved by one draw. Eight seeds
+            // all landing on the fourth bar by chance is about one in ten
+            // thousand; eight landing there because the rule is back is certain.
+            {
+                int strays = 0;
+                for (unsigned seed = 1; seed <= 8; ++seed)
+                {
+                    gb::SongPlan p = plan;
+                    p.seed = seed;
+                    const gb::RenderResult rs = gb::renderPerformance (p, kit, bass, &gtr, nullptr, &gtr2);
+
+                    for (const gb::LeadIntent& n : rs.performance.guitar2.lead)
+                        if (! n.bed && ((n.tick / barTicks) + 1) % 4 != 0)
+                            ++strays;
+                }
+
+                check (strays > 0,
+                       "and not ONLY there - the fourth bar is a tendency, not a rule",
+                       juce::String (strays) + " answer notes elsewhere across eight seeds");
+            }
 
             check (inFrontHalf == 0,
                    "and never in the front of the bar, where the part it answers is",
@@ -1257,6 +1285,8 @@ int main (int argc, char** argv)
 
                     for (const gb::LeadIntent& n : rr.performance.guitar2.lead)
                     {
+                        if (n.bed) continue;      // answers only - see above
+
                         ++total;
                         const int bar    = n.tick / barTicks;
                         const int within = n.tick % barTicks;
@@ -1336,6 +1366,64 @@ int main (int argc, char** argv)
                            + juce::String ((int) b.performance.guitar2.lead.size()) + " notes");
             }
 
+            // ---- AND IT IS NEVER SILENT FOR LONG --------------------------
+            //
+            // It used to be. A fills section left the second guitar silent 77%
+            // of the time across all 34 songs, with 621 silences over four
+            // seconds and one of 44.7. Reported 2026-09-24: "a cut out in gtr
+            // lasts a second or two and is intended to accentuate the song or
+            // create a turn-around effect, but never just for dropping out and
+            // having empty space do the talking."
+            //
+            // So between answers it picks a slow arpeggio of the chord, and
+            // breaks off just before each answer. These pin both halves.
+            {
+                std::vector<gb::LeadIntent> all = r.performance.guitar2.lead;
+                std::sort (all.begin(), all.end(),
+                           [] (const gb::LeadIntent& a, const gb::LeadIntent& b)
+                           { return a.tick < b.tick; });
+
+                int longestSilence = all.empty() ? 1 << 30 : all.front().tick;
+                int bedNotes = 0, bedOffChord = 0;
+
+                for (size_t i = 0; i < all.size(); ++i)
+                {
+                    const int end  = all[i].tick + all[i].durationTicks;
+                    const int next = i + 1 < all.size() ? all[i + 1].tick : 16 * barTicks;
+                    longestSilence = std::max (longestSilence, next - end);
+
+                    if (all[i].bed)
+                    {
+                        ++bedNotes;
+                        const int pc = ((all[i].pitch % 12) + 12) % 12;
+                        if (pc != 4 && pc != 7 && pc != 11) ++bedOffChord;   // Em: E G B
+                    }
+                }
+
+                check (longestSilence <= barTicks,
+                       "a fills section never leaves the second guitar silent for a bar",
+                       "longest silence " + juce::String (longestSilence) + " ticks, a bar is "
+                           + juce::String (barTicks));
+
+                check (bedNotes > 0 && bedOffChord == 0,
+                       "between answers it picks the chord underneath rather than nothing",
+                       juce::String (bedNotes) + " notes, " + juce::String (bedOffChord)
+                           + " outside the chord");
+
+                // And the arpeggio sits BEHIND the answers, not level with them.
+                double bedAccent = 0.0, answerAccent = 0.0;
+                int answers = 0;
+                for (const gb::LeadIntent& n : all)
+                {
+                    if (n.bed) bedAccent += n.accent;
+                    else     { answerAccent += n.accent; ++answers; }
+                }
+
+                check (bedNotes > 0 && answers > 0
+                           && bedAccent / bedNotes < answerAccent / answers,
+                       "and plays it softer than the answers it is holding the space for");
+            }
+
             // Under, not over. The rhythm guitar is leading this section.
             const double avg = notes > 0 ? accentSum / notes : 1.0;
             check (avg < 0.95, "and softer than a solo would be",
@@ -1370,7 +1458,8 @@ int main (int argc, char** argv)
             // The claim worth making is that at one, every opening is used.
             std::set<int> filled;
             for (const gb::LeadIntent& n : full.performance.guitar2.lead)
-                filled.insert (n.tick / barTicks + 1);
+                if (! n.bed)
+                    filled.insert (n.tick / barTicks + 1);
 
             check (filled.size() == 4 && filled.count (4) && filled.count (8)
                        && filled.count (12) && filled.count (16),
@@ -2538,6 +2627,52 @@ int main (int argc, char** argv)
 
                 check (longestRest > 240, "and it stops to breathe",
                        "longest rest " + juce::String (longestRest) + " ticks");
+
+                // BUT NEVER STANDS STILL FOR A BAR. There used to be an eight
+                // per cent chance of a whole silent bar after any phrase - at a
+                // slow tempo, three seconds of a soloist doing nothing, which is
+                // dropping out rather than phrasing. Reported 2026-09-24 in so
+                // many words.
+                // INSIDE THE SOLO. The whole line also spans sections where
+                // this guitar is deliberately silent, and the gap across one of
+                // those is an arrangement, not a soloist standing still.
+                int longestInSolo = 0;
+                for (const gb::SectionReport& sec : r.sections)
+                {
+                    if (sec.name != "solo") continue;
+
+                    int cursor = sec.startTick;
+                    for (const gb::LeadIntent& n : lead)
+                    {
+                        if (n.tick < sec.startTick || n.tick >= sec.endTick) continue;
+                        longestInSolo = std::max (longestInSolo, n.tick - cursor);
+                        cursor = std::max (cursor, n.tick + n.durationTicks);
+                    }
+                    longestInSolo = std::max (longestInSolo, sec.endTick - cursor);
+                }
+
+                check (longestInSolo < gb::kPPQ * 4,
+                       "but it never stands silent for a whole bar",
+                       "longest rest inside the solo " + juce::String (longestInSolo) + " ticks");
+
+                // AND ITS NOTES RING. Every phrase used to step in sixteenths:
+                // half of every solo note a sixteenth, two per cent lasting a
+                // beat. Reported as "a solo is generally and mostly strong hit
+                // single sustained notes that flow". So the median note has to
+                // be at least an eighth - on this shuffle, a swung one.
+                {
+                    std::vector<int> durations;
+                    for (const gb::LeadIntent& n : lead)
+                        durations.push_back (n.durationTicks);
+                    std::sort (durations.begin(), durations.end());
+
+                    const int median = durations.empty() ? 0 : durations[durations.size() / 2];
+
+                    check (median >= gb::kPPQ / 2 - 60,
+                           "and its notes ring rather than streaming",
+                           "median note " + juce::String (median) + " ticks, an eighth is "
+                               + juce::String (gb::kPPQ / 2));
+                }
 
                 // Density, which is the check that was missing. Every test
                 // above passed while the solo was playing 3.3 notes a bar with
@@ -4445,6 +4580,37 @@ int main (int argc, char** argv)
         check (t.paintedRowForTesting() == (float) t.litRow() && ! t.motionPending(),
                "settling the grid makes the eased row and the exact row agree",
                juce::String (t.paintedRowForTesting(), 4) + " vs " + juce::String (t.litRow()));
+    }
+
+    // ---- THE SHIPPED HYDRA PROFILE SENDS NO LEAD GESTURES ------------------
+    //
+    // Its gesture values were chosen for a six-band CC 40 layout set up on the
+    // morning of 2026-09-07 and re-banded to five section articulations the same
+    // day. The note above the block was updated to say it was empty; the block
+    // was not. Under the five bands the instrument actually has, a rake meant
+    // palm mute, a pinch meant staccato and a tap meant a POWER CHORD in the
+    // middle of a lead line - 10.7% of every lead note across the 34 songs, and
+    // always the most exposed ones. Heard for two weeks as "way too much palm
+    // muting and dead note scratching" in the solos.
+    //
+    // Pinned here so it cannot come back quietly. If gestures are wanted again,
+    // the instrument is re-banded first and this check is changed on purpose.
+    {
+        gb::PhraseProfile hydra;
+        std::string he;
+        const bool loaded = gb::PhraseProfile::load (
+            "C:/Projects/Ghostband/profiles/shreddage-3-hydra.json", hydra, he);
+
+        int mapped = 0;
+        const gb::LeadArtic all[] = { gb::LeadArtic::Rake, gb::LeadArtic::Pinch,
+                                      gb::LeadArtic::Choke, gb::LeadArtic::Harmonic,
+                                      gb::LeadArtic::Tap };
+        for (gb::LeadArtic a : all)
+            if (hydra.hasLeadArtic (a)) ++mapped;
+
+        check (loaded && mapped == 0,
+               "the shipped Hydra profile sends no lead gestures on a CC 40 it has given to palm mute",
+               loaded ? juce::String (mapped) + " mapped" : juce::String (he));
     }
 
     // ---- THE AI PLANNER, the half that needs no key -------------------------

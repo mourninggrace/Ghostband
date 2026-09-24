@@ -389,6 +389,97 @@ static void generateSolo (const SectionPlan& s,
     // rather than as two answers.
     int lastFillBar = -1;
 
+    //==========================================================================
+    // THE BED: WHAT THE SECOND GUITAR PLAYS WHEN IT IS NOT ANSWERING.
+    //
+    // It used to play nothing. Measured across all 34 songs, a fills section
+    // left the lead guitar SILENT 77% OF THE TIME, with 621 silences longer
+    // than four seconds and one of 44.7. Reported, exactly: "the spots that are
+    // empty and no notes are being played is happening too long for too often.
+    // Usually a cut out in gtr lasts a second or two and is intended to
+    // accentuate the song or create a turn-around effect, but never just for
+    // dropping out and having empty space do the talking."
+    //
+    // So between answers it picks a slow arpeggio of the chord underneath -
+    // soft, ringing, voice-led from wherever the line last was - which is what
+    // a second guitarist actually does under a verse. Half notes when the
+    // section is quiet, quarters in the middle, eighths when it is loud.
+    //
+    // It BREAKS OFF one step before an answer, and that gap is the point: the
+    // answer arrives as an entrance, which is the purposeful second-long cut
+    // the report describes, rather than out of a silence that was already
+    // there for ten seconds.
+    //
+    // No rng at all, deliberately. The answers' own decisions are drawn from
+    // the solo stream, and a bed that drew from it too would move every one of
+    // them. This is a function of the chord and the line, nothing else.
+    const int bedStride = s.intensity < 0.35 ? slotsPerBar / 2
+                        : s.intensity > 0.80 ? slotsPerBar / 8
+                                             : slotsPerBar / 4;
+
+    int bedAt = -1;      // index into the current chord's tones, -1 until placed
+    int bedDir = 1;
+
+    const auto playBed = [&] (int bedBar, int fromSlot, int toSlot)
+    {
+        if (! answering || toSlot - fromSlot < std::max (1, bedStride))
+            return;
+
+        const Chord& c = chords[static_cast<size_t> (bedBar) % chords.size()];
+        const int wanted[4] = { c.rootPc,
+                                (c.rootPc + std::max (0, c.thirdSemitones())) % 12,
+                                (c.rootPc + c.fifthSemitones()) % 12,
+                                (c.rootPc + std::max (0, c.seventhSemitones())) % 12 };
+
+        // Chord tones in the lower half of the lead's range, so the bed sits
+        // UNDER the answers rather than competing with them for the same air.
+        std::vector<int> tones;
+        for (int d = 0; d <= voice.top / 2 + 3 && d <= voice.top; ++d)
+        {
+            const int pc = ((voice.pitchFor (d) % 12) + 12) % 12;
+            for (int w : wanted)
+                if (pc == w) { tones.push_back (d); break; }
+        }
+
+        if (tones.size() < 2)
+            return;
+
+        // Voice-led: start on the chord tone nearest where the line last was.
+        size_t at = 0;
+        for (size_t i = 0; i < tones.size(); ++i)
+            if (std::abs (tones[i] - degree) < std::abs (tones[at] - degree))
+                at = i;
+
+        if (bedAt >= 0 && static_cast<size_t> (bedAt) < tones.size())
+            at = static_cast<size_t> (bedAt);
+
+        const int barStart = sectionStartTick + bedBar * barTicks;
+
+        for (int slot = fromSlot; slot + bedStride <= toSlot; slot += bedStride)
+        {
+            const int pitch = voice.pitchFor (tones[at]);
+
+            if (pitch >= voice.lowest && pitch <= voice.highest)
+            {
+                LeadIntent n;
+                n.tick          = barStart + slot * slotTicks;
+                n.pitch         = pitch;
+                n.durationTicks = bedStride * slotTicks;
+                n.accent        = 0.40 + s.intensity * 0.12;
+                n.bed           = true;
+                out.lead.push_back (n);
+            }
+
+            // Up and back down through the chord, turning at either end.
+            if (bedDir > 0 && at + 1 < tones.size())      ++at;
+            else if (bedDir < 0 && at > 0)                --at;
+            else { bedDir = -bedDir; at = bedDir > 0 ? std::min (at + 1, tones.size() - 1)
+                                                     : (at > 0 ? at - 1 : 0); }
+        }
+
+        bedAt = static_cast<int> (at);
+    };
+
     for (int bar = 0; bar < s.bars; )
     {
         const int room = s.bars - bar;
@@ -452,6 +543,9 @@ static void generateSolo (const SectionPlan& s,
 
             if (! rng.chance (want))
             {
+                // Not answering this bar - so it holds the section together
+                // rather than leaving a hole in it.
+                playBed (bar, 0, slotsPerBar);
                 ++bar;
                 continue;
             }
@@ -626,8 +720,70 @@ static void generateSolo (const SectionPlan& s,
 
         // Never more than a bar's worth however early it starts, so a pickup is
         // an anticipation rather than a licence to play through the whole bar.
-        const int slots      = answering ? std::min (slotsPerBar, slotsPerBar - fillStart)
-                                         : bars * slotsPerBar;
+        const int phraseSlots = answering ? std::min (slotsPerBar, slotsPerBar - fillStart)
+                                          : bars * slotsPerBar;
+
+        // And the bed holds the front of an answered bar, up to one step before
+        // the answer - so the answer is an entrance out of a moment's air
+        // rather than out of a bar of silence.
+        if (answering && fillStart > 1)
+            playBed (bar, 0, fillStart - 1);
+
+        //======================================================================
+        // THE PULSE OF THIS PHRASE.
+        //
+        // Every device used to step in sixteenths, so every phrase was a
+        // stream. Measured over all 34 songs: half of every solo note a
+        // sixteenth or shorter, and TWO PER CENT lasting a beat. Reported as
+        // "a solo is generally and mostly strong hit single sustained notes
+        // that flow and hop around in climbing or descending arpeggio scale
+        // like styles" - which is eighths and quarters that ring into each
+        // other, with the fast runs as bursts rather than as the fabric.
+        //
+        // So each phrase picks a pulse, and the device writes on THAT grid:
+        // the same shapes, at a quarter, an eighth or a sixteenth apiece. The
+        // notes already ring until the next one starts, so a slower pulse is
+        // longer notes rather than more silence.
+        //
+        // A trill is fast by definition and keeps sixteenths. Nothing is
+        // allowed to collapse to fewer than three steps, which is not a phrase.
+        int stride = 1;
+
+        if (device != static_cast<int> (Device::Neighbour))
+        {
+            const bool swungGrid = slotsPerBar <= 8;     // already eighths
+
+            // Weighted by PHRASE, but what the ear counts is NOTES - and a
+            // sixteenth phrase makes four times as many as a quarter phrase.
+            // The first weights here gave a fast pulse a third of the phrases
+            // and still left sixty per cent of every solo note a sixteenth,
+            // because solos are usually loud sections and loud meant fast.
+            // These put sixteenths at about a fifth to a quarter of the notes,
+            // eighths at over half, and the rest held.
+            //
+            // NAMED BY STRIDE, NOT BY NOTE VALUE, because the two are not the
+            // same thing on every grid. A shuffle is written on eighths, so one
+            // step there is already an eighth and two steps is a quarter. The
+            // first version of this called them "fast / eighth / quarter", set
+            // the shuffle's weights as if they meant that, and made the blues
+            // solo sixty per cent quarter notes - 4.1 notes a bar, back towards
+            // the "one note held and then changed" that the check beside the
+            // blues exists to catch. On a swung grid the swung eighth is the
+            // fabric, which is what a blues solo actually is.
+            const int wStep1 = swungGrid ? (hot ? 70 : 62) : (hot ? 12 : 8);
+            const int wStep2 = swungGrid ? (hot ? 30 : 38) : (hot ? 52 : 50);
+            const int wStep4 = swungGrid ? 0               : (hot ? 36 : 42);
+
+            int pick = rng.below (wStep1 + wStep2 + wStep4);
+            stride = (pick -= wStep1) < 0 ? 1 : ((pick -= wStep2) < 0 ? 2 : 4);
+        }
+
+        while (stride > 1 && phraseSlots / stride < 3)
+            stride /= 2;
+
+        // What the devices below call `slots` is steps on this pulse. Every
+        // step they write is scaled back onto the sixteenth grid afterwards.
+        const int slots = std::max (1, phraseSlots / stride);
 
         steps.clear();
 
@@ -998,6 +1154,14 @@ static void generateSolo (const SectionPlan& s,
             }
         }
 
+        // Back onto the sixteenth grid - see THE PULSE OF THIS PHRASE above.
+        if (stride > 1)
+            for (SoloStep& st : steps)
+            {
+                st.slot   *= stride;
+                st.length *= stride;
+            }
+
         // The last note of a phrase belongs to the chord underneath it. Done on
         // the degree before anything is emitted, so the line stays on one grid
         // and no pitch has to be nudged afterwards.
@@ -1073,9 +1237,13 @@ static void generateSolo (const SectionPlan& s,
         // A whole bar off is rare now. It was one in five, and a silent bar in
         // the middle of a solo at this tempo is a long time to wait - the held
         // note at the end of a LAND is where the air is supposed to come from.
-        if (! answering && device != static_cast<int> (Device::Land)
-              && room > bars + 2 && rng.chance (0.08))
-            ++bar;
+        // NO WHOLE-BAR RESTS IN A SOLO. There used to be an eight per cent
+        // chance of one after any phrase - at a slow tempo, three seconds of a
+        // soloist standing still, which is dropping out rather than phrasing.
+        // A solo breathes at the end of its phrases and in the held note of a
+        // LAND, and a cut-out worth having is a beat or two before a turn, not
+        // a bar of nothing in the middle.
+        (void) room;
     }
 
     // ---- the gestures, laid over the line rather than woven into it ----
@@ -1110,6 +1278,14 @@ static void generateSolo (const SectionPlan& s,
         for (size_t i = 0; i < out.lead.size(); ++i)
         {
             LeadIntent& n = out.lead[i];
+
+            // A gesture is something a player does to a note that MEANS
+            // something. The bed under a section is the one part of this line
+            // that is deliberately not saying anything, and a pinch harmonic
+            // on the third note of a picked arpeggio would be a squeal for no
+            // reason.
+            if (n.bed)
+                continue;
 
             // Never two close together. Two squeals a beat apart is a fault
             // rather than a flourish.

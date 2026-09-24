@@ -128,6 +128,13 @@ struct LeadIntent
     bool   target        = false;
 
     LeadArtic artic      = LeadArtic::Normal;
+
+    // A SUPPORTING NOTE rather than part of an answer: the slow arpeggio the
+    // second guitar picks under a section while it is not answering anything.
+    // Marked so anything reasoning about WHERE the answers fall - the checks,
+    // and any profile that wants to treat a bed differently from a lead line -
+    // can tell the two apart.
+    bool   bed           = false;
 };
 
 // Switch the instrument to this phrase. Emitted at section and phrase changes,

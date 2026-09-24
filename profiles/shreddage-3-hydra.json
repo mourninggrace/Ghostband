@@ -436,13 +436,33 @@
   // Rake and pinch are unreachable by keyswitch now in any case. They share
   // note 12 with Sustain and are told apart from it by the velocity the KEY is
   // pressed at - and Sustain no longer uses note 12 at all.
-  "lead_articulations": {
-    "rake":     { "cc": 40, "value":  31, "keyswitch": 12 },
-    "pinch":    { "cc": 40, "value":  52, "keyswitch": 12 },
-    "harmonic": { "cc": 40, "value":  73, "keyswitch": 21 },
-    "tap":      { "cc": 40, "value":  94, "keyswitch": 20 },
-    "choke":    { "cc": 40, "value": 116, "keyswitch": 19 }
-  },
+  //
+  // EMPTY NOW, AS THIS COMMENT HAS SAID SINCE 2026-09-07 - AND FOR TWO WEEKS
+  // IT WAS NOT.
+  //
+  // The values that sat here (31, 52, 73, 94, 116) were the middles of a SIX
+  // band layout set up that morning: Sustain, Rake, Pinch, Harmonics, Tapping,
+  // Choke. CC 40 was re-banded the same day to the five SECTION articulations
+  // above, the note was rewritten to say the gestures were declared empty -
+  // and the block itself was never emptied. Under the five bands the
+  // instrument actually has, those values meant:
+  //
+  //     rake      31  ->  Mute             palm muting the note that opens a phrase
+  //     pinch     52  ->  Staccato         the note a phrase lands on, cut short
+  //     harmonic  73  ->  Staccato
+  //     tap       94  ->  Power Chord      a CHORD in the middle of a lead line
+  //     choke    116  ->  Tremolo
+  //
+  // Measured across all 34 songs: 10.7% of every lead note, and always the
+  // most exposed ones. Reported 2026-09-24 as "way too much palm muting and
+  // dead note scratching going on" in the solos and fills - which is exactly
+  // what an opening note played muted and a landing note played staccato sound
+  // like.
+  //
+  // To bring gestures back, re-band CC 40 to the ten-band table above FIRST,
+  // then fill this in with values from THAT table. Values chosen for one
+  // layout and read under another are the whole of this fault.
+  "lead_articulations": {},
 
   "keyswitches_verified": true,
 
