@@ -4649,13 +4649,13 @@ int main (int argc, char** argv)
         check (perr.empty() && body.isObject(),
                "the planner's request is valid JSON", juce::String (perr));
 
-        check (body.stringOr ("model", "") == "claude-opus-5",
-               "and asks for the current Opus by default",
+        check (body.stringOr ("model", "") == "claude-opus-5-5",
+               "and asks for Claude Opus 5.5, the model the owner chose",
                juce::String (body.stringOr ("model", "?")));
 
         check (body["thinking"].stringOr ("type", "") == "adaptive"
-                   && body["output_config"].stringOr ("effort", "") == "high",
-               "with adaptive thinking at high effort");
+                   && body["output_config"].stringOr ("effort", "") == "medium",
+               "with adaptive thinking at medium effort, set explicitly");
 
         check (body["output_config"]["format"].stringOr ("type", "") == "json_schema"
                    && body["output_config"]["format"]["schema"].isObject(),
@@ -4742,7 +4742,7 @@ int main (int argc, char** argv)
         const auto wrap = [] (const std::string& stop, const std::string& text)
         {
             return std::string (R"({ "id": "msg_x", "type": "message", "role": "assistant",
-                "model": "claude-opus-5", "stop_reason": ")") + stop + R"(",
+                "model": "claude-opus-5-5", "stop_reason": ")") + stop + R"(",
                 "usage": { "input_tokens": 1800, "output_tokens": 950 },
                 "content": [ { "type": "thinking", "thinking": "" },
                              { "type": "text", "text": )" + gb::jsonQuote (text) + " } ] }";
@@ -4760,7 +4760,7 @@ int main (int argc, char** argv)
                "and every field lands where the same key in a hand-written plan would");
 
         check (good.explanation == "A slow build into a loud chorus."
-                   && good.servedBy == "claude-opus-5"
+                   && good.servedBy == "claude-opus-5-5"
                    && good.inputTokens == 1800 && good.outputTokens == 950,
                "with the model's own explanation, who answered, and what it cost");
 
@@ -4939,7 +4939,7 @@ int main (int argc, char** argv)
                 "plays": "full", "guitar": "driving", "guitar2": "solo", "piano": "silent",
                 "lead": "guitar2", "fill": "big" } ] })";
 
-        const std::string answer = R"({ "model": "claude-opus-5", "stop_reason": "end_turn",
+        const std::string answer = R"({ "model": "claude-opus-5-5", "stop_reason": "end_turn",
             "usage": { "input_tokens": 3100, "output_tokens": 1400 },
             "content": [ { "type": "text", "text": )" + gb::jsonQuote (chart) + " } ] }";
 

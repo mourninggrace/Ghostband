@@ -36,14 +36,25 @@ namespace gb {
 
 struct PlannerSettings
 {
-    // The skill this was written against says to default to the current
-    // Opus and never to downgrade for cost on the user's behalf - the key and
-    // the bill are theirs, so the choice is too, and it is a setting.
-    std::string model  = "claude-opus-5";
+    // Claude Opus 5.5 at medium effort, chosen by the owner by name on
+    // 2026-09-24 - the key and the bill are theirs, so the choice is too.
+    //
+    // Checked against the model's own migration notes rather than swapped in
+    // blind. Nothing in this request trips its four breaking changes: thinking
+    // cannot be disabled on it (this never disables it, it asks for adaptive);
+    // forced tool use is rejected (this uses none, only structured output,
+    // which carries over); its thinking blocks are tied to the conversation
+    // (this is one request, never a replayed history); and computer use moved
+    // to a toolset (not used). Its classifiers are broader than Opus 5's, which
+    // is one more reason the refusal fallback below stays on.
+    std::string model  = "claude-opus-5-5";
 
-    // "high" by default: writing a chart that reads like a song rather than a
-    // list of sections is exactly the kind of work that repays thinking.
-    std::string effort = "high";
+    // SET EXPLICITLY even though it is this model's default. Effort is the
+    // one control for how much it thinks - thinking is always on - and the
+    // default differs between models (Opus 5's is "high"), so leaving it
+    // implicit would change what a request costs the day the model changed.
+    // Anthropic's own testing has this model at medium ahead of Opus 5 at high.
+    std::string effort = "medium";
 
     // Non-streaming, so kept inside what one HTTP read comfortably holds. A
     // chart is a few thousand tokens; the rest is room to think.
