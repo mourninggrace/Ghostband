@@ -1,4 +1,5 @@
 #include "ghostband/MidiFile.h"
+#include "ghostband/Json.h"
 
 #include <algorithm>
 #include <fstream>
@@ -204,7 +205,7 @@ bool MidiFile::write (const std::string& path, std::string& error) const
         out.insert (out.end(), body.begin(), body.end());
     }
 
-    std::ofstream f (path, std::ios::binary | std::ios::trunc);
+    std::ofstream f (utf8Path (path), std::ios::binary | std::ios::trunc);
     if (! f)
     {
         error = "could not open " + path + " for writing";

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <string>
 #include <utility>
 #include <vector>
@@ -20,6 +21,15 @@ std::string formatNumber (double v);
 // Parses a JSON number at `text`; sets `used` to the characters consumed.
 // Returns false for anything that is not a finite number.
 bool parseNumber (const char* text, const char* end, double& v, size_t& used);
+
+// EVERY PATH THE ENGINE OPENS IS UTF-8, and goes through this. A narrow
+// std::string path handed to fstream, remove or rename is read by Windows in
+// the ANSI code page, so a user called Zoe-with-a-diaeresis, or with a Cyrillic
+// or Asian name, could not load or save a song under their own Documents.
+inline std::filesystem::path utf8Path (const std::string& p)
+{
+    return std::filesystem::u8path (p);
+}
 
 // Minimal JSON reader. Deliberately hand-rolled so the engine keeps zero
 // third-party dependencies. Extended with // and /* */ comments, because

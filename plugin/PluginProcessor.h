@@ -619,6 +619,11 @@ public:
     // left to turn it off - which is why loading a second song on top of a
     // playing one left the first one ringing over it.
     std::atomic<bool> flushPending { false };
+    // Set by every regenerate. The audio thread then releases any note still
+    // sounding that the NEW sequence will not end - its note-off was in the
+    // sequence just replaced. See releaseOrphanedNotes.
+    std::atomic<bool> sequenceReplaced { false };
+    void releaseOrphanedNotes (juce::MidiBuffer& midi, double fromTick);
     std::atomic<bool> rewindPending { false };
 
     std::atomic<int>    playbackTick     { 0 };

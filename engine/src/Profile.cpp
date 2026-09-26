@@ -1039,7 +1039,7 @@ static bool writeFileAtomically (const std::string& path, const std::string& tex
     const std::string temp = path + ".tmp";
 
     {
-        std::ofstream f (temp, std::ios::binary | std::ios::trunc);
+        std::ofstream f (utf8Path (temp), std::ios::binary | std::ios::trunc);
         if (! f)
         {
             error = "could not open " + temp + " for writing";
@@ -1052,19 +1052,23 @@ static bool writeFileAtomically (const std::string& path, const std::string& tex
         if (! f)
         {
             error = "failed while writing " + temp;
-            std::remove (temp.c_str());
+            std::error_code ignored;
+            std::filesystem::remove (utf8Path (temp), ignored);
             return false;
         }
     }
 
-    // Windows will not rename onto an existing file, so the original goes
-    // first. That is the one moment the profile is absent, and it is a single
-    // directory operation rather than a whole file's worth of writing.
-    std::remove (path.c_str());
-
-    if (std::rename (temp.c_str(), path.c_str()) != 0)
+    // Replaced in ONE step. This used to delete the original first, because
+    // std::rename will not overwrite on Windows - so if the move then failed
+    // (an antivirus holding the new file for a moment), the profile was gone
+    // and only the temp file was left. std::filesystem::rename overwrites
+    // (MoveFileEx with REPLACE_EXISTING), so the original stays until the new
+    // one is in place.
+    std::error_code ec;
+    std::filesystem::rename (utf8Path (temp), utf8Path (path), ec);
+    if (ec)
     {
-        error = "could not move " + temp + " into place";
+        error = "could not move " + temp + " into place: " + ec.message();
         return false;
     }
 
@@ -1074,7 +1078,7 @@ static bool writeFileAtomically (const std::string& path, const std::string& tex
 
 static bool readWholeFile (const std::string& path, std::string& text)
 {
-    std::ifstream in (path, std::ios::binary);
+    std::ifstream in (utf8Path (path), std::ios::binary);
     if (! in) return false;
 
     text.assign ((std::istreambuf_iterator<char> (in)),

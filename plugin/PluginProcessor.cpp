@@ -3527,6 +3527,7 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
         sequenceEndTick = endTick;
         barTicks = bar;
     }
+    sequenceReplaced.store (true);
 
     // Published for the audio thread, which can no longer read the plan itself.
     // Here because every path that changes the tempo ends in a regenerate.
@@ -3539,6 +3540,55 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
 }
 
 //==============================================================================
+
+// NOTES THE NEW SEQUENCE WILL NOT END. Called on the audio thread with the
+// sequence lock held, once after each regenerate.
+//
+// A reroll, a new seed or a dial change swaps the sequence while notes are
+// sounding, and their note-offs were in the sequence just replaced. Loading a
+// song flushed everything; the other ways to regenerate did not, and the
+// 2026-09-26 audit caught a hi-hat left held after a reroll. Flushing everything
+// on every regenerate would chop the band on each dial nudge, so this is
+// narrower: a sounding note is left alone if the new sequence releases it within
+// two bars (before striking it again), and released now if not.
+//
+// Bounded for the audio thread: a handful of sounding notes, each scanned over
+// at most two bars of events.
+void GhostbandProcessor::releaseOrphanedNotes (juce::MidiBuffer& midi, double fromTick)
+{
+    const int from   = static_cast<int> (fromTick);
+    const int window = std::max (1, barTicks) * 2;
+    const auto begin = std::lower_bound (sequence.begin(), sequence.end(), from,
+                                         [] (const TimedMessage& m, int t) { return m.tick < t; });
+
+    for (int ch = 0; ch < 16; ++ch)
+    {
+        for (int note = 0; note < 128; ++note)
+        {
+            if (activeNoteCount[ch][note] == 0)
+                continue;
+
+            bool releasedAhead = false;
+            for (auto it = begin; it != sequence.end() && it->tick < from + window; ++it)
+            {
+                const juce::MidiMessage& msg = it->message;
+                if (msg.getChannel() != ch + 1 || ! msg.isNoteOnOrOff() || msg.getNoteNumber() != note)
+                    continue;
+                releasedAhead = msg.isNoteOff();     // the first event for this note decides
+                break;
+            }
+
+            if (releasedAhead)
+                continue;
+
+            while (activeNoteCount[ch][note] > 0)
+            {
+                midi.addEvent (juce::MidiMessage::noteOff (ch + 1, note), 0);
+                --activeNoteCount[ch][note];
+            }
+        }
+    }
+}
 
 void GhostbandProcessor::sendAllNotesOff (juce::MidiBuffer& midi, int sampleOffset)
 {
@@ -3829,6 +3879,9 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     // happened. Everything below works in song time.
     double songStart = windowStart + jumpOffset;
     const double songEnd = songStart + blockTicks;
+
+    if (sequenceReplaced.exchange (false))
+        releaseOrphanedNotes (midi, songStart);
 
     // Emits the sequence over a span of song time, placing each event relative
     // to a given sample position. Split spans are how a mid-block jump works.

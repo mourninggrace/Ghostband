@@ -362,7 +362,7 @@ Json Json::parse (const std::string& text, std::string& error)
 
 bool Json::parseFile (const std::string& path, Json& out, std::string& error)
 {
-    std::ifstream in (path, std::ios::binary);
+    std::ifstream in (utf8Path (path), std::ios::binary);
     if (! in)
     {
         error = "could not open " + path;

@@ -1165,6 +1165,39 @@ int main (int argc, char** argv)
                       : juce::String (e));
         }
 
+        // A FOLDER NAMED IN ANY LANGUAGE. The engine opened files with narrow
+        // std::string paths, which Windows reads in the ANSI code page, while
+        // the plugin hands it UTF-8 - so for a user called Zo\u00eb or M\u00fcller,
+        // or any Cyrillic or Asian name, songs and profiles under their
+        // Documents folder could not be loaded or saved. Found in the audit;
+        // the owner's own username is plain ASCII, which is why it never showed.
+        {
+            const juce::File dir = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                       .getChildFile (juce::String::fromUTF8 ("gb-Zo\xc3\xab-M\xc3\xbcller-\xd0\x96"));
+            dir.deleteRecursively();
+            dir.createDirectory();
+
+            const juce::File songFile = dir.getChildFile (juce::String::fromUTF8 ("Caf\xc3\xa9 song.json"));
+            songFile.replaceWithText (juce::File (planPath).loadFileAsString());
+
+            gb::SongPlan loaded;
+            std::string e1;
+            const bool songOk = gb::SongPlan::load (songFile.getFullPathName().toStdString(), loaded, e1);
+
+            gb::PhraseProfile prof, back;
+            std::string e2, e3, e4;
+            const juce::File profFile = dir.getChildFile (juce::String::fromUTF8 ("\xc3\xa9t\xc3\xa9.json"));
+            const bool profOk = gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/vg-iron2.json", prof, e2)
+                                && prof.save (profFile.getFullPathName().toStdString(), e3)
+                                && prof.save (profFile.getFullPathName().toStdString(), e3)     // over an existing file
+                                && gb::PhraseProfile::load (profFile.getFullPathName().toStdString(), back, e4);
+
+            check (songOk && profOk,
+                   "songs and profiles load and save in a folder named with accents or non-Latin letters",
+                   juce::String (songOk ? "song ok" : e1) + " / " + juce::String (profOk ? "profile ok" : (e3 + e4)));
+            dir.deleteRecursively();
+        }
+
         check (mismatched == 0, "every plan survives being saved and read back",
                mismatched == 0 ? juce::String ("all ") + juce::String (checked) + " intact"
                                : juce::String (mismatched) + " changed - first: " + firstBad);
@@ -6629,6 +6662,75 @@ int main (int argc, char** argv)
     // whole host stops repainting and stops answering the mouse. The tracker
     // called it thirty times a second, so it was a matter of minutes.
     //
+    // NO NOTE HANGS WHEN THE SONG CHANGES UNDER THE PLAYHEAD. A reroll, a new
+    // seed or a dial change rebuilds the sequence while notes are sounding, and
+    // their note-offs lived in the sequence that was just thrown away. Only
+    // loading a song, recalling a take and undo asked for them to be released;
+    // the other fifteen ways to regenerate did not. Found in the 2026-09-26
+    // audit. Played here the way a host plays: into the song, change the seed
+    // mid-bar, twelve more bars - and any note begun BEFORE the change that is
+    // still held twelve bars later is stuck, because nothing is that long.
+    {
+        GhostbandProcessor p2;
+        p2.loadPlan (juce::File (planPath));
+        const double sr = 48000.0;
+        const int    bs = 512;
+        p2.setRateAndBufferSizeDetails (sr, bs);
+        p2.prepareToPlay (sr, bs);
+
+        FakePlayHead ph;
+        ph.bpm = p2.getPlanBpm();
+        p2.setPlayHead (&ph);
+
+        juce::AudioBuffer<float> buf (2, bs);
+        juce::MidiBuffer m;
+        const double qPerBlock = (bs / sr) * (ph.bpm / 60.0);
+
+        int held[16][128] = {};
+        bool fromBefore[16][128] = {};
+        int block = 0;
+
+        auto play = [&] (double quarters)
+        {
+            const int n = static_cast<int> (quarters / qPerBlock);
+            for (int i = 0; i < n; ++i, ++block)
+            {
+                ph.ppq = block * qPerBlock;
+                buf.clear(); m.clear();
+                p2.processBlock (buf, m);
+                for (const juce::MidiMessageMetadata e : m)
+                {
+                    const auto msg = e.getMessage();
+                    const int ch = msg.getChannel() - 1;
+                    if (ch < 0 || ch > 15) continue;
+                    if (msg.isNoteOn()) ++held[ch][msg.getNoteNumber()];
+                    else if (msg.isNoteOff() && held[ch][msg.getNoteNumber()] > 0)
+                        if (--held[ch][msg.getNoteNumber()] == 0) fromBefore[ch][msg.getNoteNumber()] = false;
+                }
+            }
+        };
+
+        play (6 * 4 + 1.5);                              // six bars and a bit in: notes sounding
+        for (int c = 0; c < 16; ++c)
+            for (int n = 0; n < 128; ++n)
+                fromBefore[c][n] = held[c][n] > 0;
+
+        p2.seed.store (p2.seed.load() + 7919);           // what Roll does with nothing selected
+        p2.regenerate();
+        play (12 * 4);
+
+        juce::String stuck;
+        for (int c = 0; c < 16; ++c)
+            for (int n = 0; n < 128; ++n)
+                if (fromBefore[c][n] && held[c][n] > 0)
+                    stuck << "ch " << (c + 1) << " note " << n << "   ";
+
+        check (stuck.isEmpty(),
+               "a reroll while the band is playing leaves no note hanging",
+               stuck.isEmpty() ? juce::String ("none") : stuck);
+        p2.setPlayHead (nullptr);
+    }
+
     // THE LOCK ORDER RULE, since it is not otherwise written down anywhere:
     // never hold sequenceLock and stateLock at the same time, in either order,
     // and never let the audio thread block on stateLock at all.

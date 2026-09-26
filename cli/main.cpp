@@ -6,6 +6,7 @@
 // so nothing here belongs in the audio path - this is the test harness.
 
 #include "ghostband/Groove.h"
+#include "ghostband/Json.h"
 #include "ghostband/Profile.h"
 #include "ghostband/Render.h"
 #include "ghostband/SongPlan.h"
@@ -30,7 +31,7 @@ std::string directoryOf (const std::string& path)
 
 bool fileExists (const std::string& path)
 {
-    std::ifstream f (path, std::ios::binary);
+    std::ifstream f (gb::utf8Path (path), std::ios::binary);
     return static_cast<bool> (f);
 }
 
