@@ -65,6 +65,11 @@ struct GrooveContext
     int beatsPerBar = 4;
     int barTicks    = kPPQ * 4;
 
+    // A shuffle, and this part's BUSY trim (0 = as the dial says). Busier in a
+    // shuffle has to land on the swung eighths or the swing pass deletes it.
+    bool   swung    = false;
+    double busyTrim = 0.0;
+
     int lowestBassNote = 28;    // supplied by the bass profile, not assumed here
     int highestBassNote = 67;
 };

@@ -7296,6 +7296,72 @@ int main (int argc, char** argv)
         p2.setPlayHead (nullptr);
     }
 
+    // BUSY AND SHRED DO WHAT THEY SAY, EACH TO ITS OWN INSTRUMENT. Asked for
+    // 2026-09-26 ("separate dials for each instrument"). Every trim at the top
+    // must make its own part play more than at the middle, and at the bottom
+    // less; SHRED up must give guitar 2 more fast notes. The middle leaving
+    // every song exactly as it was is what the solo lock and the pins prove.
+    {
+        gb::DrumProfile kit; gb::BassProfile bass; gb::PhraseProfile gtr, gtr2, piano;
+        std::string e;
+        gb::DrumProfile::load   ("C:/Projects/Ghostband/profiles/ssd5-terry-date.json", kit, e);
+        gb::BassProfile::load   ("C:/Projects/Ghostband/profiles/modo-bass-2.json", bass, e);
+        gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/vg-iron2.json", gtr, e);
+        gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/shreddage-3-hydra.json", gtr2, e);
+        gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/virtual-pianist.json", piano, e);
+
+        gb::SongPlan base;
+        if (gb::SongPlan::load ("C:/Projects/Ghostband/plans/preset-blues-3.json", base, e))
+        {
+            auto count = [&] (const gb::SongPlan& p, int part)
+            {
+                long total = 0;
+                for (unsigned sd = 1; sd <= 4; ++sd)
+                {
+                    gb::SongPlan q = p; q.seed = sd;
+                    const gb::RenderResult r = gb::renderPerformance (q, kit, bass, &gtr, &piano, &gtr2);
+                    const gb::Performance& pf = r.performance;
+                    total += part == 0 ? static_cast<long> (pf.drums.size())
+                           : part == 1 ? static_cast<long> (pf.bass.size())
+                           : part == 2 ? static_cast<long> (pf.guitar.chords.size() + pf.guitar.lead.size())
+                           : part == 3 ? static_cast<long> (pf.guitar2.lead.size())
+                                       : static_cast<long> (pf.piano.chords.size() + pf.piano.lead.size());
+                }
+                return total;
+            };
+            static const char* kNames[5] = { "drums", "bass", "guitar", "guitar 2", "piano" };
+            juce::String detail;
+            bool allMove = true;
+            for (int part = 0; part < 5; ++part)
+            {
+                gb::SongPlan lo = base, hi = base;
+                lo.busy[part] = -1.0; hi.busy[part] = 1.0;
+                const long mid = count (base, part), down = count (lo, part), up = count (hi, part);
+                if (! (down < mid && mid < up)) allMove = false;
+                detail << kNames[part] << " " << (int) down << "/" << (int) mid << "/" << (int) up << "   ";
+            }
+            check (allMove, "each BUSY knob makes its own instrument sparer at the bottom and busier at the top",
+                   detail);
+
+            auto fast = [&] (const gb::SongPlan& p)
+            {
+                long n = 0;
+                for (unsigned sd = 1; sd <= 4; ++sd)
+                {
+                    gb::SongPlan q = p; q.seed = sd;
+                    for (const gb::LeadIntent& li : gb::renderPerformance (q, kit, bass, &gtr, &piano, &gtr2).performance.guitar2.lead)
+                        if (li.durationTicks <= gb::kPPQ / 4) ++n;
+                }
+                return n;
+            };
+            gb::SongPlan sLo = base, sHi = base;
+            sLo.shredTrim = -1.0; sHi.shredTrim = 1.0;
+            const long fLo = fast (sLo), fMid = fast (base), fHi = fast (sHi);
+            check (fLo < fMid && fMid < fHi, "SHRED gives guitar 2 fewer fast notes at the bottom and more at the top",
+                   juce::String (fLo) + " / " + juce::String (fMid) + " / " + juce::String (fHi) + " notes a sixteenth or shorter");
+        }
+    }
+
     // FILLS STAY FRESH, SONG TO SONG. Measured over every song at two seeds:
     // before the 2026-09-26 re-timing, three rhythms were 46% of all fills and
     // two different songs' fill habits were 0.43 alike; after, 11% and 0.11.

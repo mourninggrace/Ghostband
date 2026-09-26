@@ -901,6 +901,12 @@ private:
     juce::Label  levelGuitar2FillsLabel;
     void refreshFillsLevelLabel();
 
+    // BUSY per instrument (MIX rows' order) and guitar 2's SHRED - trims, the
+    // middle being the song exactly as the dials make it.
+    juce::Slider busyKnob[5], shredKnob;
+    juce::Label  busyLabel[5], shredLabel;
+    void refreshTrimLabels();
+
     juce::TextEditor seedEditor;
     juce::Label      seedLabel;
 

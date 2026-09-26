@@ -527,7 +527,10 @@ void generateDrumBar (const GrooveContext& ctx,
             if (contains (grid.kickOnsets, t)) continue;
 
             // The "e" and "a" of a beat are where ghosts actually sit.
-            const double weight = (s % 2 == 1) ? 1.0 : 0.35;
+            double weight = (s % 2 == 1) ? 1.0 : 0.35;
+            // In a shuffle the e and a are deleted by the swing pass; BUSY
+            // puts its extra ghosts on the and, which survives it.
+            if (ctx.swung && ctx.busyTrim > 0.0 && s % 2 == 0) weight *= 1.0 + 2.0 * ctx.busyTrim;
             // GHOST NOTES, which is where a drummer plays what they feel
             // between the notes everybody hears. The density itself is still
             // set by complexity and the groove; intuition decides how much of
@@ -830,11 +833,13 @@ void generateBassBar (const GrooveContext& ctx,
         // line sound played rather than programmed. Still scaled by complexity,
         // because how BUSY the part is remains that dial's job; intuition only
         // decides how much of that busyness is expressed as feel.
-        if (gap >= sixteenth * 2
+        // BUSY in a shuffle: the dead note an eighth back, on the swung grid.
+        const int back = (ctx.swung && ctx.busyTrim > 0.0) ? sixteenth * 2 : sixteenth;
+        if (gap >= sixteenth * 2 && gap > back
             && rng.chance (ctx.complexity * byIntuition (ctx.intuition, 0.12, 0.30, 0.48)))
         {
             BassIntent d;
-            d.tick          = barStartTick + t + gap - sixteenth;
+            d.tick          = barStartTick + t + gap - back;
             d.pitch         = pitch;
             d.accent        = 0.14 + rng.unit() * 0.10;
             d.artic         = BassArtic::Dead;

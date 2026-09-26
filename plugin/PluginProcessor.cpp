@@ -2252,6 +2252,20 @@ juce::Range<int> GhostbandProcessor::getPlayableRange (int part) const
     return { p->chordLowest, p->chordHighest };
 }
 
+// A phrase instrument performs its own rhythm from the harmony it is handed,
+// so there are no hits for a BUSY trim to add or drop. Processor part order.
+bool GhostbandProcessor::partIsPhraseDriven (int part) const
+{
+    const juce::ScopedLock sl (stateLock);
+    switch (part)
+    {
+        case 2:  return haveGuitar  && guitarProfile.isPhraseDriven();
+        case 3:  return havePiano   && pianoProfile.isPhraseDriven();
+        case 4:  return haveGuitar2 && guitar2Profile.isPhraseDriven();
+        default: return false;
+    }
+}
+
 bool GhostbandProcessor::partVolumeReachable (int part) const
 {
     const juce::ScopedLock sl (stateLock);
@@ -3411,6 +3425,8 @@ void GhostbandProcessor::regenerate()
     const gb::PhraseProfile* pianoPtr   = withPiano   ? &workingPiano   : nullptr;
 
     working.complexity = complexity.load();
+    for (int i = 0; i < 5; ++i) working.busy[i] = busyTrim[i].load();
+    working.shredTrim  = shredTrim.load();
     working.humanize   = humanize.load();
     working.fills      = fills.load();
     working.intuition  = intuition.load();
@@ -4371,6 +4387,9 @@ void GhostbandProcessor::getStateInformation (juce::MemoryBlock& destData)
     xml.setAttribute ("levelGuitar",  levelGuitar.load());
     xml.setAttribute ("levelGuitar2", levelGuitar2.load());
     xml.setAttribute ("levelGuitar2Fills", levelGuitar2Fills.load());
+    for (int i = 0; i < 5; ++i)
+        xml.setAttribute ("busy" + juce::String (i), busyTrim[i].load());
+    xml.setAttribute ("shredTrim", shredTrim.load());
     xml.setAttribute ("levelPiano",   levelPiano.load());
 
     xml.setAttribute ("chDrums",  channelDrums.load());
@@ -4421,6 +4440,10 @@ void GhostbandProcessor::setStateInformation (const void* data, int sizeInBytes)
     levelGuitar2.store (level ("levelGuitar2"));
     levelGuitar2Fills.store (static_cast<float> (juce::jlimit (0.0, 1.0,
                                  xml->getDoubleAttribute ("levelGuitar2Fills", kFillsLevelDefault))));
+    for (int i = 0; i < 5; ++i)
+        busyTrim[i].store (static_cast<float> (juce::jlimit (-1.0, 1.0,
+                               xml->getDoubleAttribute ("busy" + juce::String (i), 0.0))));
+    shredTrim.store (static_cast<float> (juce::jlimit (-1.0, 1.0, xml->getDoubleAttribute ("shredTrim", 0.0))));
     levelPiano.store  (level ("levelPiano"));
 
     channelDrums.store  (juce::jlimit (1, 16, xml->getIntAttribute ("chDrums", 10)));

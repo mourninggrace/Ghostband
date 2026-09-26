@@ -2326,6 +2326,32 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         addAndMakeVisible (levelGuitar2Fills);
         refreshFillsLevelLabel();
     }
+
+    // ---- BUSY and SHRED: trims, the middle is the song as it is ----
+    {
+        auto setUpTrim = [this, &initLabel] (juce::Slider& k, juce::Label& l, std::atomic<float>& target)
+        {
+            k.setSliderStyle (juce::Slider::RotaryVerticalDrag);
+            k.setRotaryParameters (juce::MathConstants<float>::pi * 1.2f,
+                                   juce::MathConstants<float>::pi * 2.8f, true);
+            k.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+            k.setRange (-1.0, 1.0, 0.2);
+            k.setValue (target.load(), juce::dontSendNotification);
+            k.setDoubleClickReturnValue (true, 0.0);
+            k.onValueChange = [this, &k, &target]
+            {
+                target.store (static_cast<float> (k.getValue()));
+                refreshTrimLabels();
+                markDialsDirty();
+            };
+            initLabel (l, "", 13.0f, ghost::dim, juce::Justification::centredLeft);
+            addAndMakeVisible (k);
+        };
+        for (int i = 0; i < 5; ++i)
+            setUpTrim (busyKnob[i], busyLabel[i], processor.busyTrim[i]);
+        setUpTrim (shredKnob, shredLabel, processor.shredTrim);
+        refreshTrimLabels();
+    }
     initLabel (keyLabel,        "KEY",        15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (modeLabel,       "MODE",       15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (styleLabel,      "STYLE",      15.0f, ghost::dim,   juce::Justification::centredLeft);
@@ -3354,7 +3380,8 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     for (juce::Slider* s : { &complexitySlider, &humanizeSlider, &fillsSlider,
                              &intuitionSlider,
                              &levelDrums, &levelBass, &levelGuitar,
-                             &levelGuitar2, &levelPiano, &levelGuitar2Fills })
+                             &levelGuitar2, &levelPiano, &levelGuitar2Fills, &shredKnob,
+                             &busyKnob[0], &busyKnob[1], &busyKnob[2], &busyKnob[3], &busyKnob[4] })
         registerTrail (*s);
 
     // Above everything, and it never takes a click. Added last so it is already
@@ -4918,7 +4945,9 @@ void GhostbandEditor::updateModeVisibility()
              &mixLabel, &levelDrums, &levelBass, &levelGuitar, &levelGuitar2, &levelPiano,
              &levelDrumsLabel, &levelBassLabel, &levelGuitarLabel,
              &levelGuitar2Label, &levelPianoLabel,
-             &levelGuitar2Fills, &levelGuitar2FillsLabel })
+             &levelGuitar2Fills, &levelGuitar2FillsLabel, &shredKnob, &shredLabel,
+             &busyKnob[0], &busyKnob[1], &busyKnob[2], &busyKnob[3], &busyKnob[4],
+             &busyLabel[0], &busyLabel[1], &busyLabel[2], &busyLabel[3], &busyLabel[4] })
         c->setVisible (song);
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
@@ -6804,7 +6833,30 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
                         : juce::String (kLevelNames[i])
                               + " level, sent to the instrument's own volume control.");
 
-        auto row = rail.removeFromTop (34);
+        auto row = rail.removeFromTop (28);
+
+        // BUSY, at the right of every row. Greyed with the reason, never hidden:
+        // a part not in the song, or one whose instrument plays its own phrases.
+        {
+            const bool phrase  = processor.partIsPhraseDriven (part);
+            const bool canBusy = inSong && ! phrase;
+            busyKnob[i].setVisible (screen == Screen::Song);
+            busyLabel[i].setVisible (screen == Screen::Song);
+            busyKnob[i].setEnabled (canBusy);
+            busyKnob[i].setAlpha (canBusy ? 1.0f : 0.3f);
+            busyLabel[i].setAlpha (canBusy ? 1.0f : 0.3f);
+            busyKnob[i].setTooltip (
+                ! inSong ? juce::String (kLevelNames[i]) + " is not in this song, so there is nothing to make busier."
+              : phrase   ? "This instrument plays its own phrases from the chords it is handed, so there are "
+                           "no hits for Ghostband to add or take away. Its own style controls do this."
+                         : "BUSY: how much " + juce::String (kLevelNames[i]).toLowerCase()
+                           + " plays, on top of COMPLEXITY. Middle is the song exactly as it is; up is busier, "
+                             "down is sparer. Double-click for the middle.");
+            auto busyArea = row.removeFromRight (78);
+            busyKnob[i].setBounds (busyArea.removeFromLeft (28).reduced (1));
+            busyArea.removeFromLeft (4);
+            busyLabel[i].setBounds (busyArea);
+        }
 
         // GTR 2's row also carries how far it drops for fills - same reason to
         // grey out, same reason in the tooltip, never hidden.
@@ -6821,13 +6873,31 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
                             "Double-click for the default."
                           : "Nothing can set guitar 2's level (see the GTR 2 knob), so nothing can "
                             "lower it for fills either.");
-            auto fillsArea = row.removeFromRight (104);
-            levelGuitar2Fills.setBounds (fillsArea.removeFromLeft (30).reduced (1));
-            fillsArea.removeFromLeft (6);
+            // A second line under GTR 2 for its two lead controls - there is
+            // no room for three knobs and a name on one.
+            auto line2 = rail.removeFromTop (26);
+            line2.removeFromLeft (44);
+            auto shredArea = line2.removeFromLeft (110);
+            shredKnob.setVisible (screen == Screen::Song);
+            shredLabel.setVisible (screen == Screen::Song);
+            shredKnob.setEnabled (inSong);
+            shredKnob.setAlpha (inSong ? 1.0f : 0.3f);
+            shredLabel.setAlpha (inSong ? 1.0f : 0.3f);
+            shredKnob.setTooltip (inSong ? "SHRED: how guitar 2 leans in its fills and solos - down sings, up shreds. "
+                                           "Middle follows COMPLEXITY and INTUITION as it always has. "
+                                           "Double-click for the middle."
+                                         : "Guitar 2 is not in this song.");
+            shredKnob.setBounds (shredArea.removeFromLeft (28).reduced (1));
+            shredArea.removeFromLeft (4);
+            shredLabel.setBounds (shredArea);
+
+            auto fillsArea = line2.removeFromLeft (110);
+            levelGuitar2Fills.setBounds (fillsArea.removeFromLeft (28).reduced (1));
+            fillsArea.removeFromLeft (4);
             levelGuitar2FillsLabel.setBounds (fillsArea);
         }
 
-        levelSliders[i]->setBounds (row.removeFromLeft (34).reduced (1));
+        levelSliders[i]->setBounds (row.removeFromLeft (28).reduced (1));
         row.removeFromLeft (10);
         levelLabels[i]->setBounds (row);
     }
@@ -6905,4 +6975,16 @@ void GhostbandEditor::refreshFillsLevelLabel()
 {
     levelGuitar2FillsLabel.setText ("UNDER " + juce::String (juce::roundToInt (levelGuitar2Fills.getValue() * 100.0)) + "%",
                                     juce::dontSendNotification);
+}
+
+void GhostbandEditor::refreshTrimLabels()
+{
+    auto steps = [] (double v)
+    {
+        const int n = juce::roundToInt (v * 5.0);
+        return (n > 0 ? "+" : "") + juce::String (n);
+    };
+    for (int i = 0; i < 5; ++i)
+        busyLabel[i].setText ("BUSY " + steps (busyKnob[i].getValue()), juce::dontSendNotification);
+    shredLabel.setText ("SHRED " + steps (shredKnob.getValue()), juce::dontSendNotification);
 }

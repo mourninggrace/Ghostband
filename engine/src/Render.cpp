@@ -1240,6 +1240,13 @@ namespace fillvoice
     }
 }
 
+// A part's own complexity: the dial, moved by that part's BUSY trim. A trim
+// of zero returns the dial itself, so no song changes until a knob does.
+static double trimmedComplexity (double complexity, double trim)
+{
+    return trim == 0.0 ? complexity : std::clamp (complexity + trim * 0.5, 0.0, 1.0);
+}
+
 static void generateFills (const SectionPlan& s,
                            const std::vector<Chord>& chords,
                            int sectionStartTick,
@@ -1255,7 +1262,8 @@ static void generateFills (const SectionPlan& s,
                            double fillAmount,
                            double iq,
                            uint32_t songSeed,
-                           double complexity)
+                           double complexity,
+                           double shredTrim)
 {
     using namespace fillvoice;
 
@@ -1422,6 +1430,8 @@ static void generateFills (const SectionPlan& s,
             if (iq < 0.25 && L.notes.size() > 4) w[i] = 0.0;
             if (L.fast && ! hot)                  w[i] *= byIntuition (iq, 0.2, 0.55, 0.8);
             if (! L.fast && hot)                  w[i] *= 0.7;
+            // SHRED: up leans on the fast licks, down on the sung ones.
+            if (shredTrim != 0.0)                 w[i] *= L.fast ? (1.0 + shredTrim) : (1.0 - shredTrim * 0.6);
             if (i == lastLick || i == beforeThat) w[i] *= 0.08;
             total += w[i];
         }
@@ -1622,7 +1632,8 @@ static void generateLeadSolo (const SectionPlan& s,
                               PhrasePart& out,
                               double iq,
                               uint32_t songSeed,
-                              double complexity)
+                              double complexity,
+                              double shredTrim)
 {
     using namespace fillvoice;
 
@@ -1630,7 +1641,7 @@ static void generateLeadSolo (const SectionPlan& s,
     // at a preset's default dials the solo was bland: "it wasn't till i cranked
     // the complexity and intuition all the way up that i got anything".
     SoloStyle how;
-    how.shred = std::clamp (0.15 + complexity * 0.6 + iq * 0.3, 0.0, 1.0);
+    how.shred = std::clamp (0.15 + complexity * 0.6 + iq * 0.3 + shredTrim * 0.6, 0.0, 1.0);
     how.busy  = std::clamp (0.3 + complexity * 0.5 + iq * 0.2, 0.0, 1.0);
 
     if (chords.empty() || profile == nullptr || s.bars <= 0 || barTicks <= 0)
@@ -3285,7 +3296,9 @@ static void generatePhrasePart (const SectionPlan& s,
                                 PhrasePart& out,
                                 double fillAmount,
                                 double iq,
-                                double complexity)
+                                double complexity,
+                                double busyTrim,
+                                double shredTrim)
 {
     PhraseIntent pi;
     pi.tick   = sectionStartTick;
@@ -3330,7 +3343,7 @@ static void generatePhrasePart (const SectionPlan& s,
         if (fills)
         {
             generateFills (s, chords, sectionStartTick, barTicks, keyPc, mode, style,
-                           swing, profile, humanize, soloRng, out, fillAmount, iq, songSeed, complexity);
+                           swing, profile, humanize, soloRng, out, fillAmount, iq, songSeed, complexity, shredTrim);
             return;
         }
 
@@ -3338,7 +3351,7 @@ static void generatePhrasePart (const SectionPlan& s,
         // substance". The old generator stays below, unused, until this has
         // been heard.
         generateLeadSolo (s, chords, sectionStartTick, barTicks, keyPc, mode, style,
-                          swing, profile, humanize, soloRng, out, iq, songSeed, complexity);
+                          swing, profile, humanize, soloRng, out, iq, songSeed, complexity, shredTrim);
         return;
     }
 
@@ -3382,8 +3395,38 @@ static void generatePhrasePart (const SectionPlan& s,
         // A note-driven part plays a rhythm; a phrase instrument is simply
         // handed the harmony and performs its own.
         const int sixteenth = std::max (1, barTicks / 16);
-        const std::vector<int> pattern = phraseDriven ? std::vector<int> { 0 }
-                                                      : chordRhythm (feel, rng);
+        std::vector<int> pattern = phraseDriven ? std::vector<int> { 0 }
+                                                : chordRhythm (feel, rng);
+
+        // BUSY. Up: passing hits in the gaps and a push on the and-of-four.
+        // Down: hits dropped, the downbeat kept. Its own stream, so a trim of
+        // zero draws nothing and changes nothing.
+        if (! phraseDriven && busyTrim != 0.0 && ! pattern.empty())
+        {
+            Rng br (deriveSeed (sectionSeed, 0xB0517u + static_cast<uint32_t> (bar)));
+            if (busyTrim > 0.0)
+            {
+                std::vector<int> more;
+                for (size_t h = 0; h < pattern.size(); ++h)
+                {
+                    more.push_back (pattern[h]);
+                    const int nx = h + 1 < pattern.size() ? pattern[h + 1] : 16;
+                    if (nx - pattern[h] >= 4 && br.chance (busyTrim * 0.7))
+                        more.push_back (pattern[h] + (nx - pattern[h]) / 2);
+                }
+                if (more.back() < 13 && br.chance (busyTrim * 0.5))
+                    more.push_back (14);
+                pattern = more;
+            }
+            else
+            {
+                std::vector<int> fewer { pattern.front() };
+                for (size_t h = 1; h < pattern.size(); ++h)
+                    if (! br.chance (-busyTrim * 0.7))
+                        fewer.push_back (pattern[h]);
+                pattern = fewer;
+            }
+        }
 
         const int hitCount = static_cast<int> (pattern.size());
         for (int h = 0; h < hitCount; ++h)
@@ -3643,7 +3686,9 @@ RenderResult renderPerformance (const SongPlan& plan,
         GrooveContext ctx;
         ctx.feel        = feelFromString (s.feel);
         ctx.intensity   = s.intensity;
-        ctx.complexity  = plan.complexity;
+        ctx.complexity  = trimmedComplexity (plan.complexity, plan.busy[0]);   // the drums' own
+        ctx.swung       = plan.swing > 0.0;
+        ctx.busyTrim    = plan.busy[0];
         ctx.humanize    = plan.humanize;
         ctx.intuition   = plan.intuition;
         ctx.style       = plan.style;
@@ -3655,6 +3700,11 @@ RenderResult renderPerformance (const SongPlan& plan,
         ctx.highestBassNote = highestBass;
 
         const SectionGroove groove = buildSectionGroove (ctx, rng);
+
+        // The bass reads its own complexity; the grid it locks to is the drums'.
+        GrooveContext ctxBass = ctx;
+        ctxBass.complexity = trimmedComplexity (plan.complexity, plan.busy[1]);
+        ctxBass.busyTrim   = plan.busy[1];
 
         // How far through the song this section sits, for any control the user
         // wants building across the whole thing. Section scope, because all
@@ -3676,7 +3726,7 @@ RenderResult renderPerformance (const SongPlan& plan,
         // Resolved once per section rather than per bar, so the bass keeps one
         // identity across the section while still varying between rerolls.
         const std::string bassPattern = (s.bassPattern.empty() || s.bassPattern == "auto")
-                                          ? chooseBassPattern (ctx, rng)
+                                          ? chooseBassPattern (ctxBass, rng)
                                           : s.bassPattern;
         const std::vector<Chord> chords = chordsForSection (s, keyPc, mode, plan.style,
                                                             plan.transpose, rng);
@@ -3722,7 +3772,7 @@ RenderResult renderPerformance (const SongPlan& plan,
                 if (lastBar && ! isLastSection)
                     fillSize = (nextRole == "chorus" || s.bars >= 8) ? "big" : "small";
                 else if (! lastBar && s.bars >= 8 && bar == s.bars / 2 - 1
-                         && rng.chance (plan.complexity * 0.35))
+                         && rng.chance (ctx.complexity * 0.35))
                     fillSize = "small";
             }
 
@@ -3746,8 +3796,26 @@ RenderResult renderPerformance (const SongPlan& plan,
                 else if (! isLastSection)
                     next = Chord();     // unknown until the next section is built
 
-                generateBassBar (ctx, grid, barStart, chord, next, bassPattern,
+                const size_t bassBefore = result.performance.bass.size();
+                generateBassBar (ctxBass, grid, barStart, chord, next, bassPattern,
                                  lastBar, rng, result.performance.bass);
+
+                // BUSY down: notes between the beats dropped, the beats kept.
+                // Its own stream - at zero it draws nothing.
+                if (plan.busy[1] < 0.0)
+                {
+                    Rng br (deriveSeed (sectionSeed, 0xBA55u + static_cast<uint32_t> (bar)));
+                    auto& b = result.performance.bass;
+                    for (size_t q = bassBefore; q < b.size(); )
+                    {
+                        const bool onBeat = ((b[q].tick - barStart) % beatTicks) < beatTicks / 16
+                                         || ((b[q].tick - barStart) % beatTicks) > beatTicks - beatTicks / 16;
+                        if (! onBeat && br.chance (-plan.busy[1] * 0.7))
+                            b.erase (b.begin() + static_cast<long> (q));
+                        else
+                            ++q;
+                    }
+                }
             }
         }
 
@@ -3865,12 +3933,16 @@ RenderResult renderPerformance (const SongPlan& plan,
             {
                 const size_t before     = out.chords.size();
                 const size_t leadBefore = out.lead.size();
+                const int part = (&out == &result.performance.guitar)  ? 2
+                               : (&out == &result.performance.guitar2) ? 3 : 4;
                 generatePhrasePart (s, chords, tick, barTicks, keyPc, mode, plan.style,
                                     plan.swing, profile,
                                     supports ? supportFeel (feel) : feel,
                                     plan.humanize, supports, throughSong,
                                     sectionSeed, plan.seed, rng, out, plan.fills,
-                                    plan.intuition, plan.complexity);
+                                    plan.intuition,
+                                    trimmedComplexity (plan.complexity, plan.busy[part]),
+                                    plan.busy[part], plan.shredTrim);
                 count = static_cast<int> (out.chords.size() - before);
                 if (leadCount != nullptr)
                     *leadCount = static_cast<int> (out.lead.size() - leadBefore);

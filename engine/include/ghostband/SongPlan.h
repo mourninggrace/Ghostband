@@ -84,6 +84,13 @@ struct SongPlan
     double   swing = 0.0;
 
     double   complexity = 0.5;              // fills, ghost notes, busyness
+
+    // Per-instrument BUSY trims, -1..1, where 0 is exactly the song as it was:
+    // drums, bass, guitar, guitar 2, piano. And guitar 2's SHRED trim on the
+    // same scale (sings <-> shreds). Live controls on the MIX rows, kept with
+    // the rig - never written to a plan file.
+    double   busy[5]   = { 0.0, 0.0, 0.0, 0.0, 0.0 };
+    double   shredTrim = 0.0;
     double   humanize   = 0.5;              // timing and velocity looseness
 
     // How often the answering guitar takes an opening it is offered.

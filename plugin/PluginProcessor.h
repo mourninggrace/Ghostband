@@ -895,6 +895,12 @@ public:
     std::atomic<float> levelGuitar  { 1.0f };
     std::atomic<float> levelGuitar2 { 1.0f };
     std::atomic<float> levelGuitar2Fills { kFillsLevelDefault };   // fraction of GTR 2 while it plays fills
+
+    // BUSY trims, -1..1, 0 = the song as it is: drums, bass, guitar, guitar 2,
+    // piano (the MIX rows' order). And guitar 2's SHRED trim.
+    std::atomic<float> busyTrim[5] { {0.0f}, {0.0f}, {0.0f}, {0.0f}, {0.0f} };
+    std::atomic<float> shredTrim { 0.0f };
+    bool partIsPhraseDriven (int part) const;
     std::atomic<float> levelPiano   { 1.0f };
 
     // Queues the current levels for delivery. Safe to call at any time; the
