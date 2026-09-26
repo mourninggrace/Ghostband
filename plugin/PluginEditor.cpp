@@ -2308,7 +2308,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     initLabel (levelGuitarLabel,  "GTR",    14.0f,  ghost::dim, juce::Justification::centred);
     initLabel (levelGuitar2Label, "GTR 2",  14.0f,  ghost::dim, juce::Justification::centred);
     initLabel (levelPianoLabel,   "PIANO",  14.0f,  ghost::dim, juce::Justification::centred);
-    initLabel (levelGuitar2FillsLabel, "FILLS", 14.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (levelGuitar2FillsLabel, "UNDER", 14.0f, ghost::dim, juce::Justification::centredLeft);
     {
         levelGuitar2Fills.setSliderStyle (juce::Slider::RotaryVerticalDrag);
         levelGuitar2Fills.setRotaryParameters (juce::MathConstants<float>::pi * 1.2f,
@@ -6816,7 +6816,7 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
             levelGuitar2Fills.setAlpha (alpha);
             levelGuitar2FillsLabel.setAlpha (alpha);
             levelGuitar2Fills.setTooltip (
-                reachable ? "How loud guitar 2 plays its FILLS, as a share of the GTR 2 knob. Solos play at "
+                reachable ? "UNDER: how far guitar 2 drops while it plays fills (not solos), as a share of the GTR 2 knob. Solos play at "
                             "the full GTR 2 level; fills drop to this, so they sit behind the band. "
                             "Double-click for the default."
                           : "Nothing can set guitar 2's level (see the GTR 2 knob), so nothing can "
@@ -6903,6 +6903,6 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
 
 void GhostbandEditor::refreshFillsLevelLabel()
 {
-    levelGuitar2FillsLabel.setText ("FILLS " + juce::String (juce::roundToInt (levelGuitar2Fills.getValue() * 100.0)) + "%",
+    levelGuitar2FillsLabel.setText ("UNDER " + juce::String (juce::roundToInt (levelGuitar2Fills.getValue() * 100.0)) + "%",
                                     juce::dontSendNotification);
 }

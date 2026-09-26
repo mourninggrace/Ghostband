@@ -124,7 +124,8 @@ void check (bool condition, const juce::String& what, const juce::String& detail
 // phrase (not the bed) in every "fills" section of every song, at six seeds, is
 // fingerprinted three ways - rhythm, contour, rhythm+intervals - and the report
 // says how many phrases share a fingerprint with phrases in OTHER songs.
-struct FillNumbers { double top3Share = 1.0, betweenSongs = 1.0, withinSong = 1.0; int phrases = 0, notes = 0; uint32_t soloSum = 0; double walkShare = 1.0; };
+struct FillNumbers { double top3Share = 1.0, betweenSongs = 1.0, withinSong = 1.0; int phrases = 0, notes = 0; uint32_t soloSum = 0; double walkShare = 1.0;
+                     double soloStepShare = 1.0, soloWalkShare = 1.0, soloHeldShare = 0.0; int soloNotes = 0; };
 
 static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool print = true)
 {
@@ -146,6 +147,12 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
     long bedNotes = 0, answerNotes = 0, bedTicks = 0, answerTicks = 0, sectionTicks = 0;
     uint32_t soloSum = 17u;
     int walks = 0, walkCandidates = 0;
+    // SOLOS, measured the way the fills were: how many moves are a step, how
+    // much of the line is a run of four or more steps in one direction (the
+    // "up and down climbing"), and how much of the solo's time is spent on
+    // notes held a beat or longer (a line that sings, not one that hunts).
+    long soloMoves = 0, soloSteps = 0, soloNoteCount = 0, soloInWalks = 0, soloTicks = 0, soloHeldTicks = 0;
+    std::map<std::string, int> soloRunLen;
 
     for (const juce::File& f : plansDir.findChildFiles (juce::File::findFiles, false, "*.json"))
     {
@@ -175,6 +182,46 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
                     if (n.tick >= sc.startTick && n.tick < sc.endTick) secEnd = sc.endTick;
                 const int heard = std::min (n.durationTicks, secEnd - n.tick);
                 if (! inFills) soloSum = soloSum * 1000003u + static_cast<uint32_t> (n.tick * 131 + n.pitch * 7 + heard);
+            }
+
+            for (const gb::SectionReport& sec : r.sections)
+            {
+                if (sec.guitar2Feel.rfind ("fills", 0) == 0) continue;
+                std::vector<gb::LeadIntent> so;
+                for (const gb::LeadIntent& n : r.performance.guitar2.lead)
+                    if (n.tick >= sec.startTick && n.tick < sec.endTick) so.push_back (n);
+                if (so.size() < 4) continue;
+                std::sort (so.begin(), so.end(), [] (const auto& a, const auto& b) { return a.tick < b.tick; });
+                soloNoteCount += static_cast<long> (so.size());
+                for (const gb::LeadIntent& n : so)
+                {
+                    const int d = std::min (n.durationTicks, sec.endTick - n.tick);
+                    soloTicks += d;
+                    if (d >= gb::kPPQ) soloHeldTicks += d;
+                }
+                // runs of same-direction steps (1-2 semitones)
+                size_t runStart = 0; int runDir = 0;
+                auto closeRun = [&] (size_t endIdx)
+                {
+                    const long len = static_cast<long> (endIdx - runStart + 1);   // notes in the run
+                    if (runDir != 0 && len >= 2)
+                    {
+                        ++soloRunLen[std::to_string (std::min<long> (len, 10)) + (len >= 10 ? "+" : "")];
+                        if (len >= 4) soloInWalks += len;
+                    }
+                };
+                for (size_t q = 1; q < so.size(); ++q)
+                {
+                    const int iv = so[q].pitch - so[q - 1].pitch;
+                    ++soloMoves;
+                    const bool step = std::abs (iv) >= 1 && std::abs (iv) <= 2;
+                    if (step) ++soloSteps;
+                    const int dir = step ? (iv > 0 ? 1 : -1) : 0;
+                    if (dir != 0 && dir == runDir) continue;
+                    closeRun (q - 1);
+                    runStart = q - 1; runDir = dir;
+                }
+                closeRun (so.size() - 1);
             }
 
             for (const gb::SectionReport& sec : r.sections)
@@ -313,6 +360,16 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
         out.betweenSongs = nb ? between / nb : 0.0;
         out.withinSong   = nw ? within / nw : 0.0;
     }
+    if (print) std::printf ("SOLOS: %ld notes; %.0f%% of moves are a step; %.0f%% of notes sit in a one-way run of 4+ steps;"
+                            " %.0f%% of the solo's time on notes of a beat or longer\n",
+                            soloNoteCount, soloMoves ? 100.0 * soloSteps / soloMoves : 0.0,
+                            soloNoteCount ? 100.0 * soloInWalks / soloNoteCount : 0.0,
+                            soloTicks ? 100.0 * soloHeldTicks / soloTicks : 0.0);
+    if (print) std::printf ("  one-way step runs by length (notes):\n%s", top (soloRunLen, 9).c_str());
+    out.soloStepShare = soloMoves ? soloSteps / double (soloMoves) : 1.0;
+    out.soloWalkShare = soloNoteCount ? soloInWalks / double (soloNoteCount) : 1.0;
+    out.soloHeldShare = soloTicks ? soloHeldTicks / double (soloTicks) : 0.0;
+    out.soloNotes     = static_cast<int> (soloNoteCount);
     if (print) std::printf ("  most common rhythms (onset:length in 16ths):\n%s", top (rhythmCount, 8).c_str());
     if (print) std::printf ("  most common contours:\n%s", top (contourCount, 8).c_str());
     if (print) std::printf ("  most common full shapes:\n%s", top (fullCount, 8).c_str());
