@@ -101,7 +101,7 @@ session with it inherits the hang.
 **Your Gig Performer taskbar pin now starts a small launcher.** It clears any
 leftover Gig Performer with no window, then starts a fresh one, so Task Manager
 is no longer needed. It logs each clear to `gp-launcher.log`. The original pin is
-backed up in `%LOCALAPPDATA%\Ghostband`. The running Gig Performer may now show
+backed up in `Documents\Ghostband\Launcher`. The running Gig Performer may now show
 as its own taskbar button next to the pin. Worth doing too: update Kontakt in
 Native Access, since the hang was measured on 8.13.1.
 

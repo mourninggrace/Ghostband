@@ -202,12 +202,17 @@ exited once with 0xC0000374 (heap corruption on exit), a crash rather than a han
 seen once in two runs. Neither is ours to fix.
 
 Fix on his side, with no change of habit: `tools/StartGigPerformer.ps1` (+ `.vbs`
-so no console flashes) installed to `%LOCALAPPDATA%\Ghostband\`, and his TASKBAR
+so no console flashes) installed to `Documents\Ghostband\Launcher\`, and his TASKBAR
 PIN now points at it (the original pin is backed up beside it as
 `Gig Performer 5 - original taskbar pin.lnk`). It kills GP5 copies with no window
 older than 20 s, logs to `gp-launcher.log`, activates a live session instead of
 starting a second. Tested against ping (old one cleared, young one spared) and
-charmap (windowed one kept, no second started). Side effect: the running GP5 may
+charmap (windowed one kept, no second started). **First install was wrong:** it went to %LOCALAPPDATA%\Ghostband, and this
+Claude app is MSIX-packaged, so a NEW folder under AppData created from its tools
+is silently redirected into Packages\Claude_...\LocalCache. The pin (an existing
+file, edited in place) was real; the script it pointed at was not, and wscript
+said "Can not find script file". The tests had passed because they ran inside the
+same sandbox. Moved to Documents, which is not redirected. Side effect: the running GP5 may
 show as its own taskbar button beside the pin, because the pin now launches
 wscript.
 
