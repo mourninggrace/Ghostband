@@ -1429,6 +1429,8 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
     // on this instrument a gesture and a section style are selected by the same
     // mechanism, so describing them differently would be a distinction the
     // hardware does not make.
+    out.rakeVelocity = clampInt (j.intOr ("rake_velocity", 0), 0, 127);
+
     const Json& artics = j["lead_articulations"];
     if (artics.isObject())
     {
@@ -1704,7 +1706,8 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
         // the generator is allowed to ask for a pinch harmonic from something
         // that has none.
         const PhraseSwitch gesture = switchFor (n.artic);
-        const bool doGesture = n.artic != LeadArtic::Normal && gesture.mapped();
+        const bool doGesture = n.artic != LeadArtic::Normal && gesture.mapped()
+                               && ! (n.artic == LeadArtic::Rake && rakeVelocity > 0);
 
         if (doGesture)
             selectArtic (gesture, std::max (0, n.tick - phraseLeadTicks));
@@ -1715,20 +1718,27 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
         // Never on a gestured note. A pinch harmonic is a squeal at a fixed
         // pitch and a rake is a scrape across strings; bending into either is
         // two ideas fighting for the same note, and neither survives.
-        const bool bendThisOne = canBend && n.target && reach > 0 && ! doGesture
-                              && end - n.tick > bendTicks + 20
-                              && pitch - reach >= chordLowest;
+        // A note may ask for its own bend (bendSemis), not only a target. Its
+        // bend takes at most half the note, so a short bent note still arrives.
+        const int  reachHere = n.bendSemis > 0 ? n.bendSemis : reach;
+        const int  bendTime  = n.bendSemis > 0 ? std::min (bendTicks, std::max (60, (end - n.tick) / 2))
+                                               : bendTicks;
+        const bool bendThisOne = canBend && (n.target || n.bendSemis > 0) && reachHere > 0 && ! doGesture
+                              && end - n.tick > bendTime + 20
+                              && pitch - reachHere >= chordLowest;
 
         if (bendThisOne)
         {
             // Start flat by the reach, then climb to zero, so the note arrives
             // at the pitch that was written.
-            const int sounded = pitch - reach;
+            const int sounded = pitch - reachHere;
             const int steps   = 6;
 
             track.addPitchBend (n.tick, channel, 0.0, bendRangeSemitones);
             track.addNoteOn    (n.tick, channel, sounded,
-                                velocityFor (n.accent, velocityMin, velocityMax));
+                                (n.artic == LeadArtic::Rake && rakeVelocity > 0)
+                                    ? rakeVelocity
+                                    : velocityFor (n.accent, velocityMin, velocityMax));
 
             for (int st = 1; st <= steps; ++st)
             {
@@ -1738,12 +1748,12 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
                 // fret and slow as it reaches the note, and a linear one sounds
                 // like a pitch envelope instead of a finger.
                 const double shaped = 1.0 - (1.0 - through) * (1.0 - through);
-                track.addPitchBend (n.tick + (bendTicks * st) / steps, channel,
-                                    shaped * reach, bendRangeSemitones);
+                track.addPitchBend (n.tick + (bendTime * st) / steps, channel,
+                                    shaped * reachHere, bendRangeSemitones);
             }
 
             // Once the bend has arrived, not before.
-            shake (n.tick + bendTicks, end);
+            shake (n.tick + bendTime, end);
 
             track.addNoteOff   (end, channel, sounded);
             track.addPitchBend (end, channel, 0.0, bendRangeSemitones);
@@ -1777,7 +1787,7 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
             // a hundred and twenty ticks later. On a held note at the end of a
             // phrase it is a dead second in the middle of the solo, which is
             // exactly how it was reported.
-            const bool nextIsHeld = haveNext && part.lead[i + 1].target;
+            const bool nextIsHeld = haveNext && (part.lead[i + 1].target || part.lead[i + 1].bendSemis > 0);
 
             // Only where the instrument could actually hammer it. Anything
             // wider is picked, which is what a player does when the hand moves
@@ -1794,8 +1804,10 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
             // and stops. Leap 0 passed "within two semitones" for years; the
             // CLI's MIDI files showed it as same-pitch re-strikes on the lead
             // channel, and the plugin was sending the identical pair.
+            // Or wherever the note ASKS to slur into the next - a tapped
+            // arpeggio or a wide legato leap, where the hammer is the point.
             if (legatoOverlapTicks > 0 && haveNext && ! nextIsHeld
-                && leap > 0 && leap <= legatoMaxLeapSemitones)
+                && leap > 0 && (leap <= legatoMaxLeapSemitones || n.slur))
             {
                 const int nextStart = part.lead[i + 1].tick;
                 const int nextEnd   = nextStart + std::max (1, part.lead[i + 1].durationTicks);
@@ -1804,12 +1816,15 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
             }
 
             track.addNoteOn  (n.tick, channel, pitch,
-                              velocityFor (n.accent, velocityMin, velocityMax));
+                              (n.artic == LeadArtic::Rake && rakeVelocity > 0)
+                                  ? rakeVelocity
+                                  : velocityFor (n.accent, velocityMin, velocityMax));
 
             // A held note the phrase lands on gets vibrato whether or not it
             // was bent into - some landings are approached from above and are
-            // not bent at all, and they should still be alive.
-            if (n.target)
+            // not bent at all, and they should still be alive. And any note
+            // that asks for it.
+            if (n.target || n.vibrato)
                 shake (n.tick + std::max (60, bendTicks / 3), end);
 
             track.addNoteOff (off, channel, pitch);
@@ -1849,6 +1864,12 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
                              part.lead[i + 1].tick - phraseLeadTicks - 1));
 
                 selectArtic (sectionArtic, at);
+
+                if (sectionArtic.byControl() && sectionArtic.note >= 0 && gesture.note >= 0)
+                {
+                    track.addNoteOn  (at, channel, sectionArtic.note, phraseVelocity);
+                    track.addNoteOff (at + std::max (1, phraseBlipTicks), channel, sectionArtic.note);
+                }
             }
         }
     }

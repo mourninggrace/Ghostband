@@ -135,6 +135,20 @@ struct LeadIntent
     // and any profile that wants to treat a bed differently from a lead line -
     // can tell the two apart.
     bool   bed           = false;
+
+    // FULL EXPRESSION, for the fills (2026-09-26: "all articulations possible
+    // used, full expression, as real and lifelike as programmingly possible").
+    // All default to off, so a note that does not ask sounds as it always did.
+    //
+    //   slur       legato INTO the next note however far away it is - the
+    //              hammer/pull that makes a tapped arpeggio or a wide Vai leap
+    //              flow instead of being picked
+    //   bendSemis  bend up into this note by this many semitones, on any note,
+    //              not only a phrase's target
+    //   vibrato    shake this note once it has sounded, target or not
+    bool   slur          = false;
+    int    bendSemis     = 0;
+    bool   vibrato       = false;
 };
 
 // Switch the instrument to this phrase. Emitted at section and phrase changes,

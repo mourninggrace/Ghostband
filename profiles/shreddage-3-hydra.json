@@ -357,7 +357,11 @@
   "fretting": {
     "solo":    116,
     "sparse":  116,
-    "fills":   117,
+    // FILLS 116 NOW, NOT 117 (2026-09-26). Polyphonic mode forbids legato -
+    // "as opposed to triggering legato" - and the owner heard exactly that:
+    // "single notes hit ... no sustain". The fills are lead playing now
+    // (tapped arpeggios, legato runs, trills), and that is Moving Lead.
+    "fills":   116,
     "open":    117,
     "muted":   117,
     "driving": 117,
@@ -462,7 +466,23 @@
   // To bring gestures back, re-band CC 40 to the ten-band table above FIRST,
   // then fill this in with values from THAT table. Values chosen for one
   // layout and read under another are the whole of this fault.
-  "lead_articulations": {},
+  // FILLED IN 2026-09-26 FROM THE MANUAL, NOT FROM A GUESS. Shreddage 3.5
+  // Hydra manual, Articulations (TACT default keyswitches), in this file's
+  // numbering, which the confirmed section switches above prove matches:
+  // Sustain 12, Mute 13, Staccato 14, Power Chord Sustain 15, PC Mute 16,
+  // PC Staccato 17, Tremolo 18, CHOKE 19, TAPPING 20, HARMONICS 21, PINCH
+  // HARMONICS 22, FX 23. The five used by the sections sit on CC 40 bands; the
+  // rest never left their keyswitches. Rake is not a switch at all - see
+  // rake_velocity. TACT is configurable, so Calibrate has an articulation test
+  // that plays each one, named, to confirm by ear on the owner's instance.
+  //
+  // Used by the FILLS only for now. The solo engine asks for these too, and
+  // the solos stay exactly as approved until the owner says otherwise.
+  "lead_articulations": { "choke": 19, "tap": 20, "harmonic": 21, "pinch": 22 },
+
+  // A rake is Sustain at velocity 120-127 (manual). Everything else is capped
+  // at 119 so nothing rakes by accident; this is the one deliberate exception.
+  "rake_velocity": 124,
 
   "keyswitches_verified": true,
 

@@ -536,6 +536,11 @@ public:
 
     PhraseSwitch switchFor (PhraseFeel f) const;
 
+    // A RAKE ON THIS INSTRUMENT IS A VELOCITY, not a switch: Shreddage layers a
+    // muted scrape before any Sustain note played at 120-127 (manual,
+    // Articulations). 0 = no rake. The generator asks with LeadArtic::Rake.
+    int rakeVelocity = 0;
+
     // The per-note gestures, declared the same way as the section feels above
     // and selected by the same mechanism - because on this instrument they ARE
     // the same mechanism. Shreddage has one active articulation at a time,
@@ -591,8 +596,10 @@ public:
 
     SwitchKind switchKind (int note) const
     {
+        // The keyswitch recorded beside a controller counts too: it is sent to
+        // put the section's articulation back after a keyswitched gesture.
         for (const PhraseSwitch& s : phraseKeys)
-            if (! s.byControl() && s.note == note) return SwitchKind::Feel;
+            if (s.note >= 0 && s.note == note) return SwitchKind::Feel;
         for (const PhraseSwitch& s : frettingKeys)
             if (! s.byControl() && s.note == note) return SwitchKind::Neck;
         for (const PhraseSwitch& s : leadArtics)

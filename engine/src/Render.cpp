@@ -628,6 +628,653 @@ static void retimeFill (std::vector<SoloStep>& steps, int spanTicks, bool swung,
 // the same player.
 enum class SoloShape { Continuous, Answering };
 
+//==============================================================================
+// THE FILLS, AS A LEAD PLAYER PLAYS THEM.
+//
+// 2026-09-26, after a rework that measured well and sounded like nothing had
+// changed: "the fills still consist of single notes hit with a second in
+// between, no sustain, climbing up and down". Measured, he was right: the BED -
+// a soft chord arpeggio in half notes and quarters, added to cure silence - was
+// 85% of the notes and 84% of the time in every fills section; the answers the
+// rework changed were 11%. And the instrument was switched to its Polyphonic
+// fretting mode for fills, which forbids legato outright.
+//
+// The brief: Steve Vai, Eddie Van Halen, Kirk Hammett, Joe Satriani - combined
+// into a voice Ghostband makes its own, with every articulation the instrument
+// has. So a fills section is now built from LICKS and SUSTAIN, not from a bed:
+//
+//   licks    tapped triplet arpeggios and hammer-on pentatonic cascades (Van
+//            Halen); three-note-per-string legato runs, pedal-point legato and
+//            singing bends (Satriani); wide legato leaps, vocal bend-and-return,
+//            ringing harmonics, chromatic climbs (Vai); pentatonic triplet box
+//            runs, trills, repeated blues licks into a bend, pinch squeals,
+//            rakes and chokes (Hammett). Each is a shape, not a recording: it is
+//            built fresh from the song's key and the chord it lands on, and
+//            varied every time it is played.
+//   sustain  between licks the guitar SINGS: a chord tone held for a bar or
+//            more, bent into and shaken - the Satriani/Vai sustain - or it rests.
+//
+// Each song draws a personality: which of these players it leans on, how often
+// it answers, how much it sustains. A new seed, a new instance or a change of
+// song is a different player. Solos are NOT built here and are untouched.
+namespace fillvoice
+{
+    enum Space { Scale, Pent, ChordTones, Semis };
+
+    enum Flag : unsigned
+    {
+        Slur = 1u, Vib = 2u, Target = 4u, Bend1 = 8u, Bend2 = 16u,
+        Tap = 32u, Pinch = 64u, Harm = 128u, Rake = 256u, Choke = 512u
+    };
+
+    // One note of a lick: when, how long, which pitch (a step in a space,
+    // relative to the lick's anchor), and how it is played.
+    struct LickNote { int on, len; Space sp; int st; unsigned f; };
+
+    enum Family { VanHalen, Satriani, Vai, Hammett, Anyone, kFamilies };
+
+    struct Lick
+    {
+        std::vector<LickNote> notes;
+        Family family = Anyone;
+        bool   triplet = false;     // off the straight grid: not under a shuffle
+        bool   fast    = false;     // wants a hot section
+        int    span() const
+        {
+            int e = 0;
+            for (const LickNote& n : notes) e = std::max (e, n.on + n.len);
+            return e;
+        }
+    };
+
+    //--------------------------------------------------------------------------
+    // The builders. Each returns a lick that ends on step 0 of its space - the
+    // anchor, which is always a tone of the chord it lands on.
+
+    static Lick tapArpeggio (Rng& r)           // Van Halen: tap, pull, hammer
+    {
+        Lick L; L.family = VanHalen; L.triplet = true; L.fast = true;
+        const int hi = r.range (3, 4), mid = r.range (1, 2);
+        const int groups = r.range (3, 6);
+        int t = 0;
+        for (int g = 0; g < groups; ++g)
+        {
+            L.notes.push_back ({ t,       80, ChordTones, hi,  Tap | Slur });
+            L.notes.push_back ({ t + 80,  80, ChordTones, 0,   Tap | Slur });
+            L.notes.push_back ({ t + 160, 80, ChordTones, mid, Tap | Slur });
+            t += 240;
+        }
+        L.notes.push_back ({ t, 480, ChordTones, 0, Target | Vib });
+        return L;
+    }
+
+    static Lick hammerCascade (Rng& r)         // Van Halen: pentatonic hammer/pull triplets down
+    {
+        Lick L; L.family = VanHalen; L.triplet = true; L.fast = true;
+        const int groups = r.range (3, 5);
+        int t = 0;
+        for (int g = 0; g < groups; ++g)
+        {
+            const int top = groups - g + 1;
+            L.notes.push_back ({ t,       80, Pent, top,     Slur });
+            L.notes.push_back ({ t + 80,  80, Pent, top - 1, Slur });
+            L.notes.push_back ({ t + 160, 80, Pent, top - 2, Slur });
+            t += 240;
+        }
+        L.notes.push_back ({ t, 600, Pent, 0, Target | Vib });
+        return L;
+    }
+
+    static Lick rakeIntoBend (Rng& r)          // Van Halen / Hammett
+    {
+        Lick L; L.family = r.chance (0.5) ? VanHalen : Hammett;
+        if (r.chance (0.6)) L.notes.push_back ({ 0, 120, Scale, -1, 0 });
+        const int at = L.notes.empty() ? 0 : 120;
+        L.notes.push_back ({ at, r.range (600, 900), Scale, 0, Rake | Bend2 | Vib });
+        return L;
+    }
+
+    static Lick pinchSqueal (Rng& r)           // Hammett / Van Halen
+    {
+        Lick L; L.family = r.chance (0.6) ? Hammett : VanHalen;
+        const int n = r.range (1, 3);
+        for (int i = 0; i < n; ++i)
+            L.notes.push_back ({ i * 120, 120, Scale, i - n, 0 });
+        L.notes.push_back ({ n * 120, r.range (480, 840), Scale, 0, Pinch | Vib });
+        return L;
+    }
+
+    static Lick legatoRun (Rng& r)             // Satriani: three notes a string, one breath
+    {
+        Lick L; L.family = Satriani; L.fast = true;
+        const int n = r.range (6, 10);
+        const bool up = r.chance (0.7);
+        for (int i = 0; i < n; ++i)
+            L.notes.push_back ({ i * 120, 120, Scale, up ? i - n : n - i, Slur });
+        L.notes.push_back ({ n * 120, 600, Scale, 0, Target | Vib });
+        return L;
+    }
+
+    static Lick pedalLegato (Rng& r)           // Satriani: a pedal note above a moving line
+    {
+        Lick L; L.family = Satriani;
+        const int m = r.range (3, 4);
+        int t = 0;
+        for (int k = m; k >= 1; --k)
+        {
+            L.notes.push_back ({ t,       120, Scale, 0,  Slur });
+            L.notes.push_back ({ t + 120, 120, Scale, -k, Slur });
+            t += 240;
+        }
+        L.notes.push_back ({ t, 480, Scale, 0, Target | Vib });
+        return L;
+    }
+
+    static Lick singingBend (Rng& r)           // Satriani / Vai: the note that sings
+    {
+        Lick L; L.family = r.chance (0.5) ? Satriani : Vai;
+        const int pick = r.range (1, 2);
+        L.notes.push_back ({ 0, pick == 1 ? 240 : 120, Scale, -pick, 0 });
+        L.notes.push_back ({ pick == 1 ? 240 : 120, r.range (720, 1200), Scale, 0, Bend2 | Vib | Target });
+        return L;
+    }
+
+    static Lick descendingFours (Rng& r)       // Satriani: a sequence of four, falling
+    {
+        Lick L; L.family = Satriani; L.fast = true;
+        const int groups = r.range (2, 3);
+        int t = 0;
+        for (int g = 0; g < groups; ++g)
+        {
+            const int base = groups - 1 - g;
+            for (int k = 3; k >= 0; --k)
+            {
+                L.notes.push_back ({ t, 120, Scale, base + k - 1, Slur });
+                t += 120;
+            }
+        }
+        L.notes.push_back ({ t, 480, Scale, 0, Target | Vib });
+        return L;
+    }
+
+    static Lick wideLeaps (Rng& r)             // Vai: legato across wide intervals
+    {
+        Lick L; L.family = Vai; L.triplet = true;
+        static const int shapeA[] = { 0, 3, 1, 4, 2, 5 };
+        static const int shapeB[] = { 5, 2, 4, 1, 3, 0 };
+        const int* shape = r.chance (0.5) ? shapeA : shapeB;
+        const int n = r.range (4, 6);
+        const int last = shape[n - 1];
+        for (int i = 0; i < n; ++i)
+            L.notes.push_back ({ i * 160, 160, Pent, shape[i] - last + (i == n - 1 ? 0 : 0), Slur });
+        L.notes.back().f = Target | Vib;
+        L.notes.back().len = 640;
+        return L;
+    }
+
+    static Lick bendAndReturn (Rng& r)         // Vai: bend, fall back, sing
+    {
+        Lick L; L.family = Vai;
+        L.notes.push_back ({ 0,   360, Scale, 0,  Bend2 });
+        L.notes.push_back ({ 360, 120, Scale, -1, Slur });
+        L.notes.push_back ({ 480, r.range (480, 900), Scale, 0, Target | Vib });
+        return L;
+    }
+
+    static Lick harmonics (Rng& r)             // Vai / Satriani: bells high on the neck
+    {
+        Lick L; L.family = r.chance (0.6) ? Vai : Satriani;
+        const int n = r.range (2, 3);
+        for (int i = 0; i < n; ++i)
+            L.notes.push_back ({ i * 480, 480, ChordTones, n - 1 - i, Harm });
+        return L;
+    }
+
+    static Lick chromaticClimb (Rng& r)        // Vai: in from outside the key
+    {
+        Lick L; L.family = Vai;
+        const int n = r.range (2, 4);
+        for (int i = 0; i < n; ++i)
+            L.notes.push_back ({ i * 120, 120, Semis, i - n, Slur });
+        L.notes.push_back ({ n * 120, 600, Semis, 0, Target | Vib });
+        return L;
+    }
+
+    static Lick tripletBox (Rng& r)            // Hammett: pentatonic triplets down the box
+    {
+        Lick L; L.family = Hammett; L.triplet = true; L.fast = true;
+        const int groups = r.range (3, 4);
+        int t = 0;
+        for (int g = 0; g < groups; ++g)
+        {
+            const int top = groups - g + 1;
+            for (int k = 0; k < 3; ++k)
+            {
+                L.notes.push_back ({ t, 160, Pent, top - k, 0 });
+                t += 160;
+            }
+        }
+        L.notes.push_back ({ t, 480, Pent, 0, Vib });
+        return L;
+    }
+
+    static Lick trill (Rng& r)                 // Hammett / Van Halen
+    {
+        Lick L; L.family = r.chance (0.6) ? Hammett : VanHalen; L.triplet = true; L.fast = true;
+        const int n = r.range (8, 12);
+        const int upper = r.range (1, 2);
+        for (int i = 0; i < n; ++i)
+            L.notes.push_back ({ i * 80, 80, Scale, (i % 2 == 0) ? 0 : upper, Slur });
+        L.notes.push_back ({ n * 80, 480, Scale, 0, Target | Vib });
+        return L;
+    }
+
+    static Lick bluesRepeat (Rng& r)           // Hammett: say it three times, then lean on it
+    {
+        Lick L; L.family = Hammett;
+        const int reps = r.range (2, 3);
+        int t = 0;
+        for (int k = 0; k < reps; ++k)
+        {
+            L.notes.push_back ({ t,       120, Pent, 2, Bend1 });
+            L.notes.push_back ({ t + 120, 120, Pent, 1, Slur });
+            L.notes.push_back ({ t + 240, 120, Pent, 0, 0 });
+            t += 360;
+        }
+        L.notes.push_back ({ t, 600, Pent, 0, Bend2 | Vib | Target });
+        return L;
+    }
+
+    static Lick chokeStabs (Rng& r)            // Hammett: rhythm in the lead
+    {
+        Lick L; L.family = Hammett; L.fast = true;
+        const int n = r.range (2, 3);
+        for (int i = 0; i < n; ++i)
+            L.notes.push_back ({ i * 240, 120, Scale, 0, Choke });
+        L.notes.push_back ({ n * 240, 480, Scale, 0, Pinch | Vib });
+        return L;
+    }
+
+    static Lick sweep (Rng& r)                 // Vai / Satriani: the chord, up and back
+    {
+        Lick L; L.family = r.chance (0.5) ? Vai : Satriani; L.triplet = true; L.fast = true;
+        const int top = r.range (3, 4);
+        int t = 0;
+        for (int k = 0; k <= top; ++k) { L.notes.push_back ({ t, 80, ChordTones, k, Slur }); t += 80; }
+        for (int k = top - 1; k >= 0; --k) { L.notes.push_back ({ t, 80, ChordTones, k, Slur }); t += 80; }
+        L.notes.back().len = 480;
+        L.notes.back().f = Target | Vib;
+        return L;
+    }
+
+    static Lick pickupCall (Rng& r)            // anyone: two notes and a held one
+    {
+        Lick L; L.family = Anyone;
+        const bool below = r.chance (0.6);
+        L.notes.push_back ({ 0,   120, Scale, below ? -2 : 2, 0 });
+        L.notes.push_back ({ 120, 120, Scale, below ? -1 : 1, Slur });
+        L.notes.push_back ({ 240, 480, Scale, 0, Target | Vib });
+        return L;
+    }
+
+    static Lick flurry (Rng& r)                // Van Halen / Satriani: a sextuplet burst up
+    {
+        Lick L; L.family = r.chance (0.5) ? VanHalen : Satriani; L.triplet = true; L.fast = true;
+        const int n = r.range (6, 9);
+        for (int i = 0; i < n; ++i)
+            L.notes.push_back ({ i * 80, 80, Pent, i - n, Slur });
+        L.notes.push_back ({ n * 80, 480, Pent, 0, Target | Vib | Bend1 });
+        return L;
+    }
+
+    using Builder = Lick (*) (Rng&);
+    static const Builder kBuilders[] = {
+        tapArpeggio, hammerCascade, rakeIntoBend, pinchSqueal, legatoRun, pedalLegato,
+        singingBend, descendingFours, wideLeaps, bendAndReturn, harmonics, chromaticClimb,
+        tripletBox, trill, bluesRepeat, chokeStabs, sweep, pickupCall, flurry
+    };
+    static constexpr int kNumLicks = static_cast<int> (sizeof (kBuilders) / sizeof (kBuilders[0]));
+
+    // Which family each builder mostly speaks for, for the personality.
+    static const Family kLickFamily[kNumLicks] = {
+        VanHalen, VanHalen, VanHalen, Hammett, Satriani, Satriani,
+        Satriani, Satriani, Vai, Vai, Vai, Vai,
+        Hammett, Hammett, Hammett, Hammett, Vai, Anyone, VanHalen
+    };
+
+    struct Personality
+    {
+        double family[kFamilies] {};
+        double lick[kNumLicks] {};
+        double answerSecond = 0.4;   // how often bar 2 of a group answers too
+        double sustain      = 0.6;   // how often a free bar sings rather than rests
+        double invert       = 0.3;   // how often a lick is turned upside down
+    };
+
+    // A player made of four: each song weights the four families differently
+    // (one song is mostly Satriani with a little Van Halen, the next mostly
+    // Hammett), and within a family favours some licks over others.
+    static Personality personalityFor (uint32_t songSeed)
+    {
+        Rng r (deriveSeed (songSeed, 0xB1A5E5u));
+        Personality p;
+        for (double& f : p.family) f = 0.15 + r.unit() * r.unit() * 3.0;
+        p.family[Anyone] = 0.6;
+        for (int i = 0; i < kNumLicks; ++i)
+            p.lick[i] = p.family[kLickFamily[i]] * (0.2 + r.unit() * 1.8);
+        p.answerSecond = 0.20 + r.unit() * 0.45;
+        p.sustain      = 0.35 + r.unit() * 0.55;
+        p.invert       = 0.10 + r.unit() * 0.35;
+        return p;
+    }
+
+    // Every pitch of a pitch-class set between two notes, ascending.
+    static std::vector<int> ladder (const std::vector<int>& pcs, int lowest, int highest)
+    {
+        std::vector<int> out;
+        for (int p = lowest; p <= highest; ++p)
+            for (int pc : pcs)
+                if (((p % 12) + 12) % 12 == pc) { out.push_back (p); break; }
+        return out;
+    }
+
+    static int nearestIndex (const std::vector<int>& v, int pitch)
+    {
+        int best = 0, dist = 1000;
+        for (int i = 0; i < static_cast<int> (v.size()); ++i)
+            if (std::abs (v[static_cast<size_t> (i)] - pitch) < dist)
+            { dist = std::abs (v[static_cast<size_t> (i)] - pitch); best = i; }
+        return best;
+    }
+}
+
+static void generateFills (const SectionPlan& s,
+                           const std::vector<Chord>& chords,
+                           int sectionStartTick,
+                           int barTicks,
+                           int keyPc,
+                           Mode mode,
+                           const std::string& style,
+                           double swing,
+                           const PhraseProfile* profile,
+                           double humanize,
+                           Rng& rng,
+                           PhrasePart& out,
+                           double fillAmount,
+                           double iq,
+                           uint32_t songSeed)
+{
+    using namespace fillvoice;
+
+    if (chords.empty() || profile == nullptr || s.bars <= 0 || fillAmount <= 0.0 || barTicks <= 0)
+        return;
+
+    // Everything below touches only what THIS section adds. The first version
+    // tidied the whole part and trimmed the last note of the solo before it.
+    const size_t firstOfSection = out.lead.size();
+
+    // The register: above the rhythm guitar, below the squeal zone.
+    const int lowest  = std::max (profile->chordLowest, 52);
+    const int highest = std::min (profile->chordHighest, 86);
+    if (highest - lowest < 12)
+        return;
+
+    const std::vector<int>& scale = soloScale (mode, style);
+    if (scale.empty())
+        return;
+
+    std::vector<int> scalePcs, pentPcs;
+    for (int iv : scale) scalePcs.push_back ((keyPc + iv) % 12);
+    const bool minorish = std::find (scale.begin(), scale.end(), 3) != scale.end();
+    for (int iv : (minorish ? std::vector<int> { 0, 3, 5, 7, 10 } : std::vector<int> { 0, 2, 4, 7, 9 }))
+        pentPcs.push_back ((keyPc + iv) % 12);
+
+    const std::vector<int> scaleLadder = ladder (scalePcs, lowest, highest);
+    const std::vector<int> pentLadder  = ladder (pentPcs,  lowest, highest);
+
+    const Personality who = personalityFor (songSeed);
+    const int sectionEnd = sectionStartTick + s.bars * barTicks;
+    auto juce_clamp_tick = [] (int t, int lo, int hi) { return std::max (lo, std::min (hi, t)); };
+    const bool hot     = s.intensity > 0.6;
+    const bool shuffle = swing > 0.0;
+    int lastLick = -1, beforeThat = -1;
+
+    auto chordAt = [&] (int bar) -> const Chord& { return chords[static_cast<size_t> (bar) % chords.size()]; };
+
+    auto chordPcs = [] (const Chord& c)
+    {
+        std::vector<int> v { c.rootPc };
+        if (c.thirdSemitones() >= 0)   v.push_back ((c.rootPc + c.thirdSemitones()) % 12);
+        v.push_back ((c.rootPc + c.fifthSemitones()) % 12);
+        if (c.seventhSemitones() >= 0) v.push_back ((c.rootPc + c.seventhSemitones()) % 12);
+        return v;
+    };
+
+    // Places one lick so it ENDS at `endTick`, anchored on a tone of `chord`.
+    auto playLick = [&] (Lick L, int endTick, const Chord& chord, bool fromBelow, int room)
+    {
+        // Trim from the front until it fits, keeping the landing: a long run
+        // that would start in the front of the bar - where the part being
+        // answered lives - comes in later and shorter instead.
+        {
+            const int scaleT = shuffle ? 2 : 1;
+            while (L.notes.size() > 3 && L.span() * scaleT > room)
+            {
+                const int drop = L.notes[1].on;
+                L.notes.erase (L.notes.begin());
+                for (LickNote& n : L.notes) n.on -= drop;
+            }
+        }
+        // Upside down sometimes: the same shape, heard as a different lick.
+        if (rng.chance (who.invert))
+            for (LickNote& n : L.notes)
+                if (n.sp != Semis) n.st = -n.st;
+
+        // A shuffle's swing pass keeps only notes on the swung eighth: the
+        // straight figures play there at double length, eighths instead of
+        // sixteenths, which is what a shuffle player does anyway.
+        if (shuffle)
+            for (LickNote& n : L.notes) { n.on *= 2; n.len *= 2; }
+
+        const int span = L.span();
+        const int start = endTick - span;
+        if (start < sectionStartTick)
+            return false;
+
+        const std::vector<int> tones = ladder (chordPcs (chord), lowest, highest);
+        if (tones.empty())
+            return false;
+
+        // Anchor high enough to have room below for a lick that climbs into
+        // it, low enough for one that falls - and a little random, so the same
+        // lick lands in a different place on the neck.
+        const int mid    = lowest + (highest - lowest) * (fromBelow ? 3 : 2) / 5;
+        const int anchor = tones[static_cast<size_t> (nearestIndex (tones, mid + rng.range (-4, 4)))];
+
+        for (const LickNote& n : L.notes)
+        {
+            int pitch = -1;
+            auto from = [&] (const std::vector<int>& v)
+            {
+                const int i = nearestIndex (v, anchor) + n.st;
+                return (i >= 0 && i < static_cast<int> (v.size())) ? v[static_cast<size_t> (i)] : -1;
+            };
+            switch (n.sp)
+            {
+                case Scale:      pitch = from (scaleLadder); break;
+                case Pent:       pitch = from (pentLadder);  break;
+                case ChordTones: pitch = from (tones);       break;
+                case Semis:      pitch = anchor + n.st;      break;
+            }
+            if (pitch < lowest || pitch > highest)
+                continue;
+
+            LeadIntent li;
+            // Inside its own section, always: a jitter that nudged the first
+            // note back a few ticks put it in the section before - a solo.
+            li.tick          = juce_clamp_tick (start + n.on + static_cast<int> (rng.bipolar (humanize * 3.0)),
+                                                sectionStartTick, sectionEnd - 1);
+            li.durationTicks = std::max (1, n.len);
+            li.pitch         = pitch;
+            li.accent        = std::min (0.95, 0.62 + s.intensity * 0.18 + ((n.f & Target) ? 0.08 : 0.0) + rng.bipolar (0.04));
+            li.target        = (n.f & Target) != 0;
+            li.slur          = (n.f & Slur) != 0;
+            li.vibrato       = (n.f & Vib) != 0;
+            li.bendSemis     = (n.f & Bend2) ? 2 : ((n.f & Bend1) ? 1 : 0);
+            li.artic         = (n.f & Tap)   ? LeadArtic::Tap
+                             : (n.f & Pinch) ? LeadArtic::Pinch
+                             : (n.f & Harm)  ? LeadArtic::Harmonic
+                             : (n.f & Rake)  ? LeadArtic::Rake
+                             : (n.f & Choke) ? LeadArtic::Choke
+                                             : LeadArtic::Normal;
+            out.lead.push_back (li);
+        }
+        return true;
+    };
+
+    // Picks a lick for the room there is, by the song's personality.
+    auto chooseLick = [&] (int room) -> int
+    {
+        double w[kNumLicks], total = 0.0;
+        for (int i = 0; i < kNumLicks; ++i)
+        {
+            Rng probe (deriveSeed (songSeed, 0x51Du + static_cast<uint32_t> (i)));
+            const Lick L = kBuilders[i] (probe);
+            w[i] = who.lick[i];
+            if (L.triplet && shuffle)            w[i] = 0.0;
+            // The landing and two notes before it must fit - a longer lick is
+            // trimmed from the FRONT to its room, keeping where it lands.
+            {
+                const int n = static_cast<int> (L.notes.size());
+                const int tail = n >= 3 ? L.span() - L.notes[static_cast<size_t> (n - 3)].on : L.span();
+                if ((shuffle ? tail * 2 : tail) > room) w[i] = 0.0;
+            }
+            // No intuition is plain answering: a few notes, no fireworks.
+            if (iq < 0.25 && L.notes.size() > 4) w[i] = 0.0;
+            if (L.fast && ! hot)                  w[i] *= byIntuition (iq, 0.2, 0.55, 0.8);
+            if (! L.fast && hot)                  w[i] *= 0.7;
+            if (i == lastLick || i == beforeThat) w[i] *= 0.08;
+            total += w[i];
+        }
+        if (total <= 0.0) return -1;
+        double pick = rng.unit() * total;
+        for (int i = 0; i < kNumLicks; ++i)
+            if ((pick -= w[i]) < 0.0) return i;
+        return kNumLicks - 1;
+    };
+
+    // Between licks the guitar SINGS: one chord tone, held, bent into and shaken.
+    auto sing = [&] (int from, int to, const Chord& chord)
+    {
+        if (to - from < barTicks / 2)
+            return;
+        const std::vector<int> tones = ladder (chordPcs (chord), lowest + 5, highest - 2);
+        if (tones.empty())
+            return;
+        LeadIntent li;
+        li.tick          = juce_clamp_tick (from + static_cast<int> (rng.bipolar (humanize * 3.0)),
+                                            sectionStartTick, sectionEnd - 1);
+        li.durationTicks = to - from;
+        li.pitch         = tones[static_cast<size_t> (rng.below (static_cast<int> (tones.size())))];
+        li.accent        = 0.55 + s.intensity * 0.15;
+        li.bendSemis     = rng.chance (0.55) ? 2 : 0;
+        li.vibrato       = true;
+        li.bed           = true;     // support, not an answer - see LeadIntent::bed
+        if (rng.chance (0.15)) li.artic = LeadArtic::Harmonic;
+        out.lead.push_back (li);
+    };
+
+    // Four-bar groups. The last bar of each group always may answer (at one,
+    // it always does); the second bar sometimes does too; the rest sing or rest.
+    // WHERE AN ANSWER GOES IS INTUITION'S. At none, exactly what it always
+    // was: the fourth bar of a group, starting on the half bar. As it rises,
+    // answers may end on the bar line, come in early, reach back into the bar
+    // before, and turn up in the second bar of a group too.
+    const double wHalf  = byIntuition (iq, 100.0, 30.0, 12.0);
+    const double wEnd   = byIntuition (iq,   0.0, 50.0, 45.0);
+    const double wEarly = byIntuition (iq,   0.0, 20.0, 43.0);
+    const double second = byIntuition (iq, 0.0, who.answerSecond, 0.85);
+    int lastEnd = sectionStartTick;      // where the last note of this section ended
+
+    for (int bar = 0; bar < s.bars; ++bar)
+    {
+        const int barStart = sectionStartTick + bar * barTicks;
+        const int barEnd   = barStart + barTicks;
+        const int inGroup  = bar % 4;
+        const bool lastOfSection = (bar == s.bars - 1);
+        const size_t before = out.lead.size();
+
+        bool answer = false;
+        if (inGroup == 3 || (lastOfSection && iq > 0.0))
+            answer = fillAmount >= 0.999 || rng.chance (0.35 + fillAmount * 0.65);
+        else if (inGroup == 1)
+            answer = rng.chance (second);
+
+        int lickStart = barEnd;   // where the answer begins, if any
+        if (answer)
+        {
+            double pick = rng.unit() * (wHalf + wEnd + wEarly);
+            int start = -1, end = -1, room = 0;
+            if ((pick -= wHalf) < 0.0)      { start = barStart + barTicks / 2; room = barTicks / 2; }
+            else if ((pick -= wEnd) < 0.0)  { end = barEnd - (rng.chance (0.5) ? 0 : barTicks / 8);
+                                              room = end - (barStart + barTicks / 3); }
+            else                            { start = barStart + (barTicks * 3) / 8; room = barEnd - start; }
+
+            const int i = chooseLick (room);
+            if (i >= 0)
+            {
+                Rng lickRng (deriveSeed (static_cast<uint32_t> (rng.next()), 0xA11u + static_cast<uint32_t> (bar)));
+                Lick L = kBuilders[i] (lickRng);
+                const int roomHere = end < 0 ? barEnd - start : room;
+                if (end < 0) end = std::min (barEnd, start + (shuffle ? L.span() * 2 : L.span()));
+                if (playLick (L, end, chordAt (bar), rng.chance (0.6), roomHere))
+                {
+                    beforeThat = lastLick;
+                    lastLick   = i;
+                    int first = end;
+                    for (size_t k = before; k < out.lead.size(); ++k) first = std::min (first, out.lead[k].tick);
+                    lickStart = first;
+                }
+            }
+        }
+
+        // Anything before the answer in this bar sings or rests - but never two
+        // silent bars running: "a cut out in gtr lasts a second or two".
+        const int singTo = std::min (barEnd, lickStart - barTicks / 16);
+        // Sing if leaving this bar empty up to the answer would make the guitar
+        // silent for most of a bar - judged by the outcome, not the gap so far.
+        const bool mustSing = lickStart - lastEnd >= (barTicks * 3) / 4;
+        if (singTo - barStart >= barTicks / 4
+            && (mustSing || rng.chance (who.sustain * (0.5 + fillAmount * 0.5))))
+            sing (barStart, singTo, chordAt (bar));
+
+        for (size_t k = before; k < out.lead.size(); ++k)
+            lastEnd = std::max (lastEnd, out.lead[k].tick + out.lead[k].durationTicks);
+    }
+
+    // One note at a time, as every lead line here is: a lick reaching back
+    // into a bar that also sang cuts the sustain short rather than chording.
+    std::sort (out.lead.begin() + static_cast<long> (firstOfSection), out.lead.end(),
+               [] (const LeadIntent& a, const LeadIntent& b) { return a.tick < b.tick; });
+    for (size_t i = firstOfSection; i + 1 < out.lead.size(); )
+    {
+        const int gap = out.lead[i + 1].tick - out.lead[i].tick;
+        if (gap <= 0)
+        {
+            out.lead.erase (out.lead.begin() + static_cast<long> (out.lead[i].bed ? i : i + 1));
+            continue;
+        }
+        out.lead[i].durationTicks = std::min (out.lead[i].durationTicks, gap);
+        ++i;
+    }
+}
+
+// SOLO GESTURES: OFF until the owner asks. The solo generator has always
+// asked for pinches, rakes, taps and harmonics, and none ever sounded - the
+// instrument's map was empty. Mapping them for the fills would switch them on
+// in the solos too, and the solos are locked as approved. One switch.
+static constexpr bool kSoloGestures = false;
+
 static void generateSolo (const SectionPlan& s,
                           const std::vector<Chord>& chords,
                           int sectionStartTick,
@@ -1942,10 +2589,25 @@ static void generatePhrasePart (const SectionPlan& s,
         const bool fills = (feel == PhraseFeel::Fills);
 
         Rng soloRng (deriveSeed (sectionSeed, fills ? 0x5F111u : 0x50100u));
+
+        // FILLS: the lick engine above. SOLOS: exactly as approved - their own
+        // generator, and none of the per-note articulations it asks for, which
+        // were never sounded on this rig (the map was empty) and stay silent
+        // until the owner says otherwise. See kSoloGestures.
+        if (fills)
+        {
+            generateFills (s, chords, sectionStartTick, barTicks, keyPc, mode, style,
+                           swing, profile, humanize, soloRng, out, fillAmount, iq, songSeed);
+            return;
+        }
+
+        const size_t before = out.lead.size();
         generateSolo (s, chords, sectionStartTick, barTicks, keyPc, mode, style,
                       swing, profile, humanize, soloRng, out,
-                      fills ? SoloShape::Answering : SoloShape::Continuous,
-                      fillAmount, sectionSeed, iq, songSeed);
+                      SoloShape::Continuous, fillAmount, sectionSeed, iq, songSeed);
+        if (! kSoloGestures)
+            for (size_t k = before; k < out.lead.size(); ++k)
+                out.lead[k].artic = LeadArtic::Normal;
         return;
     }
 

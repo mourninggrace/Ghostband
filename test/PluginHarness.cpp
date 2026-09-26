@@ -167,7 +167,14 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
                 bool inFills = false;
                 for (const gb::SectionReport& sc : r.sections)
                     if (sc.guitar2Feel.rfind ("fills", 0) == 0 && n.tick >= sc.startTick && n.tick < sc.endTick) inFills = true;
-                if (! inFills) soloSum = soloSum * 1000003u + static_cast<uint32_t> (n.tick * 131 + n.pitch * 7 + n.durationTicks);
+                // WITHIN its own section: a solo's last note rings until the next
+                // section's first note, so its length past the section's end is the
+                // next section's business, not the solo's.
+                int secEnd = n.tick + n.durationTicks;
+                for (const gb::SectionReport& sc : r.sections)
+                    if (n.tick >= sc.startTick && n.tick < sc.endTick) secEnd = sc.endTick;
+                const int heard = std::min (n.durationTicks, secEnd - n.tick);
+                if (! inFills) soloSum = soloSum * 1000003u + static_cast<uint32_t> (n.tick * 131 + n.pitch * 7 + heard);
             }
 
             for (const gb::SectionReport& sec : r.sections)
@@ -5307,16 +5314,30 @@ int main (int argc, char** argv)
         const bool loaded = gb::PhraseProfile::load (
             "C:/Projects/Ghostband/profiles/shreddage-3-hydra.json", hydra, he);
 
-        int mapped = 0;
+        // CHANGED ON PURPOSE, 2026-09-26, as this comment always said it would
+        // be: the gestures are back, on the KEYSWITCHES the manual lists, and
+        // none of them on CC 40, whose bands belong to the section styles. The
+        // fault was a gesture on a CC 40 band that meant palm mute; the check
+        // is now exactly that, plus that each sits where the manual puts it.
+        int onCC40 = 0, rightKey = 0;
         const gb::LeadArtic all[] = { gb::LeadArtic::Rake, gb::LeadArtic::Pinch,
                                       gb::LeadArtic::Choke, gb::LeadArtic::Harmonic,
                                       gb::LeadArtic::Tap };
         for (gb::LeadArtic a : all)
-            if (hydra.hasLeadArtic (a)) ++mapped;
+        {
+            const auto sw = hydra.switchFor (a);
+            if (sw.cc == 40) ++onCC40;
+        }
+        rightKey = (hydra.switchFor (gb::LeadArtic::Choke).note == 19)
+                 + (hydra.switchFor (gb::LeadArtic::Tap).note == 20)
+                 + (hydra.switchFor (gb::LeadArtic::Harmonic).note == 21)
+                 + (hydra.switchFor (gb::LeadArtic::Pinch).note == 22);
 
-        check (loaded && mapped == 0,
-               "the shipped Hydra profile sends no lead gestures on a CC 40 it has given to palm mute",
-               loaded ? juce::String (mapped) + " mapped" : juce::String (he));
+        check (loaded && onCC40 == 0 && rightKey == 4 && hydra.rakeVelocity >= 120,
+               "the Hydra gestures sit on the manual's keyswitches, none on the CC 40 that means palm mute",
+               loaded ? juce::String (onCC40) + " on CC 40, " + juce::String (rightKey) + " of 4 on the manual's keys, rake at velocity "
+                            + juce::String (hydra.rakeVelocity)
+                      : juce::String (he));
     }
 
     // ---- THE AI PLANNER, the half that needs no key -------------------------
