@@ -119,7 +119,7 @@ void check (bool condition, const juce::String& what, const juce::String& detail
 // phrase (not the bed) in every "fills" section of every song, at six seeds, is
 // fingerprinted three ways - rhythm, contour, rhythm+intervals - and the report
 // says how many phrases share a fingerprint with phrases in OTHER songs.
-struct FillNumbers { double top3Share = 1.0, betweenSongs = 1.0, withinSong = 1.0; int phrases = 0, notes = 0; };
+struct FillNumbers { double top3Share = 1.0, betweenSongs = 1.0, withinSong = 1.0; int phrases = 0, notes = 0; uint32_t soloSum = 0; };
 
 static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool print = true)
 {
@@ -285,6 +285,7 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
         out.top3Share = phrases ? top3 / double (phrases) : 1.0;
         out.phrases = phrases;
         out.notes = notes;
+        out.soloSum = soloSum;
     }
     return out;
 }
@@ -6929,6 +6930,16 @@ int main (int argc, char** argv)
     // silhouette does not.
     {
         const FillNumbers f = fillStats (juce::File ("C:/Projects/Ghostband/plans"), 2, false);
+        // THE SOLO LOCK. The owner, while the fills were being reworked: "I'm
+        // nervous you're gonna fuck up a good thing in your journey to fix the
+        // fills - please don't make that mistake." So every solo note guitar 2
+        // plays, in every song, at two seeds, is fingerprinted and pinned. Any
+        // change that moves one solo note fails here, and the only way past is
+        // to update this number on purpose - which is to say, with his say-so.
+        check (f.soloSum == 0x1b0d3285u,
+               "the solos are exactly as the owner approved them - not one note moved",
+               juce::String::toHexString ((juce::int64) f.soloSum));
+
         check (f.phrases > 200 && f.top3Share < 0.20 && f.betweenSongs < 0.25,
                "the lead guitar's fills do not share one rhythm, and two songs do not share one habit",
                juce::String (f.top3Share * 100.0, 1) + "% in the three commonest rhythms, songs "
