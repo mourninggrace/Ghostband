@@ -35,6 +35,10 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
   its window, is never touched.
 
 ### Fixed
+- **Section titles above the grid were cut off.** Each section's box is as wide
+  as the section is long, so a short one got "PRECH" or "BRIDG". A title now uses
+  the longest of a fixed set of forms that fits (PRECHORUS1, PRE-CH1, PRE1, P1;
+  BREAKDOWN, BRKDN, BD), and hovering it shows the full name.
 - **A repeated lead note was sometimes cut to a blip.** Legato runs each note a
   little into the next so the instrument hears a hammer-on, and a repeat of the
   same pitch counted as "close enough" to slur. The second note then started

@@ -22,7 +22,7 @@ nobody has to read it.
 - **The window is 1180x820, minimum 1020x820.** Both numbers are load-bearing:
   the minimum is set by the two-column Settings screen, not by the song screen,
   and the harness's `kMinW`/`kMinH` must move with it.
-- **495 checks** pass on every build, and all 34 plans are swept.
+- **497 checks** pass on every build, and all 34 plans are swept.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
@@ -219,6 +219,13 @@ lines have no effort and were medium. Same model+effort -> measured average;
 otherwise "roughly", output scaled by 0.75/1.0/1.3/1.7/2.2 (low..max; low/high from
 the API docs' Fable 5 runs, xhigh/max extrapolated). Two-line label, bottom block
 +16.
+
+**Section titles** in the tracker ribbon were clipped (boxes are to scale; a
+2-bar section is ~15 px). Measured across all 34 plans: 16 of 296 cut at the
+default size, 40 at the minimum, and far more in planner-written songs. He chose
+abbreviations + hover from three mockups: `TrackerView::fitSectionName` walks a
+fixed ladder per base name, keeping the number; ArrangementView uses it too. The
+fit check failed with 4 clipped on preset-punk when the ladder was bypassed.
 
 ## Session 24: the interface that looped, and timing the audio thread
 

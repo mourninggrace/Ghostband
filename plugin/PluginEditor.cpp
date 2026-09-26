@@ -744,8 +744,15 @@ void ArrangementView::paint (juce::Graphics& g)
 
         g.setColour (ink);
         g.setFont (mono.withHeight (10.5f));
-        g.drawText (juce::String (s.name).toUpperCase(), nameBox.reduced (5, 0),
-                    juce::Justification::centredLeft, true);
+        {
+            // Room for the bar count on the right, then the longest name that fits.
+            const auto textBox = nameBox.reduced (5, 0);
+            const float countW = juce::GlyphArrangement::getStringWidth (mono.withHeight (10.5f),
+                                                                         juce::String (s.bars)) + 6.0f;
+            g.drawText (TrackerView::fitSectionName (juce::String (s.name), mono.withHeight (10.5f),
+                                                     (float) textBox.getWidth() - countW),
+                        textBox, juce::Justification::centredLeft, false);
+        }
 
         g.setColour (faint);
         g.drawText (juce::String (s.bars), nameBox.reduced (5, 0),
@@ -1131,6 +1138,67 @@ bool TrackerView::advanceMotion (int deltaMs)
     return busy;
 }
 
+juce::String TrackerView::fitSectionName (const juce::String& name, const juce::Font& font, float width)
+{
+    // "prechorus2" -> base "PRECHORUS", number "2".
+    juce::String base = name.trim().toUpperCase();
+    juce::String number;
+    while (base.isNotEmpty() && juce::CharacterFunctions::isDigit (base.getLastCharacter()))
+    {
+        number = juce::String::charToString (base.getLastCharacter()) + number;
+        base = base.dropLastCharacters (1);
+    }
+    base = base.trimCharactersAtEnd (" _-");
+
+    // Standard short forms, longest first. Chosen so no two sections a song
+    // uses share one: INTRO is IN, INTERLUDE is ITL.
+    static const std::vector<std::pair<const char*, std::vector<const char*>>> ladder {
+        { "INTRO",       { "INTRO", "INT", "IN" } },
+        { "VERSE",       { "VERSE", "VRS", "V" } },
+        { "PRECHORUS",   { "PRECHORUS", "PRE-CH", "PRE", "P" } },
+        { "PRE-CHORUS",  { "PRE-CHORUS", "PRE-CH", "PRE", "P" } },
+        { "CHORUS",      { "CHORUS", "CHOR", "CH", "C" } },
+        { "POSTCHORUS",  { "POSTCHORUS", "POST", "PC" } },
+        { "BRIDGE",      { "BRIDGE", "BRDG", "BR", "B" } },
+        { "BREAKDOWN",   { "BREAKDOWN", "BRKDN", "BD" } },
+        { "INTERLUDE",   { "INTERLUDE", "INTRLD", "ITL" } },
+        { "SOLO",        { "SOLO", "SOL", "S" } },
+        { "ENDING",      { "ENDING", "END", "E" } },
+        { "OUTRO",       { "OUTRO", "OUT", "O" } },
+        { "RIFF",        { "RIFF", "RF" } },
+        { "THEME",       { "THEME", "THM", "T" } },
+        { "HEAVY",       { "HEAVY", "HVY", "H" } },
+        { "QUIET",       { "QUIET", "QT", "Q" } },
+        { "DEVELOPMENT", { "DEVELOPMENT", "DEVEL", "DEV", "D" } },
+        { "BUILD",       { "BUILD", "BLD" } },
+        { "DROP",        { "DROP", "DRP" } },
+        { "HOOK",        { "HOOK", "HK" } },
+    };
+
+    std::vector<juce::String> forms;
+    for (const auto& entry : ladder)
+        if (base == entry.first)
+            for (const char* f : entry.second)
+                forms.push_back (f);
+
+    // A name nobody listed: whole, then its first four, three and two letters.
+    if (forms.empty())
+    {
+        forms.push_back (base);
+        for (int n : { 4, 3, 2 })
+            if (base.length() > n)
+                forms.push_back (base.substring (0, n));
+    }
+
+    for (const juce::String& f : forms)
+    {
+        const juce::String candidate = f + number;
+        if (juce::GlyphArrangement::getStringWidth (font, candidate) <= width)
+            return candidate;
+    }
+    return {};
+}
+
 juce::Rectangle<int> TrackerView::ribbonFor (size_t index) const
 {
     if (index >= sections.size()) return {};
@@ -1149,6 +1217,22 @@ juce::Rectangle<int> TrackerView::ribbonFor (size_t index) const
                         * ((before + juce::jmax (1, sections[index].bars)) / double (total)));
 
     return { x0 + 1, strip.getY(), juce::jmax (2, x1 - x0 - 2), strip.getHeight() };
+}
+
+int TrackerView::ribbonLabelsNotFittingForTesting() const
+{
+    const juce::Font small (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(),
+                                               9.5f, juce::Font::plain));
+    int bad = 0;
+    for (size_t i = 0; i < sections.size(); ++i)
+    {
+        const auto textBox = ribbonFor (i).reduced (4, 0);
+        const juce::String shown = fitSectionName (juce::String (sections[i].name), small,
+                                                   (float) textBox.getWidth());
+        if (juce::GlyphArrangement::getStringWidth (small, shown) > (float) textBox.getWidth())
+            ++bad;
+    }
+    return bad;
 }
 
 int TrackerView::sectionAt (juce::Point<int> p) const
@@ -1294,8 +1378,9 @@ void TrackerView::paint (juce::Graphics& g)
 
         g.setColour ((playing || selected || queued) ? lit : ghost::colours::dim);
         g.setFont (small);
-        g.drawText (juce::String (sections[i].name).toUpperCase(), box.reduced (4, 0),
-                    juce::Justification::centredLeft, false);
+        const auto textBox = box.reduced (4, 0);
+        g.drawText (fitSectionName (juce::String (sections[i].name), small, (float) textBox.getWidth()),
+                    textBox, juce::Justification::centredLeft, false);
     }
 
     // ---- column headers ----

@@ -407,6 +407,18 @@ class TrackerView : public juce::Component,
                     public juce::SettableTooltipClient
 {
 public:
+    // THE LONGEST FORM OF A SECTION'S NAME THAT FITS, never a clipped one.
+    //
+    // A section's box is as wide as the section is long, so a two-bar intro
+    // gets about fifteen pixels and "PRECHORUS1" was drawn as "PRECH" with the
+    // rest cut off - the owner could not read breakdowns, interludes or
+    // prechoruses. He chose, from three mockups, to keep the boxes to scale and
+    // shorten names by a fixed ladder: full name, then a standard short form,
+    // then the shortest, keeping any number ("PRECHORUS1" -> "PRE-CH1" ->
+    // "PRE1" -> "P1"). Hovering the box always shows the full name. Returns
+    // empty when not even the shortest fits.
+    static juce::String fitSectionName (const juce::String& name, const juce::Font& font, float width);
+    int  ribbonLabelsNotFittingForTesting() const;   // drawn labels wider than their box
     void setSections (std::vector<gb::SectionReport> s);
     void setPlayhead (int tick);
     void setQueued   (int index);
@@ -619,6 +631,7 @@ public:
 
     int  litTrackerRowForTesting() const { return tracker.litRow(); }
     int  visibleTrackerRowsForTesting() const { return tracker.visibleRows(); }
+    int  ribbonLabelsNotFittingForTesting() const { return tracker.ribbonLabelsNotFittingForTesting(); }
 
     // Put everything where it is going, now. Any check that MEASURES the window
     // has to call this after a gesture that starts motion, or it measures a

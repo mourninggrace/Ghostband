@@ -4438,6 +4438,42 @@ int main (int argc, char** argv)
                        "at the start of a song the lit row is the FIRST row",
                        juce::String (gbEd->litTrackerRowForTesting()));
 
+                // SECTION TITLES ARE NEVER CLIPPED. Boxes are to scale, so a
+                // short section is narrow; its title steps down a fixed ladder
+                // rather than being cut mid-word. Checked at the smallest and
+                // the default window, for whatever song this run loaded - the
+                // sweep across all 34 is what covers every title.
+                {
+                    const juce::Font small (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(),
+                                                               9.5f, juce::Font::plain));
+                    auto widthOf = [&small] (const char* t) { return juce::GlyphArrangement::getStringWidth (small, t); };
+
+                    const juce::String full  = TrackerView::fitSectionName ("prechorus1", small, 400.0f);
+                    const juce::String mid   = TrackerView::fitSectionName ("prechorus1", small, widthOf ("PRE1") + 1.0f);
+                    const juce::String least = TrackerView::fitSectionName ("prechorus1", small, widthOf ("P1") + 1.0f);
+                    const juce::String none  = TrackerView::fitSectionName ("prechorus1", small, 3.0f);
+                    const juce::String intro = TrackerView::fitSectionName ("intro", small, widthOf ("IN") + 1.0f);
+                    const juce::String odd   = TrackerView::fitSectionName ("stomp2", small, widthOf ("STO2") + 1.0f);
+
+                    check (full == "PRECHORUS1" && mid == "PRE1" && least == "P1" && none.isEmpty()
+                               && intro == "IN" && odd == "STO2",
+                           "a section title steps down a fixed ladder of short forms, keeping its number",
+                           full + " / " + mid + " / " + least + " / '" + none + "' / " + intro + " / " + odd);
+
+                    int clipped = 0;
+                    for (int w : { kMinW, 1180 })
+                    {
+                        ed->setSize (w, kMinH);
+                        gbEd->settleAnimationsForTesting();
+                        clipped += gbEd->ribbonLabelsNotFittingForTesting();
+                    }
+                    ed->setSize (kMinW, 1400);
+
+                    check (clipped == 0,
+                           "and every section title in the ribbon fits its box at the smallest and default window",
+                           juce::String (clipped) + " clipped");
+                }
+
                 // A few bars in, still before the grid can scroll.
                 const int bar = proc.getBarTicks();
                 proc.playbackTick.store (bar * 3);
