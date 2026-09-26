@@ -24,6 +24,21 @@ namespace gbsecret
 
     unsigned long lastError() { return gLastError; }
 
+    // THE ENTROPY MUST OUTLIVE THE CALL. Both functions used to build it as
+    //     blobOf (std::string (kEntropy, ...))
+    // - a temporary destroyed at the end of that line, leaving the blob
+    // pointing at freed memory. CryptProtectData/CryptUnprotectData then read
+    // whatever the heap had put there since. Usually the old bytes were still
+    // intact, so it worked; sometimes they were not, and a perfectly good key
+    // was refused with ERROR_INVALID_DATA (13). The owner re-entered his key
+    // twice on 2026-09-26 before the logged error code pointed here. A static
+    // lives for the whole program, so the pointer is always to the real bytes.
+    static const std::string& entropyBytes()
+    {
+        static const std::string e (kEntropy, sizeof (kEntropy) - 1);
+        return e;
+    }
+
     static DATA_BLOB blobOf (const std::string& s)
     {
         DATA_BLOB b;
@@ -35,7 +50,7 @@ namespace gbsecret
     bool protect (const std::string& plain, std::string& cipher)
     {
         DATA_BLOB in      = blobOf (plain);
-        DATA_BLOB entropy = blobOf (std::string (kEntropy, sizeof (kEntropy) - 1));
+        DATA_BLOB entropy = blobOf (entropyBytes());
         DATA_BLOB out {};
 
         // UI_FORBIDDEN: a plugin must never pop a system dialog in the middle
@@ -52,7 +67,7 @@ namespace gbsecret
     bool unprotect (const std::string& cipher, std::string& plain)
     {
         DATA_BLOB in      = blobOf (cipher);
-        DATA_BLOB entropy = blobOf (std::string (kEntropy, sizeof (kEntropy) - 1));
+        DATA_BLOB entropy = blobOf (entropyBytes());
         DATA_BLOB out {};
 
         if (! CryptUnprotectData (&in, nullptr, &entropy, nullptr, nullptr,

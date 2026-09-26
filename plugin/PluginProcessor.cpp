@@ -668,10 +668,18 @@ static bool readPlannerKey (std::string& key)
     // kept beside the key (once per refusal, dated) and Windows' error code is
     // logged - never the key, which this code does not have.
     const juce::File f = GhostbandProcessor::plannerKeyFile();
-    const juce::File keep = f.getSiblingFile ("planner-key-unreadable-"
-                                              + juce::Time::getCurrentTime().formatted ("%Y%m%d-%H%M%S")
-                                              + ".bin");
-    f.copyFileTo (keep);
+    juce::File keep;
+    for (const juce::File& k : f.getParentDirectory().findChildFiles (juce::File::findFiles, false,
+                                                                       "planner-key-unreadable-*.bin"))
+        if (k.hasIdenticalContentTo (f))
+            keep = k;                       // this file is already on record; one copy is enough
+
+    if (keep == juce::File())
+    {
+        keep = f.getSiblingFile ("planner-key-unreadable-"
+                                 + juce::Time::getCurrentTime().formatted ("%Y%m%d-%H%M%S") + ".bin");
+        f.copyFileTo (keep);
+    }
     GhostbandProcessor::logChangeStatic ("planner key could not be read   Windows error "
                                          + juce::String ((juce::int64) gbsecret::lastError())
                                          + ", file kept as " + keep.getFileName());

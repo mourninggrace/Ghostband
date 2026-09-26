@@ -5,6 +5,17 @@ measured, not estimated; where something could not be measured yet, it says so.
 
 Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/releases).
 
+## [Unreleased]
+
+### Fixed
+- **A saved API key was sometimes refused as unreadable.** The fixed "entropy"
+  bytes mixed into the key's encryption were built as a temporary that was freed
+  before Windows read them, so decryption read whatever memory held by then. In a
+  test of 300 save-and-read round trips the old code failed 146; it now fails
+  none. Keys saved before this still read: they were encrypted correctly, and only
+  the reading side was affected. Found from the Windows error code the previous
+  release began logging (13, invalid data).
+
 ## [2.2.0] — 2026-09-26
 
 Choose the planner's model and effort, a Load plan menu that reaches every song,

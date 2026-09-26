@@ -25,7 +25,7 @@ nobody has to read it.
 - **The window is 1180x820, minimum 1020x820.** Both numbers are load-bearing:
   the minimum is set by the two-column Settings screen, not by the song screen,
   and the harness's `kMinW`/`kMinH` must move with it.
-- **499 checks** pass on every build, and all 34 plans are swept.
+- **500 checks** pass on every build, and all 34 plans are swept.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
@@ -160,6 +160,17 @@ to run: Windows Defender real-time protection and behaviour monitoring are on
 with no exclusions (Kontakt streaming samples through a scanner is the classic
 cause of exactly this), and bisecting the rackspace would settle it. Both are
 written up in OPEN-QUESTIONS.
+
+## Session 26: the key that would not stay saved - a dangling pointer
+
+The logging added in session 25 paid off within the hour: "Windows error 13"
+(ERROR_INVALID_DATA) four times, on a key file untouched since it was saved and
+used successfully minutes earlier, and which decrypted fine from PowerShell with
+the right entropy. So the ENTROPY was wrong at read time: `blobOf (std::string
+(kEntropy, ...))` pointed at a temporary freed at the end of the line (24 chars,
+heap-allocated past SSO), and DPAPI read reused memory. Now a function-static.
+Round-trip check with heap churn: old code 146/300 failures, fixed 0/300. The
+refused-file copy is now kept once per distinct file, not per attempt.
 
 ## Session 25: the planner's model and effort, chosen in Settings
 

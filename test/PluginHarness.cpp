@@ -9,6 +9,7 @@
 // same engine through the same profiles. If those ever diverge, one of the two
 // paths has grown a bug the other does not have.
 
+#include "SecretStore.h"
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
@@ -5017,6 +5018,33 @@ int main (int argc, char** argv)
                    && raw.find ("0123456789") == std::string::npos,
                "and the file on disk does not contain it",
                juce::String ((int) onDisk.getSize()) + " bytes");
+
+        // ROUND TRIPS, MANY, WITH THE HEAP BUSY IN BETWEEN. The entropy used
+        // to be a temporary freed before Windows read it, so whether a key
+        // decrypted depended on what the heap had done since - the owner's key
+        // was refused four times on 2026-09-26 with error 13. This cannot
+        // force that exact reuse; it is the round trip done the way a long
+        // session does it, and it must never fail.
+        {
+            int failures = 0;
+            for (int i = 0; i < 300; ++i)
+            {
+                const std::string plain = "sk-ant-roundtrip-" + std::to_string (i) + "-abcdefghijklmnop";
+                std::string cipher, back;
+                if (! gbsecret::protect (plain, cipher)) { ++failures; continue; }
+
+                std::vector<std::string> churn;
+                for (int j = 0; j < 64; ++j)
+                    churn.emplace_back (24 + (j % 8), static_cast<char> ('A' + (j % 26)));
+                churn.clear();
+
+                if (! gbsecret::unprotect (cipher, back) || back != plain)
+                    ++failures;
+            }
+            check (failures == 0,
+                   "a saved key decrypts every time, however busy memory has been in between",
+                   juce::String (failures) + " of 300 failed");
+        }
 
         // NOT LOGGED. That a key was saved, never what it was.
         const juce::String log = GhostbandProcessor::changeLogFile().loadFileAsString();
