@@ -2628,6 +2628,17 @@ int main (int argc, char** argv)
 
                 check (sameTick == 0, "and never two notes on one tick",
                        juce::String (sameTick) + " coincident pairs");
+
+                // AND WHAT IS SENT AGREES. The notes above were always one at a
+                // time; the fault was added on the way to MIDI, where legato
+                // ran a note into its own repeat and the first note-off cut the
+                // second short. So this reads the plugin's own outgoing stream.
+                {
+                    const juce::String restrikes = proc.restrikesForTesting();
+                    check (restrikes.isEmpty(),
+                           "no part ever starts a note while that same note is still held, so none is cut short",
+                           restrikes.isEmpty() ? juce::String ("clean") : restrikes);
+                }
                 check (inRange, "and every note is inside the instrument's range");
                 check (steps > leaps, "it moves mostly by step rather than leaping",
                        juce::String (steps) + " steps, " + juce::String (leaps) + " leaps");
@@ -4218,6 +4229,17 @@ int main (int argc, char** argv)
                     check (gbEd->audioShortfallsForTesting() == loggedBefore + 1,
                            "and a second with all its audio is not",
                            juce::String (gbEd->audioShortfallsForTesting() - loggedBefore) + " logged");
+
+                    // THE FOOTER SAYS WHAT THE HOST REALLY SENDS. The owner's
+                    // footer read "buffer 512" with his Focusrite at 1024, and
+                    // "latency 0.0 ms", which Ghostband can never be anything
+                    // but. Fed a second of 1024-sample blocks, it must say 1024.
+                    gbEd->checkMeasuredBlockSizeForTesting (1024u * 47u, 47u);
+                    const juce::String footer = gbEd->footerForTesting();
+                    check (footer.startsWith ("buffer 1024 at 48.0k") && footer.contains ("21.3 ms")
+                               && ! footer.contains ("latency"),
+                           "the footer shows the buffer the host actually sends, and how long it lasts",
+                           footer);
                 }
             }
 
@@ -6812,6 +6834,46 @@ int main (int argc, char** argv)
         check (saved ("open chorus"), "a second take saves", error);
         check (proc.getTakes().size() == 2, "the library holds both",
                juce::String (static_cast<int> (proc.getTakes().size())));
+
+        // TAKES SLIDE INTO THE LIST, measured frame by frame as the eye sees
+        // them: opening the screen starts every row off to the right, the
+        // first row lands before the second, and all of them end exactly in
+        // place. Nothing about the list's content or clicks changes.
+        if (auto* ed = proc.createEditorIfNeeded())
+        {
+            if (auto* gbEd = dynamic_cast<GhostbandEditor*> (ed))
+            {
+                ed->setSize (kMinW, kMinH);
+                gbEd->showScreenForSnapshot (0);
+                gbEd->settleAnimationsForTesting();
+                gbEd->pressTakesButtonForTesting();
+
+                const float start0 = gbEd->takeRowOffsetForTesting (0);
+                const float start1 = gbEd->takeRowOffsetForTesting (1);
+                gbEd->advanceAnimationsForTesting (150);
+                const float mid0 = gbEd->takeRowOffsetForTesting (0);
+                const float mid1 = gbEd->takeRowOffsetForTesting (1);
+                for (int i = 0; i < 40 && gbEd->takesArrivingForTesting(); ++i)
+                    gbEd->advanceAnimationsForTesting (16);
+
+                check (start0 > 40.0f && start1 > 40.0f && mid0 < mid1 && mid0 > 0.0f
+                           && ! gbEd->takesArrivingForTesting()
+                           && gbEd->takeRowOffsetForTesting (0) == 0.0f
+                           && gbEd->takeRowOffsetForTesting (1) == 0.0f,
+                       "opening Takes slides the rows in from the side, one after another, and lands them exactly",
+                       juce::String (start0, 0) + " px -> " + juce::String (mid0, 1) + " / "
+                           + juce::String (mid1, 1) + " px at 150 ms -> "
+                           + juce::String (gbEd->takeRowOffsetForTesting (0), 0));
+
+                // Only OPENING the screen plays it; a refresh of the open one does not.
+                gbEd->showScreenForSnapshot (5);
+                check (! gbEd->takesArrivingForTesting(),
+                       "and refreshing the open screen does not replay it");
+            }
+
+            proc.editorBeingDeleted (ed);
+            delete ed;
+        }
 
         proc.seed.store (777);
         proc.regenerate();

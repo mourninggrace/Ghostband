@@ -900,6 +900,13 @@ public:
 
     juce::ChangeBroadcaster stateChanged;
 
+    // What the band actually SENDS, checked for a note started while the same
+    // pitch is still held on that channel. The second note is then released by
+    // the first one's note-off - cut short - on any instrument that tracks
+    // notes by pitch, which is all of them. Returns "ch 11: 7" per offending
+    // channel, empty when clean. For the harness; takes the sequence lock only.
+    juce::String restrikesForTesting() const;
+
 private:
     struct TimedMessage
     {

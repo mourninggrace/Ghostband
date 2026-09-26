@@ -22,7 +22,7 @@ nobody has to read it.
 - **The window is 1180x820, minimum 1020x820.** Both numbers are load-bearing:
   the minimum is set by the two-column Settings screen, not by the song screen,
   and the harness's `kMinW`/`kMinH` must move with it.
-- **487 checks** pass on every build, and all 34 plans are swept.
+- **491 checks** pass on every build, and all 34 plans are swept.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
@@ -176,6 +176,28 @@ the zero-size check caught the first layout, which had none.
 
 Six new checks (487). The fallback check was made to fail by sending fallbacks
 to every model: it named Sonnet 5.
+
+### Also in session 25: takes slide in, a lead bug, and an honest footer
+
+**Takes slide into the list.** `TakeList::arriveAll` on OPENING the screen
+(`takesWereShowing`), `arriveRow` on save; 44 px, 300 ms, 30 ms stagger capped at
+10 rows. The first check failed with 0 px because `showScreenForSnapshot`
+settles every animation by design; it now presses the Takes button instead.
+
+**The "CLI lead overlap" was a plugin bug too.** Measured with a scratch MIDI
+reader: ch 11 had 4-11 SAME-PITCH RE-STRIKES a song. Legato in
+`PhraseProfile::render` overlapped a note into the next when the leap was
+<= max_leap_semitones, and 0 qualified: note-on, same note-on, note-off - the
+repeat died after 12 ticks. The plugin shares `render`, so it sent the identical
+pair; the TODO's "the plugin does not" was wrong. Fixed with `leap > 0`.
+`restrikesForTesting()` scans the plugin's outgoing sequence; it failed with "ch
+11: 4" on the unfixed code. **Left open, in TODO under Version 3:** rhythm-guitar
+chords re-striking a shared note (3 in preset-blues via the CLI).
+
+**The footer** said "latency 0.0 ms" (always zero; Ghostband adds none) and
+getBlockSize() (the host's announced maximum: 512 on a 1024 rig). It now shows
+samples/blocks measured each second in `checkAudioKeptUp`, falling back to the
+announced size marked "(announced)"; stall and AUDIO FELL BEHIND lines use it too.
 
 ## Session 24: the interface that looped, and timing the audio thread
 

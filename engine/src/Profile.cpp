@@ -1793,8 +1793,15 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
                                ? std::abs (part.lead[i + 1].pitch - n.pitch)
                                : 128;
 
+            // And never onto the SAME pitch. A repeated note cannot be hammered
+            // - it is picked again - and overlapping it means the second note
+            // starts while the first is held, then the first one's note-off
+            // releases BOTH: the repeat sounds for the twelve ticks of overlap
+            // and stops. Leap 0 passed "within two semitones" for years; the
+            // CLI's MIDI files showed it as same-pitch re-strikes on the lead
+            // channel, and the plugin was sending the identical pair.
             if (legatoOverlapTicks > 0 && haveNext && ! nextIsHeld
-                && leap <= legatoMaxLeapSemitones)
+                && leap > 0 && leap <= legatoMaxLeapSemitones)
             {
                 const int nextStart = part.lead[i + 1].tick;
                 const int nextEnd   = nextStart + std::max (1, part.lead[i + 1].durationTicks);

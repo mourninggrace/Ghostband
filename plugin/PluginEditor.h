@@ -307,9 +307,29 @@ public:
     // Two lines: a 16pt name over 14pt detail, same as a section row carries.
     static constexpr int rowHeight = 46;
 
+    // ROWS ARRIVE, the same way screens do: 44 px sideways from the right over
+    // 300 ms, cubic ease-out, because movement is what the eye catches and a
+    // fade alone was measured invisible (session 20). Opening the screen
+    // cascades every row in, 30 ms apart and capped so a long list is not a
+    // slow one; saving a take slides in just that row. Only where a row is
+    // DRAWN moves - clicks land on the settled rows throughout.
+    static constexpr int arriveMs = 300, staggerMs = 30, maxStagger = 10;
+    static constexpr float arriveFromPx = 44.0f;
+
+    void arriveAll();
+    void arriveRow (int index);
+    bool advanceArrival (int deltaMs);        // true while anything is still moving
+    bool arriving() const noexcept { return arrivalRunning; }
+    void settleArrival();
+    float rowOffsetPx (int index) const;      // 0 when settled
+
 private:
     std::vector<Row> rows;
     int selected = 0;
+
+    std::vector<int> arrivalDelayMs;          // per row; -1 = not arriving
+    int  arrivalElapsedMs = 0;
+    bool arrivalRunning   = false;
 };
 
 // The song laid out in time, which is what a song IS.
@@ -606,6 +626,12 @@ public:
     // below, and mid-slide it genuinely does sit on top of the transport line.
     void settleAnimationsForTesting() { settleAnimations(); }
 
+    // The takes list, as the eye sees it mid-arrival.
+    float takeRowOffsetForTesting (int row) const { return tkList.rowOffsetPx (row); }
+    bool  takesArrivingForTesting() const         { return tkList.arriving(); }
+    void  advanceAnimationsForTesting (int ms)    { advanceAnimations (ms); }
+    void  pressTakesButtonForTesting()             { takesButton.onClick(); }   // as the owner opens it, unsettled
+
     bool animationsIdleForTesting() const
     {
         return ! animator.isTimerRunning() && ! veil.isVisible();
@@ -651,6 +677,8 @@ public:
     void runTimerOffScreenForTesting();
     int  stallCountForTesting() const;
     int  audioShortfallsForTesting() const { return audioShortfallsLogged; }
+    juce::String footerForTesting() { lastLatencyText.clear(); updateLatencyReadout(); return latencyLabel.getText(); }
+    void checkMeasuredBlockSizeForTesting (juce::uint64 samples, unsigned blocks) { noteMeasuredBlockSize (samples, blocks); }
     juce::String stallDetailForTesting() const;
 
 private:
@@ -1242,6 +1270,7 @@ private:
     // footer rail stay put and only the screen itself arrives. Chrome that
     // slides with its content looks like the window is broken.
     Eased contentSlide;
+    bool  takesWereShowing = false;   // so the rows cascade in on OPENING the screen only
 
     // The quick-edit strip arriving. Its own value rather than the content
     // slide's, because opening it is not a screen change - the grid above must
@@ -1352,6 +1381,15 @@ private:
     // not running us at all, which is not a stall (see idleGaps).
     double       audioWindowStartMs  = 0.0;
     juce::uint64 audioWindowSamples  = 0;
+    unsigned     audioWindowBlocks   = 0;
+
+    // THE BUFFER THE HOST REALLY SENDS: samples over blocks, measured each
+    // second. The host's announced size (getBlockSize) is only an upper bound
+    // it gave at prepare time - on the owner's rig it said 512 while the
+    // Focusrite ran at 1024. 0 until audio has been seen.
+    int          measuredBlockSize   = 0;
+    int          blockSizeForDisplay() const;
+    void         noteMeasuredBlockSize (juce::uint64 samples, unsigned blocks);
     double       audioWindowWorkMs   = 0.0;
     double       audioWindowWorstMs  = 0.0;
     double       gapAudioWorkMs      = 0.0;    // the same figures, for the timer gap line

@@ -19,9 +19,6 @@ Nothing waiting. The last round was answered on 2026-09-26 (see Done).
 - [ ] **Read `stalls.log` after the next audio break-up.** `AUDIO FELL BEHIND`
       lines now say whether the missing time was spent in Ghostband.
 
-- [ ] **Takes sliding into the list** — the last animation from the agreed list.
-- [ ] **The CLI's MIDI export overlaps notes on the lead channel** (the plugin does
-      not). Found while measuring the lead; not yet traced.
 - [ ] **`bigMoment` fires only on chorus and solo** — a musical judgement for the
       owner, not a bug.
 
@@ -31,7 +28,11 @@ Announced on the front page, so people know what is coming.
 
 - [ ] **Export MIDI** — a button that writes what Ghostband plays for the loaded
       song to a standard MIDI file (one track per part) for any DAW or plugin.
-      The CLI already exports; its lead-channel overlap must be fixed first.
+      The CLI already exports. Its lead-channel re-strikes are fixed; one rarer
+      case remains first: **rhythm-guitar chords can re-strike a shared note**
+      while the previous chord still holds it. Measured 2026-09-26 as 3 notes in
+      `preset-blues` rendered by the CLI at the plan's own settings (ticks 118080,
+      120001, 121918 on ch 2); the plugin's stream at its default dials was clean.
 - [ ] **Per-note hand edits in the grid** — needs a spec first: where an override
       is stored, what a reroll does to it, whether a take carries it.
 - [ ] **More presets**, and more variations within a genre.

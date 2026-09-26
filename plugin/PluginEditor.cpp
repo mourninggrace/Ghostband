@@ -381,8 +381,72 @@ void ControlList::paint (juce::Graphics& g)
 void TakeList::setRows (std::vector<Row> r)
 {
     rows = std::move (r);
+    if (arrivalDelayMs.size() != rows.size())
+        settleArrival();          // a different list; what was arriving no longer exists
     setSize (getWidth(), juce::jmax (1, static_cast<int> (rows.size()) * rowHeight));
     repaint();
+}
+
+void TakeList::arriveAll()
+{
+    arrivalDelayMs.assign (rows.size(), 0);
+    for (size_t i = 0; i < rows.size(); ++i)
+        arrivalDelayMs[i] = juce::jmin ((int) i, maxStagger) * staggerMs;
+
+    arrivalElapsedMs = 0;
+    arrivalRunning   = ! rows.empty();
+    repaint();
+}
+
+void TakeList::arriveRow (int index)
+{
+    if (index < 0 || index >= (int) rows.size())
+        return;
+
+    arrivalDelayMs.assign (rows.size(), -1);
+    arrivalDelayMs[(size_t) index] = 0;
+    arrivalElapsedMs = 0;
+    arrivalRunning   = true;
+    repaint();
+}
+
+bool TakeList::advanceArrival (int deltaMs)
+{
+    if (! arrivalRunning)
+        return false;
+
+    arrivalElapsedMs += deltaMs;
+
+    int last = 0;
+    for (int d : arrivalDelayMs)
+        last = juce::jmax (last, d);
+
+    if (arrivalElapsedMs >= last + arriveMs)
+        settleArrival();
+
+    repaint();
+    return arrivalRunning;
+}
+
+void TakeList::settleArrival()
+{
+    arrivalRunning = false;
+    arrivalDelayMs.clear();
+    repaint();
+}
+
+float TakeList::rowOffsetPx (int index) const
+{
+    if (! arrivalRunning || index < 0 || index >= (int) arrivalDelayMs.size())
+        return 0.0f;
+
+    const int delay = arrivalDelayMs[(size_t) index];
+    if (delay < 0)
+        return 0.0f;
+
+    const float t = juce::jlimit (0.0f, 1.0f, (float) (arrivalElapsedMs - delay) / (float) arriveMs);
+    const float eased = 1.0f - std::pow (1.0f - t, 3.0f);
+    return (1.0f - eased) * arriveFromPx;
 }
 
 void TakeList::setSelected (int index)
@@ -429,6 +493,17 @@ void TakeList::paint (juce::Graphics& g)
                                              getWidth(), rowHeight);
         const bool active = static_cast<int> (i) == selected;
 
+        // Arriving: drawn displaced and part-transparent, in step. The surface
+        // under it stays put, so the row reads as landing ON the list.
+        const float offset = rowOffsetPx (static_cast<int> (i));
+        juce::Graphics::ScopedSaveState rowState (g);
+        if (offset > 0.0f)
+        {
+            g.reduceClipRegion (r);
+            g.addTransform (juce::AffineTransform::translation (offset, 0.0f));
+            g.beginTransparencyLayer (1.0f - offset / arriveFromPx * 0.85f);
+        }
+
         if (active)
         {
             g.setColour (ghost::accent.withAlpha (0.16f));
@@ -455,6 +530,9 @@ void TakeList::paint (juce::Graphics& g)
         g.setColour (ghost::dim);
         g.setFont (juce::Font (juce::FontOptions (14.0f)));
         g.drawText (rows[i].detail, inner, juce::Justification::centredLeft, true);
+
+        if (offset > 0.0f)
+            g.endTransparencyLayer();
     }
 }
 
@@ -3219,20 +3297,30 @@ void GhostbandEditor::markDialsDirty()
 // take a lookahead the number moves on its own instead of quietly becoming a
 // lie. The buffer size is the other half of the answer: it is where a rig's
 // actual delay comes from, and it is the host's, not ours.
+static const juce::String& midDot();   // defined with the stall readout below
+
 void GhostbandEditor::updateLatencyReadout()
 {
-    const double sr             = processor.getSampleRate();
-    const int    latencySamples = processor.getLatencySamples();
-    const int    blockSize      = processor.getBlockSize();
+    // THE BUFFER, AS MEASURED. This used to read "latency 0.0 ms" beside the
+    // host's announced block size. Ghostband adds no latency, so the first
+    // figure could never be anything but zero, and the second was the host's
+    // upper bound rather than what it sends - 512 on a rig running at 1024.
+    // The owner asked what either was for, fairly. Now it is the one figure
+    // that matters for drop-outs: the real buffer, its rate, and how long a
+    // buffer lasts - which is the time every plugin in the chain has to finish.
+    const double sr        = processor.getSampleRate();
+    const int    blockSize = blockSizeForDisplay();
 
     juce::String text;
-    if (sr > 0.0)
-        text = "latency " + juce::String (latencySamples * 1000.0 / sr, 1) + " ms";
-    else
-        text = "latency " + juce::String (latencySamples) + " smp";
-
     if (blockSize > 0)
-        text += "   buffer " + juce::String (blockSize);
+    {
+        text = "buffer " + juce::String (blockSize);
+        if (sr > 0.0)
+            text += " at " + juce::String (sr / 1000.0, 1) + "k " + midDot() + " "
+                  + juce::String (blockSize * 1000.0 / sr, 1) + " ms";
+        if (measuredBlockSize <= 0)
+            text += " (announced)";
+    }
 
     // A stall the owner has already seen and I have not - so when one happens,
     // the plugin has to be the thing that says so. Riding along on the latency
@@ -3288,6 +3376,7 @@ void GhostbandEditor::checkAudioKeptUp (double now)
     {
         audioWindowStartMs = now;
         audioWindowSamples = samples;
+        audioWindowBlocks  = processor.audioBlocks.load (std::memory_order_relaxed);
         audioWindowWorkMs  = audioWindowWorstMs = 0.0;
         return;
     }
@@ -3299,6 +3388,9 @@ void GhostbandEditor::checkAudioKeptUp (double now)
     const double gotMs     = (double) (samples - audioWindowSamples) * 1000.0 / sr;
     const double missingMs = elapsedMs - gotMs;
 
+    const unsigned blocksNow = processor.audioBlocks.load (std::memory_order_relaxed);
+    noteMeasuredBlockSize (samples - audioWindowSamples, blocksNow - audioWindowBlocks);
+
     if (gotMs > 0.0 && missingMs > 100.0 && audioShortfallsLogged < 200)
     {
         ++audioShortfallsLogged;
@@ -3306,7 +3398,7 @@ void GhostbandEditor::checkAudioKeptUp (double now)
         const juce::File log = GhostbandProcessor::stallLogFile();
         log.getParentDirectory().createDirectory();
 
-        const double budgetMs = processor.getBlockSize() * 1000.0 / sr;
+        const double budgetMs = blockSizeForDisplay() * 1000.0 / sr;
         log.appendText (juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H:%M:%S")
                         + "  AUDIO FELL BEHIND   " + juce::String (juce::roundToInt (missingMs)) + " ms of audio missing in "
                         + juce::String (juce::roundToInt (elapsedMs)) + " ms"
@@ -3320,7 +3412,21 @@ void GhostbandEditor::checkAudioKeptUp (double now)
 
     audioWindowStartMs = now;
     audioWindowSamples = samples;
+    audioWindowBlocks  = blocksNow;
     audioWindowWorkMs  = audioWindowWorstMs = 0.0;
+}
+
+// The measurement itself: the timer feeds it every
+// second. A whole number of samples per block is the only thing a host sends.
+void GhostbandEditor::noteMeasuredBlockSize (juce::uint64 samples, unsigned blocks)
+{
+    if (blocks > 0 && samples > 0)
+        measuredBlockSize = (int) ((samples + blocks / 2) / blocks);
+}
+
+int GhostbandEditor::blockSizeForDisplay() const
+{
+    return measuredBlockSize > 0 ? measuredBlockSize : processor.getBlockSize();
 }
 
 void GhostbandEditor::noteTimerTick()
@@ -3456,7 +3562,7 @@ void GhostbandEditor::noteTimerTick()
                             + s.worstPiece + ")"
                             + "   timer callback " + juce::String (s.workMs, 1) + " ms"
                             + "   audio " + juce::String (s.audioBlocks) + " blocks of "
-                            + juce::String (processor.getBlockSize())
+                            + juce::String (blockSizeForDisplay())
                             + (sr > 0.0 ? " at " + juce::String (sr / 1000.0, 1) + "k" : "")
                             // Ghostband's own audio-thread time over the gap. Near
                             // zero means a missing second of audio was not spent here.
@@ -3775,6 +3881,9 @@ bool GhostbandEditor::advanceAnimations (int deltaMs)
         busy = true;
     }
 
+    if (tkList.arriving())
+        busy = tkList.advanceArrival (deltaMs) || busy;
+
     if (contentSlide.busy() || stripSlide.busy())
     {
         contentSlide.advance (deltaMs);
@@ -3934,6 +4043,7 @@ void GhostbandEditor::settleAnimations()
 {
     veil.alpha.set (0.0f);
     veil.setVisible (false);
+    tkList.settleArrival();
 
     if (contentSlide.value() != 0.0f || stripSlide.value() != 0.0f)
     {
@@ -4558,6 +4668,15 @@ void GhostbandEditor::updateModeVisibility()
 
     if (song) { lastTrackerTick = -1; refreshTracker(); }
     if (tks)  refreshTakes();
+
+    // Opening the takes screen, not every refresh of it: the rows cascade in.
+    if (tks && ! takesWereShowing)
+    {
+        tkList.arriveAll();
+        animator.wake();
+    }
+    takesWereShowing = tks;
+
     if (cal)  refreshCalibration();
     if (edit) pullSectionEdit();
     if (! song) controlsPanel = {};
@@ -4924,6 +5043,8 @@ void GhostbandEditor::saveTakeFromBox()
         {
             tkSelected = static_cast<int> (i);
             tkList.setSelected (tkSelected);
+            tkList.arriveRow (tkSelected);      // the new take slides into its place
+            animator.wake();
             break;
         }
 

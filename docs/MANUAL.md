@@ -407,8 +407,14 @@ Ghostband times itself. If its interface stops updating for more than a
 quarter of a second, it records three things: how long the gap was, how much of
 that time Ghostband itself spent working, and whether the audio thread kept
 running through it. Between them those say whether it was Ghostband, your host,
-or the whole plugin — and the reading appears beside the latency in the bottom
-right, with the verdict in words when you hover it.
+or the whole plugin — and the reading appears in the bottom
+right, beside the buffer reading, with the verdict in words when you hover it.
+
+That buffer reading is **measured from what the host actually sends**, not what
+it announced when it loaded the plugin. The two can differ: Gig Performer told
+Ghostband 512 on a rig whose Focusrite was set to 1024. The milliseconds beside
+it are how long one buffer lasts, which is the time every plugin in the chain
+has to finish its work.
 
 It is written to `%APPDATA%\Ghostband\stalls.log` too, with the date as well as
 the time, because the window that would show it is the thing that was frozen.

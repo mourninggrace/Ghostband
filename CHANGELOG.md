@@ -14,6 +14,23 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
   priced from the token counts of the songs you have written. The refusal fallback
   is sent only to the models documented to take it, higher effort gets more room
   to answer, and the planner now waits up to ten minutes for a slow answer.
+- **Takes slide into their list.** Opening Takes brings the rows in from the
+  side one after another, and a take you save slides into its place. The last
+  of the agreed animations.
+
+### Fixed
+- **A repeated lead note was sometimes cut to a blip.** Legato runs each note a
+  little into the next so the instrument hears a hammer-on, and a repeat of the
+  same pitch counted as "close enough" to slur. The second note then started
+  while the first was held, and the first one's release stopped both. That was 4
+  to 11 notes a song, in the plugin as well as the command line's MIDI files. A
+  repeated note is picked again now, and a check reads the plugin's outgoing
+  stream to make sure no part ever starts a note that is still held.
+- **The footer shows the real buffer.** It read "latency 0.0 ms", which Ghostband
+  could never be anything but, and the buffer size the host *announced* (512)
+  rather than the one it *sends* (1024 on the owner's rig). It now shows the
+  buffer measured from what arrives, its rate, and how long one lasts:
+  `buffer 1024 at 48.0k · 21.3 ms`. The stall log uses the same figure.
 
 ## [2.1.0] — 2026-09-26
 

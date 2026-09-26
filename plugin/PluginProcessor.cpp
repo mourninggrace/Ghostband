@@ -3478,6 +3478,39 @@ void GhostbandProcessor::sendAllNotesOff (juce::MidiBuffer& midi, int sampleOffs
     }
 }
 
+juce::String GhostbandProcessor::restrikesForTesting() const
+{
+    const juce::SpinLock::ScopedLockType lock (sequenceLock);
+
+    int held[16][128] = {};
+    int restrikes[16] = {};
+
+    for (const TimedMessage& tm : sequence)
+    {
+        const juce::MidiMessage& m = tm.message;
+        const int ch = m.getChannel() - 1;
+        if (ch < 0 || ch >= 16)
+            continue;
+
+        if (m.isNoteOn())
+        {
+            if (held[ch][m.getNoteNumber()] > 0)
+                ++restrikes[ch];
+            ++held[ch][m.getNoteNumber()];
+        }
+        else if (m.isNoteOff() && held[ch][m.getNoteNumber()] > 0)
+        {
+            --held[ch][m.getNoteNumber()];
+        }
+    }
+
+    juce::String out;
+    for (int ch = 0; ch < 16; ++ch)
+        if (restrikes[ch] > 0)
+            out << "ch " << (ch + 1) << ": " << restrikes[ch] << "   ";
+    return out.trim();
+}
+
 void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
     // Timed from the first line to every return, so the figure is everything
