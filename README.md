@@ -7,7 +7,7 @@
 [![Release](https://img.shields.io/github/v/release/mourninggrace/Ghostband?color=00d8ff&label=release)](https://github.com/mourninggrace/Ghostband/releases/latest)
 [![Licence: AGPLv3](https://img.shields.io/badge/licence-AGPLv3-e0409a)](LICENSE)
 ![Windows VST3](https://img.shields.io/badge/Windows-VST3-4a5a78)
-![500 checks](https://img.shields.io/badge/checks-500%20every%20build-2bb673)
+![505 checks](https://img.shields.io/badge/checks-505%20every%20build-2bb673)
 ![Free](https://img.shields.io/badge/price-free-2bb673)
 
 ![Ghostband's song screen](docs/screenshots/hero.png)

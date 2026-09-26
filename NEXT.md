@@ -28,7 +28,7 @@ nobody has to read it.
 - **The window is 1180x820, minimum 1020x820.** Both numbers are load-bearing:
   the minimum is set by the two-column Settings screen, not by the song screen,
   and the harness's `kMinW`/`kMinH` must move with it.
-- **500 checks** pass on every build, and all 34 plans are swept.
+- **505 checks** pass on every build, and all 34 plans are swept.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
@@ -163,6 +163,35 @@ to run: Windows Defender real-time protection and behaviour monitoring are on
 with no exclusions (Kontakt streaming samples through a scanner is the classic
 cause of exactly this), and bisecting the rackspace would settle it. Both are
 written up in OPEN-QUESTIONS.
+
+## Session 27: a bug audit, and seven real bugs
+
+He asked for a comprehensive audit, find and fix everything. Done by hand, no
+agents. Method: hunt the classes that have bitten before or that the suite is
+blind to, and PROVE each with a check that fails before touching code.
+
+1. **Locale + precision** (`Json.h` formatNumber/parseNumber, to_chars/from_chars).
+   %.4g + strtod: de-DE/fr-FR wrote "120,5"; 4 digits lost dice-set dials, so a
+   rolled song saved and reloaded changed. Check: C/de-DE/fr-FR exact round trip.
+2. **No upper limits on load** (kMaxSectionBars 256, kMaxSections 128, time sig
+   <=32 and a power of two, transpose +-24; Json::asInt saturates). 2,000,000 bars
+   gave a negative length and a 36 s render. The section editor uses the limit.
+3. **Chord re-strikes** (`PhraseProfile::render` chord path): strum offset let
+   tones ring past the next chord; 26 in 5 songs. Collect, trim per pitch, emit.
+   The plugin-stream check had passed - the plugin plays at its own dials - so a
+   new check renders each song at its OWN settings (failed 15 on blues-3).
+4. **UTF-8 paths** (`gb::utf8Path` everywhere the engine opens a file). Narrow
+   paths meant non-ASCII usernames could not load/save. Check uses "Zoe-Mueller-Zh".
+5. **Profile save deleted before rename** -> std::filesystem::rename replaces.
+6. **Hanging notes after regenerate** (`releaseOrphanedNotes`, audio thread,
+   after every swap): only 3 of 18 regenerate paths flushed. Check plays, rerolls
+   mid-bar, plays 12 bars: demo-rock left ch 10 note 42 held.
+7. (Session 26's key bug was the first of the kind; this audit swept for the rest
+   of its shape - no other pointer into a dead temporary was found.)
+
+Checked and found sound: every division by a song value is guarded; the planner
+callback is a weak reference on the message thread; the old outside audit's
+theme/channel-17/timer-wrap items were already fixed or guarded.
 
 ## Session 26: the key that would not stay saved - a dangling pointer
 

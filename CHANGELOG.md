@@ -5,6 +5,36 @@ measured, not estimated; where something could not be measured yet, it says so.
 
 Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/releases).
 
+## [Unreleased]
+
+From a bug audit on 2026-09-26. Every fix below was first shown failing by a
+new check, then fixed, then the check passed.
+
+### Fixed
+- **A note could be left hanging after a reroll.** Rolling, changing the seed or
+  moving a dial while the band plays rebuilds the song under notes that are
+  sounding, and their note-offs were in the version just replaced. A hi-hat was
+  left held on demo-rock. Now any sounding note the new version will not end
+  within two bars is released at once.
+- **Rhythm-guitar and piano chords re-struck a note still held from the chord
+  before,** and the old note's release cut the new one short: 26 times across
+  five songs, mostly the blues. Every note now ends when its pitch is struck again.
+- **Saved songs changed after the dice.** The dice sets dials at full precision,
+  and songs were saved with only four digits, so a rolled song saved and reloaded
+  played differently. Numbers are now written exactly.
+- **Songs could not be saved or read under some Windows language settings.**
+  Numbers followed the system locale, so under German or French formatting a
+  song was written as "120,5" and could not be read back. Now locale-free.
+- **Folders named with accents or non-Latin letters.** Users named, say, Zoë or
+  Müller, or with Cyrillic or Asian names, could not load or save songs and
+  profiles under their own Documents. Every file path is now handled as Unicode.
+- **A song file could ask for the impossible.** 2,000,000 bars made the song's
+  length negative and took 36 seconds to render; "1000/3" time was accepted.
+  Loaded songs are held to 1 to 256 bars a section, 128 sections, a sensible
+  time signature and a transpose of at most two octaves.
+- **A profile save could lose the profile** if moving the new file into place
+  failed, because the old one was deleted first. It is now replaced in one step.
+
 ## [2.2.1] — 2026-09-26
 
 One fix: a saved API key could be refused as unreadable. If you saw "Windows

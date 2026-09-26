@@ -28,11 +28,8 @@ Announced on the front page, so people know what is coming.
 
 - [ ] **Export MIDI** — a button that writes what Ghostband plays for the loaded
       song to a standard MIDI file (one track per part) for any DAW or plugin.
-      The CLI already exports. Its lead-channel re-strikes are fixed; one rarer
-      case remains first: **rhythm-guitar chords can re-strike a shared note**
-      while the previous chord still holds it. Measured 2026-09-26 as 3 notes in
-      `preset-blues` rendered by the CLI at the plan's own settings (ticks 118080,
-      120001, 121918 on ch 2); the plugin's stream at its default dials was clean.
+      The CLI already exports, and as of the 2026-09-26 audit its MIDI has no
+      re-struck notes in any of the 34 songs (lead and chords both fixed).
 - [ ] **Per-note hand edits in the grid** — needs a spec first: where an override
       is stored, what a reroll does to it, whether a take carries it.
 - [ ] **More presets**, and more variations within a genre.
