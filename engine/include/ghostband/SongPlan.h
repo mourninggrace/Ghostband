@@ -5,6 +5,10 @@
 
 namespace gb {
 
+// Upper limits a loaded song is held to - see loadSection and fromJson.
+constexpr int kMaxSectionBars = 256;
+constexpr int kMaxSections    = 128;
+
 // One section of the song. The user owns this level entirely: they choose the
 // order, the lengths and the feel. Anything left as "auto" is what the planner
 // (or, for now, the local defaults) is allowed to decide.

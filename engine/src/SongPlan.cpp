@@ -93,6 +93,12 @@ static void loadSection (const Json& j, SectionPlan& s, int index)
     if (s.intensity < 0.0) s.intensity = 0.0;
     if (s.intensity > 1.0) s.intensity = 1.0;
     if (s.bars < 1)        s.bars = 1;
+
+    // A ceiling as well as a floor. 2,000,000 bars overflowed the tick count -
+    // the song reported a NEGATIVE length - and took 36 seconds and 37 million
+    // drum hits to render, on the host's interface thread. The longest section
+    // in any shipped song is 16 bars; 256 is room for anything musical.
+    if (s.bars > kMaxSectionBars) s.bars = kMaxSectionBars;
 }
 
 static bool fromJson (const Json& j, const std::string& sourceName,
@@ -161,6 +167,16 @@ static bool fromJson (const Json& j, const std::string& sourceName,
     if (out.timeSigNumerator   < 1) out.timeSigNumerator   = 4;
     if (out.timeSigDenominator < 1) out.timeSigDenominator = 4;
 
+    // A beat is a whole number of ticks only for a power-of-two denominator,
+    // and "1000/3" was accepted: 4 bars ran 22 minutes. Up to 32 beats a bar,
+    // a denominator of 1 to 32 that is a power of two; anything else is 4.
+    if (out.timeSigNumerator > 32) out.timeSigNumerator = 4;
+    {
+        const int d = out.timeSigDenominator;
+        if (d > 32 || (d & (d - 1)) != 0) out.timeSigDenominator = 4;
+    }
+    if (out.transpose < -24 || out.transpose > 24) out.transpose = 0;
+
     const Json& secs = j["sections"];
     if (! secs.isArray() || secs.size() == 0)
     {
@@ -168,7 +184,9 @@ static bool fromJson (const Json& j, const std::string& sourceName,
         return false;
     }
 
-    for (size_t i = 0; i < secs.size(); ++i)
+    // And a ceiling on how many: with 256 bars each this keeps a whole song
+    // under 128 x 256 bars, far inside what the tick count can hold.
+    for (size_t i = 0; i < secs.size() && i < static_cast<size_t> (kMaxSections); ++i)
     {
         SectionPlan s;
         loadSection (secs[i], s, static_cast<int> (i));
@@ -230,9 +248,7 @@ static std::string jsonString (const std::string& s)
 // readable and diffs cleanly instead of filling up with 0.550000000000000044.
 static std::string jsonNumber (double v)
 {
-    char buf[64];
-    std::snprintf (buf, sizeof (buf), "%.4g", v);
-    return std::string (buf);
+    return formatNumber (v);   // exact and locale-free - see Json.h
 }
 
 static std::string playsString (const SectionPlan& s)

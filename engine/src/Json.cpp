@@ -1,5 +1,7 @@
 #include "ghostband/Json.h"
 
+#include <charconv>
+#include <cmath>
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
@@ -28,7 +30,15 @@ double Json::asNumber (double def) const
 
 int Json::asInt (int def) const
 {
-    if (type_ == Type::Number) return static_cast<int> (num_ < 0 ? num_ - 0.5 : num_ + 0.5);
+    // Saturating. Converting a double outside int's range is undefined
+    // behaviour in C++, and a file can say "bars": 1e300.
+    if (type_ == Type::Number)
+    {
+        const double r = num_ < 0 ? num_ - 0.5 : num_ + 0.5;
+        if (r >=  2147483647.0) return  2147483647;
+        if (r <= -2147483648.0) return -2147483647 - 1;
+        return static_cast<int> (r);
+    }
     if (type_ == Type::Bool)   return bool_ ? 1 : 0;
     return def;
 }
@@ -304,11 +314,11 @@ private:
 
         if (c == '-' || (c >= '0' && c <= '9'))
         {
-            const char* begin = s.c_str() + pos;
-            char* end = nullptr;
-            double v = std::strtod (begin, &end);
-            if (end == begin) return fail ("malformed number");
-            pos += static_cast<size_t> (end - begin);
+            double v = 0.0;
+            size_t used = 0;
+            if (! parseNumber (s.data() + pos, s.data() + s.size(), v, used))
+                return fail ("malformed number");
+            pos += used;
             out.type_ = Json::Type::Number;
             out.num_ = v;
             return true;
@@ -317,6 +327,28 @@ private:
         return fail ("unexpected character");
     }
 };
+
+std::string formatNumber (double v)
+{
+    if (! std::isfinite (v))
+        v = 0.0;                      // JSON has no infinity; never write one
+
+    char buf[64];
+    const auto r = std::to_chars (buf, buf + sizeof (buf), v);   // shortest exact form
+    return std::string (buf, r.ptr);
+}
+
+bool parseNumber (const char* text, const char* end, double& v, size_t& used)
+{
+    // from_chars takes no leading '+', and JSON allows none either; a leading
+    // '-' it handles itself.
+    const auto r = std::from_chars (text, end, v, std::chars_format::general);
+    if (r.ec != std::errc() || r.ptr == text || ! std::isfinite (v))
+        return false;
+
+    used = static_cast<size_t> (r.ptr - text);
+    return true;
+}
 
 Json Json::parse (const std::string& text, std::string& error)
 {

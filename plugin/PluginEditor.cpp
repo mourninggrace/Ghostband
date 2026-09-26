@@ -3182,7 +3182,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         // ---- structure editor ----
         tip (edName,   "The section's name, and it is load-bearing: the ROLE is inferred from it, "
                        "so renaming a section to chorus2 genuinely makes it behave like a chorus.");
-        tip (edBars,   "How many bars this section lasts.");
+        tip (edBars,   "How many bars this section lasts, 1 to 256.");
         tip (edChords, "Chords as text, e.g. Em Em C D. A shorter list repeats to fill the bars. "
                        "Leave it empty to have Ghostband choose a progression for the role.");
         tip (edIntensity, "How hard this section is played. It drives the drums, the dynamics and "
@@ -5663,7 +5663,7 @@ void GhostbandEditor::pushSectionEdit()
 
     GhostbandProcessor::SectionEdit e;
     e.name      = edName.getText();
-    e.bars      = juce::jmax (1, edBars.getText().getIntValue());
+    e.bars      = juce::jlimit (1, gb::kMaxSectionBars, edBars.getText().getIntValue());   // the loader's limit, so a save cannot change it
     e.intensity = edIntensity.getValue();
     e.feel      = edFeel.getText().replace (" ", "_");
     e.fill      = edFill.getText();

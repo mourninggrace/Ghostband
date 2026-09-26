@@ -715,12 +715,7 @@ int ControlSet::nextFreeCC() const
 std::string PhraseProfile::toJson() const
 {
     auto q = [] (const std::string& s) { return "\"" + s + "\""; };
-    auto num = [] (double v)
-    {
-        char buf[32];
-        std::snprintf (buf, sizeof (buf), "%.3g", v);
-        return std::string (buf);
-    };
+    auto num = [] (double v) { return formatNumber (v); };   // exact and locale-free - see Json.h
 
     std::string j = "{\n";
     j += "  // Written by Ghostband. Control mappings were made in the plugin.\n\n";
@@ -857,12 +852,7 @@ static std::string jsonString (const std::string& s)
 std::string ControlSet::toJson() const
 {
     auto q = [] (const std::string& s) { return jsonString (s); };
-    auto num = [] (double v)
-    {
-        char buf[32];
-        std::snprintf (buf, sizeof (buf), "%.3g", v);
-        return std::string (buf);
-    };
+    auto num = [] (double v) { return formatNumber (v); };   // exact and locale-free - see Json.h
 
     std::string ctl;
     for (const ControlDef& c : defs)
@@ -1861,6 +1851,10 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
 
     const int zoneSpan = chordHighest - chordLowest;
 
+    // Collected first, emitted once they are all known - see below.
+    struct Struck { int on, off, pitch, velocity; };
+    std::vector<Struck> struck;
+
     for (const ChordIntent& c : part.chords)
     {
         if (c.durationTicks <= 0)
@@ -1900,9 +1894,43 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
             const int offset = strumTicks * static_cast<int> (i);
             const int noteVel = clampInt (vel - static_cast<int> (i) * 4, 1, 127);
 
-            track.addNoteOn  (c.tick + offset, channel, voiced[i], noteVel);
-            track.addNoteOff (c.tick + offset + c.durationTicks, channel, voiced[i]);
+            struck.push_back ({ c.tick + offset, c.tick + offset + c.durationTicks, voiced[i], noteVel });
         }
+    }
+
+    // NEVER STRIKE A NOTE THAT IS STILL SOUNDING. The strum delays each later
+    // string, so a chord's last notes ring a few ticks past its length; when
+    // the next chord arrives on time and shares one of them, the new note
+    // began while the old one was held, and the old one's note-off then
+    // released it - a chord tone cut to a blip. Measured in the 2026-09-26
+    // audit: 26 of them across five songs, mostly the blues, whose sevenths
+    // and shuffle make shared tones common. So every note of a pitch now ends
+    // no later than the next time that pitch is struck; a same-tick duplicate
+    // is one note, not two.
+    std::stable_sort (struck.begin(), struck.end(),
+                      [] (const Struck& a, const Struck& b)
+                      { return a.pitch != b.pitch ? a.pitch < b.pitch : a.on < b.on; });
+
+    for (size_t i = 0; i < struck.size(); ++i)
+    {
+        Struck& n = struck[i];
+        if (i + 1 < struck.size() && struck[i + 1].pitch == n.pitch)
+        {
+            if (struck[i + 1].on <= n.on)
+            {
+                n.off = n.on;               // a duplicate on the same tick: dropped below
+                continue;
+            }
+            n.off = std::min (n.off, struck[i + 1].on);
+        }
+    }
+
+    for (const Struck& n : struck)
+    {
+        if (n.off <= n.on)
+            continue;
+        track.addNoteOn  (n.on,  channel, n.pitch, n.velocity);
+        track.addNoteOff (n.off, channel, n.pitch);
     }
 }
 

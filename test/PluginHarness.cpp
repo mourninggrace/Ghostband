@@ -9,6 +9,7 @@
 // same engine through the same profiles. If those ever diverge, one of the two
 // paths has grown a bug the other does not have.
 
+#include <clocale>
 #include "SecretStore.h"
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
@@ -1101,6 +1102,69 @@ int main (int argc, char** argv)
 
         check (checked > 5, "there are plans to round-trip",
                juce::String (checked) + " parsed");
+        // NUMBERS SURVIVE A SAVE EXACTLY, IN ANY LOCALE.
+        //
+        // Two faults with one cause, found in the 2026-09-26 audit. Numbers were
+        // written with printf's %.4g and read with strtod, and both follow the
+        // C locale - which is process-wide, so any plugin in the same host can
+        // switch it. Under German number formatting a song saved as "120,5",
+        // which is not JSON, and "0.5" read back as 0. And four significant
+        // figures cannot hold what the dice sets: it stores a dial at full
+        // precision, so saving a rolled song and reloading it changed the
+        // generator's input and with it the whole arrangement.
+        {
+            gb::SongPlan original;
+            std::string e0;
+            gb::SongPlan::load (juce::File (planPath).getFullPathName().toStdString(), original, e0);
+            original.complexity = 0.61837123456789;     // what a dice roll stores
+            original.humanize   = 0.2718281828;
+            original.bpm        = 132.5;
+
+            juce::String problems;
+            for (const char* loc : { "C", "de-DE", "fr-FR" })
+            {
+                if (std::setlocale (LC_ALL, loc) == nullptr)
+                    continue;                              // locale not installed; nothing to test
+
+                gb::SongPlan back;
+                std::string e;
+                const bool ok = gb::SongPlan::parse (original.toJson(), "round trip", back, e);
+                if (! ok || back.complexity != original.complexity || back.humanize != original.humanize
+                         || back.bpm != original.bpm)
+                    problems << loc << ": " << (ok ? juce::String (back.complexity, 12) + " / " + juce::String (back.bpm, 2)
+                                                   : juce::String (e)) << "   ";
+            }
+            std::setlocale (LC_ALL, "C");
+
+            check (problems.isEmpty(),
+                   "a song's numbers survive saving and loading exactly, whatever the locale",
+                   problems.isEmpty() ? juce::String ("exact in C, de-DE and fr-FR") : problems);
+        }
+
+        // A SONG FILE CANNOT ASK FOR THE IMPOSSIBLE. Measured in the audit:
+        // 2,000,000 bars rendered for 36 s into 37 million hits and a negative
+        // length; "1000/3" was accepted; 1e300 was converted to int, which is
+        // undefined. A hand edit or a planner answer can say any of it.
+        {
+            const std::string extreme =
+                "{ \"title\": \"x\", \"bpm\": 1e300, \"time_signature\": [1000, 3], \"transpose\": 999,"
+                "  \"seed\": 1e300, \"sections\": ["
+                "  { \"name\": \"a\", \"bars\": 2000000, \"chords\": [\"Em\"] },"
+                "  { \"name\": \"b\", \"bars\": -5, \"chords\": [\"Em\"] } ] }";
+
+            gb::SongPlan x;
+            std::string e;
+            const bool ok = gb::SongPlan::parse (extreme, "extreme", x, e);
+            check (ok && x.sections.size() == 2
+                       && x.sections[0].bars == gb::kMaxSectionBars && x.sections[1].bars == 1
+                       && x.timeSigNumerator == 4 && x.timeSigDenominator == 4
+                       && x.bpm == 300.0 && x.transpose == 0,
+                   "a song asking for millions of bars, 1000/3 time or a 999-semitone transpose is held to sane limits",
+                   ok ? juce::String (x.sections[0].bars) + " bars, " + juce::String (x.timeSigNumerator) + "/"
+                            + juce::String (x.timeSigDenominator) + ", transpose " + juce::String (x.transpose)
+                      : juce::String (e));
+        }
+
         check (mismatched == 0, "every plan survives being saved and read back",
                mismatched == 0 ? juce::String ("all ") + juce::String (checked) + " intact"
                                : juce::String (mismatched) + " changed - first: " + firstBad);
@@ -1190,6 +1254,57 @@ int main (int argc, char** argv)
             "      \"guitar\": \"driving\", \"guitar2\": \"fills\","
             "      \"lead\": \"guitar\" } ] }",
             "fills", plan, err);
+
+        // THE SONG AT ITS OWN SETTINGS, AS A FILE WOULD HOLD IT. The plugin's
+        // outgoing-stream check passed on all 34 songs while the CLI's MIDI of
+        // the same songs had 26 chord tones struck while still held - the
+        // plugin plays at its own dials, and the fault needed the songs' own.
+        // So this renders the loaded song exactly as the CLI does and scans
+        // every chord and lead part for a note started while still sounding.
+        {
+            gb::SongPlan song;
+            std::string e;
+            gb::DrumProfile kit;  gb::BassProfile bass;
+            gb::PhraseProfile gtr, gtr2, piano;
+            const bool ok = gb::SongPlan::load (juce::File (planPath).getFullPathName().toStdString(), song, e)
+                && gb::DrumProfile::load   ("C:/Projects/Ghostband/profiles/ssd5-terry-date.json", kit, e)
+                && gb::BassProfile::load   ("C:/Projects/Ghostband/profiles/modo-bass-2.json", bass, e)
+                && gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/vg-iron2.json", gtr, e)
+                && gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/shreddage-3-hydra.json", gtr2, e)
+                && gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/virtual-pianist.json", piano, e);
+
+            juce::String restruck;
+            if (ok)
+            {
+                const gb::RenderResult r = gb::renderPerformance (song, kit, bass, &gtr, &piano, &gtr2);
+                const std::pair<const char*, std::pair<const gb::PhraseProfile*, const gb::PhrasePart*>> parts[] = {
+                    { "guitar",   { &gtr,   &r.performance.guitar  } },
+                    { "guitar 2", { &gtr2,  &r.performance.guitar2 } },
+                    { "piano",    { &piano, &r.performance.piano   } } };
+
+                for (const auto& part : parts)
+                {
+                    gb::MidiTrack t;
+                    part.second.first->render (*part.second.second, t);
+                    std::vector<gb::MidiEvent> ev = t.events;
+                    std::stable_sort (ev.begin(), ev.end(), [] (const gb::MidiEvent& x, const gb::MidiEvent& y)
+                                      { return x.tick != y.tick ? x.tick < y.tick : x.order < y.order; });
+                    int held[16][128] = {};
+                    int count = 0;
+                    for (const gb::MidiEvent& m : ev)
+                    {
+                        if (m.bytes.size() < 3) continue;
+                        const int hi = m.bytes[0] & 0xF0, ch = m.bytes[0] & 0x0F, note = m.bytes[1] & 0x7F;
+                        if (hi == 0x90 && m.bytes[2] > 0) { if (held[ch][note] > 0) ++count; ++held[ch][note]; }
+                        else if ((hi == 0x80 || hi == 0x90) && held[ch][note] > 0) --held[ch][note];
+                    }
+                    if (count > 0) restruck << part.first << ": " << count << "   ";
+                }
+            }
+            check (ok && restruck.isEmpty(),
+                   "at the song's own settings, no chord or lead note is struck while it is still sounding",
+                   ok ? (restruck.isEmpty() ? juce::String ("clean") : restruck) : juce::String (e));
+        }
 
         check (made, "a plan can ask the second guitar for fills", juce::String (err));
 

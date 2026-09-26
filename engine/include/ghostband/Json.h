@@ -6,6 +6,21 @@
 
 namespace gb {
 
+// NUMBERS IN FILES, WRITTEN AND READ THE SAME WAY EVERYWHERE, IN ANY LOCALE.
+//
+// printf's %g and strtod both follow the C locale, which is process-wide: one
+// plugin in the same host calling setlocale is enough for Ghostband to write
+// "120,5" (not JSON) and read "0.5" as 0. And %.4g could not hold a dial the
+// dice set at full precision, so a saved song reloaded as a different
+// performance. std::to_chars / from_chars ignore the locale entirely, and the
+// shortest form to_chars chooses reads back as exactly the same double - 0.55
+// is still written "0.55", so a hand-edited file stays readable.
+std::string formatNumber (double v);
+
+// Parses a JSON number at `text`; sets `used` to the characters consumed.
+// Returns false for anything that is not a finite number.
+bool parseNumber (const char* text, const char* end, double& v, size_t& used);
+
 // Minimal JSON reader. Deliberately hand-rolled so the engine keeps zero
 // third-party dependencies. Extended with // and /* */ comments, because
 // driver profiles are hand-edited config files and need to explain themselves.
