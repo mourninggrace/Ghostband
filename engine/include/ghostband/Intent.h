@@ -147,6 +147,7 @@ struct LeadIntent
     //              not only a phrase's target
     //   vibrato    shake this note once it has sounded, target or not
     bool   slur          = false;
+    bool   unswung       = false;   // written in triplet time already: the swing pass leaves it alone
     int    bendSemis     = 0;
     bool   vibrato       = false;
 };

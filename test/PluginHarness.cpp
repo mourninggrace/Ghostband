@@ -193,6 +193,25 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
                 if (so.size() < 4) continue;
                 std::sort (so.begin(), so.end(), [] (const auto& a, const auto& b) { return a.tick < b.tick; });
                 soloNoteCount += static_cast<long> (so.size());
+
+                // GB_SHOW_SOLO=<song>: print that song's solos note by note, to read one.
+                if (const char* show = std::getenv ("GB_SHOW_SOLO"))
+                    if (k == 0 && f.getFileNameWithoutExtension() == juce::String (show))
+                    {
+                        static const char* kArt[] = { "", "rake", "pinch", "choke", "harm", "tap" };
+                        std::printf ("--- %s solo, %d bars ---\n", show, (sec.endTick - sec.startTick) / (gb::kPPQ * 4));
+                        for (const gb::LeadIntent& n : so)
+                        {
+                            const int rel = n.tick - sec.startTick;
+                            std::printf ("  bar %2d  %5.2f   pitch %3d  len %4d%s%s%s%s %s\n",
+                                         rel / (gb::kPPQ * 4) + 1, (rel % (gb::kPPQ * 4)) / double (gb::kPPQ) + 1.0,
+                                         n.pitch, n.durationTicks,
+                                         n.slur ? " slur" : "", n.vibrato ? " vib" : "",
+                                         n.bendSemis ? (n.bendSemis == 2 ? " bend2" : " bend1") : "",
+                                         n.target ? " target" : "",
+                                         static_cast<int> (n.artic) < 6 ? kArt[static_cast<int> (n.artic)] : "?");
+                        }
+                    }
                 for (const gb::LeadIntent& n : so)
                 {
                     const int d = std::min (n.durationTicks, sec.endTick - n.tick);
@@ -3232,6 +3251,9 @@ int main (int argc, char** argv)
 
             check (! lead.empty(), "a solo section produces a melodic line",
                    juce::String ((int) lead.size()) + " notes");
+            if (std::getenv ("GB_DUMP_BLUES"))
+                for (const gb::LeadIntent& n : lead)
+                    std::printf ("    %6d  bar %2d  pitch %3d  len %4d%s\n", n.tick, n.tick / (gb::kPPQ * 4) + 1, n.pitch, n.durationTicks, n.unswung ? " trip" : "");
 
             if (! lead.empty())
             {
@@ -7266,11 +7288,15 @@ int main (int argc, char** argv)
         // plays, in every song, at two seeds, is fingerprinted and pinned. Any
         // change that moves one solo note fails here, and the only way past is
         // to update this number on purpose - which is to say, with his say-so.
-        // Re-pinned 2026-09-26 for one reason only: the lock now measures a
-        // solo WITHIN its section (its last note's ring into the next section
-        // is that section's business). The v2.3.0 engine, built with just this
-        // definition change, gives this same value - no solo note moved.
-        check (f.soloSum == 0x1ab88244u,
+        // Re-pinned 2026-09-26, TWICE, both on purpose:
+        //  1. the lock measures a solo WITHIN its section. The v2.3.0 engine
+        //     with just that definition change gave 1ab88244 - nothing moved.
+        //  2. then the SOLOS WERE REBUILT at the owner's word: "they sound
+        //     empty, intermediate and as if to almost be hunting for notes to
+        //     hit rather than with mindful intent". generateLeadSolo replaces
+        //     generateSolo; guitar 2 now swings with the band in a shuffle.
+        // From here the lock protects the NEW solos until he says otherwise.
+        check (f.soloSum == 0x1585e04eu,
                "the solos are exactly as the owner approved them - not one note moved",
                juce::String::toHexString ((juce::int64) f.soloSum));
 
