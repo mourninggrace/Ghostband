@@ -895,6 +895,12 @@ private:
                  levelGuitar2Label, levelPianoLabel;
     juce::Label  mixLabel;
 
+    // How far GTR 2 drops while it plays fills, on its own row. A share of the
+    // GTR 2 knob, so turning GTR 2 down turns its fills down with it.
+    juce::Slider levelGuitar2Fills;
+    juce::Label  levelGuitar2FillsLabel;
+    void refreshFillsLevelLabel();
+
     juce::TextEditor seedEditor;
     juce::Label      seedLabel;
 

@@ -2613,7 +2613,7 @@ void GhostbandProcessor::sendLevels()
                         g2LevelCC.store (def.cc);
                         g2LevelFull.store (value);
                         g2LevelFill.store (juce::jlimit (0, 127, juce::roundToInt (
-                                              def.valueAt (p.level * kFillsLevel) * 127.0)));
+                                              def.valueAt (p.level * levelGuitar2Fills.load()) * 127.0)));
                         g2LevelDirty.store (true);
                     }
 
@@ -2636,7 +2636,7 @@ void GhostbandProcessor::sendLevels()
                     g2LevelChannel.store (p.channel);
                     g2LevelCC.store (7);
                     g2LevelFull.store (value);
-                    g2LevelFill.store (juce::jlimit (0, 127, juce::roundToInt (p.level * kFillsLevel * 127.0f)));
+                    g2LevelFill.store (juce::jlimit (0, 127, juce::roundToInt (p.level * levelGuitar2Fills.load() * 127.0f)));
                     g2LevelDirty.store (true);
                 }
             }
@@ -4370,6 +4370,7 @@ void GhostbandProcessor::getStateInformation (juce::MemoryBlock& destData)
     xml.setAttribute ("levelBass",   levelBass.load());
     xml.setAttribute ("levelGuitar",  levelGuitar.load());
     xml.setAttribute ("levelGuitar2", levelGuitar2.load());
+    xml.setAttribute ("levelGuitar2Fills", levelGuitar2Fills.load());
     xml.setAttribute ("levelPiano",   levelPiano.load());
 
     xml.setAttribute ("chDrums",  channelDrums.load());
@@ -4418,6 +4419,8 @@ void GhostbandProcessor::setStateInformation (const void* data, int sizeInBytes)
     levelBass.store   (level ("levelBass"));
     levelGuitar.store  (level ("levelGuitar"));
     levelGuitar2.store (level ("levelGuitar2"));
+    levelGuitar2Fills.store (static_cast<float> (juce::jlimit (0.0, 1.0,
+                                 xml->getDoubleAttribute ("levelGuitar2Fills", kFillsLevelDefault))));
     levelPiano.store  (level ("levelPiano"));
 
     channelDrums.store  (juce::jlimit (1, 16, xml->getIntAttribute ("chDrums", 10)));

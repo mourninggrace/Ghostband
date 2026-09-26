@@ -894,6 +894,7 @@ public:
     std::atomic<float> levelBass   { 1.0f };
     std::atomic<float> levelGuitar  { 1.0f };
     std::atomic<float> levelGuitar2 { 1.0f };
+    std::atomic<float> levelGuitar2Fills { kFillsLevelDefault };   // fraction of GTR 2 while it plays fills
     std::atomic<float> levelPiano   { 1.0f };
 
     // Queues the current levels for delivery. Safe to call at any time; the
@@ -901,9 +902,11 @@ public:
     void sendLevels();
 
     // How far below the knob guitar 2 sits while it plays fills: the level
-    // control is sent this fraction of the knob's value. 0.7 is about -6 dB on
-    // an instrument that follows the MIDI volume curve, which Kontakt does.
-    static constexpr float kFillsLevel = 0.7f;
+    // control is sent this fraction of the knob's value. It was a fixed 0.7,
+    // and on the Kontakt volume knob Shreddage's level is taught to that was
+    // only a few dB - "fill level is still too loud". Now it is the owner's own
+    // FILLS knob on the GTR 2 row, set by ear, starting well lower.
+    static constexpr float kFillsLevelDefault = 0.45f;
     int guitar2LevelForSectionForTesting (bool fills) const { return fills ? g2LevelFill.load() : g2LevelFull.load(); }
     void refreshLevels();
     bool levelIsTaught (int part) const;
@@ -982,7 +985,7 @@ private:
     // Velocity alone changes the tone more than the level, so the part's own
     // level control is used: per section, whether guitar 2 is answering (under
     // sequenceLock, published with the ranges), and the two values to send -
-    // the knob's, and the knob's scaled by kFillsLevel - worked out by
+    // the knob's, and the knob's scaled by the FILLS knob - worked out by
     // sendLevels on the message thread. The audio thread sends whichever one
     // the section needs, when it changes.
     std::vector<char>             sectionGuitar2Fills;

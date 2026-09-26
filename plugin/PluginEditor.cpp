@@ -2308,6 +2308,24 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     initLabel (levelGuitarLabel,  "GTR",    14.0f,  ghost::dim, juce::Justification::centred);
     initLabel (levelGuitar2Label, "GTR 2",  14.0f,  ghost::dim, juce::Justification::centred);
     initLabel (levelPianoLabel,   "PIANO",  14.0f,  ghost::dim, juce::Justification::centred);
+    initLabel (levelGuitar2FillsLabel, "FILLS", 14.0f, ghost::dim, juce::Justification::centredLeft);
+    {
+        levelGuitar2Fills.setSliderStyle (juce::Slider::RotaryVerticalDrag);
+        levelGuitar2Fills.setRotaryParameters (juce::MathConstants<float>::pi * 1.2f,
+                                               juce::MathConstants<float>::pi * 2.8f, true);
+        levelGuitar2Fills.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+        levelGuitar2Fills.setRange (0.0, 1.0, 0.01);
+        levelGuitar2Fills.setValue (processor.levelGuitar2Fills.load(), juce::dontSendNotification);
+        levelGuitar2Fills.setDoubleClickReturnValue (true, GhostbandProcessor::kFillsLevelDefault);
+        levelGuitar2Fills.onValueChange = [this]
+        {
+            processor.levelGuitar2Fills.store (static_cast<float> (levelGuitar2Fills.getValue()));
+            processor.sendLevels();
+            refreshFillsLevelLabel();
+        };
+        addAndMakeVisible (levelGuitar2Fills);
+        refreshFillsLevelLabel();
+    }
     initLabel (keyLabel,        "KEY",        15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (modeLabel,       "MODE",       15.0f, ghost::dim,   juce::Justification::centredLeft);
     initLabel (styleLabel,      "STYLE",      15.0f, ghost::dim,   juce::Justification::centredLeft);
@@ -3336,7 +3354,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     for (juce::Slider* s : { &complexitySlider, &humanizeSlider, &fillsSlider,
                              &intuitionSlider,
                              &levelDrums, &levelBass, &levelGuitar,
-                             &levelGuitar2, &levelPiano })
+                             &levelGuitar2, &levelPiano, &levelGuitar2Fills })
         registerTrail (*s);
 
     // Above everything, and it never takes a click. Added last so it is already
@@ -4899,7 +4917,8 @@ void GhostbandEditor::updateModeVisibility()
              &bpmLabel, &bpmEditor, &rollHintLabel,
              &mixLabel, &levelDrums, &levelBass, &levelGuitar, &levelGuitar2, &levelPiano,
              &levelDrumsLabel, &levelBassLabel, &levelGuitarLabel,
-             &levelGuitar2Label, &levelPianoLabel })
+             &levelGuitar2Label, &levelPianoLabel,
+             &levelGuitar2Fills, &levelGuitar2FillsLabel })
         c->setVisible (song);
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
@@ -6786,6 +6805,28 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
                               + " level, sent to the instrument's own volume control.");
 
         auto row = rail.removeFromTop (34);
+
+        // GTR 2's row also carries how far it drops for fills - same reason to
+        // grey out, same reason in the tooltip, never hidden.
+        if (i == 3)
+        {
+            levelGuitar2Fills.setVisible (screen == Screen::Song);
+            levelGuitar2FillsLabel.setVisible (screen == Screen::Song);
+            levelGuitar2Fills.setEnabled (reachable);
+            levelGuitar2Fills.setAlpha (alpha);
+            levelGuitar2FillsLabel.setAlpha (alpha);
+            levelGuitar2Fills.setTooltip (
+                reachable ? "How loud guitar 2 plays its FILLS, as a share of the GTR 2 knob. Solos play at "
+                            "the full GTR 2 level; fills drop to this, so they sit behind the band. "
+                            "Double-click for the default."
+                          : "Nothing can set guitar 2's level (see the GTR 2 knob), so nothing can "
+                            "lower it for fills either.");
+            auto fillsArea = row.removeFromRight (104);
+            levelGuitar2Fills.setBounds (fillsArea.removeFromLeft (30).reduced (1));
+            fillsArea.removeFromLeft (6);
+            levelGuitar2FillsLabel.setBounds (fillsArea);
+        }
+
         levelSliders[i]->setBounds (row.removeFromLeft (34).reduced (1));
         row.removeFromLeft (10);
         levelLabels[i]->setBounds (row);
@@ -6858,4 +6899,10 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
     arrangement.setBounds (r);
     tracker.setBounds (r);
     refreshTracker();
+}
+
+void GhostbandEditor::refreshFillsLevelLabel()
+{
+    levelGuitar2FillsLabel.setText ("FILLS " + juce::String (juce::roundToInt (levelGuitar2Fills.getValue() * 100.0)) + "%",
+                                    juce::dontSendNotification);
 }
