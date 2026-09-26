@@ -886,6 +886,12 @@ public:
     // Queues the current levels for delivery. Safe to call at any time; the
     // messages go out whether or not the transport is running.
     void sendLevels();
+
+    // How far below the knob guitar 2 sits while it plays fills: the level
+    // control is sent this fraction of the knob's value. 0.7 is about -6 dB on
+    // an instrument that follows the MIDI volume curve, which Kontakt does.
+    static constexpr float kFillsLevel = 0.7f;
+    int guitar2LevelForSectionForTesting (bool fills) const { return fills ? g2LevelFill.load() : g2LevelFull.load(); }
     void refreshLevels();
     bool levelIsTaught (int part) const;
 
@@ -956,6 +962,20 @@ private:
     juce::SpinLock                sequenceLock;
     std::vector<TimedMessage>     sequence;
     std::vector<SectionRange>     sectionRanges;
+
+    // GUITAR 2 SITS BACK UNDER ITS FILLS. The owner: "when gtr 2 is playing a
+    // solo, the volume should be strong so it's heard well (as is), but when it
+    // is playing fills, the volume should be more of a background thing".
+    // Velocity alone changes the tone more than the level, so the part's own
+    // level control is used: per section, whether guitar 2 is answering (under
+    // sequenceLock, published with the ranges), and the two values to send -
+    // the knob's, and the knob's scaled by kFillsLevel - worked out by
+    // sendLevels on the message thread. The audio thread sends whichever one
+    // the section needs, when it changes.
+    std::vector<char>             sectionGuitar2Fills;
+    std::atomic<int>              g2LevelChannel { -1 }, g2LevelCC { -1 }, g2LevelFull { -1 }, g2LevelFill { -1 };
+    std::atomic<bool>             g2LevelDirty { true };
+    int                           g2LevelLastSent = -1;     // audio thread only
     int                           sequenceEndTick = 0;
     int                           barTicks        = 1920;
 

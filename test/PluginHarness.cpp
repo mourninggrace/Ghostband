@@ -6935,6 +6935,49 @@ int main (int argc, char** argv)
                    + juce::String (f.betweenSongs, 2) + " alike, " + juce::String (f.phrases) + " phrases");
     }
 
+    // GUITAR 2 SITS BACK UNDER ITS FILLS AND COMES FORWARD FOR ITS SOLO. The
+    // owner asked for fills "more of a background thing" with solos as loud as
+    // they are. Played through a song that has both, capturing what reaches
+    // guitar 2's level control: the lower value in answering sections, the
+    // knob's own in the solo, and nothing else.
+    {
+        GhostbandProcessor p3;
+        p3.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-prog.json"));
+        const double sr = 48000.0;
+        const int    bs = 512;
+        p3.setRateAndBufferSizeDetails (sr, bs);
+        p3.prepareToPlay (sr, bs);
+        FakePlayHead ph;
+        ph.bpm = p3.getPlanBpm();
+        p3.setPlayHead (&ph);
+
+        const int full = p3.guitar2LevelForSectionForTesting (false);
+        const int fill = p3.guitar2LevelForSectionForTesting (true);
+
+        juce::AudioBuffer<float> buf (2, bs);
+        juce::MidiBuffer m;
+        const double qPerBlock = (bs / sr) * (ph.bpm / 60.0);
+        std::set<int> sent;
+        for (int blk = 0; blk < static_cast<int> ((p3.getStatus().bars + 2) * 4 / qPerBlock); ++blk)
+        {
+            ph.ppq = blk * qPerBlock;
+            buf.clear(); m.clear();
+            p3.processBlock (buf, m);
+            for (const juce::MidiMessageMetadata e : m)
+            {
+                const auto msg = e.getMessage();
+                if (msg.isController() && msg.getControllerNumber() != 0 && (msg.getControllerValue() == full || msg.getControllerValue() == fill))
+                    sent.insert (msg.getControllerValue());
+            }
+        }
+        p3.setPlayHead (nullptr);
+
+        check (full > 0 && fill < full && sent.count (fill) && sent.count (full),
+               "guitar 2 plays its fills below the knob's level and its solo at it",
+               "knob " + juce::String (full) + ", fills " + juce::String (fill) + ", sent "
+                   + juce::String ((int) sent.size()) + " of the two");
+    }
+
     // THE LOCK ORDER RULE, since it is not otherwise written down anywhere:
     // never hold sequenceLock and stateLock at the same time, in either order,
     // and never let the audio thread block on stateLock at all.

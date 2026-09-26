@@ -2569,8 +2569,10 @@ void GhostbandProcessor::sendLevels()
             { pianoProfile.channel,   levelPiano.load(),   havePiano   ? &pianoProfile.controls   : nullptr, ! havePiano   || pianoProfile.volumeReachable },
         };
 
-        for (const Part& p : parts)
+        for (size_t pi = 0; pi < 5; ++pi)
         {
+            const Part& p = parts[pi];
+            const bool isGuitar2 = (pi == 3) && haveGuitar2;
             bool taught = false;
 
             if (p.set != nullptr)
@@ -2588,6 +2590,16 @@ void GhostbandProcessor::sendLevels()
                     out.push_back ({ p.channel, def.cc, value });
                     taught = true;
 
+                    if (isGuitar2)
+                    {
+                        g2LevelChannel.store (p.channel);
+                        g2LevelCC.store (def.cc);
+                        g2LevelFull.store (value);
+                        g2LevelFill.store (juce::jlimit (0, 127, juce::roundToInt (
+                                              def.valueAt (p.level * kFillsLevel) * 127.0)));
+                        g2LevelDirty.store (true);
+                    }
+
                     // One knob, one control. Two places upstream now make a
                     // second "level" impossible to create, but a store written
                     // before them still exists on this machine and on anyone
@@ -2598,8 +2610,23 @@ void GhostbandProcessor::sendLevels()
             }
 
             if (! taught && p.reachable)
-                out.push_back ({ p.channel, 7,
-                                 juce::jlimit (0, 127, juce::roundToInt (p.level * 127.0f)) });
+            {
+                const int value = juce::jlimit (0, 127, juce::roundToInt (p.level * 127.0f));
+                out.push_back ({ p.channel, 7, value });
+
+                if (isGuitar2)
+                {
+                    g2LevelChannel.store (p.channel);
+                    g2LevelCC.store (7);
+                    g2LevelFull.store (value);
+                    g2LevelFill.store (juce::jlimit (0, 127, juce::roundToInt (p.level * kFillsLevel * 127.0f)));
+                    g2LevelDirty.store (true);
+                }
+            }
+            else if (! taught && isGuitar2)
+            {
+                g2LevelCC.store (-1);    // nothing reaches its volume: nothing to lower
+            }
         }
     }
 
@@ -3517,6 +3544,12 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
     for (const gb::SectionReport& s : result.sections)
         ranges.push_back ({ s.startTick, s.endTick });
 
+    // Which sections guitar 2 answers in, for its background level.
+    std::vector<char> fillsBySection;
+    fillsBySection.reserve (result.sections.size());
+    for (const gb::SectionReport& s : result.sections)
+        fillsBySection.push_back (s.guitar2Feel.rfind ("fills", 0) == 0 ? 1 : 0);
+
     const int beat = std::max (1, gb::kPPQ * 4 / std::max (1, planToUse.timeSigDenominator));
     const int bar  = beat * std::max (1, planToUse.timeSigNumerator);
 
@@ -3524,6 +3557,7 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
         const juce::SpinLock::ScopedLockType lock (sequenceLock);
         sequence.swap (built);
         sectionRanges.swap (ranges);
+        sectionGuitar2Fills.swap (fillsBySection);
         sequenceEndTick = endTick;
         barTicks = bar;
     }
@@ -3789,6 +3823,7 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     // reloaded or reset since the last change still gets them.
     if (levelsPending.exchange (false))
     {
+        g2LevelDirty.store (true);   // the restatement below is the knob's level; re-apply the section's
         const juce::SpinLock::ScopedTryLockType levels (auditionLock);
         if (levels.isLocked())
         {
@@ -3978,6 +4013,31 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
             if (songStart >= sectionRanges[i].startTick && songStart < sectionRanges[i].endTick)
                 { nowIn = static_cast<int> (i); break; }
     activeSection.store (nowIn);
+
+    // Guitar 2's level for where the band is about to be. Looked up at the END
+    // of this block, so a solo that starts inside it is already at full level
+    // when its first note sounds rather than a block later.
+    {
+        const int cc = g2LevelCC.load();
+        if (cc >= 0 && ! finished)
+        {
+            int ahead = -1;
+            const double at = songEnd - 1.0;
+            for (size_t i = 0; i < sectionRanges.size(); ++i)
+                if (at >= sectionRanges[i].startTick && at < sectionRanges[i].endTick)
+                    { ahead = static_cast<int> (i); break; }
+
+            const bool fills = ahead >= 0 && ahead < static_cast<int> (sectionGuitar2Fills.size())
+                               && sectionGuitar2Fills[static_cast<size_t> (ahead)] != 0;
+            const int value = fills ? g2LevelFill.load() : g2LevelFull.load();
+
+            if (value >= 0 && (value != g2LevelLastSent || g2LevelDirty.exchange (false)))
+            {
+                midi.addEvent (juce::MidiMessage::controllerEvent (g2LevelChannel.load(), cc, value), 0);
+                g2LevelLastSent = value;
+            }
+        }
+    }
 
     // Still emit past the bar line, so the last chord is allowed to release.
     // Only the PLAYHEAD stops at the end; the sound finishes properly.
