@@ -7,6 +7,17 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
 
 ## [Unreleased]
 
+### Added
+- **The stall log now covers the audio side too.** Ghostband times its own
+  audio processing, and once a second checks that the host asked for as much
+  audio as the second contained. A shortfall of more than a tenth of a second is
+  written to `stalls.log` as `AUDIO FELL BEHIND`, with Ghostband's own audio time
+  and its slowest block beside it. So the next time the sound breaks up, the log
+  says whether any of the missing time was spent in Ghostband. Every window-stall
+  line carries the same two figures. Prompted by an interface that locked into a
+  looping noise on 2026-09-26, while the log showed up to a second of audio
+  missing and could not say where that time had gone.
+
 ### Fixed
 - **The planner's explanation is readable in full.** The line under **Write** was
   one line wide, so a two-sentence explanation was cut off mid-word with no way

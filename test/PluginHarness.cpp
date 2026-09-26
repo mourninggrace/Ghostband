@@ -4179,6 +4179,46 @@ int main (int argc, char** argv)
                            "and nothing of it reaches the log",
                            juce::String (testLog.getSize() - sizeWas) + " bytes added");
                 }
+
+                // THE AUDIO SIDE. The owner's interface locked into a looping
+                // noise on 2026-09-26 and the log showed a second of audio
+                // missing, with nothing to say whether any of it was spent in
+                // Ghostband. A shortfall must be written down WITH our own
+                // audio-thread time, and a second with all its audio must not.
+                {
+                    const double sr = proc.getSampleRate();
+                    const auto samplesFor = [sr] (double ms) { return (juce::uint64) (sr * ms / 1000.0); };
+
+                    gbEd->runTimerForTesting();
+                    juce::Thread::sleep (1100);
+                    gbEd->runTimerForTesting();          // closes whatever window was open
+
+                    const int  loggedBefore = gbEd->audioShortfallsForTesting();
+                    const juce::String logBefore = testLog.loadFileAsString();
+
+                    // A third of a second of audio in over a second, and one of
+                    // our blocks took 5 ms of it.
+                    proc.audioSamples.fetch_add (samplesFor (300.0));
+                    proc.noteAudioWork ((juce::int64) (juce::Time::getHighResolutionTicksPerSecond() / 200));
+                    juce::Thread::sleep (1100);
+                    gbEd->runTimerForTesting();
+
+                    const juce::String added = testLog.loadFileAsString().substring (logBefore.length());
+                    check (gbEd->audioShortfallsForTesting() == loggedBefore + 1
+                               && added.contains ("AUDIO FELL BEHIND")
+                               && added.contains ("worst block 5.00 ms"),
+                           "a second the host ran short of audio is logged, with Ghostband's own audio time beside it",
+                           added.trim().fromFirstOccurrenceOf ("BEHIND", false, false).upToFirstOccurrenceOf ("budget", true, false));
+
+                    // And a second that had all its audio is not.
+                    proc.audioSamples.fetch_add (samplesFor (1300.0));
+                    juce::Thread::sleep (1100);
+                    gbEd->runTimerForTesting();
+
+                    check (gbEd->audioShortfallsForTesting() == loggedBefore + 1,
+                           "and a second with all its audio is not",
+                           juce::String (gbEd->audioShortfallsForTesting() - loggedBefore) + " logged");
+                }
             }
 
             proc.editorBeingDeleted (ed);

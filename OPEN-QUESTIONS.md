@@ -3,7 +3,7 @@
 One file, so none of it has to be remembered. Answered items move to the bottom
 with a date rather than being deleted, so the same question is never asked twice.
 
-**Last updated 2026-09-24, end of session 23. v2.0.0 is out; the planner has written its first real song.**
+**Last updated 2026-09-26, session 24. v2.0.0 is out; the planner works; audio stalls are now timed.**
 
 ---
 
@@ -89,6 +89,23 @@ Also found then: the test suite had been writing into your `stalls.log`. It no
 longer does, and a full test run leaves your file byte-identical. Your old-format log was moved aside to
 `stalls-old-format-to-20260916.log` rather than deleted, so the new one starts
 clean and nothing was thrown away.
+
+### 000. THE INTERFACE THAT LOOPED - over to your log
+
+On 2026-09-26 your Focusrite locked into a steady echoing noise until you
+unplugged it. That is the driver replaying its last buffer after the audio
+stopped arriving. The log shows the whole of Gig Performer, audio included,
+stopped for up to a second at a time between 04:56 and 04:57. Most of those
+stops were while the band was paused, about ten minutes after the PC booted,
+while Windows was installing an update. So Ghostband is unlikely, but not ruled
+out.
+
+**Ghostband now times its own audio work.** If it happens again, open
+`stalls.log` (Settings -> Show log folder) and look for `AUDIO FELL BEHIND`
+lines around that time. If "ghostband audio" is a tiny number there, the time
+went somewhere else. Worth trying meanwhile: give Windows a few minutes after
+boot before playing, and check whether Dante Via, Dante Virtual Soundcard or
+NVIDIA Broadcast were running, since any of them can loop audio back.
 
 ### 00. THE PLANNER, AND WHAT THE GUITAR DOES NOW - v2.0.0
 

@@ -380,6 +380,39 @@ public:
     // for a memory barrier to service a readout would be its own bug.
     std::atomic<unsigned> audioBlocks { 0 };
 
+    // WHAT GHOSTBAND ITSELF SPENDS ON THE AUDIO THREAD, and how much audio the
+    // host actually asked for. Added 2026-09-26 after the owner's interface
+    // locked into a looping noise that only unplugging it cured, and the log
+    // showed the audio had stopped for up to a second - with no way to say
+    // whether any of that second was inside processBlock.
+    //
+    // Samples, not blocks: a host may send blocks smaller than the size it
+    // announced, and elapsed time times the sample rate is exact either way.
+    // Timing is in high-resolution ticks (QueryPerformanceCounter on Windows),
+    // added with fetch_add and maxed with a compare loop - one writer, one
+    // reader that takes and zeroes, nothing that can block.
+    std::atomic<juce::uint64> audioSamples       { 0 };
+    std::atomic<juce::int64>  audioWorkTicks     { 0 };
+    std::atomic<juce::int64>  audioWorstBlockTicks { 0 };
+
+    void noteAudioWork (juce::int64 ticks) noexcept
+    {
+        audioWorkTicks.fetch_add (ticks, std::memory_order_relaxed);
+        juce::int64 worst = audioWorstBlockTicks.load (std::memory_order_relaxed);
+        while (ticks > worst
+               && ! audioWorstBlockTicks.compare_exchange_weak (worst, ticks, std::memory_order_relaxed)) {}
+    }
+
+    // Taken by the editor's timer, which zeroes both so each reading covers
+    // only the time since the last one.
+    struct AudioWork { double totalMs = 0.0, worstBlockMs = 0.0; };
+    AudioWork takeAudioWork() noexcept
+    {
+        const double msPerTick = 1000.0 / (double) juce::Time::getHighResolutionTicksPerSecond();
+        return { (double) audioWorkTicks.exchange (0, std::memory_order_relaxed) * msPerTick,
+                 (double) audioWorstBlockTicks.exchange (0, std::memory_order_relaxed) * msPerTick };
+    }
+
     // Where a stall report is written, beside the takes and the learned
     // controls, so it can be found and sent without hunting.
     static juce::File stallLogFile();

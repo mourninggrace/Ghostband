@@ -643,6 +643,7 @@ public:
     // is whenever the host has it behind a tab. Nothing should be recorded.
     void runTimerOffScreenForTesting();
     int  stallCountForTesting() const;
+    int  audioShortfallsForTesting() const { return audioShortfallsLogged; }
     juce::String stallDetailForTesting() const;
 
 private:
@@ -1330,6 +1331,21 @@ private:
     // freeze - but it is no longer load-bearing, and every line records what
     // both of these thought, so if this reasoning is wrong too the next log
     // says so instead of needing another round of guessing.
+    // THE AUDIO SIDE OF THE SAME QUESTION. A timer gap only shows the message
+    // thread; an audio stall with a healthy window would never appear above.
+    // So once a second the audio the host asked for is set against the time
+    // that passed, and a shortfall is written down with what Ghostband's own
+    // processBlock cost over the same second. Zero audio means the host was
+    // not running us at all, which is not a stall (see idleGaps).
+    double       audioWindowStartMs  = 0.0;
+    juce::uint64 audioWindowSamples  = 0;
+    double       audioWindowWorkMs   = 0.0;
+    double       audioWindowWorstMs  = 0.0;
+    double       gapAudioWorkMs      = 0.0;    // the same figures, for the timer gap line
+    double       gapAudioWorstMs     = 0.0;
+    int          audioShortfallsLogged = 0;    // capped, so a stuck condition cannot fill the disc
+    void checkAudioKeptUp (double now);
+
     unsigned idleGaps      = 0;      // gaps with no audio: the host was not running us
     double   idleGapMsTotal = 0.0;
     unsigned idleLogged    = 0;      // how many summary lines have been written

@@ -3225,10 +3225,64 @@ static const juce::String& midDot()
     return d;
 }
 
+// Once a second: did the host ask for as much audio as the second contained?
+// Written only when it fell short by more than a tenth of a second, and only
+// when some audio arrived - none at all means the host was not running us.
+void GhostbandEditor::checkAudioKeptUp (double now)
+{
+    const juce::uint64 samples = processor.audioSamples.load (std::memory_order_relaxed);
+    const double sr = processor.getSampleRate();
+
+    if (audioWindowStartMs <= 0.0 || sr <= 0.0 || samples < audioWindowSamples)
+    {
+        audioWindowStartMs = now;
+        audioWindowSamples = samples;
+        audioWindowWorkMs  = audioWindowWorstMs = 0.0;
+        return;
+    }
+
+    const double elapsedMs = now - audioWindowStartMs;
+    if (elapsedMs < 1000.0)
+        return;
+
+    const double gotMs     = (double) (samples - audioWindowSamples) * 1000.0 / sr;
+    const double missingMs = elapsedMs - gotMs;
+
+    if (gotMs > 0.0 && missingMs > 100.0 && audioShortfallsLogged < 200)
+    {
+        ++audioShortfallsLogged;
+
+        const juce::File log = GhostbandProcessor::stallLogFile();
+        log.getParentDirectory().createDirectory();
+
+        const double budgetMs = processor.getBlockSize() * 1000.0 / sr;
+        log.appendText (juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H:%M:%S")
+                        + "  AUDIO FELL BEHIND   " + juce::String (juce::roundToInt (missingMs)) + " ms of audio missing in "
+                        + juce::String (juce::roundToInt (elapsedMs)) + " ms"
+                        + "   ghostband audio " + juce::String (audioWindowWorkMs, 1) + " ms"
+                        + " (worst block " + juce::String (audioWindowWorstMs, 2) + " ms of "
+                        + juce::String (budgetMs, 2) + " ms budget)"
+                        + (processor.transportRunning.load() ? "   playing" : "   stopped")
+                        + (audioShortfallsLogged == 200 ? "   - the last one this session" : "")
+                        + "\n");
+    }
+
+    audioWindowStartMs = now;
+    audioWindowSamples = samples;
+    audioWindowWorkMs  = audioWindowWorstMs = 0.0;
+}
+
 void GhostbandEditor::noteTimerTick()
 {
     const double now = juce::Time::getMillisecondCounterHiRes();
     const unsigned blocks = processor.audioBlocks.load (std::memory_order_relaxed);
+
+    const GhostbandProcessor::AudioWork work = processor.takeAudioWork();
+    audioWindowWorkMs += work.totalMs;
+    audioWindowWorstMs = juce::jmax (audioWindowWorstMs, work.worstBlockMs);
+    gapAudioWorkMs    += work.totalMs;
+    gapAudioWorstMs    = juce::jmax (gapAudioWorstMs, work.worstBlockMs);
+    checkAudioKeptUp (now);
 
     if (lastTimerStartMs > 0.0)
     {
@@ -3353,6 +3407,10 @@ void GhostbandEditor::noteTimerTick()
                             + "   audio " + juce::String (s.audioBlocks) + " blocks of "
                             + juce::String (processor.getBlockSize())
                             + (sr > 0.0 ? " at " + juce::String (sr / 1000.0, 1) + "k" : "")
+                            // Ghostband's own audio-thread time over the gap. Near
+                            // zero means a missing second of audio was not spent here.
+                            + "   ghostband audio " + juce::String (gapAudioWorkMs, 1) + " ms"
+                            + " (worst block " + juce::String (gapAudioWorstMs, 2) + " ms)"
                             + "   screen " + juce::String (screenName (s.screen))
                             + (s.playing ? "   playing" : "   stopped")
                             // WHAT THE TWO GUESSES THOUGHT. Recorded rather
@@ -3373,6 +3431,8 @@ void GhostbandEditor::noteTimerTick()
 
     lastTimerStartMs = now;
     lastAudioBlocks  = blocks;
+    gapAudioWorkMs   = 0.0;
+    gapAudioWorstMs  = 0.0;
 
     // Zeroed AFTER recording, so what accumulates from here belongs to the next
     // gap. Painting and handlers both run between ticks, which is the whole

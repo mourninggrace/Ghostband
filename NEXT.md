@@ -6,22 +6,23 @@ useless for the one job it has: telling whoever picks this up next what is true
 right now. The history is in `docs/archive/NEXT-through-session-13.md`, and
 nobody has to read it.
 
-**Last touched 2026-09-24, session 23.**
+**Last touched 2026-09-26, session 24.**
 
 ## State
 
 - **v2.0.0 released 2026-09-24** (first cut as v0.7.0 the same day and
   renumbered at the owner's request - the planner was v2's headline). Tagged,
   published, marked latest, and its checksum verified by downloading it back from GitHub.
-- **Unreleased on `main`:** the planner status-line fixes from session 23
-  (in CHANGELOG under Unreleased). Installed on the owner's machine; not yet a release.
+- **Unreleased on `main`:** the planner status-line fixes (session 23) and
+  audio-side stall logging (session 24), both in CHANGELOG under Unreleased.
+  Installed on the owner's machine; not yet a release.
 - **The AI planner works for real.** First live call 2026-09-24: "Slow Burn Iron",
   23 s, 3,588 in / 2,261 out (about 6¢), served by claude-opus-5-5 with no
   fallback. The owner: "awesome so far".
 - **The window is 1180x820, minimum 1020x820.** Both numbers are load-bearing:
   the minimum is set by the two-column Settings screen, not by the song screen,
   and the harness's `kMinW`/`kMinH` must move with it.
-- **479 checks** pass on every build, and all 34 plans are swept.
+- **481 checks** pass on every build, and all 34 plans are swept.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
@@ -156,6 +157,39 @@ to run: Windows Defender real-time protection and behaviour monitoring are on
 with no exclusions (Kontakt streaming samples through a scanner is the classic
 cause of exactly this), and bisecting the rackspace would settle it. Both are
 written up in OPEN-QUESTIONS.
+
+## Session 24: the interface that looped, and timing the audio thread
+
+The owner's Focusrite locked into a steady echoing noise mid-song on the
+morning of 2026-09-26, and only unplugging it cured it. That is an ASIO driver
+replaying its last buffer after audio stopped arriving.
+
+**What the log already showed:** five timer gaps between 04:56:22 and 04:57:32
+whose audio block counts do NOT account for the gap (1,047 ms with 3 blocks;
+normal is one block per 10.67 ms). So the whole host stalled, audio included,
+for up to a second. Three of the five fell while the band was PAUSED (04:56:07
+to 04:57:04), when Ghostband does almost nothing. The PC had booted at about
+04:46; Windows was installing a Defender update at 04:57:30. Windows logged no
+driver or USB error and no GP5 crash. **Leading suspect: post-boot Windows
+activity, not Ghostband. Not proven.** A windowless GigPerformer5 process
+started at 04:53 that morning, the session with the fault, was still alive
+hours later when this session installed. Worth ending before GP5 starts again.
+
+**What was missing, now added:** Ghostband's own audio-thread time. processBlock
+is timed from its first line to every return (`TimeThisBlock`, high-resolution
+ticks, fetch_add plus a compare-exchange max, no locks), and counts samples.
+`checkAudioKeptUp` runs once a second from the timer: if the host asked for more
+than 100 ms less audio than the second contained (and asked for some), it
+writes `AUDIO FELL BEHIND` with our total and worst block against the block
+budget. Capped at 200 lines a session. Every window-stall line carries the same
+two figures. This also catches an audio stall with a healthy window, which the
+timer-gap detector never could.
+
+Two checks: a short second is logged with our time beside it (made to fail with
+the threshold disabled first), and a full second is not.
+`juce::String (double, 0)` means full precision, not zero decimals - use
+`roundToInt`. And `Build.bat` does not run from the bash tool; a "rebuild" there
+silently left the deliberately broken binary in place. Build through PowerShell.
 
 ## Session 23: the planner's first real song, and a line you could not read
 

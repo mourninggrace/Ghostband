@@ -21,6 +21,9 @@ can make.
 
 ## Next
 
+- [ ] **Read `stalls.log` after the next audio break-up.** `AUDIO FELL BEHIND`
+      lines now say whether the missing time was spent in Ghostband.
+
 - [ ] **Planner settings in the interface** — model and effort are fixed in code
       (Claude Opus 5.5, medium) and should be choosable in Settings.
 - [ ] **Takes sliding into the list** — the last animation from the agreed list.

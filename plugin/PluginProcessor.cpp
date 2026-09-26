@@ -3368,6 +3368,15 @@ void GhostbandProcessor::sendAllNotesOff (juce::MidiBuffer& midi, int sampleOffs
 
 void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
+    // Timed from the first line to every return, so the figure is everything
+    // this block cost - see noteAudioWork.
+    struct TimeThisBlock
+    {
+        GhostbandProcessor& p;
+        const juce::int64 start = juce::Time::getHighResolutionTicks();
+        ~TimeThisBlock() { p.noteAudioWork (juce::Time::getHighResolutionTicks() - start); }
+    } timeThisBlock { *this };
+
     juce::ScopedNoDenormals noDenormals;
 
     // Audio passes through untouched; only spare output channels get cleared.
@@ -3382,6 +3391,7 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     // lets the editor say "audio kept running while the window was stuck"
     // rather than leaving that as the owner's impression.
     audioBlocks.fetch_add (1, std::memory_order_relaxed);
+    audioSamples.fetch_add ((juce::uint64) juce::jmax (0, buffer.getNumSamples()), std::memory_order_relaxed);
 
     const int numSamples = buffer.getNumSamples();
     if (numSamples <= 0)

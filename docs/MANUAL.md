@@ -397,6 +397,21 @@ right, with the verdict in words when you hover it.
 It is written to `%APPDATA%\Ghostband\stalls.log` too, with the date as well as
 the time, because the window that would show it is the thing that was frozen.
 
+### If the sound ever breaks up
+
+The same log watches the audio. Once a second Ghostband checks that the host
+asked it for as much audio as the second contained. If more than a tenth of a
+second is missing, it writes an `AUDIO FELL BEHIND` line, with how much
+audio was missing, how long Ghostband's own audio processing took over that
+second, and its slowest single block against the time a block is allowed
+(10.67 ms at 512 samples and 48 kHz). **If Ghostband's figure is a fraction of a
+millisecond while a second of audio is missing, the time went somewhere else** —
+another plugin, the audio driver, or Windows itself.
+
+An interface that locks into a repeating or echoing noise until it is unplugged
+is its driver replaying its last buffer after the audio stopped arriving. If that
+happens, the lines around that time say whether the stop was inside Ghostband.
+
 **It only counts a gap where the host was actually running the plugin.** A
 plugin sitting in an inactive rackspace, or in a host whose audio engine is off,
 gets its timer throttled to a flat 600 milliseconds — which looks exactly like a
