@@ -5,7 +5,11 @@ measured, not estimated; where something could not be measured yet, it says so.
 
 Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/releases).
 
-## [Unreleased]
+## [2.2.1] — 2026-09-26
+
+One fix: a saved API key could be refused as unreadable. If you saw "Windows
+could not read the saved key", install this - your key will read again without
+entering it.
 
 ### Fixed
 - **A saved API key was sometimes refused as unreadable.** The fixed "entropy"
