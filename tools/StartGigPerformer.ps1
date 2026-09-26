@@ -23,7 +23,12 @@ param (
     [string] $Exe         = 'C:\Program Files\Gig Performer 5\GigPerformer5.exe',
     [string] $ProcessName = 'GigPerformer5',
     [int]    $GraceSeconds = 20,
-    [string] $Log         = (Join-Path $env:APPDATA 'Ghostband\gp-launcher.log')
+    [string] $Log         = (Join-Path $env:APPDATA 'Ghostband\gp-launcher.log'),
+
+    # Clear leftovers and stop there - Install.bat uses this, so a copy of Gig
+    # Performer that Kontakt kept alive cannot block an install. A live session
+    # is still never touched, and nothing is started.
+    [switch] $ClearOnly
 )
 
 $ErrorActionPreference = 'SilentlyContinue'
@@ -39,7 +44,7 @@ $running = @(Get-Process -Name $ProcessName)
 
 # A real session is open: show it, start nothing.
 $live = $running | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
-if ($live) {
+if ($live -and -not $ClearOnly) {
     (New-Object -ComObject WScript.Shell).AppActivate($live.Id) | Out-Null
     exit 0
 }
@@ -52,8 +57,10 @@ foreach ($p in $leftovers) {
     $age = [int]((Get-Date) - $p.StartTime).TotalMinutes
     Stop-Process -Id $p.Id -Force
     $p.WaitForExit(10000) | Out-Null
-    Write-Log ("cleared a Gig Performer that had quit but not exited   pid {0}, started {1:yyyy-MM-dd HH:mm}, {2} min old" -f $p.Id, $p.StartTime, $age)
+    Write-Log ("cleared a Gig Performer that had quit but not exited   pid {0}, started {1:yyyy-MM-dd HH:mm}, {2} min old{3}" -f $p.Id, $p.StartTime, $age, $(if ($ClearOnly) { "   (by the installer)" } else { "" }))
 }
+
+if ($ClearOnly) { exit 0 }
 
 Start-Process -FilePath $exe
 Write-Log ("started Gig Performer" + $(if ($leftovers) { "" } else { "   (nothing left over to clear)" }))

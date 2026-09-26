@@ -433,7 +433,9 @@ shortcut at `tools/StartGigPerformer.vbs` (which runs the script without a
 console window). Each time you start Gig Performer, it first ends any copy that
 has no window and has been running for more than 20 seconds, and logs what it
 cleared to `%APPDATA%\Ghostband\gp-launcher.log`. If a real session is already
-open, it brings that one to the front instead of starting a second. Updating
+open, it brings that one to the front instead of starting a second.
+`Install.bat` applies the same rule before it installs, so a leftover cannot
+block an install either; an open session is still left alone. Updating
 Kontakt through Native Access is worth trying too; this was measured on 8.13.1.
 
 ### If the sound ever breaks up

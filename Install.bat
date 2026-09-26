@@ -36,9 +36,19 @@ if %WAITED% GEQ 15 (
     echo Something still has the plugin open, so installing would silently leave
     echo the old build in place. Close your host and run this again.
     echo.
-    echo   If your host is already closed, check Task Manager for a leftover
-    echo   process still holding it.
+    echo   Any Gig Performer that had quit but not exited was already cleared,
+    echo   so what still holds it is a host that is open with its window.
     exit /b 1
+)
+
+rem THE KONTAKT CASE. Quitting a Gig Performer session with Kontakt in it
+rem leaves GigPerformer5.exe running with no window (Kontakt 8 hangs on
+rem shutdown - measured 2026-09-26), and that copy holds this file forever. So
+rem on the first refusal, the launcher's own logic clears any copy with NO
+rem WINDOW that is over 20 seconds old. A running session, with its window, is
+rem never touched - it still has to be closed by hand.
+if %WAITED%==0 (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\StartGigPerformer.ps1" -ClearOnly
 )
 
 if %WAITED%==0 echo Waiting for the plugin to be released...

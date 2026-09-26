@@ -18,6 +18,12 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
   side one after another, and a take you save slides into its place. The last
   of the agreed animations.
 
+- **`Install.bat` clears a Gig Performer that quit but did not exit.** The copy
+  Kontakt keeps alive holds the plugin file, so installs were refused until it was
+  ended in Task Manager. The installer now runs the launcher's own rule: a copy with
+  no window, over 20 seconds old, is ended and logged. A session that is open, with
+  its window, is never touched.
+
 ### Fixed
 - **A repeated lead note was sometimes cut to a blip.** Legato runs each note a
   little into the next so the instrument hears a hammer-on, and a repeat of the

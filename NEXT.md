@@ -199,6 +199,11 @@ getBlockSize() (the host's announced maximum: 512 on a 1024 rig). It now shows
 samples/blocks measured each second in `checkAudioKeptUp`, falling back to the
 announced size marked "(announced)"; stall and AUDIO FELL BEHIND lines use it too.
 
+**Install.bat clears Kontakt's leftover GP5** on its first lock refusal, via
+`StartGigPerformer.ps1 -ClearOnly` (same rule: no window, >20 s; logged "(by the
+installer)"; never starts anything). Tested against ping/charmap, then against
+his live GP5: untouched, nothing logged, install correctly refused.
+
 ## Session 24: the interface that looped, and timing the audio thread
 
 The owner's Focusrite locked into a steady echoing noise mid-song on the
