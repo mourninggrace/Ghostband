@@ -480,7 +480,7 @@ static void reshapeFill (std::vector<SoloStep>& steps, int top, const FillPerson
         }
     }
 
-    if (steps.size() >= 3 && r.chance (p.leapIn))
+    if (steps.size() >= 3 && r.chance (p.leapIn))
     {
         const int into = steps[1].degree - steps[0].degree;
         const int leap = (into >= 0 ? -1 : 1) * r.range (2, 3);   // come at the line from the other side
@@ -949,6 +949,8 @@ namespace fillvoice
         double answerSecond = 0.4;   // how often bar 2 of a group answers too
         double sustain      = 0.6;   // how often a free bar sings rather than rests
         double invert       = 0.3;   // how often a lick is turned upside down
+        double feel[5]      {};      // straight, sextuplet rush, dotted, held note, breath
+        double landing[5]   {};      // landing length: x0.5, x0.75, x1, x1.5, x2
     };
 
     // A player made of four: each song weights the four families differently
@@ -965,7 +967,90 @@ namespace fillvoice
         p.answerSecond = 0.20 + r.unit() * 0.45;
         p.sustain      = 0.35 + r.unit() * 0.55;
         p.invert       = 0.10 + r.unit() * 0.35;
+        // How this player phrases time: one rushes runs into the landing, one
+        // plays them dotted, one holds a note mid-run, one breathes. Squared,
+        // so most songs lean clearly on one or two habits.
+        for (double& f : p.feel)    f = 0.05 + r.unit() * r.unit() * 2.0;
+        for (double& f : p.landing) f = 0.05 + r.unit() * r.unit() * 2.0;
         return p;
+    }
+
+    static int pickWeighted (Rng& r, const double* w, int n)
+    {
+        double total = 0.0;
+        for (int i = 0; i < n; ++i) total += w[i];
+        double pick = r.unit() * total;
+        for (int i = 0; i < n; ++i)
+            if ((pick -= w[i]) < 0.0) return i;
+        return n - 1;
+    }
+
+    // THE SAME LICK NEVER PLAYED THE SAME WAY TWICE. The builders give a lick's
+    // shape; this gives one playing of it its time: the run straight, rushed
+    // as sextuplets, dotted long-short, with a note leaned on, or with a breath
+    // in it - and a landing that is clipped, held, or left to ring. The first
+    // version ended every lick in a straight run into a quarter-note landing,
+    // and a quarter of all fills in the set shared three rhythms.
+    static void vary (Lick& L, Rng& r, const Personality& who, bool shuffle)
+    {
+        const size_t n = L.notes.size();
+        if (n == 0) return;
+
+        if (n >= 4 && ! L.triplet)
+        {
+            std::vector<int>  ioi (n - 1);
+            std::vector<bool> tied (n - 1), gap (n - 1, false);
+            for (size_t i = 0; i + 1 < n; ++i)
+            {
+                ioi[i]  = L.notes[i + 1].on - L.notes[i].on;
+                tied[i] = L.notes[i].len >= ioi[i];
+            }
+            switch (pickWeighted (r, who.feel, 5))
+            {
+                case 1:   // sextuplets: the run rushes into the landing
+                    if (! shuffle)
+                        for (int& d : ioi) if (d == 120) d = 80;
+                    break;
+                case 2:   // dotted: long-short, long-short
+                {
+                    bool longOne = r.chance (0.7);
+                    for (size_t i = 0; i + 2 < n; ++i)
+                        if (ioi[i] == 120) { ioi[i] = longOne ? 180 : 60; longOne = ! longOne; }
+                    break;
+                }
+                case 3:   // one note leaned on, held twice as long
+                {
+                    const size_t k = static_cast<size_t> (r.range (0, static_cast<int> (n) - 3));
+                    ioi[k] *= 2; tied[k] = true;
+                    break;
+                }
+                case 4:   // a breath: a sixteenth of silence mid-run
+                {
+                    const size_t k = static_cast<size_t> (r.range (1, static_cast<int> (n) - 3));
+                    ioi[k] += 120; gap[k] = true;
+                    break;
+                }
+                default: break;
+            }
+            int t = L.notes[0].on;
+            for (size_t i = 0; i < n; ++i)
+            {
+                L.notes[i].on = t;
+                if (i + 1 < n)
+                {
+                    L.notes[i].len = gap[i]  ? std::min (L.notes[i].len, ioi[i] - 120)
+                                   : tied[i] ? ioi[i]
+                                             : std::min (L.notes[i].len, ioi[i]);
+                    L.notes[i].len = std::max (30, L.notes[i].len);
+                    t += ioi[i];
+                }
+            }
+        }
+
+        static constexpr double kLand[5] = { 0.5, 0.75, 1.0, 1.5, 2.0 };
+        LickNote& last = L.notes.back();
+        const int landed = static_cast<int> (last.len * kLand[pickWeighted (r, who.landing, 5)]);
+        last.len = std::max (120, ((landed + 30) / 60) * 60);
     }
 
     // Every pitch of a pitch-class set between two notes, ascending.
@@ -1058,12 +1143,20 @@ static void generateFills (const SectionPlan& s,
         // answered lives - comes in later and shorter instead.
         {
             const int scaleT = shuffle ? 2 : 1;
-            while (L.notes.size() > 3 && L.span() * scaleT > room)
+            // Down to three notes to fit; below that only if vary() stretched
+            // the tail past the room (a held note, a breath).
+            while (L.notes.size() > 1 && L.span() * scaleT > room
+                   && (L.notes.size() > 3
+                       || (L.notes.back().on + 120) * scaleT > room))
             {
                 const int drop = L.notes[1].on;
                 L.notes.erase (L.notes.begin());
                 for (LickNote& n : L.notes) n.on -= drop;
             }
+            // A landing let ring past the room is cut back to it, never below a 16th.
+            const int over = L.span() * scaleT - room;
+            if (over > 0)
+                L.notes.back().len = std::max (120, L.notes.back().len - (over + scaleT - 1) / scaleT);
         }
         // Upside down sometimes: the same shape, heard as a different lick.
         if (rng.chance (who.invert))
@@ -1225,6 +1318,7 @@ static void generateFills (const SectionPlan& s,
             {
                 Rng lickRng (deriveSeed (static_cast<uint32_t> (rng.next()), 0xA11u + static_cast<uint32_t> (bar)));
                 Lick L = kBuilders[i] (lickRng);
+                vary (L, rng, who, shuffle);   // before placing: it changes the lick's length
                 const int roomHere = end < 0 ? barEnd - start : room;
                 if (end < 0) end = std::min (barEnd, start + (shuffle ? L.span() * 2 : L.span()));
                 if (playLick (L, end, chordAt (bar), rng.chance (0.6), roomHere))

