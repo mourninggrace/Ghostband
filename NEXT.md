@@ -6,9 +6,17 @@ useless for the one job it has: telling whoever picks this up next what is true
 right now. The history is in `docs/archive/NEXT-through-session-13.md`, and
 nobody has to read it.
 
-**Last touched 2026-09-26, session 28.**
+**Last touched 2026-09-26, session 29.**
 
 ## State
+
+- **Session 29 is UNRELEASED, on branch `fills-v3-wip`** (pushed, installed in
+  the owner's GP5). Fills v3 lick engine, solos v3 (`generateLeadSolo`), UNDER /
+  BUSY / SHRED knobs, guitar 2 swung in shuffles. CHANGELOG has it under
+  [Unreleased]. Waiting on the owner's listen; then merge, docs, release.
+  The complete open list is TODO.md. Solo lock pinned at `0x721f31a6` on purpose.
+  Handy: `--fillstats` prints SOLOS numbers; `GB_SHOW_G2=<plan>` dumps every
+  guitar 2 note of a song by section; `GB_SHOW_SOLO=<plan>` one solo.
 
 - **v2.0.0 released 2026-09-24** (first cut as v0.7.0 the same day and
   renumbered at the owner's request - the planner was v2's headline). Tagged,
@@ -32,7 +40,7 @@ nobody has to read it.
 - **The window is 1180x820, minimum 1020x820.** Both numbers are load-bearing:
   the minimum is set by the two-column Settings screen, not by the song screen,
   and the harness's `kMinW`/`kMinH` must move with it.
-- **508 checks** pass on every build, and all 34 plans are swept.
+- **511 checks** pass on every build, and all 34 plans are swept.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.

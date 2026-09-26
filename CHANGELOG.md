@@ -5,6 +5,34 @@ measured, not estimated; where something could not be measured yet, it says so.
 
 Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/releases).
 
+## [Unreleased] — branch `fills-v3-wip`, installed for listening
+
+Session 29. Built and measured; not released until the owner has listened.
+
+### Changed
+- **The lead guitar's fills are licks now, not a bed.** A vocabulary drawn from
+  Van Halen, Satriani, Vai and Hammett - tapped arpeggios, hammer-on cascades,
+  legato runs, singing bends, wide leaps, harmonics, blues repeats, choke stabs,
+  sweeps, rakes and pinch squeals - on Shreddage's own keyswitches, legato in
+  Moving Lead mode. Every playing of a lick gets its own timing; three rhythms
+  went from 25.8% of fills to 11.4%, songs 0.27 to 0.11 alike.
+- **Between answers the lead sings a phrase** instead of holding one note.
+- **The solos are rebuilt** (the owner: "empty, intermediate... hunting for notes").
+  A solo tells a story: a motif and its answer (AAB in a blues), development,
+  a build, a climax, a held and bent root. Solo notes inside one-way scale runs
+  21% -> 12%. Complexity and Intuition now drive it; neither reached it before.
+
+### Added
+- **UNDER** - how far guitar 2 drops while it plays fills (default 45%, was a fixed 70%).
+- **BUSY** on every MIX row and **SHRED** for guitar 2 - trims whose middle is
+  the song exactly as it was; each checked to move only its own instrument.
+
+### Fixed
+- **Guitar 2 never swung.** In every shuffle song it played dead straight against
+  the band. It swings now, and triplet licks play in the shuffle's own time.
+- **Blues fills were held notes and trills** - straight licks doubled for a
+  shuffle no longer fitted. They are fitted to swung eighths now.
+
 ## [2.3.0] — 2026-09-26
 
 The lead guitar's fills, reworked so they stop sounding the same from song to
