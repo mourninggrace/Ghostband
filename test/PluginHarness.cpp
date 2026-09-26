@@ -4689,6 +4689,43 @@ int main (int argc, char** argv)
         check (perr.empty() && body.isObject(),
                "the planner's request is valid JSON", juce::String (perr));
 
+        // EVERY MODEL THE OWNER CAN PICK builds a request that model takes.
+        // The fallback is sent exactly where it is documented - a parameter a
+        // model does not take is a 400 on every song.
+        {
+            juce::String wrong;
+            for (const gb::PlannerModel& m : gb::plannerModels())
+            {
+                gb::PlannerSettings ps;
+                ps.model = m.id;
+                const gb::PlannerRequest mr = gb::buildPlannerRequest (brief, ps);
+
+                std::string e;
+                const gb::Json mb = gb::Json::parse (mr.body, e);
+                bool header = false;
+                for (const auto& h : mr.headers)
+                    header = header || h.second.find ("server-side-fallback") != std::string::npos;
+                const bool field = mb.isObject() && mb.stringOr ("fallbacks", "") == "default";
+
+                if (! e.empty() || mb.stringOr ("model", "") != m.id
+                    || field != m.serverFallbacks || header != m.serverFallbacks)
+                    wrong << m.id << " ";
+            }
+            check (wrong.isEmpty() && gb::plannerModels().size() >= 4,
+                   "every model in Settings gets a valid request, with the refusal fallback only where it is documented",
+                   wrong.isEmpty() ? juce::String ((int) gb::plannerModels().size()) + " models" : wrong);
+
+            gb::PlannerSettings lo, hi;
+            lo.effort = "medium";
+            hi.effort = "max";
+            std::string e1, e2;
+            const double tLo = gb::Json::parse (gb::buildPlannerRequest (brief, lo).body, e1).numberOr ("max_tokens", 0);
+            const double tHi = gb::Json::parse (gb::buildPlannerRequest (brief, hi).body, e2).numberOr ("max_tokens", 0);
+            check (tHi > tLo && tLo >= 16000,
+                   "and higher effort gets more room to think before it writes",
+                   juce::String (tLo, 0) + " at medium, " + juce::String (tHi, 0) + " at max");
+        }
+
         check (body.stringOr ("model", "") == "claude-opus-5-5",
                "and asks for Claude Opus 5.5, the model the owner chose",
                juce::String (body.stringOr ("model", "?")));
@@ -4971,6 +5008,67 @@ int main (int argc, char** argv)
                        "and a two-sentence explanation shows as one unsquashed line ending in more, "
                        "and a click opens all of it",
                        gbEd->writeStatusShownForTesting());
+
+                // MODEL AND EFFORT, chosen in Settings, kept, and actually used.
+                {
+                    const int sonnet = [] { const auto& ms = gb::plannerModels();
+                                            for (int i = 0; i < (int) ms.size(); ++i)
+                                                if (ms[(size_t) i].id == "claude-sonnet-5") return i;
+                                            return -1; }();
+                    gbEd->choosePlannerForTesting (sonnet, 4);
+
+                    const gb::PlannerSettings kept = keyProc.getPlannerSettings();
+                    const juce::String sent = juce::String (gb::buildPlannerRequest (
+                        keyProc.makePlannerBrief ("a doom song"), kept).body);
+
+                    check (kept.model == "claude-sonnet-5" && kept.effort == "max"
+                               && sent.contains ("\"claude-sonnet-5\"") && sent.contains ("\"max\""),
+                           "a model and effort chosen in Settings are kept and are what gets sent",
+                           gbEd->plannerChoiceForTesting());
+
+                    // A file nobody can read, or naming a model that no longer
+                    // exists, falls back to the default rather than failing.
+                    const juce::File settingsFile = GhostbandProcessor::plannerKeyFile()
+                                                        .getSiblingFile ("planner-settings.json");
+                    settingsFile.replaceWithText ("{ \"model\": \"claude-gone-1\", \"effort\": \"loud\" }");
+                    const gb::PlannerSettings fallback = keyProc.getPlannerSettings();
+                    check (fallback.model == "claude-opus-5-5" && fallback.effort == "medium",
+                           "and a settings file naming an unknown model falls back to Opus 5.5 at medium",
+                           juce::String (fallback.model) + " / " + juce::String (fallback.effort));
+                    settingsFile.deleteFile();
+
+                    // THE COST LINE, priced from real token counts. One song at
+                    // the owner's first real figures: 6c on Opus 5.5, 15c on
+                    // Fable 5.1 ($10/$50), by hand.
+                    const juce::File realLog = GhostbandProcessor::changeLogFile();
+                    const juce::File costLog = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                                   .getChildFile ("gb-cost-test.log");
+                    costLog.replaceWithText ("2026-09-24 16:29:01  song written by the planner   Slow Burn Iron"
+                                             "   (claude-opus-5-5, 3588 in / 2261 out)\n");
+                    GhostbandProcessor::setChangeLogFileForTesting (costLog);
+
+                    gbEd->choosePlannerForTesting (1, 1);      // Opus 5.5, medium
+                    const juce::String opus = gbEd->plannerCostForTesting();
+                    gbEd->choosePlannerForTesting (0, 1);      // Fable 5.1
+                    const juce::String fable = gbEd->plannerCostForTesting();
+
+                    const juce::String cent = juce::String::fromUTF8 ("\xc2\xa2");
+                    check (opus.startsWith ("about 6" + cent) && fable.startsWith ("about 15" + cent)
+                               && opus.contains ("1 song"),
+                           "and the cost line prices this machine's own songs at the chosen model's rates",
+                           opus.upToFirstOccurrenceOf (",", false, false) + " on Opus 5.5, "
+                               + fable.upToFirstOccurrenceOf (",", false, false) + " on Fable 5.1");
+
+                    costLog.replaceWithText ("");
+                    gbEd->choosePlannerForTesting (1, 1);
+                    check (gbEd->plannerCostForTesting().contains ("Write a song to see"),
+                           "and says so plainly before any song has been written",
+                           gbEd->plannerCostForTesting());
+
+                    GhostbandProcessor::setChangeLogFileForTesting (realLog);
+                    costLog.deleteFile();
+                    settingsFile.deleteFile();
+                }
             }
 
             keyProc.editorBeingDeleted (ed);

@@ -34,6 +34,38 @@ namespace gb {
 //   NEVER IN THE AUDIO PATH. The call happens on a background thread and
 //                          playback never waits on it.
 
+// THE MODELS THE OWNER CAN PICK in Settings, with Anthropic's list prices so
+// the screen can say what a song costs. Checked against the API's own model
+// notes on 2026-09-26, not recalled:
+//
+//   - Every one takes adaptive thinking, structured output and all five
+//     effort levels, so the request is the same shape for each.
+//   - Server-side refusal fallbacks (fallbacks: "default") are documented for
+//     Fable 5.1, Opus 5.5 and Opus 5 - NOT for Sonnet 5, so it is not sent
+//     there. A parameter a model does not take is a 400, and a planner that
+//     fails every time on one choice is worse than one without a fallback.
+//   - Haiku is left out: it takes no effort setting, and a choice that makes
+//     the other drop-down meaningless is a trap.
+//
+// Prices are dollars per million tokens, input then output.
+struct PlannerModel
+{
+    std::string id;
+    std::string name;
+    double inPerMillion  = 0.0;
+    double outPerMillion = 0.0;
+    bool   serverFallbacks = false;
+};
+
+const std::vector<PlannerModel>& plannerModels();
+const PlannerModel* findPlannerModel (const std::string& id);   // nullptr if unknown
+const std::vector<std::string>& plannerEfforts();              // low .. max
+
+// Room for the answer at each effort. Higher effort thinks longer before it
+// writes, and thinking comes out of the same budget - at 16k a "max" chart
+// could be cut off before the chart itself was written.
+int plannerMaxTokensFor (const std::string& effort);
+
 struct PlannerSettings
 {
     // Claude Opus 5.5 at medium effort, chosen by the owner by name on

@@ -22,7 +22,7 @@ nobody has to read it.
 - **The window is 1180x820, minimum 1020x820.** Both numbers are load-bearing:
   the minimum is set by the two-column Settings screen, not by the song screen,
   and the harness's `kMinW`/`kMinH` must move with it.
-- **481 checks** pass on every build, and all 34 plans are swept.
+- **487 checks** pass on every build, and all 34 plans are swept.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
@@ -157,6 +157,25 @@ to run: Windows Defender real-time protection and behaviour monitoring are on
 with no exclusions (Kontakt streaming samples through a scanner is the classic
 cause of exactly this), and bisecting the rackspace would settle it. Both are
 written up in OPEN-QUESTIONS.
+
+## Session 25: the planner's model and effort, chosen in Settings
+
+The owner picked "two drop-downs + cost" from three mockups. `gb::plannerModels()`
+in Planner.h is the one list (Fable 5.1, Opus 5.5, Opus 5, Sonnet 5, with list
+prices), and each entry says whether `fallbacks: "default"` is DOCUMENTED for it:
+Fable 5.1, Opus 5.5 and Opus 5 yes, **Sonnet 5 not documented, so not sent**. The
+beta header goes with it. Haiku was left out because it takes no effort. Effort
+sets the answer's room (16k, 20k at high, 24k at xhigh/max), and the HTTP receive
+timeout went from five minutes to ten.
+
+Kept in `planner-settings.json` beside the key file; unknown values fall back
+to Opus 5.5 / medium. The cost line parses "song written by the planner ... (model,
+N in / M out)" from changes.log and prices the average at the chosen model; it is
+recomputed at most every 2 s while visible. The Settings bottom block grew 66 px;
+the zero-size check caught the first layout, which had none.
+
+Six new checks (487). The fallback check was made to fail by sending fallbacks
+to every model: it named Sonnet 5.
 
 ## Session 24: the interface that looped, and timing the audio thread
 

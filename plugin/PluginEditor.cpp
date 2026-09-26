@@ -1740,6 +1740,46 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         refreshPlannerControls();
     };
 
+    // Model and effort. Ids are 1-based positions in the engine's own lists, so
+    // the lists are the one place a model or an effort is named.
+    {
+        const gb::PlannerSettings chosen = processor.getPlannerSettings();
+
+        styleCombo (plannerModelBox);
+        addChildComponent (plannerModelBox);
+        const auto& models = gb::plannerModels();
+        for (int i = 0; i < (int) models.size(); ++i)
+        {
+            plannerModelBox.addItem (juce::String (models[(size_t) i].name), i + 1);
+            if (models[(size_t) i].id == chosen.model)
+                plannerModelBox.setSelectedId (i + 1, juce::dontSendNotification);
+        }
+        plannerModelBox.onChange = [this]
+        {
+            const int i = plannerModelBox.getSelectedId() - 1;
+            if (i >= 0 && i < (int) gb::plannerModels().size())
+                processor.setPlannerModel (juce::String (gb::plannerModels()[(size_t) i].id));
+            refreshPlannerCost();
+        };
+
+        styleCombo (plannerEffortBox);
+        addChildComponent (plannerEffortBox);
+        const auto& efforts = gb::plannerEfforts();
+        for (int i = 0; i < (int) efforts.size(); ++i)
+        {
+            plannerEffortBox.addItem (juce::String (efforts[(size_t) i]), i + 1);
+            if (efforts[(size_t) i] == chosen.effort)
+                plannerEffortBox.setSelectedId (i + 1, juce::dontSendNotification);
+        }
+        plannerEffortBox.onChange = [this]
+        {
+            const int i = plannerEffortBox.getSelectedId() - 1;
+            if (i >= 0 && i < (int) gb::plannerEfforts().size())
+                processor.setPlannerEffort (juce::String (gb::plannerEfforts()[(size_t) i]));
+            refreshPlannerCost();
+        };
+    }
+
     diceButton.onRightClick = [this]
     {
         if (processor.undoTheDice())
@@ -2105,6 +2145,11 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     writeStatus.setMinimumHorizontalScale (1.0f);   // cut at a word, never squashed
     writeStatus.onClick = [this] { openWriteStatus(); };
     initLabel (plannerKeyLabel, "API KEY", 15.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (plannerModelLabel,  "MODEL",  15.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (plannerEffortLabel, "EFFORT", 15.0f, ghost::dim, juce::Justification::centredLeft);
+    initLabel (plannerCostLabel,   "",       13.0f, ghost::dim, juce::Justification::centredLeft);
+    plannerCostLabel.setMinimumHorizontalScale (1.0f);
+    refreshPlannerCost();   // filled from the start, not on the first timer tick
 
     initLabel (mixLabel,          "MIX",    15.0f, ghost::dim, juce::Justification::centredLeft);
     initLabel (levelDrumsLabel,   "DRUMS",  14.0f,  ghost::dim, juce::Justification::centred);
@@ -3070,6 +3115,12 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         tip (plannerKeySave,   "Encrypts the key for this Windows user and saves it. The field is "
                                "cleared either way.");
         tip (plannerKeyClear,  "Deletes the saved key. Nothing is sent anywhere without one.");
+        tip (plannerModelBox,  "Which Claude model writes your songs. Opus 5.5 is the default and "
+                               "costs $4 in / $20 out per million tokens; Fable 5.1 is the most capable "
+                               "and the dearest; Sonnet 5 is the cheapest. Kept for every session.");
+        tip (plannerEffortBox, "How hard the model thinks before it writes. Higher effort can write a "
+                               "more considered song, takes longer and costs more; medium is the default. "
+                               "Kept for every session.");
         tip (openDataFolder, "Opens the folder holding the change log, the stall log, your takes "
                              "and your taught mappings. changes.log records every change you "
                              "make, with the date and time and what it was before.");
@@ -4099,6 +4150,21 @@ void GhostbandEditor::refreshPlannerControls()
                                                      : "paste your Anthropic API key",
                                              ghost::dim);
     plannerKeyClear.setEnabled (haveKey);
+
+    // The cost line reads changes.log, so it is worked out at most every two
+    // seconds, and only while it can be seen - a song written a moment ago
+    // shows up in it without anything having to announce it.
+    if (plannerCostLabel.isVisible()
+        && juce::Time::getMillisecondCounterHiRes() - plannerCostAtMs > 2000.0)
+        refreshPlannerCost();
+}
+
+void GhostbandEditor::refreshPlannerCost()
+{
+    plannerCostAtMs = juce::Time::getMillisecondCounterHiRes();
+    const juce::String cost = processor.plannerCostEstimate();
+    plannerCostLabel.setText (cost, juce::dontSendNotification);
+    plannerCostLabel.setTooltip (cost);
 }
 
 void GhostbandEditor::startWriting()
@@ -4394,6 +4460,8 @@ void GhostbandEditor::updateModeVisibility()
              &ctlAdd, &ctlRemove, &ctlTeach, &ctlSave, &ctlReset, &ctlDiffLabel,
              &openDataFolder, &ctlName,
              &plannerKeyLabel, &plannerKeyEditor, &plannerKeySave, &plannerKeyClear,
+             &plannerModelLabel, &plannerModelBox, &plannerEffortLabel, &plannerEffortBox,
+             &plannerCostLabel,
              &ctlFollows, &ctlType, &ctlPositions, &ctlViewport,
              &ctlNameLabel, &ctlFollowsLabel, &ctlTypeLabel, &ctlPositionsLabel,
              &ctlPositionsHint, &ctlValue, &ctlValueLabel, &ctlValueHint,
@@ -5734,7 +5802,7 @@ void GhostbandEditor::resized()
         // ---- left: the channels, and the things that are set once ----
         {
             // Fixed rows off the bottom BEFORE anything above them is measured.
-            auto bottom = left.removeFromBottom (66 + 38);
+            auto bottom = left.removeFromBottom (66 + 38 + 66);   // + model/effort and its cost line
 
             juce::ComboBox* boxes[5]  = { &chDrums, &chBass, &chGuitar, &chPiano, &chGuitar2 };
             juce::Label*    labels[5] = { &chDrumsLabel, &chBassLabel, &chGuitarLabel,
@@ -5791,6 +5859,18 @@ void GhostbandEditor::resized()
             plannerKeySave.setBounds (row.removeFromLeft (84));
             row.removeFromLeft (6);
             plannerKeyClear.setBounds (row.removeFromLeft (64));
+
+            // Model and effort on one row, what a song costs under it.
+            bottom.removeFromTop (8);
+            row = bottom.removeFromTop (28);
+            plannerModelLabel.setBounds (row.removeFromLeft (60));
+            plannerModelBox.setBounds (row.removeFromLeft (170));
+            row.removeFromLeft (14);
+            plannerEffortLabel.setBounds (row.removeFromLeft (62));
+            plannerEffortBox.setBounds (row.removeFromLeft (100));
+
+            bottom.removeFromTop (2);
+            plannerCostLabel.setBounds (bottom.removeFromTop (18).withTrimmedLeft (60));
         }
 
         // ---- right: teaching Ghostband an instrument's own knobs ----

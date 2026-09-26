@@ -619,6 +619,13 @@ public:
     juce::String writeStatusShownForTesting() const { return writeStatus.getText(); }
     juce::String writeTooltipForTesting()       { return writeButton.getTooltip(); }
     void         refreshPlannerForTesting()     { refreshPlannerControls(); }
+    void         choosePlannerForTesting (int modelIndex, int effortIndex)
+    {
+        plannerModelBox.setSelectedItemIndex (modelIndex, juce::sendNotificationSync);
+        plannerEffortBox.setSelectedItemIndex (effortIndex, juce::sendNotificationSync);
+    }
+    juce::String plannerChoiceForTesting() const { return plannerModelBox.getText() + " / " + plannerEffortBox.getText(); }
+    juce::String plannerCostForTesting()   const { return plannerCostLabel.getText(); }
     void         pressWriteForTesting (const juce::String& request) { writeRequest.setText (request, false); startWriting(); }
     void         showWriteStatusForTesting (const juce::String& line) { showWriteStatus (line, ghost::dim); }
 
@@ -736,6 +743,12 @@ private:
     juce::TextEditor plannerKeyEditor;
     juce::TextButton plannerKeySave  { "Save key" };
     juce::TextButton plannerKeyClear { "Clear" };
+
+    // Which model writes and how hard it thinks, with what that costs.
+    juce::Label      plannerModelLabel, plannerEffortLabel, plannerCostLabel;
+    juce::ComboBox   plannerModelBox, plannerEffortBox;
+    double           plannerCostAtMs = 0.0;     // when the cost line was last worked out
+    void             refreshPlannerCost();
 
     void refreshPlannerControls();
     void startWriting();

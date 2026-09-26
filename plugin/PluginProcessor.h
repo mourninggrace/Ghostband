@@ -464,6 +464,17 @@ public:
     // header inside the job and nowhere else - not the editor, not a log, not
     // a plan, not a take.
     static juce::File plannerKeyFile();
+
+    // Which model writes, and how hard it thinks. Chosen in Settings, kept
+    // beside the key (planner-settings.json) so it holds in every session.
+    // Anything unreadable falls back to the defaults in gb::PlannerSettings.
+    gb::PlannerSettings getPlannerSettings() const;
+    void setPlannerModel  (const juce::String& id);
+    void setPlannerEffort (const juce::String& effort);
+
+    // "about 6c a song ...": the average tokens of the songs this machine has
+    // actually written (from changes.log), priced at the chosen model's rates.
+    juce::String plannerCostEstimate() const;
     static void setPlannerKeyFileForTesting (const juce::File& f);
 
     bool setPlannerKey (const juce::String& key);

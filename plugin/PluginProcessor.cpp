@@ -487,6 +487,117 @@ bool GhostbandProcessor::hasPlannerKey() const
     return plannerKeyFile().existsAsFile() && plannerKeyFile().getSize() > 0;
 }
 
+static juce::File plannerSettingsFile()
+{
+    return GhostbandProcessor::plannerKeyFile().getSiblingFile ("planner-settings.json");
+}
+
+gb::PlannerSettings GhostbandProcessor::getPlannerSettings() const
+{
+    gb::PlannerSettings s;
+    const juce::var v = juce::JSON::parse (plannerSettingsFile().loadFileAsString());
+
+    const std::string model  = v.getProperty ("model",  "").toString().toStdString();
+    const std::string effort = v.getProperty ("effort", "").toString().toStdString();
+
+    if (gb::findPlannerModel (model) != nullptr)
+        s.model = model;
+
+    for (const std::string& e : gb::plannerEfforts())
+        if (e == effort)
+            s.effort = effort;
+
+    return s;
+}
+
+static void writePlannerSettings (const gb::PlannerSettings& s)
+{
+    auto* o = new juce::DynamicObject();
+    o->setProperty ("model",  juce::String (s.model));
+    o->setProperty ("effort", juce::String (s.effort));
+
+    const juce::File f = plannerSettingsFile();
+    f.getParentDirectory().createDirectory();
+    f.replaceWithText (juce::JSON::toString (juce::var (o)));
+}
+
+void GhostbandProcessor::setPlannerModel (const juce::String& id)
+{
+    gb::PlannerSettings s = getPlannerSettings();
+    if (gb::findPlannerModel (id.toStdString()) == nullptr || s.model == id.toStdString())
+        return;
+
+    s.model = id.toStdString();
+    writePlannerSettings (s);
+    logChange ("planner model   " + id);
+}
+
+void GhostbandProcessor::setPlannerEffort (const juce::String& effort)
+{
+    gb::PlannerSettings s = getPlannerSettings();
+    bool known = false;
+    for (const std::string& e : gb::plannerEfforts())
+        known = known || e == effort.toStdString();
+
+    if (! known || s.effort == effort.toStdString())
+        return;
+
+    s.effort = effort.toStdString();
+    writePlannerSettings (s);
+    logChange ("planner effort   " + effort);
+}
+
+// Priced from what THIS MACHINE'S SONGS actually used, not a guess at a
+// typical song. Effort changes how long an answer is, and the log does not say
+// which effort each song was written at, so the line says so rather than
+// pretending to know.
+juce::String GhostbandProcessor::plannerCostEstimate() const
+{
+    const gb::PlannerSettings s = getPlannerSettings();
+    const gb::PlannerModel* m = gb::findPlannerModel (s.model);
+    if (m == nullptr)
+        return {};
+
+    auto money = [] (double dollars)
+    {
+        return dollars < 1.0 ? juce::String (juce::jmax (1, juce::roundToInt (dollars * 100.0))) + juce::String::fromUTF8 ("\xc2\xa2")
+                             : "$" + juce::String (dollars, 2);
+    };
+
+    const juce::String rates = "$" + juce::String (m->inPerMillion, 0) + " in / $"
+                             + juce::String (m->outPerMillion, 0) + " out per million tokens";
+
+    juce::StringArray lines;
+    lines.addLines (changeLogFile().loadFileAsString());
+
+    double in = 0.0, out = 0.0;
+    int songs = 0;
+
+    for (const juce::String& line : lines)
+    {
+        if (! line.contains ("song written by the planner") || ! line.contains (" in / "))
+            continue;
+
+        const juce::String counts = line.fromLastOccurrenceOf (", ", false, false);   // "3588 in / 2261 out)"
+        const int i = counts.upToFirstOccurrenceOf (" in", false, false).trim().getIntValue();
+        const int o = counts.fromFirstOccurrenceOf ("/ ", false, false)
+                            .upToFirstOccurrenceOf (" out", false, false).trim().getIntValue();
+        if (i > 0 && o > 0)
+        {
+            in += i; out += o; ++songs;
+        }
+    }
+
+    if (songs == 0)
+        return rates + ". Write a song to see what one costs.";
+
+    const double avgIn = in / songs, avgOut = out / songs;
+    const double cost  = avgIn / 1.0e6 * m->inPerMillion + avgOut / 1.0e6 * m->outPerMillion;
+
+    return "about " + money (cost) + " a song, from the " + juce::String (songs)
+         + (songs == 1 ? " song" : " songs") + " written here. Higher effort writes more.";
+}
+
 static bool readPlannerKey (std::string& key)
 {
     juce::MemoryBlock mb;
@@ -562,10 +673,11 @@ public:
         auto web = std::make_unique<juce::WebInputStream> (url, true);
         web->withExtraHeaders (headers)
             .withCustomRequestCommand ("POST")
-            // Five minutes. A chart at high effort thinks before it writes, and
+            // Ten minutes. A chart at max effort thinks before it writes, and
             // on Windows this also sets the RECEIVE timeout - too short, and a
             // slow but healthy answer is cut off and reported as a failure.
-            .withConnectionTimeout (300000)
+            // (Five until effort became choosable on 2026-09-26.)
+            .withConnectionTimeout (600000)
             .withNumRedirectsToFollow (0);
 
         {
@@ -686,7 +798,7 @@ bool GhostbandProcessor::writeSong (const juce::String& requestText, juce::Strin
 
     const gb::PlannerBrief brief = makePlannerBrief (requestText);
 
-    const gb::PlannerRequest request = gb::buildPlannerRequest (brief, gb::PlannerSettings());
+    const gb::PlannerRequest request = gb::buildPlannerRequest (brief, getPlannerSettings());
 
     // The previous job is finished (busy was false) - releasing it joins a
     // thread that has already returned.

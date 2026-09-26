@@ -5,6 +5,16 @@ measured, not estimated; where something could not be measured yet, it says so.
 
 Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/releases).
 
+## [Unreleased]
+
+### Added
+- **Choose the planner's model and effort in Settings.** Claude Fable 5.1, Opus
+  5.5 (the default), Opus 5 or Sonnet 5, at low, medium, high, xhigh or max
+  effort, kept for every session. Beneath them, what a song costs with that model,
+  priced from the token counts of the songs you have written. The refusal fallback
+  is sent only to the models documented to take it, higher effort gets more room
+  to answer, and the planner now waits up to ten minutes for a slow answer.
+
 ## [2.1.0] — 2026-09-26
 
 Fixes from the planner's first real songs, a sharper eye on audio drop-outs, and

@@ -339,10 +339,26 @@ tempo, dial settings); and which parts your rig has. Not your plugins' file path
 not your Windows username, not anything from your drives. The harness checks this
 on every build.
 
-**What it uses and what it costs.** Claude Opus 5.5 at medium effort, billed to
-your own Anthropic account per song. If the model's safety filters decline a
-request, Anthropic re-runs it on another model inside the same call rather than
-returning nothing. The change log records the tokens every song used, which is the
+**What it uses and what it costs.** By default, Claude Opus 5.5 at medium effort,
+billed to your own Anthropic account per song. **Settings -> MODEL and EFFORT**
+change both, and the choice holds for every session:
+
+| Model | per million tokens, in / out |
+|---|---|
+| Claude Fable 5.1 — the most capable | $10 / $50 |
+| **Claude Opus 5.5** — the default | $4 / $20 |
+| Claude Opus 5 | $5 / $25 |
+| Claude Sonnet 5 — the cheapest | $2 / $10 |
+
+Effort runs low, medium, high, xhigh, max: how hard the model thinks before it
+writes. Higher effort takes longer, costs more, and is given more room to answer.
+Under the two drop-downs, Settings shows what a song costs with that model,
+worked out from the token counts of the songs you have actually written. It
+can't know how much longer a higher effort will make the answer, so it says so.
+
+If the model's safety filters decline a request, Anthropic re-runs it on another
+model inside the same call rather than returning nothing. That option is sent to
+Fable 5.1, Opus 5.5 and Opus 5, where it is documented, and not to Sonnet 5. The change log records the tokens every song used, which is the
 way to see the real cost on your account. For scale: the first real song took
 23 seconds and used 3,588 tokens in and 2,261 out, about 6¢ at Claude Opus 5.5's
 September 2026 prices ($4 in / $20 out per million tokens). A longer or more

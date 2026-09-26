@@ -145,6 +145,38 @@ What each field does:
 Write a song a real band would play: sections that earn their length, harmony that suits the style and key, and an arc. Aim for two to five minutes unless asked otherwise. Only use the parts the musician says their rig has.)PROMPT";
 
 //==============================================================================
+const std::vector<PlannerModel>& plannerModels()
+{
+    static const std::vector<PlannerModel> models {
+        { "claude-fable-5-1", "Claude Fable 5.1", 10.0, 50.0, true  },
+        { "claude-opus-5-5",  "Claude Opus 5.5",   4.0, 20.0, true  },
+        { "claude-opus-5",    "Claude Opus 5",     5.0, 25.0, true  },
+        { "claude-sonnet-5",  "Claude Sonnet 5",   2.0, 10.0, false },
+    };
+    return models;
+}
+
+const PlannerModel* findPlannerModel (const std::string& id)
+{
+    for (const PlannerModel& m : plannerModels())
+        if (m.id == id)
+            return &m;
+    return nullptr;
+}
+
+const std::vector<std::string>& plannerEfforts()
+{
+    static const std::vector<std::string> efforts { "low", "medium", "high", "xhigh", "max" };
+    return efforts;
+}
+
+int plannerMaxTokensFor (const std::string& effort)
+{
+    if (effort == "xhigh" || effort == "max") return 24000;
+    if (effort == "high")                     return 20000;
+    return 16000;
+}
+
 PlannerRequest buildPlannerRequest (const PlannerBrief& brief, const PlannerSettings& settings)
 {
     PlannerRequest r;
@@ -164,8 +196,14 @@ PlannerRequest buildPlannerRequest (const PlannerBrief& brief, const PlannerSett
         // answers. "default" lets Anthropic choose the substitute by the
         // reason for the decline, so there is no fallback model to keep
         // current here.
-        { "anthropic-beta",    "server-side-fallback-2026-07-01" },
     };
+
+    // Only where the model is documented to take it - see plannerModels().
+    const PlannerModel* chosen = findPlannerModel (settings.model);
+    const bool fallbacks = chosen != nullptr && chosen->serverFallbacks;
+
+    if (fallbacks)
+        r.headers.push_back ({ "anthropic-beta", "server-side-fallback-2026-07-01" });
 
     std::string rig = "The rig has drums and bass";
     if (brief.hasGuitar)  rig += ", a rhythm guitar";
@@ -182,8 +220,10 @@ PlannerRequest buildPlannerRequest (const PlannerBrief& brief, const PlannerSett
     std::string b;
     b += "{\n";
     b += "  \"model\": " + jsonQuote (settings.model) + ",\n";
-    b += "  \"max_tokens\": " + std::to_string (std::max (1024, settings.maxTokens)) + ",\n";
-    b += "  \"fallbacks\": \"default\",\n";
+    b += "  \"max_tokens\": " + std::to_string (std::max ({ 1024, settings.maxTokens,
+                                                               plannerMaxTokensFor (settings.effort) })) + ",\n";
+    if (fallbacks)
+        b += "  \"fallbacks\": \"default\",\n";
     b += "  \"thinking\": { \"type\": \"adaptive\" },\n";
     b += "  \"output_config\": {\n";
     b += "    \"effort\": " + jsonQuote (settings.effort) + ",\n";
