@@ -8,6 +8,15 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
 ## [Unreleased]
 
 ### Added
+- **`tools/StartGigPerformer.ps1`: a Gig Performer launcher that clears leftovers.**
+  Kontakt 8 (8.13.1) hangs while shutting down: in a bare test host it finished
+  its work and never let the process exit, two runs out of two. SSD5, MODO Bass 2,
+  IRON 2 and Ghostband all exited cleanly. So quitting a Gig Performer session with
+  a Kontakt instrument leaves `GigPerformer5.exe` running with no window. The
+  launcher ends any copy that has no window and is over 20 seconds old, logs it
+  to `%APPDATA%\Ghostband\gp-launcher.log`, then starts Gig Performer. If a real
+  session is already open, it brings that session to the front instead. A `.vbs`
+  wrapper runs it with no console window, for a taskbar pin to point at.
 - **The stall log now covers the audio side too.** Ghostband times its own
   audio processing, and once a second checks that the host asked for as much
   audio as the second contained. A shortfall of more than a tenth of a second is

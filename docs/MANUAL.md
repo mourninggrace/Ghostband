@@ -397,6 +397,23 @@ right, with the verdict in words when you hover it.
 It is written to `%APPDATA%\Ghostband\stalls.log` too, with the date as well as
 the time, because the window that would show it is the thing that was frozen.
 
+### If Gig Performer will not quit
+
+If Gig Performer's window closes but `GigPerformer5.exe` stays in Task Manager,
+that is **Kontakt**, not Ghostband. Kontakt 8 (8.13.1, measured 2026-09-26) hangs
+while it is being shut down. Loaded on its own into a test host, it finished its
+work and then never let the process exit, while SSD5, MODO Bass 2, IRON 2 and
+Ghostband all exited within seconds. Any rackspace with a Kontakt instrument in
+it (Shreddage 3 Hydra, for one) inherits the hang.
+
+`tools/StartGigPerformer.ps1` takes the chore away. Point your Gig Performer
+shortcut at `tools/StartGigPerformer.vbs` (which runs the script without a
+console window). Each time you start Gig Performer, it first ends any copy that
+has no window and has been running for more than 20 seconds, and logs what it
+cleared to `%APPDATA%\Ghostband\gp-launcher.log`. If a real session is already
+open, it brings that one to the front instead of starting a second. Updating
+Kontakt through Native Access is worth trying too; this was measured on 8.13.1.
+
 ### If the sound ever breaks up
 
 The same log watches the audio. Once a second Ghostband checks that the host

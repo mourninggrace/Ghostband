@@ -90,6 +90,21 @@ longer does, and a full test run leaves your file byte-identical. Your old-forma
 `stalls-old-format-to-20260916.log` rather than deleted, so the new one starts
 clean and nothing was thrown away.
 
+### 0000. WHY GIG PERFORMER WOULD NOT QUIT - answered, and handled
+
+It's **Kontakt 8**. I loaded each of your instruments on its own into a test
+host and timed how long each took to shut down. Ghostband, SSD5, MODO and IRON 2
+all quit within seconds. Kontakt 8 never quit, in two tries out of two, after it
+had finished everything else. Your Shreddage Hydra lives inside Kontakt, so every
+session with it inherits the hang.
+
+**Your Gig Performer taskbar pin now starts a small launcher.** It clears any
+leftover Gig Performer with no window, then starts a fresh one, so Task Manager
+is no longer needed. It logs each clear to `gp-launcher.log`. The original pin is
+backed up in `%LOCALAPPDATA%\Ghostband`. The running Gig Performer may now show
+as its own taskbar button next to the pin. Worth doing too: update Kontakt in
+Native Access, since the hang was measured on 8.13.1.
+
 ### 000. THE INTERFACE THAT LOOPED - over to your log
 
 On 2026-09-26 your Focusrite locked into a steady echoing noise until you

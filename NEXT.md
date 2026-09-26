@@ -191,6 +191,26 @@ the threshold disabled first), and a full second is not.
 `roundToInt`. And `Build.bat` does not run from the bash tool; a "rebuild" there
 silently left the deliberately broken binary in place. Build through PowerShell.
 
+### And why Gig Performer never quits: Kontakt 8
+
+He asked why he keeps having to end GigPerformer5.exe in Task Manager after
+Quit. **Measured with `ghostband_probe` as a bare host** (load, play two notes,
+unload, time the exit): Ghostband 5/5 clean in under a second; SSD5, MODO Bass 2,
+IRON 2 clean in 3-15 s; **Kontakt 8 (8.13.1) never exited, 2 of 2**, after
+printing its last result - a hang on shutdown, the exact symptom. Virtual Pianist
+exited once with 0xC0000374 (heap corruption on exit), a crash rather than a hang,
+seen once in two runs. Neither is ours to fix.
+
+Fix on his side, with no change of habit: `tools/StartGigPerformer.ps1` (+ `.vbs`
+so no console flashes) installed to `%LOCALAPPDATA%\Ghostband\`, and his TASKBAR
+PIN now points at it (the original pin is backed up beside it as
+`Gig Performer 5 - original taskbar pin.lnk`). It kills GP5 copies with no window
+older than 20 s, logs to `gp-launcher.log`, activates a live session instead of
+starting a second. Tested against ping (old one cleared, young one spared) and
+charmap (windowed one kept, no second started). Side effect: the running GP5 may
+show as its own taskbar button beside the pin, because the pin now launches
+wscript.
+
 ## Session 23: the planner's first real song, and a line you could not read
 
 The first live planner call worked first time: 23 seconds, about 6¢, and the
