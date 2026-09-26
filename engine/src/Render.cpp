@@ -440,7 +440,47 @@ static void reshapeFill (std::vector<SoloStep>& steps, int top, const FillPerson
         }
     }
 
-    if (steps.size() >= 3 && r.chance (p.leapIn))
+    // NO PLAIN SCALE WALKS. After the fill re-timing the owner still heard
+    // "the walk up and down scale for the fills", two songs in a row, and was
+    // right: measured, 23.4% of fill phrases were every-step-a-scale-step, up
+    // or down. A player answering the singer does not practise scales at him.
+    // So a phrase that is still a pure walk is re-spelled as one of the interval
+    // figures lead players use instead - broken thirds, broken fourths, a pedal
+    // against one anchor note, a zig-zag - travelling the same way from the same
+    // note. The landing is re-aimed at the chord afterwards, as always.
+    if (steps.size() >= 3)
+    {
+        bool walk = true;
+        for (size_t i = 1; i < steps.size() && walk; ++i)
+            if (std::abs (steps[i].degree - steps[i - 1].degree) != 1)
+                walk = false;
+
+        if (walk && r.chance (0.9))
+        {
+            const int d0  = steps[0].degree;
+            const int dir = steps.back().degree >= d0 ? 1 : -1;
+            static const int thirds[]  = { 0, 2, 1, 3, 2, 4, 3, 5, 4, 6, 5, 7 };
+            static const int fourths[] = { 0, 3, 1, 4, 2, 5, 3, 6, 4, 7, 5, 8 };
+            static const int zigzag[]  = { 0, -1, 2, 1, 4, 3, 6, 5, 8, 7, 10, 9 };
+            const int figure = r.below (4);
+
+            for (size_t i = 0; i < steps.size(); ++i)
+            {
+                const size_t k = std::min<size_t> (i, 11);
+                int off = 0;
+                switch (figure)
+                {
+                    case 0:  off = thirds[k];  break;
+                    case 1:  off = fourths[k]; break;
+                    case 2:  off = (i % 2 == 1) ? 4 : static_cast<int> (i / 2); break;   // pedal: the anchor is 4 up
+                    default: off = zigzag[k];  break;
+                }
+                steps[i].degree = std::max (0, std::min (top, d0 + dir * off));
+            }
+        }
+    }
+
+    if (steps.size() >= 3 && r.chance (p.leapIn))
     {
         const int into = steps[1].degree - steps[0].degree;
         const int leap = (into >= 0 ? -1 : 1) * r.range (2, 3);   // come at the line from the other side

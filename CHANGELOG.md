@@ -18,6 +18,16 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
   where in the bar it tends to come in. The three commonest rhythms are now about
   12% of fills, and songs are 0.11 alike; two seeds of the same song, 0.15.
   Solos, drums and bass are note for note what they were.
+- **Fills no longer walk up and down the scale.** Still heard after the above,
+  and measured at 23% of fill phrases. A fill that comes out as a plain scale walk
+  is now re-spelled as broken thirds, broken fourths, a pedal against one anchor
+  note, or a zig-zag. Now 10%, much of that quick two-note trills.
+- **Guitar 2 sits back under its fills and comes forward for its solos.** In
+  sections where it answers, its level control is sent about 6 dB below the GTR 2
+  knob; in its solos, and everywhere else, the knob's own level.
+- **The solos are locked.** A fingerprint of every solo note in every song is
+  pinned in the tests; checked first against v2.1.0's output in all 33 songs with
+  solos (same notes, lengths and legato). Solos change only when asked for.
 
 ## [2.2.2] — 2026-09-26
 

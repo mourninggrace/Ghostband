@@ -29,7 +29,7 @@ nobody has to read it.
 - **The window is 1180x820, minimum 1020x820.** Both numbers are load-bearing:
   the minimum is set by the two-column Settings screen, not by the song screen,
   and the harness's `kMinW`/`kMinH` must move with it.
-- **506 checks** pass on every build, and all 34 plans are swept.
+- **508 checks** pass on every build, and all 34 plans are swept.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
@@ -190,6 +190,14 @@ AFTER: top-3 11-13%, songs 0.11 alike, seeds 0.15. Fill answer notes down 15%
 him whether fills now feel too sparse. The check "at one it takes every opening"
 demanded ONLY bars 4/8/12/16; stricter than its claim since session 21, it broke
 when the stream drew differently. It now asserts every opening taken.
+
+**Then:** he heard fills still walking the scale (measured 23.4% stepwise, now
+10.4% via the walk breaker in `reshapeFill`), asked fills to sit back in the mix
+(per-section guitar 2 level, `kFillsLevel` 0.7), and feared the solos had been
+broken ("slow single note pickers"). They had NOT: v2.1.0 vs now in all 33 solo
+songs - 2596 notes both, 43.4% legato both; only the repeated-note fix differs.
+Solos are now LOCKED by fingerprint (0x1b0d3285 at two seeds). He is nervous
+about regressions - prove before claiming, and keep solos out of any fill work.
 
 **My mistake this session:** `git checkout <file>` to "check" for changes
 discarded the uncommitted harness work. Recovered by re-running the scratchpad

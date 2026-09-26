@@ -119,7 +119,7 @@ void check (bool condition, const juce::String& what, const juce::String& detail
 // phrase (not the bed) in every "fills" section of every song, at six seeds, is
 // fingerprinted three ways - rhythm, contour, rhythm+intervals - and the report
 // says how many phrases share a fingerprint with phrases in OTHER songs.
-struct FillNumbers { double top3Share = 1.0, betweenSongs = 1.0, withinSong = 1.0; int phrases = 0, notes = 0; uint32_t soloSum = 0; };
+struct FillNumbers { double top3Share = 1.0, betweenSongs = 1.0, withinSong = 1.0; int phrases = 0, notes = 0; uint32_t soloSum = 0; double walkShare = 1.0; };
 
 static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool print = true)
 {
@@ -138,7 +138,8 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
     std::map<std::string, std::map<std::string, int>> perInstance;   // song#seed -> rhythm -> count
     std::map<std::string, int> fullCount, rhythmCount, contourCount, startBeat, lengthNotes, firstInt;
     int phrases = 0, notes = 0, songsWithFills = 0;
-    uint32_t soloSum = 17u;
+    uint32_t soloSum = 17u;
+    int walks = 0, walkCandidates = 0;
 
     for (const juce::File& f : plansDir.findChildFiles (juce::File::findFiles, false, "*.json"))
     {
@@ -196,6 +197,21 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
                     }
 
                     ++phrases; notes += static_cast<int> (j - i);
+                    if (j - i >= 3)
+                    {
+                        ++walkCandidates;
+                        bool walk = true;
+                        int dir = 0;
+                        for (size_t q = i + 1; q < j && walk; ++q)
+                        {
+                            const int iv = ns[q].pitch - ns[q - 1].pitch;
+                            const int a = std::abs (iv);
+                            const int sg = iv > 0 ? 1 : -1;
+                            if (a < 1 || a > 2) walk = false;   // stepwise either way: up AND down is still a scale walk
+                            dir = sg;
+                        }
+                        if (walk) ++walks;
+                    }
                     fullSongs[full].insert (f.getFileNameWithoutExtension().toStdString());
                     rhythmSongs[rhythm].insert (f.getFileNameWithoutExtension().toStdString());
                     contourSongs[contour].insert (f.getFileNameWithoutExtension().toStdString());
@@ -234,6 +250,8 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
 
     if (print) std::printf ("FILLS: %d songs with fills sections, %d seeds each\n", songsWithFills, seedsPerSong);
     if (print) std::printf ("  solo checksum (must not change): %08x\n", soloSum);
+    if (print) std::printf ("  SCALE WALKS (3+ notes, every step 1-2 semitones, up or down): %d of %d phrases, %.1f%%\n",
+                            walks, walkCandidates, walkCandidates ? 100.0 * walks / walkCandidates : 0.0);
     if (print) std::printf ("  %d phrases, %d notes, %.1f notes a phrase\n", phrases, notes, phrases ? notes / double (phrases) : 0.0);
     if (print) std::printf ("  distinct: %zu rhythms, %zu contours, %zu rhythm+interval shapes\n",
                  rhythmCount.size(), contourCount.size(), fullCount.size());
@@ -286,6 +304,7 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
         out.phrases = phrases;
         out.notes = notes;
         out.soloSum = soloSum;
+        out.walkShare = walkCandidates ? walks / double (walkCandidates) : 0.0;
     }
     return out;
 }
