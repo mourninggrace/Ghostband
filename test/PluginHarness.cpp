@@ -111,6 +111,184 @@ void check (bool condition, const juce::String& what, const juce::String& detail
 // Dumps what each screen actually lays out, so a control that is present in the
 // source and absent on screen can be seen rather than reasoned about. Run with
 // "--audit [plan]". Not a test: a look.
+// ---- --fillstats: what the second guitar's FILLS are made of, across songs ----
+//
+// Not a check - a measurement, for the question "the fills sound the same song
+// to song". Session 21 learned that the metric has to be what an EAR calls
+// sameness: rhythm and melodic shape, independent of key. So every answering
+// phrase (not the bed) in every "fills" section of every song, at six seeds, is
+// fingerprinted three ways - rhythm, contour, rhythm+intervals - and the report
+// says how many phrases share a fingerprint with phrases in OTHER songs.
+struct FillNumbers { double top3Share = 1.0, betweenSongs = 1.0, withinSong = 1.0; int phrases = 0, notes = 0; };
+
+static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool print = true)
+{
+    FillNumbers out;
+    gb::DrumProfile kit;  gb::BassProfile bass;
+    gb::PhraseProfile gtr, gtr2, piano;
+    std::string e;
+    gb::DrumProfile::load   ("C:/Projects/Ghostband/profiles/ssd5-terry-date.json", kit, e);
+    gb::BassProfile::load   ("C:/Projects/Ghostband/profiles/modo-bass-2.json", bass, e);
+    gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/vg-iron2.json", gtr, e);
+    gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/shreddage-3-hydra.json", gtr2, e);
+    gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/virtual-pianist.json", piano, e);
+
+    const int step = gb::kPPQ / 4;                         // a sixteenth
+    std::map<std::string, std::set<std::string>> fullSongs, rhythmSongs, contourSongs;
+    std::map<std::string, std::map<std::string, int>> perInstance;   // song#seed -> rhythm -> count
+    std::map<std::string, int> fullCount, rhythmCount, contourCount, startBeat, lengthNotes, firstInt;
+    int phrases = 0, notes = 0, songsWithFills = 0;
+    uint32_t soloSum = 17u;
+
+    for (const juce::File& f : plansDir.findChildFiles (juce::File::findFiles, false, "*.json"))
+    {
+        gb::SongPlan base;
+        if (! gb::SongPlan::load (f.getFullPathName().toStdString(), base, e))
+            continue;
+        bool any = false;
+
+        for (int k = 0; k < seedsPerSong; ++k)
+        {
+            gb::SongPlan song = base;
+            song.seed = base.seed + static_cast<unsigned> (k) * 7919u;
+            const gb::RenderResult r = gb::renderPerformance (song, kit, bass, &gtr, &piano, &gtr2);
+            const std::string songId = f.getFileNameWithoutExtension().toStdString() + "#" + std::to_string (k);
+
+            // Solos must not move: a checksum of every non-fill guitar-2 note.
+            for (const gb::LeadIntent& n : r.performance.guitar2.lead)
+            {
+                bool inFills = false;
+                for (const gb::SectionReport& sc : r.sections)
+                    if (sc.guitar2Feel.rfind ("fills", 0) == 0 && n.tick >= sc.startTick && n.tick < sc.endTick) inFills = true;
+                if (! inFills) soloSum = soloSum * 1000003u + static_cast<uint32_t> (n.tick * 131 + n.pitch * 7 + n.durationTicks);
+            }
+
+            for (const gb::SectionReport& sec : r.sections)
+            {
+                if (sec.guitar2Feel.rfind ("fills", 0) != 0) continue;
+                any = true;
+
+                std::vector<gb::LeadIntent> ns;
+                for (const gb::LeadIntent& n : r.performance.guitar2.lead)
+                    if (! n.bed && n.tick >= sec.startTick && n.tick < sec.endTick)
+                        ns.push_back (n);
+                std::sort (ns.begin(), ns.end(), [] (const auto& a, const auto& b) { return a.tick < b.tick; });
+
+                // Phrases: split where the line rests for more than a beat.
+                for (size_t i = 0; i < ns.size(); )
+                {
+                    size_t j = i + 1;
+                    while (j < ns.size() && ns[j].tick - (ns[j - 1].tick + ns[j - 1].durationTicks) <= gb::kPPQ)
+                        ++j;
+
+                    std::string rhythm, contour, full;
+                    for (size_t q = i; q < j; ++q)
+                    {
+                        const int on  = (ns[q].tick - ns[i].tick + step / 2) / step;
+                        const int len = std::max (1, (ns[q].durationTicks + step / 2) / step);
+                        rhythm += std::to_string (on) + ":" + std::to_string (len) + " ";
+                        if (q > i)
+                        {
+                            const int iv = ns[q].pitch - ns[q - 1].pitch;
+                            contour += iv > 0 ? "u" : iv < 0 ? "d" : "=";
+                            full    += std::to_string (on) + ":" + std::to_string (iv) + " ";
+                        }
+                    }
+
+                    ++phrases; notes += static_cast<int> (j - i);
+                    fullSongs[full].insert (f.getFileNameWithoutExtension().toStdString());
+                    rhythmSongs[rhythm].insert (f.getFileNameWithoutExtension().toStdString());
+                    contourSongs[contour].insert (f.getFileNameWithoutExtension().toStdString());
+                    ++fullCount[full]; ++rhythmCount[rhythm]; ++contourCount[contour];
+                    ++perInstance[songId][rhythm];
+
+                    const int beatInBar = ((ns[i].tick - sec.startTick) % (gb::kPPQ * 4)) / step;
+                    ++startBeat["16th " + std::to_string (beatInBar)];
+                    ++lengthNotes[std::to_string (std::min<size_t> (j - i, 12)) + (j - i >= 12 ? "+" : "")];
+                    if (j - i > 1) ++firstInt[std::to_string (ns[i + 1].pitch - ns[i].pitch)];
+                    i = j;
+                }
+            }
+        }
+        if (any) ++songsWithFills;
+    }
+
+    auto shared = [&] (const std::map<std::string, std::set<std::string>>& m,
+                       const std::map<std::string, int>& c)
+    {
+        int inOthers = 0;
+        for (const auto& kv : m)
+            if (kv.second.size() >= 3) inOthers += c.at (kv.first);
+        return inOthers;
+    };
+    auto top = [] (const std::map<std::string, int>& c, int n)
+    {
+        std::vector<std::pair<int, std::string>> v;
+        for (const auto& kv : c) v.push_back ({ kv.second, kv.first });
+        std::sort (v.rbegin(), v.rend());
+        std::string out;
+        for (int i = 0; i < n && i < static_cast<int> (v.size()); ++i)
+            out += "      " + std::to_string (v[static_cast<size_t> (i)].first) + "  x  [" + v[static_cast<size_t> (i)].second + "]\n";
+        return out;
+    };
+
+    if (print) std::printf ("FILLS: %d songs with fills sections, %d seeds each\n", songsWithFills, seedsPerSong);
+    if (print) std::printf ("  solo checksum (must not change): %08x\n", soloSum);
+    if (print) std::printf ("  %d phrases, %d notes, %.1f notes a phrase\n", phrases, notes, phrases ? notes / double (phrases) : 0.0);
+    if (print) std::printf ("  distinct: %zu rhythms, %zu contours, %zu rhythm+interval shapes\n",
+                 rhythmCount.size(), contourCount.size(), fullCount.size());
+    if (print) std::printf ("  phrases whose SHAPE also occurs in 3+ other songs: rhythm %.1f%%, contour %.1f%%, full %.1f%%\n",
+                 100.0 * shared (rhythmSongs, rhythmCount) / std::max (1, phrases),
+                 100.0 * shared (contourSongs, contourCount) / std::max (1, phrases),
+                 100.0 * shared (fullSongs, fullCount) / std::max (1, phrases));
+    // HOW ALIKE TWO SONGS' FILLS ARE: cosine similarity of their rhythm
+    // profiles, averaged over every pair of different songs (one seed each)
+    // and over pairs of seeds of the SAME song. 1.0 = identical habits.
+    {
+        std::vector<std::pair<std::string, const std::map<std::string, int>*>> inst;
+        for (const auto& kv : perInstance) inst.push_back ({ kv.first, &kv.second });
+        auto cosine = [] (const std::map<std::string, int>& a, const std::map<std::string, int>& b)
+        {
+            double dot = 0, na = 0, nb = 0;
+            for (const auto& kv : a) { na += double (kv.second) * kv.second;
+                                       auto it = b.find (kv.first); if (it != b.end()) dot += double (kv.second) * it->second; }
+            for (const auto& kv : b) nb += double (kv.second) * kv.second;
+            return (na > 0 && nb > 0) ? dot / std::sqrt (na * nb) : 0.0;
+        };
+        double between = 0, within = 0; int nb = 0, nw = 0;
+        for (size_t i = 0; i < inst.size(); ++i)
+            for (size_t j = i + 1; j < inst.size(); ++j)
+            {
+                const std::string si = inst[i].first.substr (0, inst[i].first.find ('#'));
+                const std::string sj = inst[j].first.substr (0, inst[j].first.find ('#'));
+                const double c = cosine (*inst[i].second, *inst[j].second);
+                if (si == sj) { within += c; ++nw; } else { between += c; ++nb; }
+            }
+        if (print) std::printf ("  rhythm-profile similarity: between different songs %.2f, between seeds of one song %.2f  (1.0 = same habits)\n",
+                     nb ? between / nb : 0.0, nw ? within / nw : 0.0);
+        out.betweenSongs = nb ? between / nb : 0.0;
+        out.withinSong   = nw ? within / nw : 0.0;
+    }
+    if (print) std::printf ("  most common rhythms (onset:length in 16ths):\n%s", top (rhythmCount, 8).c_str());
+    if (print) std::printf ("  most common contours:\n%s", top (contourCount, 8).c_str());
+    if (print) std::printf ("  most common full shapes:\n%s", top (fullCount, 8).c_str());
+    if (print) std::printf ("  where phrases start in the bar:\n%s", top (startBeat, 8).c_str());
+    if (print) std::printf ("  phrase length in notes:\n%s", top (lengthNotes, 8).c_str());
+    if (print) std::printf ("  first interval:\n%s", top (firstInt, 8).c_str());
+
+    {
+        std::vector<int> counts;
+        for (const auto& kv : rhythmCount) counts.push_back (kv.second);
+        std::sort (counts.rbegin(), counts.rend());
+        int top3 = 0;
+        for (size_t i = 0; i < counts.size() && i < 3; ++i) top3 += counts[i];
+        out.top3Share = phrases ? top3 / double (phrases) : 1.0;
+        out.phrases = phrases;
+        out.notes = notes;
+    }
+    return out;
+}
+
 void layoutAudit (GhostbandProcessor& proc, const juce::String& planPath,
                   int wantW = 0, int wantH = 0)
 {
@@ -335,6 +513,12 @@ int main (int argc, char** argv)
     GhostbandProcessor::setUserSongsFolderForTesting (harnessSongs);
 
     GhostbandProcessor proc;
+
+    if (argc > 1 && juce::String (argv[1]) == "--fillstats")
+    {
+        fillStats (juce::File ("C:/Projects/Ghostband/plans"), argc > 2 ? juce::String (argv[2]).getIntValue() : 6);
+        return 0;
+    }
 
     if (argc > 1 && juce::String (argv[1]) == "--audit")
     {
@@ -1625,10 +1809,17 @@ int main (int argc, char** argv)
                 if (! n.bed)
                     filled.insert (n.tick / barTicks + 1);
 
-            check (filled.size() == 4 && filled.count (4) && filled.count (8)
+            // EVERY BOUNDARY, not ONLY the boundaries. This used to demand exactly
+            // bars 4, 8, 12 and 16 - written before session 21 let an answer land
+            // mid-group too (a separate check fails if fills land ONLY on the
+            // fourth bar). It held for this plan by the luck of the stream until
+            // the 2026-09-26 fill re-timing drew differently and an answer landed
+            // in bar 14. The claim is that at one every opening is TAKEN.
+            check (filled.count (4) && filled.count (8)
                        && filled.count (12) && filled.count (16),
                    "and at one it takes every opening it is offered",
-                   juce::String ((int) filled.size()) + " of 4 four-bar boundaries");
+                   juce::String ((int) filled.size()) + " of 4 four-bar boundaries: bars "
+                       + [&filled] { juce::String t; for (int b : filled) t << b << " "; return t; }());
 
             // Turning fills off must not disturb anything else. The answering
             // guitar draws from its own derived stream precisely so that
@@ -6729,6 +6920,19 @@ int main (int argc, char** argv)
                "a reroll while the band is playing leaves no note hanging",
                stuck.isEmpty() ? juce::String ("none") : stuck);
         p2.setPlayHead (nullptr);
+    }
+
+    // FILLS STAY FRESH, SONG TO SONG. Measured over every song at two seeds:
+    // before the 2026-09-26 re-timing, three rhythms were 46% of all fills and
+    // two different songs' fill habits were 0.43 alike; after, 11% and 0.11.
+    // Loose ceilings, so ordinary variation passes and a return to one
+    // silhouette does not.
+    {
+        const FillNumbers f = fillStats (juce::File ("C:/Projects/Ghostband/plans"), 2, false);
+        check (f.phrases > 200 && f.top3Share < 0.20 && f.betweenSongs < 0.25,
+               "the lead guitar's fills do not share one rhythm, and two songs do not share one habit",
+               juce::String (f.top3Share * 100.0, 1) + "% in the three commonest rhythms, songs "
+                   + juce::String (f.betweenSongs, 2) + " alike, " + juce::String (f.phrases) + " phrases");
     }
 
     // THE LOCK ORDER RULE, since it is not otherwise written down anywhere:

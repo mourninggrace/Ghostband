@@ -216,6 +216,12 @@ struct SoloStep
     // is one of the plainest differences between a player who knows the scale
     // and a player who knows the neck.
     int    semis  = 0;
+
+    // EXACT PLACEMENT, for fills. When tickAt is set it overrides slot and
+    // length: ticks from the start of the phrase, so a fill can hold a dotted
+    // value or a triplet that no sixteenth grid can say. -1 = use the slot.
+    int    tickAt    = -1;
+    int    tickLength = 0;
 };
 
 // Cells worth transposing. Shapes rather than intervals: a plain ascent, and
@@ -299,6 +305,276 @@ enum class Device
 
 static constexpr int kNumDevices = 9;
 
+//==============================================================================
+// THE FILLS' RHYTHM, AND WHY IT IS ITS OWN THING.
+//
+// "The lead guitar plays a lot of the same fills - sounding the same song to
+// song, the fills specifically, not the solos." Measured on 2026-09-26 across
+// all 34 songs at six seeds each (harness --fillstats): 95% of fill phrases had
+// a rhythm that also occurred in three or more OTHER songs, and three rhythms -
+// four even eighths, three even eighths, four even sixteenths - were 46% of
+// every fill. 41% walked straight up or straight down the scale. Seventy per
+// cent were three or four notes. So the fill everybody heard was one
+// silhouette, "a few even notes walking the scale from beat three", whatever
+// the pitches were. The pitches were never the problem; the phrase's pulse
+// gave every note the same length, and that sameness IS the rhythm.
+//
+// So a fill phrase is re-timed from a vocabulary of the figures a rock or
+// metal lead player actually answers with - long-short, short-long, gallops,
+// syncopations, triplets, a fast flurry, one bent note after a pickup, a gap
+// inside the phrase - keeping its pitches, its order and its landing note.
+// Each SONG gets a personality (which figures it leans on), so two songs do
+// not share a voice; within a song the last two figures are not reused, so a
+// song does not repeat itself. Solos are untouched: their rhythm is the pulse
+// system above, and the owner is happy with them.
+//
+// Everything here draws from its own streams, salted off the song and section
+// seeds, so drums, bass, chords and every solo come out note for note as they
+// did before.
+struct FillHit { int on, len; };      // ticks at 480 a quarter
+
+enum FillFigure
+{
+    FigEighths = 0, FigSixteenths, FigDotted, FigSnap, FigGallop, FigRevGallop,
+    FigSyncopated, FigTriplet, FigSextuplet, FigQuarterTriplet, FigStatement, FigSpace,
+    kNumFillFigures
+};
+
+// One repeat of each figure. A phrase is built by repeating its figure until
+// it has enough notes or runs out of room. FigStatement is built separately.
+static std::vector<FillHit> fillFigure (int f)
+{
+    switch (f)
+    {
+        case FigEighths:        return { { 0, 240 }, { 240, 240 } };
+        case FigSixteenths:     return { { 0, 120 }, { 120, 120 }, { 240, 120 }, { 360, 120 } };
+        case FigDotted:         return { { 0, 360 }, { 360, 120 } };                 // long-short
+        case FigSnap:           return { { 0, 120 }, { 120, 360 } };                 // short-long
+        case FigGallop:         return { { 0, 240 }, { 240, 120 }, { 360, 120 } };
+        case FigRevGallop:      return { { 0, 120 }, { 120, 120 }, { 240, 240 } };
+        case FigSyncopated:     return { { 0, 120 }, { 120, 240 }, { 360, 120 } };
+        case FigTriplet:        return { { 0, 160 }, { 160, 160 }, { 320, 160 } };
+        case FigSextuplet:      return { { 0, 80 }, { 80, 80 }, { 160, 80 }, { 240, 80 }, { 320, 80 }, { 400, 80 } };
+        case FigQuarterTriplet: return { { 0, 320 }, { 320, 320 }, { 640, 320 } };
+        case FigSpace:          return { { 0, 240 }, { 240, 240 }, { 720, 240 } };   // a beat left open
+        default:                return { { 0, 240 } };
+    }
+}
+
+// Figures that stay on the straight eighth grid, the only ones that survive a
+// shuffle's swing pass intact (see the grid note in generateSolo). Played at
+// double length there, so a "sixteenth" figure becomes eighths.
+static bool figureSurvivesSwing (int f)
+{
+    return f != FigTriplet && f != FigSextuplet && f != FigQuarterTriplet;
+}
+
+struct FillPersonality
+{
+    double weight[kNumFillFigures] {};
+    double turn = 0.3;       // chance a straight run turns back on itself
+    double leapIn = 0.25;    // chance the first note is a leap into the line
+
+    // Where in the bar this player tends to come in: half, three-quarters,
+    // the and of three, early, a pickup. Scales the Intuition-set odds, so
+    // Intuition still decides what is POSSIBLE and the song decides the habit.
+    double start[5] { 1.0, 1.0, 1.0, 1.0, 1.0 };
+};
+
+// A song's leanings. Every figure is always available - a personality tilts
+// the odds, it does not remove anything - but by a factor of up to ten between
+// songs, which is the difference between a player who lives on dotted figures
+// and bent notes and one who lives on triplet flurries.
+static FillPersonality fillPersonalityFor (uint32_t songSeed)
+{
+    static const double base[kNumFillFigures] = {
+        5.0,  // eighths - still there, just no longer nearly everything
+        5.0,  // sixteenths
+        10.0, // dotted
+        6.0,  // snap
+        8.0,  // gallop
+        6.0,  // reverse gallop
+        8.0,  // syncopated
+        8.0,  // triplet
+        5.0,  // sextuplet flurry
+        4.0,  // quarter-note triplet
+        9.0,  // statement: one bent note after a pickup
+        6.0   // a gap inside
+    };
+
+    Rng r (deriveSeed (songSeed, 0xF111AA5u));
+    FillPersonality p;
+    for (int f = 0; f < kNumFillFigures; ++f)
+        p.weight[f] = base[f] * (0.25 + r.unit() * 2.25);
+    p.turn   = 0.15 + r.unit() * 0.40;
+    p.leapIn = 0.10 + r.unit() * 0.30;
+    for (double& b : p.start)
+        b = 0.35 + r.unit() * 1.65;
+    return p;
+}
+
+// Shape, before rhythm. A monotonic run of four or more sometimes turns back
+// halfway (an arch rather than a staircase), and a phrase sometimes leaps into
+// its first note from a third or fourth away. The last note is left alone: it
+// is re-aimed at the chord right after this.
+static void reshapeFill (std::vector<SoloStep>& steps, int top, const FillPersonality& p, Rng& r)
+{
+    if (steps.size() >= 4)
+    {
+        int dir = 0;
+        bool monotonic = true;
+        for (size_t i = 1; i < steps.size(); ++i)
+        {
+            const int d = steps[i].degree - steps[i - 1].degree;
+            const int sgn = d > 0 ? 1 : (d < 0 ? -1 : 0);
+            if (sgn == 0 || (dir != 0 && sgn != dir)) { monotonic = false; break; }
+            dir = sgn;
+        }
+
+        if (monotonic && r.chance (p.turn))
+        {
+            const size_t mid = steps.size() / 2;
+            const int pivot = steps[mid].degree;
+            for (size_t i = mid + 1; i < steps.size(); ++i)
+                steps[i].degree = std::max (0, std::min (top, pivot - (steps[i].degree - pivot)));
+        }
+    }
+
+    if (steps.size() >= 3 && r.chance (p.leapIn))
+    {
+        const int into = steps[1].degree - steps[0].degree;
+        const int leap = (into >= 0 ? -1 : 1) * r.range (2, 3);   // come at the line from the other side
+        steps[0].degree = std::max (0, std::min (top, steps[1].degree + leap));
+    }
+}
+
+// Rhythm. Picks a figure (by the song's personality and the section's heat,
+// never either of the last two used) and places the phrase's notes on it,
+// keeping their order and the final landing note. spanTicks is the room the
+// phrase has before the bar it must stay out of.
+static void retimeFill (std::vector<SoloStep>& steps, int spanTicks, bool swung, bool hot,
+                        const FillPersonality& p, int recent[2], Rng& r)
+{
+    if (steps.empty() || spanTicks < 240)
+        return;
+
+    const int scaleFor = swung ? 2 : 1;
+
+    // How many notes a figure can hold in this room. A figure with far fewer
+    // hits than the phrase has notes would thin the phrase out - the first
+    // version of this made every fill 17% sparser - so those are all but ruled
+    // out. The statement is the exception by design.
+    auto capacity = [spanTicks, scaleFor] (int f)
+    {
+        if (f == FigStatement) return 1000;
+        const std::vector<FillHit> cell = fillFigure (f);
+        int span = 0;
+        for (const FillHit& h : cell) span = std::max (span, h.on + h.len);
+        span = (f == FigSpace ? 960 : span) * scaleFor;
+        int n = 0;
+        for (int base = 0; base < spanTicks; base += span)
+            for (const FillHit& h : cell)
+                if (base + h.on * scaleFor < spanTicks) ++n;
+        return n;
+    };
+    const int wanted = static_cast<int> (steps.size());
+
+    double w[kNumFillFigures];
+    double total = 0.0;
+    for (int f = 0; f < kNumFillFigures; ++f)
+    {
+        w[f] = p.weight[f];
+        if (capacity (f) * 4 < wanted * 3) w[f] *= 0.05;
+        if (swung && ! figureSurvivesSwing (f)) w[f] = 0.0;
+        if (f == recent[0] || f == recent[1])   w[f] *= 0.05;
+        if (hot  && (f == FigSextuplet || f == FigSixteenths || f == FigTriplet)) w[f] *= 1.6;
+        if (! hot && (f == FigStatement || f == FigDotted || f == FigSpace))      w[f] *= 1.5;
+        total += w[f];
+    }
+
+    double pick = r.unit() * total;
+    int fig = FigDotted;
+    for (int f = 0; f < kNumFillFigures; ++f)
+        if ((pick -= w[f]) < 0.0) { fig = f; break; }
+
+    recent[1] = recent[0];
+    recent[0] = fig;
+
+    const int scale = swung ? 2 : 1;
+
+    // ONE NOTE THAT SAYS SOMETHING: a quick pickup into a long, leaned-on note -
+    // the bend-and-hold that half of all rock answers are. The pickup is the
+    // note before the landing; the landing is held to the end of the phrase.
+    if (fig == FigStatement)
+    {
+        SoloStep land = steps.back();
+        std::vector<SoloStep> out;
+        const int pickupLen = 120 * scale;
+        if (steps.size() >= 2 && spanTicks >= pickupLen + 480)
+        {
+            SoloStep pick = steps[steps.size() - 2];
+            pick.tickAt = 0;
+            pick.tickLength = pickupLen;
+            out.push_back (pick);
+        }
+        land.tickAt     = out.empty() ? 0 : pickupLen;
+        land.tickLength = spanTicks - land.tickAt;
+        land.target     = true;
+        land.accent     = std::max (land.accent, 0.9);
+        out.push_back (land);
+        steps.swap (out);
+        return;
+    }
+
+    // Repeat the figure across the room, then fit the notes to the hits.
+    std::vector<FillHit> hits;
+    const std::vector<FillHit> cell = fillFigure (fig);
+    int cellSpan = 0;
+    for (const FillHit& h : cell) cellSpan = std::max (cellSpan, h.on + h.len);
+    cellSpan *= scale;
+    if (fig == FigSpace) cellSpan = 960 * scale;
+
+    for (int base = 0; base < spanTicks && hits.size() < steps.size(); base += cellSpan)
+        for (const FillHit& h : cell)
+        {
+            const int on = base + h.on * scale;
+            if (on >= spanTicks || hits.size() >= steps.size()) break;
+            hits.push_back ({ on, h.len * scale });
+        }
+
+    if (hits.empty())
+        return;
+
+    // Fewer hits than notes: keep the first and the landing, thin the middle.
+    std::vector<SoloStep> kept;
+    if (hits.size() >= steps.size())
+        kept = steps;
+    else
+    {
+        const size_t n = hits.size();
+        for (size_t i = 0; i < n; ++i)
+        {
+            const size_t from = (n == 1) ? steps.size() - 1
+                                         : (i * (steps.size() - 1)) / (n - 1);
+            kept.push_back (steps[from]);
+        }
+    }
+
+    for (size_t i = 0; i < kept.size(); ++i)
+    {
+        kept[i].tickAt     = hits[i].on;
+        kept[i].tickLength = hits[i].len;
+    }
+
+    // The landing rings on to the end of the phrase rather than stopping on
+    // the figure's grid: an answer ends on a held note, not on a clipped one.
+    SoloStep& last = kept.back();
+    last.tickLength = std::max (last.tickLength, spanTicks - last.tickAt);
+    last.target = true;
+
+    steps.swap (kept);
+}
+
 // Two ways to use one vocabulary.
 //
 // Continuous is a solo: phrases back to back for the whole section, because
@@ -327,7 +603,8 @@ static void generateSolo (const SectionPlan& s,
                           SoloShape shape = SoloShape::Continuous,
                           double fillAmount = 0.62,
                           uint32_t articSeed = 0u,
-                          double iq = 0.5)
+                          double iq = 0.5,
+                          uint32_t personalitySeed = 0u)
 {
     if (chords.empty() || profile == nullptr || s.bars <= 0)
         return;
@@ -373,6 +650,12 @@ static void generateSolo (const SectionPlan& s,
         return;
 
     const bool hot = s.intensity > 0.6;
+
+    // Fills only: the song's leanings, and a stream of their own for the shape
+    // and rhythm choices - see THE FILLS' RHYTHM above.
+    const FillPersonality fillVoice = fillPersonalityFor (personalitySeed);
+    Rng fillRng (deriveSeed (articSeed, 0xF11E7u));
+    int recentFigures[2] = { -1, -1 };
 
     std::vector<SoloStep> steps;
     std::vector<SoloStep> motif;   // kept so a later LICK can quote it back
@@ -700,13 +983,21 @@ static void generateSolo (const SectionPlan& s,
             const int wEarly   = (int) byIntuition (iq,   0.0, 14.0, 18.0);
             const int wPickup  = (int) byIntuition (iq,   0.0,  8.0, 18.0);
 
-            const int total = wHalf + wQuarter + wOffHalf + wEarly + wPickup;
+            // The song's habit on top of Intuition's range - see FillPersonality.
+            const int total0 = wHalf + wQuarter + wOffHalf + wEarly + wPickup;
+            (void) total0;
+            const int wHalfS    = (int) (wHalf    * fillVoice.start[0]);
+            const int wQuarterS = (int) (wQuarter * fillVoice.start[1]);
+            const int wOffHalfS = (int) (wOffHalf * fillVoice.start[2]);
+            const int wEarlyS   = (int) (wEarly   * fillVoice.start[3]);
+            const int wPickupS  = (int) (wPickup  * fillVoice.start[4]);
+            const int total = wHalfS + wQuarterS + wOffHalfS + wEarlyS + wPickupS;
             int r = rng.below (total > 0 ? total : 1);
 
-            if      ((r -= wHalf)    < 0) fillStart = slotsPerBar / 2;
-            else if ((r -= wQuarter) < 0) fillStart = (slotsPerBar * 3) / 4;
-            else if ((r -= wOffHalf) < 0) fillStart = (slotsPerBar * 5) / 8;
-            else if ((r -= wEarly)   < 0) fillStart = (slotsPerBar * 3) / 8;
+            if      ((r -= wHalfS)    < 0) fillStart = slotsPerBar / 2;
+            else if ((r -= wQuarterS) < 0) fillStart = (slotsPerBar * 3) / 4;
+            else if ((r -= wOffHalfS) < 0) fillStart = (slotsPerBar * 5) / 8;
+            else if ((r -= wEarlyS)   < 0) fillStart = (slotsPerBar * 3) / 8;
             else                          fillStart = -(slotsPerBar / 8);
 
             // A pickup reaches backwards, so it cannot be the first bar of the
@@ -1162,6 +1453,12 @@ static void generateSolo (const SectionPlan& s,
                 st.length *= stride;
             }
 
+        // A fill's shape: sometimes an arch instead of a staircase, sometimes a
+        // leap in. Before the landing is aimed, so the landing stays right.
+        if (answering && device != static_cast<int> (Device::Neighbour)
+                      && device != static_cast<int> (Device::Gallop))
+            reshapeFill (steps, voice.top, fillVoice, fillRng);
+
         // The last note of a phrase belongs to the chord underneath it. Done on
         // the degree before anything is emitted, so the line stays on one grid
         // and no pitch has to be nudged afterwards.
@@ -1191,6 +1488,17 @@ static void generateSolo (const SectionPlan& s,
             degree = best;
         }
 
+        // A fill's rhythm, from the vocabulary - after the landing is aimed,
+        // so the note it holds is the chord tone. The trill and the gallop are
+        // rhythms already and keep their own.
+        if (answering && device != static_cast<int> (Device::Neighbour)
+                      && device != static_cast<int> (Device::Gallop))
+        {
+            const int spanTicks = std::max (0, (bars * slotsPerBar - slotOffset)) * slotTicks;
+            const int spanInPhrase = std::min (spanTicks, phraseSlots * slotTicks);
+            retimeFill (steps, spanInPhrase, slotsPerBar <= 8, hot, fillVoice, recentFigures, fillRng);
+        }
+
         // ---- emit ----
         const int barStart = sectionStartTick + bar * barTicks;
 
@@ -1202,6 +1510,8 @@ static void generateSolo (const SectionPlan& s,
             // put a stray note on the downbeat of the bar the fill was
             // deliberately staying out of.
             if (answering && slotOffset + st.slot >= bars * slotsPerBar)
+                continue;
+            if (st.tickAt >= 0 && slotOffset * slotTicks + st.tickAt >= bars * slotsPerBar * slotTicks)
                 continue;
 
             const int clamped = std::max (0, std::min (voice.top, st.degree));
@@ -1218,6 +1528,16 @@ static void generateSolo (const SectionPlan& s,
                    + static_cast<int> (rng.bipolar (humanize * 3.0));
             n.pitch         = pitch;
             n.durationTicks = std::max (1, st.length * slotTicks);
+
+            // A re-timed fill note sits where its figure put it. The humanize
+            // draw above still happens either way, so the stream every later
+            // note reads from is exactly what it was.
+            if (st.tickAt >= 0)
+            {
+                n.tick = barStart + slotOffset * slotTicks + st.tickAt
+                       + static_cast<int> (fillRng.bipolar (humanize * 3.0));
+                n.durationTicks = std::max (1, st.tickLength);
+            }
             // A fill answers somebody; it does not compete with them. Backing
             // off the accent is what keeps it behind the rhythm guitar without
             // needing a mix move, and it is what a player does anyway - you do
@@ -1585,7 +1905,7 @@ static void generatePhrasePart (const SectionPlan& s,
         generateSolo (s, chords, sectionStartTick, barTicks, keyPc, mode, style,
                       swing, profile, humanize, soloRng, out,
                       fills ? SoloShape::Answering : SoloShape::Continuous,
-                      fillAmount, sectionSeed, iq);
+                      fillAmount, sectionSeed, iq, songSeed);
         return;
     }
 
