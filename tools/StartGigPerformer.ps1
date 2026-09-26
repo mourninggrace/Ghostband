@@ -56,3 +56,4 @@ foreach ($p in $leftovers) {
 }
 
 Start-Process -FilePath $exe
+Write-Log ("started Gig Performer" + $(if ($leftovers) { "" } else { "   (nothing left over to clear)" }))
