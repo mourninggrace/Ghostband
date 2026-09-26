@@ -143,6 +143,7 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
     std::map<std::string, std::map<std::string, int>> perInstance;   // song#seed -> rhythm -> count
     std::map<std::string, int> fullCount, rhythmCount, contourCount, startBeat, lengthNotes, firstInt;
     int phrases = 0, notes = 0, songsWithFills = 0;
+    long bedNotes = 0, answerNotes = 0, bedTicks = 0, answerTicks = 0, sectionTicks = 0;
     uint32_t soloSum = 17u;
     int walks = 0, walkCandidates = 0;
 
@@ -174,6 +175,13 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
                 if (sec.guitar2Feel.rfind ("fills", 0) != 0) continue;
                 any = true;
 
+                sectionTicks += sec.endTick - sec.startTick;
+                for (const gb::LeadIntent& n : r.performance.guitar2.lead)
+                    if (n.tick >= sec.startTick && n.tick < sec.endTick)
+                    {
+                        if (n.bed) { ++bedNotes; bedTicks += n.durationTicks; }
+                        else       { ++answerNotes; answerTicks += n.durationTicks; }
+                    }
                 std::vector<gb::LeadIntent> ns;
                 for (const gb::LeadIntent& n : r.performance.guitar2.lead)
                     if (! n.bed && n.tick >= sec.startTick && n.tick < sec.endTick)
@@ -254,6 +262,12 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
     };
 
     if (print) std::printf ("FILLS: %d songs with fills sections, %d seeds each\n", songsWithFills, seedsPerSong);
+    if (print) std::printf ("  WHAT A FILLS SECTION IS: bed %ld notes (mean %.0f ticks), answers %ld notes (mean %.0f ticks);"
+                            " bed sounds %.0f%% of the section, answers %.0f%%\n",
+                            bedNotes, bedNotes ? bedTicks / double (bedNotes) : 0.0,
+                            answerNotes, answerNotes ? answerTicks / double (answerNotes) : 0.0,
+                            sectionTicks ? 100.0 * bedTicks / sectionTicks : 0.0,
+                            sectionTicks ? 100.0 * answerTicks / sectionTicks : 0.0);
     if (print) std::printf ("  solo checksum (must not change): %08x\n", soloSum);
     if (print) std::printf ("  SCALE WALKS (3+ notes, every step 1-2 semitones, up or down): %d of %d phrases, %.1f%%\n",
                             walks, walkCandidates, walkCandidates ? 100.0 * walks / walkCandidates : 0.0);
