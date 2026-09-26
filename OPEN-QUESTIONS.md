@@ -3,7 +3,7 @@
 One file, so none of it has to be remembered. Answered items move to the bottom
 with a date rather than being deleted, so the same question is never asked twice.
 
-**Last updated 2026-09-26, session 24. v2.0.0 is out; the planner works; audio stalls are now timed.**
+**Last updated 2026-09-26, end of session 26. v2.2.1 is out; nothing is waiting on you except item 000 if it recurs.**
 
 ---
 
@@ -89,6 +89,21 @@ Also found then: the test suite had been writing into your `stalls.log`. It no
 longer does, and a full test run leaves your file byte-identical. Your old-format log was moved aside to
 `stalls-old-format-to-20260916.log` rather than deleted, so the new one starts
 clean and nothing was thrown away.
+
+### 00000. SESSION 26 - all answered, nothing waiting
+
+- **Your API key "not saved" - fixed, and it was my bug.** Ghostband handed
+  Windows a pointer to text it had already thrown away, so decrypting your key
+  failed about half the time. Your saved key was always fine; after the fix it
+  read with no re-entry, as you confirmed. Released as **v2.2.1**.
+- **Footer** now shows the buffer measured from what arrives: 1024, confirmed.
+  Your Focusrite had reverted to 512 on its own; you set it back in Focusrite
+  Control.
+- **Load plan menu** - presets work, confirmed.
+- **Planner settings, takes slide-in, section titles, cost line** - built as you
+  chose them from mockups, in v2.2.0.
+- **Your listening round** - fills arpeggio about right, lead fills mixed up,
+  lead amount far better, the odd scrape now belongs, Intuition works. Recorded.
 
 ### 0000. WHY GIG PERFORMER WOULD NOT QUIT - answered, and handled
 

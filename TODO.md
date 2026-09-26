@@ -77,6 +77,11 @@ Decided, with the reason, so they are not re-proposed.
 
 ## Done
 
+- [x] **Session 26 (2026-09-26)** — v2.2.0 (planner model/effort + cost line, takes
+      slide in, repeated-lead-note fix, measured buffer, section-title ladder, Load
+      plan menu, installer clears Kontakt's leftover GP5) and v2.2.1 (saved key
+      sometimes refused: dangling entropy pointer). All confirmed by the owner in GP5.
+
 - [x] **The listening round** *(2026-09-26)* — fills-section arpeggio "about
       right"; lead fills "more mixed up", as intended; lead amount "improved
       exponentially"; the odd string scrape now "sounded like it belonged there
