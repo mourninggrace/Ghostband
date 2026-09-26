@@ -655,6 +655,10 @@ public:
     // The planner's controls as the owner would see them.
     bool         writeEnabledForTesting() const { return writeButton.isEnabled(); }
     juce::String writeStatusForTesting()  const { return writeStatus.full; }
+
+    // Load plan's menu, as "section | label | file" lines, and picking one.
+    juce::StringArray loadMenuForTesting();
+    void chooseLoadMenuItemForTesting (int index);
     juce::String writeStatusShownForTesting() const { return writeStatus.getText(); }
     juce::String writeTooltipForTesting()       { return writeButton.getTooltip(); }
     void         refreshPlannerForTesting()     { refreshPlannerControls(); }
@@ -803,6 +807,18 @@ private:
     void             refreshPlannerCost();
 
     void refreshPlannerControls();
+
+    // LOAD PLAN IS A MENU, NOT A FOLDER. The file dialog opened wherever the
+    // loaded song lived, so after the planner wrote one the presets - deep in
+    // the plugin's install folder - were out of reach. The owner chose, from
+    // three mockups, a menu: Presets by genre, Written by the planner newest
+    // first, My songs, and Browse for anything else. Every user gets the same
+    // menu with nothing to navigate.
+    struct LoadEntry { juce::String section, group, label; juce::File file; };
+    std::vector<LoadEntry> gatherLoadEntries() const;
+    void showLoadMenu();
+    void loadFromMenu (const juce::File& f);
+    void browseForPlan (const juce::File& startIn);
     void startWriting();
 
     // Ghostband's own transport. The host's is usually left running for a whole

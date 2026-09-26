@@ -26,9 +26,9 @@ host before reinstalling** or the copy will silently leave the old build behind.
 
 ### The songs it comes with
 
-Eight presets ship inside the plugin, and **Load plan** opens on them. They are
-deliberately not eight versions of the same song - each one is written to put a
-different part of the arranger under load.
+Thirty-four presets ship inside the plugin, under **Load plan -> Presets**,
+grouped by genre. They are deliberately not thirty-four versions of the same
+song - each one is written to put a different part of the arranger under load.
 
 | Song | Style | Written to show |
 |------|-------|-----------------|
@@ -188,7 +188,10 @@ Teach is deliberately too fast to read.
 
 ### The controls
 
-- **Load plan...** — swap in a plan file. Its own profiles come with it.
+- **Load plan...** — a menu of every song Ghostband knows about: **Presets** by
+  genre, songs **Written by the planner** (newest first, with dates), **My songs**
+  (saved from Edit song), and **Browse for a file...** for anything else. The song
+  playing now is ticked. A plan's own profiles come with it.
 - **Reload** — re-read the current plan from disk. Edit the JSON in a text
   editor, hit Reload, hear it. Returns to the built-in plan if no file is loaded.
 - **Key** — transposes the whole song. It moves written chords, not just

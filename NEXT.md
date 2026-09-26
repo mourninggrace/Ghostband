@@ -22,7 +22,7 @@ nobody has to read it.
 - **The window is 1180x820, minimum 1020x820.** Both numbers are load-bearing:
   the minimum is set by the two-column Settings screen, not by the song screen,
   and the harness's `kMinW`/`kMinH` must move with it.
-- **497 checks** pass on every build, and all 34 plans are swept.
+- **499 checks** pass on every build, and all 34 plans are swept.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
@@ -226,6 +226,12 @@ default size, 40 at the minimum, and far more in planner-written songs. He chose
 abbreviations + hover from three mockups: `TrackerView::fitSectionName` walks a
 fixed ladder per base name, keeping the number; ArrangementView uses it too. The
 fit check failed with 4 clipped on preset-punk when the ladder was bypassed.
+
+**Load plan is a menu** (his pick of three): `gatherLoadEntries` builds Presets
+(bundle, grouped by file-name genre, titled from the plan), Written (newest first,
+"<title>   Mon DD" from the planner's file stamp), My songs (`mySongsFolder()`,
+override-aware), Browse. Empty sections are greyed with a reason. The harness has
+no bundle, so the Presets part is only visible in the installed plugin.
 
 ## Session 24: the interface that looped, and timing the audio thread
 

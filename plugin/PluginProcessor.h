@@ -492,6 +492,7 @@ public:
     // and the file browser all treat them like any other song - and so a song
     // somebody paid for is never lost to a reroll.
     static juce::File writtenSongsFolder();
+    static juce::File mySongsFolder();      // Documents\Ghostband\Songs, or the harness's
     static void setUserSongsFolderForTesting (const juce::File& f);
 
     // Starts a request. False, with a reason in `whyNot`, when it cannot: no

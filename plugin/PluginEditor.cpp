@@ -1,3 +1,4 @@
+#include <map>
 #include "PluginEditor.h"
 
 #include "ghostband/Groove.h"
@@ -1800,32 +1801,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     addAndMakeVisible (reloadButton);
     addAndMakeVisible (rollButton);
 
-    loadButton.onClick = [this]
-    {
-        chooser = std::make_unique<juce::FileChooser> (
-            "Open a Ghostband plan",
-            processor.getPlanFile().existsAsFile()
-                ? processor.getPlanFile().getParentDirectory()
-                : processor.bundledPlansFolder(),
-            "*.json");
-
-        chooser->launchAsync (juce::FileBrowserComponent::openMode
-                                  | juce::FileBrowserComponent::canSelectFiles,
-                              [this] (const juce::FileChooser& fc)
-                              {
-                                  const juce::File f = fc.getResult();
-                                  if (f.existsAsFile())
-                                  {
-                                      processor.loadPlan (f);
-
-                                      // A different song replaces every dial
-                                      // and every level at once. Watching them
-                                      // travel is how you see what it brought
-                                      // with it.
-                                      easeAllKnobsToProcessor();
-                                  }
-                              });
-    };
+    loadButton.onClick = [this] { showLoadMenu(); };
 
     reloadButton.onClick = [this] { processor.reloadPlan(); };
 
@@ -3081,8 +3057,8 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         };
 
         // ---- transport and the song ----
-        tip (loadButton,  "Open a different song. Presets live inside the plugin; your own are in "
-                          "Documents\\Ghostband\\Songs.");
+        tip (loadButton,  "Open a different song: a preset, one the planner wrote, one you saved, "
+                          "or any plan file on disk. The song playing now is ticked.");
         tip (reloadButton,"Re-read this song from disk, throwing away unsaved edits. Useful if you "
                           "have been editing the JSON in a text editor.");
         tip (diceButton,  "EVERYTHING AT ONCE, for the fun of it. Roll gives you a different "
@@ -4373,6 +4349,176 @@ void GhostbandEditor::refreshPlannerCost()
     const juce::String cost = processor.plannerCostEstimate();
     plannerCostLabel.setText (cost, juce::dontSendNotification);
     plannerCostLabel.setTooltip (cost);
+}
+
+// Everything Load plan can offer, in menu order. Titles come from the songs
+// themselves (the file names are machine names), written songs from their
+// file names, which the planner stamps as "<title> <date> <time>".
+std::vector<GhostbandEditor::LoadEntry> GhostbandEditor::gatherLoadEntries() const
+{
+    std::vector<LoadEntry> out;
+
+    // ---- presets, grouped by genre ----
+    {
+        auto files = processor.bundledPlansFolder().findChildFiles (juce::File::findFiles, false, "*.json");
+        std::sort (files.begin(), files.end(),
+                   [] (const juce::File& a, const juce::File& b) { return a.getFileName() < b.getFileName(); });
+
+        for (const juce::File& f : files)
+        {
+            // "preset-alt-rock-2" -> "Alt Rock"; "demo-metal" -> "Demos".
+            juce::String stem = f.getFileNameWithoutExtension();
+            juce::String group;
+            if (stem.startsWith ("demo-"))
+                group = "Demos";
+            else
+            {
+                stem = stem.fromFirstOccurrenceOf ("preset-", false, false);
+                while (stem.isNotEmpty() && juce::CharacterFunctions::isDigit (stem.getLastCharacter()))
+                    stem = stem.dropLastCharacters (1);
+                stem = stem.trimCharactersAtEnd ("-");
+                juce::StringArray words;
+                words.addTokens (stem, "-", {});
+                for (auto& w : words)
+                    w = w.substring (0, 1).toUpperCase() + w.substring (1);
+                group = words.joinIntoString (" ");
+            }
+
+            gb::SongPlan plan;
+            std::string error;
+            const juce::String title = gb::SongPlan::load (f.getFullPathName().toStdString(), plan, error)
+                                           && ! plan.title.empty()
+                                         ? juce::String (plan.title)
+                                         : f.getFileNameWithoutExtension();
+
+            out.push_back ({ "Presets", group, title, f });
+        }
+    }
+
+    // ---- written by the planner, newest first ----
+    {
+        auto files = GhostbandProcessor::writtenSongsFolder().findChildFiles (juce::File::findFiles, false, "*.json");
+        std::sort (files.begin(), files.end(),
+                   [] (const juce::File& a, const juce::File& b)
+                   { return a.getLastModificationTime() > b.getLastModificationTime(); });
+
+        for (const juce::File& f : files)
+        {
+            // "Slow Burn Iron 2026-09-24 162901" -> "Slow Burn Iron   Sep 24"
+            const juce::String stem = f.getFileNameWithoutExtension();
+            juce::String title = stem, when;
+            const int at = stem.length() - 18;   // " YYYY-MM-DD HHMMSS"
+            if (at > 0 && stem.substring (at + 1, at + 5).containsOnly ("0123456789"))
+            {
+                title = stem.substring (0, at);
+                const juce::String date = stem.substring (at + 1, at + 11);
+                const juce::Time t (date.substring (0, 4).getIntValue(), date.substring (5, 7).getIntValue() - 1,
+                                    date.substring (8, 10).getIntValue(), 0, 0);
+                when = t.formatted ("%b %d");
+            }
+            out.push_back ({ "Written by the planner", {}, when.isEmpty() ? title : title + "   " + when, f });
+        }
+    }
+
+    // ---- my songs: saved by hand, in the Songs folder itself ----
+    {
+        auto files = GhostbandProcessor::mySongsFolder().findChildFiles (juce::File::findFiles, false, "*.json");
+        std::sort (files.begin(), files.end(),
+                   [] (const juce::File& a, const juce::File& b) { return a.getFileName() < b.getFileName(); });
+        for (const juce::File& f : files)
+            out.push_back ({ "My songs", {}, f.getFileNameWithoutExtension(), f });
+    }
+
+    return out;
+}
+
+void GhostbandEditor::showLoadMenu()
+{
+    const std::vector<LoadEntry> entries = gatherLoadEntries();
+    const juce::File current = processor.getPlanFile();
+
+    juce::PopupMenu root;
+    std::map<juce::String, juce::PopupMenu> presetGroups;
+    juce::StringArray groupOrder;
+    juce::PopupMenu written, mine;
+
+    for (size_t i = 0; i < entries.size(); ++i)
+    {
+        const LoadEntry& e = entries[i];
+        const int id = static_cast<int> (i) + 1;
+        const bool ticked = e.file == current;
+
+        if (e.section == "Presets")
+        {
+            if (! groupOrder.contains (e.group)) groupOrder.add (e.group);
+            presetGroups[e.group].addItem (id, e.label, true, ticked);
+        }
+        else if (e.section == "Written by the planner")
+            written.addItem (id, e.label, true, ticked);
+        else
+            mine.addItem (id, e.label, true, ticked);
+    }
+
+    juce::PopupMenu presets;
+    for (const juce::String& g : groupOrder)
+        presets.addSubMenu (g, presetGroups[g]);
+
+    // NEVER HIDDEN: an empty section is there, greyed, saying why it is empty.
+    if (written.getNumItems() == 0)
+        written.addItem (-1, "None yet - write one from the song screen", false);
+    if (mine.getNumItems() == 0)
+        mine.addItem (-1, "None yet - Edit song, then Save as", false);
+
+    root.addSubMenu ("Presets", presets);
+    root.addSubMenu ("Written by the planner", written);
+    root.addSubMenu ("My songs", mine);
+    root.addSeparator();
+    root.addItem (-2, "Browse for a file...");
+
+    root.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&loadButton),
+                        [this, entries] (int result)
+                        {
+                            if (result == -2)
+                                browseForPlan (GhostbandProcessor::mySongsFolder());
+                            else if (result > 0 && result <= (int) entries.size())
+                                loadFromMenu (entries[(size_t) result - 1].file);
+                        });
+}
+
+void GhostbandEditor::loadFromMenu (const juce::File& f)
+{
+    if (! f.existsAsFile())
+        return;
+
+    processor.loadPlan (f);
+
+    // A different song replaces every dial and every level at once. Watching
+    // them travel is how you see what it brought with it.
+    easeAllKnobsToProcessor();
+}
+
+void GhostbandEditor::browseForPlan (const juce::File& startIn)
+{
+    chooser = std::make_unique<juce::FileChooser> ("Open a Ghostband plan", startIn, "*.json");
+    chooser->launchAsync (juce::FileBrowserComponent::openMode
+                              | juce::FileBrowserComponent::canSelectFiles,
+                          [this] (const juce::FileChooser& fc) { loadFromMenu (fc.getResult()); });
+}
+
+juce::StringArray GhostbandEditor::loadMenuForTesting()
+{
+    juce::StringArray lines;
+    for (const LoadEntry& e : gatherLoadEntries())
+        lines.add (e.section + " | " + (e.group.isNotEmpty() ? e.group + " > " : juce::String())
+                   + e.label + " | " + e.file.getFileName());
+    return lines;
+}
+
+void GhostbandEditor::chooseLoadMenuItemForTesting (int index)
+{
+    const auto entries = gatherLoadEntries();
+    if (index >= 0 && index < (int) entries.size())
+        loadFromMenu (entries[(size_t) index].file);
 }
 
 void GhostbandEditor::startWriting()

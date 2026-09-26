@@ -698,6 +698,11 @@ void GhostbandProcessor::setUserSongsFolderForTesting (const juce::File& f)
     userSongsOverride() = f;
 }
 
+juce::File GhostbandProcessor::mySongsFolder()
+{
+    return userSongsOverride() != juce::File() ? userSongsOverride() : userSongsFolder();
+}
+
 juce::File GhostbandProcessor::writtenSongsFolder()
 {
     const juce::File base = userSongsOverride() != juce::File() ? userSongsOverride()

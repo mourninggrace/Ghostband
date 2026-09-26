@@ -14,6 +14,11 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
   priced from the token counts of the songs you have written. The refusal fallback
   is sent only to the models documented to take it, higher effort gets more room
   to answer, and the planner now waits up to ten minutes for a slow answer.
+- **Load plan is a menu.** Presets (all 34, by genre), songs the planner wrote
+  (newest first, with dates), your own saved songs, and "Browse for a file..." for
+  anything else. The song playing now is ticked. Before, the file dialog opened
+  wherever the loaded song lived, so after the planner wrote one the presets were
+  buried in the plugin's install folder.
 - **The cost line follows effort, and shows its whole sentence.** Choosing an
   effort changed nothing before, because the figure was priced from past songs
   regardless of effort. Each written song now logs its effort. The line prices

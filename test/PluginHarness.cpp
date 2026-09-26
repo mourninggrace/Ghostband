@@ -5166,6 +5166,47 @@ int main (int argc, char** argv)
         check (! keyProc.hasPlannerKey() && ! GhostbandProcessor::plannerKeyFile().existsAsFile(),
                "and Clear really deletes it");
 
+        // LOAD PLAN IS A MENU. After the planner wrote a song, the file dialog
+        // opened on the Written folder and the presets were out of reach. The
+        // menu lists written songs newest first by title and date, your own
+        // songs, and loads whichever is picked.
+        {
+            const juce::File written = GhostbandProcessor::writtenSongsFolder();
+            const juce::File older = written.getChildFile ("Iron Dawn 2026-09-20 101500.json");
+            const juce::File newer = written.getChildFile ("Slow Burn Iron 2026-09-24 162901.json");
+            const juce::File mine  = GhostbandProcessor::mySongsFolder().getChildFile ("my riff.json");
+            const juce::File source = juce::File (planPath);
+            for (const juce::File& f : { older, newer, mine })
+                source.copyFileTo (f);
+            older.setLastModificationTime (juce::Time (2026, 8, 20, 10, 15));
+            newer.setLastModificationTime (juce::Time (2026, 8, 24, 16, 29));
+
+            if (auto* ed3 = keyProc.createEditorIfNeeded())
+            {
+                if (auto* gbEd3 = dynamic_cast<GhostbandEditor*> (ed3))
+                {
+                    const juce::StringArray menu = gbEd3->loadMenuForTesting();
+                    const int iNew  = menu.indexOf ("Written by the planner | Slow Burn Iron   Sep 24 | " + newer.getFileName());
+                    const int iOld  = menu.indexOf ("Written by the planner | Iron Dawn   Sep 20 | " + older.getFileName());
+                    const int iMine = menu.indexOf ("My songs | my riff | my riff.json");
+
+                    check (iNew >= 0 && iOld > iNew && iMine >= 0,
+                           "Load plan lists the planner's songs newest first, by title and date, and your own songs",
+                           menu.joinIntoString ("  //  ").fromFirstOccurrenceOf ("Written", true, false).substring (0, 200));
+
+                    gbEd3->chooseLoadMenuItemForTesting (iMine);
+                    check (keyProc.getPlanFile() == mine,
+                           "and picking one loads it",
+                           keyProc.getPlanFile().getFileName());
+                }
+                keyProc.editorBeingDeleted (ed3);
+                delete ed3;
+            }
+
+            for (const juce::File& f : { older, newer, mine })
+                f.deleteFile();
+        }
+
         // A KEY WINDOWS WILL NOT DECRYPT is said the moment the window opens -
         // not after a prompt has been typed and Write pressed - and the refusal
         // goes on the record with Windows' own error and a copy of the file.
