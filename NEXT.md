@@ -6,13 +6,16 @@ useless for the one job it has: telling whoever picks this up next what is true
 right now. The history is in `docs/archive/NEXT-through-session-13.md`, and
 nobody has to read it.
 
-**Last touched 2026-09-26, session 26.**
+**Last touched 2026-09-26, session 28.**
 
 ## State
 
 - **v2.0.0 released 2026-09-24** (first cut as v0.7.0 the same day and
   renumbered at the owner's request - the planner was v2's headline). Tagged,
   published, marked latest, and its checksum verified by downloading it back from GitHub.
+- **v2.3.0 released 2026-09-26:** fills re-timed with a per-song personality,
+  scale walks broken, guitar 2 fills level, the solo lock, and the idle
+  optimisations (session 28). Nothing is unreleased.
 - **v2.2.2 released 2026-09-26:** the seven fixes from the session 27 audit.
 - **v2.2.1 released 2026-09-26:** the saved-key fix (session 26). The 2.2.1 build is installed on the
   owner's machine and confirmed by him: his existing key reads, no re-entry.

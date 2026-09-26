@@ -5,7 +5,11 @@ measured, not estimated; where something could not be measured yet, it says so.
 
 Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/releases).
 
-## [Unreleased]
+## [2.3.0] — 2026-09-26
+
+The lead guitar's fills, reworked so they stop sounding the same from song to
+song and stop walking the scale; guitar 2 sitting back under its fills; the
+solos locked exactly as they were; and a lighter window when idle.
 
 ### Changed
 - **The lead guitar's fills stop sounding the same from song to song.** Measured
