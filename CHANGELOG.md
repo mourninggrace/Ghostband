@@ -5,6 +5,20 @@ measured, not estimated; where something could not be measured yet, it says so.
 
 Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/releases).
 
+## [Unreleased]
+
+### Changed
+- **The lead guitar's fills stop sounding the same from song to song.** Measured
+  across every song at six seeds: three rhythms - a few even eighths or
+  sixteenths - were 46% of all fills, and two different songs' fill habits were
+  0.43 alike. Fills are now re-timed from a vocabulary of real lead figures
+  (dotted and snapped, gallops, syncopations, triplets, fast flurries, a pickup
+  into one long bent note, phrases with a gap inside), sometimes arch or leap in
+  rather than walking the scale, and each song has its own leanings, including
+  where in the bar it tends to come in. The three commonest rhythms are now about
+  12% of fills, and songs are 0.11 alike; two seeds of the same song, 0.15.
+  Solos, drums and bass are note for note what they were.
+
 ## [2.2.2] — 2026-09-26
 
 From a bug audit on 2026-09-26. Every fix below was first shown failing by a

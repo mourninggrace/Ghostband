@@ -29,7 +29,7 @@ nobody has to read it.
 - **The window is 1180x820, minimum 1020x820.** Both numbers are load-bearing:
   the minimum is set by the two-column Settings screen, not by the song screen,
   and the harness's `kMinW`/`kMinH` must move with it.
-- **505 checks** pass on every build, and all 34 plans are swept.
+- **506 checks** pass on every build, and all 34 plans are swept.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
@@ -164,6 +164,37 @@ to run: Windows Defender real-time protection and behaviour monitoring are on
 with no exclusions (Kontakt streaming samples through a scanner is the classic
 cause of exactly this), and bisecting the rackspace would settle it. Both are
 written up in OPEN-QUESTIONS.
+
+## Session 28: the lead guitar's fills, measured and re-timed
+
+"The lead guitar plays a lot of the same fills... sounding the same song to
+song, the fills specifically, not the solos." Measured before touching anything
+with a new harness mode, `--fillstats [seeds]`: every answering phrase (not the
+bed) in every fills section, fingerprinted by rhythm, contour and
+rhythm+intervals, plus a cosine similarity of per-song rhythm profiles.
+
+BEFORE: 46% of fills in three rhythms (4, 3 even eighths; 4 even sixteenths);
+contour straight up/down 41%; 3-4 notes 69%; songs 0.43 alike, seeds of one song
+0.45. The shared-in-3+-songs figure saturates at this corpus size and is not a
+useful target; top-3 share and pairwise similarity are.
+
+CHANGE (Render.cpp, answering only): `reshapeFill` (arch/leap-in) before the
+landing is aimed; `retimeFill` after it, from FillFigure (12 figures, swing-safe
+subset under a shuffle, capacity filter so figures do not thin phrases); per-song
+`FillPersonality` from the song seed (figure weights x0.25-2.5, turn/leap odds,
+start-position habit scaling Intuition's weights); not either of the last two
+figures. Own streams, so SOLO CHECKSUM efd8d818 IS IDENTICAL before and after.
+
+AFTER: top-3 11-13%, songs 0.11 alike, seeds 0.15. Fill answer notes down 15%
+(7464 -> 6352), mostly the one-bent-note figure, which is sparse by design - ask
+him whether fills now feel too sparse. The check "at one it takes every opening"
+demanded ONLY bars 4/8/12/16; stricter than its claim since session 21, it broke
+when the stream drew differently. It now asserts every opening taken.
+
+**My mistake this session:** `git checkout <file>` to "check" for changes
+discarded the uncommitted harness work. Recovered by re-running the scratchpad
+scripts in order (same numbers after). Commit before experiments; inspect with
+`git diff`, never checkout.
 
 ## Session 27: a bug audit, and seven real bugs
 
