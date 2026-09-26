@@ -547,10 +547,28 @@ void GhostbandProcessor::setPlannerEffort (const juce::String& effort)
     logChange ("planner effort   " + effort);
 }
 
-// Priced from what THIS MACHINE'S SONGS actually used, not a guess at a
-// typical song. Effort changes how long an answer is, and the log does not say
-// which effort each song was written at, so the line says so rather than
-// pretending to know.
+// WHAT A SONG COSTS, MEASURED WHERE IT CAN BE.
+//
+// Songs written at the chosen model AND effort are priced from their own token
+// counts, averaged. Where there are none yet, every song written here is
+// scaled to the chosen effort and priced at the chosen model - and the line says
+// "roughly", because that part is an estimate.
+//
+// The scaling applies to OUTPUT only (effort is how much the model thinks and
+// writes; the question sent is the same). Anchored on medium, where this
+// owner's real songs are. Low and high come from Anthropic's published runs
+// (medium at 70-85% of high's cost; low a third to a half below high); xhigh and
+// max are NOT published for this - they are extrapolated and labelled rough.
+// Songs logged before 2026-09-26 carry no effort and were all written at medium.
+static double outputScaleForEffort (const juce::String& effort)
+{
+    if (effort == "low")   return 0.75;
+    if (effort == "high")  return 1.3;
+    if (effort == "xhigh") return 1.7;
+    if (effort == "max")   return 2.2;
+    return 1.0;   // medium
+}
+
 juce::String GhostbandProcessor::plannerCostEstimate() const
 {
     const gb::PlannerSettings s = getPlannerSettings();
@@ -558,10 +576,16 @@ juce::String GhostbandProcessor::plannerCostEstimate() const
     if (m == nullptr)
         return {};
 
+    const juce::String effort (s.effort);
+
     auto money = [] (double dollars)
     {
         return dollars < 1.0 ? juce::String (juce::jmax (1, juce::roundToInt (dollars * 100.0))) + juce::String::fromUTF8 ("\xc2\xa2")
                              : "$" + juce::String (dollars, 2);
+    };
+    auto price = [m] (double in, double out)
+    {
+        return in / 1.0e6 * m->inPerMillion + out / 1.0e6 * m->outPerMillion;
     };
 
     const juce::String rates = "$" + juce::String (m->inPerMillion, 0) + " in / $"
@@ -570,32 +594,63 @@ juce::String GhostbandProcessor::plannerCostEstimate() const
     juce::StringArray lines;
     lines.addLines (changeLogFile().loadFileAsString());
 
-    double in = 0.0, out = 0.0;
-    int songs = 0;
+    double sameIn = 0.0, sameOut = 0.0, allIn = 0.0, allOutAtMedium = 0.0;
+    int same = 0, all = 0;
 
     for (const juce::String& line : lines)
     {
         if (! line.contains ("song written by the planner") || ! line.contains (" in / "))
             continue;
 
-        const juce::String counts = line.fromLastOccurrenceOf (", ", false, false);   // "3588 in / 2261 out)"
-        const int i = counts.upToFirstOccurrenceOf (" in", false, false).trim().getIntValue();
-        const int o = counts.fromFirstOccurrenceOf ("/ ", false, false)
-                            .upToFirstOccurrenceOf (" out", false, false).trim().getIntValue();
-        if (i > 0 && o > 0)
+        // "(claude-opus-5-5, high, 3588 in / 2261 out)" - or, before efforts were
+        // logged, "(claude-opus-5-5, 3588 in / 2261 out)", which was medium.
+        const juce::String inside = line.fromLastOccurrenceOf ("(", false, false)
+                                        .upToLastOccurrenceOf (")", false, false);
+        juce::StringArray parts;
+        parts.addTokens (inside, ",", {});
+        parts.trim();
+        if (parts.size() < 2)
+            continue;
+
+        const juce::String counts  = parts[parts.size() - 1];                 // "3588 in / 2261 out"
+        const juce::String model   = parts[0];
+        const juce::String written = parts.size() >= 3 ? parts[1] : juce::String ("medium");
+
+        const int in  = counts.upToFirstOccurrenceOf (" in", false, false).trim().getIntValue();
+        const int out = counts.fromFirstOccurrenceOf ("/ ", false, false)
+                              .upToFirstOccurrenceOf (" out", false, false).trim().getIntValue();
+        if (in <= 0 || out <= 0)
+            continue;
+
+        ++all;
+        allIn += in;
+        allOutAtMedium += out / outputScaleForEffort (written);
+
+        if (model == juce::String (s.model) && written == effort)
         {
-            in += i; out += o; ++songs;
+            ++same;
+            sameIn += in;
+            sameOut += out;
         }
     }
 
-    if (songs == 0)
+    if (all == 0)
         return rates + ". Write a song to see what one costs.";
 
-    const double avgIn = in / songs, avgOut = out / songs;
-    const double cost  = avgIn / 1.0e6 * m->inPerMillion + avgOut / 1.0e6 * m->outPerMillion;
+    if (same > 0)
+        return "about " + money (price (sameIn / same, sameOut / same)) + " a song, from "
+             + juce::String (same) + (same == 1 ? " song" : " songs") + " written here at this model and effort.";
 
-    return "about " + money (cost) + " a song, from the " + juce::String (songs)
-         + (songs == 1 ? " song" : " songs") + " written here. Higher effort writes more.";
+    const double estimate = price (allIn / all, allOutAtMedium / all * outputScaleForEffort (effort));
+    return "roughly " + money (estimate) + " a song. Estimated: no song written with this model at "
+         + effort + " effort yet.";
+}
+
+void GhostbandProcessor::logChangeStatic (const juce::String& what)
+{
+    const juce::File log = changeLogFile();
+    log.getParentDirectory().createDirectory();
+    log.appendText (juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H:%M:%S") + "  " + what + "\n");
 }
 
 static bool readPlannerKey (std::string& key)
@@ -605,7 +660,30 @@ static bool readPlannerKey (std::string& key)
         return false;
 
     const std::string cipher (static_cast<const char*> (mb.getData()), mb.getSize());
-    return gbsecret::unprotect (cipher, key) && ! key.empty();
+    if (gbsecret::unprotect (cipher, key) && ! key.empty())
+        return true;
+
+    // WHY, ON THE RECORD. A key saved on 2026-09-24 was refused by Windows two
+    // days later and re-saving it replaced the evidence. So the refused file is
+    // kept beside the key (once per refusal, dated) and Windows' error code is
+    // logged - never the key, which this code does not have.
+    const juce::File f = GhostbandProcessor::plannerKeyFile();
+    const juce::File keep = f.getSiblingFile ("planner-key-unreadable-"
+                                              + juce::Time::getCurrentTime().formatted ("%Y%m%d-%H%M%S")
+                                              + ".bin");
+    f.copyFileTo (keep);
+    GhostbandProcessor::logChangeStatic ("planner key could not be read   Windows error "
+                                         + juce::String ((juce::int64) gbsecret::lastError())
+                                         + ", file kept as " + keep.getFileName());
+    return false;
+}
+
+bool GhostbandProcessor::plannerKeyReadable() const
+{
+    std::string key;
+    const bool ok = readPlannerKey (key);
+    std::fill (key.begin(), key.end(), '\0');
+    return ok;
 }
 
 //==============================================================================
@@ -798,7 +876,9 @@ bool GhostbandProcessor::writeSong (const juce::String& requestText, juce::Strin
 
     const gb::PlannerBrief brief = makePlannerBrief (requestText);
 
-    const gb::PlannerRequest request = gb::buildPlannerRequest (brief, getPlannerSettings());
+    const gb::PlannerSettings settingsNow = getPlannerSettings();
+    writingWithEffort = juce::String (settingsNow.effort);   // for the log line when it lands
+    const gb::PlannerRequest request = gb::buildPlannerRequest (brief, settingsNow);
 
     // The previous job is finished (busy was false) - releasing it joins a
     // thread that has already returned.
@@ -892,6 +972,7 @@ bool GhostbandProcessor::applyWrittenSong (const gb::PlannerResult& result, juce
     logChange ("song written by the planner   " + juce::String (merged.title)
                + (result.servedBy.empty() ? juce::String()
                                           : "   (" + juce::String (result.servedBy) + ", "
+                                              + writingWithEffort + ", "
                                               + juce::String (result.inputTokens) + " in / "
                                               + juce::String (result.outputTokens) + " out)"));
 

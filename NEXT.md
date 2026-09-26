@@ -22,7 +22,7 @@ nobody has to read it.
 - **The window is 1180x820, minimum 1020x820.** Both numbers are load-bearing:
   the minimum is set by the two-column Settings screen, not by the song screen,
   and the harness's `kMinW`/`kMinH` must move with it.
-- **491 checks** pass on every build, and all 34 plans are swept.
+- **495 checks** pass on every build, and all 34 plans are swept.
 - **The reference pins hold:** `demo-metal` renders 1231 drum hits / 629 bass
   notes, `demo-rock` 996 / 423. If either moves, something changed that was not
   meant to.
@@ -203,6 +203,22 @@ announced size marked "(announced)"; stall and AUDIO FELL BEHIND lines use it to
 `StartGigPerformer.ps1 -ClearOnly` (same rule: no window, >20 s; logged "(by the
 installer)"; never starts anything). Tested against ping/charmap, then against
 his live GP5: untouched, nothing logged, install correctly refused.
+
+### Later in session 25: the cost line and an unreadable key
+
+**His saved key was refused by Windows** ("could not be read on this Windows
+account") two days after saving; he re-entered it. Harness proven innocent (key
+redirected for the whole run from main()); SecretStore unchanged since written; the
+new file decrypts fine. Cause unknown and the evidence was overwritten by the
+re-save. Now: `readPlannerKey` logs `planner key could not be read   Windows error
+N` and keeps `planner-key-unreadable-<date>.bin`; the editor checks once at open
+(`plannerKeyReadable`) and says so in the Write line and the key field.
+
+**The cost ignored effort.** Songs now log "(model, effort, N in / M out)"; old
+lines have no effort and were medium. Same model+effort -> measured average;
+otherwise "roughly", output scaled by 0.75/1.0/1.3/1.7/2.2 (low..max; low/high from
+the API docs' Fable 5 runs, xhigh/max extrapolated). Two-line label, bottom block
++16.
 
 ## Session 24: the interface that looped, and timing the audio thread
 

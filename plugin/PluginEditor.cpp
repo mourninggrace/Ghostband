@@ -1798,6 +1798,8 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     plannerKeySave.onClick = [this]
     {
         const bool ok = processor.setPlannerKey (plannerKeyEditor.getText());
+        if (ok)
+            plannerKeyUnreadable = false;
 
         // CLEARED EITHER WAY. The key is never left sitting in a text field,
         // where it would be readable by anything that can read this window.
@@ -1815,8 +1817,14 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     {
         processor.clearPlannerKey();
         plannerKeyEditor.clear();
+        plannerKeyUnreadable = false;
         refreshPlannerControls();
     };
+
+    // Asked once, here. A key Windows refuses was found out at Write time on
+    // 2026-09-26, after a prompt had been typed; now it is on screen from the
+    // moment the window opens, and the refusal is logged with Windows' reason.
+    plannerKeyUnreadable = processor.hasPlannerKey() && ! processor.plannerKeyReadable();
 
     // Model and effort. Ids are 1-based positions in the engine's own lists, so
     // the lists are the one place a model or an effort is named.
@@ -2225,7 +2233,9 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     initLabel (plannerKeyLabel, "API KEY", 15.0f, ghost::dim, juce::Justification::centredLeft);
     initLabel (plannerModelLabel,  "MODEL",  15.0f, ghost::dim, juce::Justification::centredLeft);
     initLabel (plannerEffortLabel, "EFFORT", 15.0f, ghost::dim, juce::Justification::centredLeft);
-    initLabel (plannerCostLabel,   "",       13.0f, ghost::dim, juce::Justification::centredLeft);
+    // Two lines, top-aligned: the whole sentence shows, never "..." with the
+    // rest hidden in a tooltip. The owner asked for exactly that.
+    initLabel (plannerCostLabel,   "",       13.0f, ghost::dim, juce::Justification::topLeft);
     plannerCostLabel.setMinimumHorizontalScale (1.0f);
     refreshPlannerCost();   // filled from the start, not on the first timer tick
 
@@ -4243,6 +4253,8 @@ void GhostbandEditor::refreshPlannerControls()
     juce::String line;
     if (! haveKey)
         line = "Add an API key in Settings to write songs.";
+    else if (plannerKeyUnreadable && ! st.busy)
+        line = "Windows could not read the saved key. Enter it again in Settings.";
     else if (st.busy)
         line = "writing... " + juce::String ((juce::Time::getMillisecondCounter() - st.startedMs) / 1000u) + "s";
     else if (writeNote.isNotEmpty())
@@ -4256,9 +4268,10 @@ void GhostbandEditor::refreshPlannerControls()
     if (writeStatus.full != line)
         showWriteStatus (line, warn ? ghost::warn : ghost::dim);
 
-    plannerKeyEditor.setTextToShowWhenEmpty (haveKey ? "saved, encrypted for this Windows user"
-                                                     : "paste your Anthropic API key",
-                                             ghost::dim);
+    plannerKeyEditor.setTextToShowWhenEmpty (! haveKey            ? "paste your Anthropic API key"
+                                             : plannerKeyUnreadable ? "saved key unreadable - paste it again"
+                                                                    : "saved, encrypted for this Windows user",
+                                             plannerKeyUnreadable ? ghost::warn : ghost::dim);
     plannerKeyClear.setEnabled (haveKey);
 
     // The cost line reads changes.log, so it is worked out at most every two
@@ -5923,7 +5936,7 @@ void GhostbandEditor::resized()
         // ---- left: the channels, and the things that are set once ----
         {
             // Fixed rows off the bottom BEFORE anything above them is measured.
-            auto bottom = left.removeFromBottom (66 + 38 + 66);   // + model/effort and its cost line
+            auto bottom = left.removeFromBottom (66 + 38 + 82);   // + model/effort and its two-line cost
 
             juce::ComboBox* boxes[5]  = { &chDrums, &chBass, &chGuitar, &chPiano, &chGuitar2 };
             juce::Label*    labels[5] = { &chDrumsLabel, &chBassLabel, &chGuitarLabel,
@@ -5991,7 +6004,7 @@ void GhostbandEditor::resized()
             plannerEffortBox.setBounds (row.removeFromLeft (100));
 
             bottom.removeFromTop (2);
-            plannerCostLabel.setBounds (bottom.removeFromTop (18).withTrimmedLeft (60));
+            plannerCostLabel.setBounds (bottom.removeFromTop (34).withTrimmedLeft (60));
         }
 
         // ---- right: teaching Ghostband an instrument's own knobs ----

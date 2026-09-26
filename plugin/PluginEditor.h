@@ -652,6 +652,16 @@ public:
     }
     juce::String plannerChoiceForTesting() const { return plannerModelBox.getText() + " / " + plannerEffortBox.getText(); }
     juce::String plannerCostForTesting()   const { return plannerCostLabel.getText(); }
+    bool plannerCostFitsForTesting()
+    {
+        const juce::Font font = getLookAndFeel().getLabelFont (plannerCostLabel);
+        const auto area = plannerCostLabel.getBorderSize().subtractedFrom (plannerCostLabel.getLocalBounds());
+        const int lines = (int) ((float) area.getHeight() / font.getHeight());
+        // word wrap loses up to a word a line; a quarter of a line each is generous
+        return plannerCostLabel.getMinimumHorizontalScale() >= 1.0f && lines >= 1
+            && juce::GlyphArrangement::getStringWidth (font, plannerCostLabel.getText())
+                   <= (float) area.getWidth() * 0.75f * (float) lines;
+    }
     void         pressWriteForTesting (const juce::String& request) { writeRequest.setText (request, false); startWriting(); }
     void         showWriteStatusForTesting (const juce::String& line) { showWriteStatus (line, ghost::dim); }
 
@@ -776,6 +786,7 @@ private:
     juce::Label      plannerModelLabel, plannerEffortLabel, plannerCostLabel;
     juce::ComboBox   plannerModelBox, plannerEffortBox;
     double           plannerCostAtMs = 0.0;     // when the cost line was last worked out
+    bool             plannerKeyUnreadable = false;   // saved, but Windows will not decrypt it
     void             refreshPlannerCost();
 
     void refreshPlannerControls();

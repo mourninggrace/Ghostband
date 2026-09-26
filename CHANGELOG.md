@@ -14,6 +14,16 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
   priced from the token counts of the songs you have written. The refusal fallback
   is sent only to the models documented to take it, higher effort gets more room
   to answer, and the planner now waits up to ten minutes for a slow answer.
+- **The cost line follows effort, and shows its whole sentence.** Choosing an
+  effort changed nothing before, because the figure was priced from past songs
+  regardless of effort. Each written song now logs its effort. The line prices
+  songs written at the chosen model *and* effort from their real tokens, and
+  otherwise says "roughly", scaled from your songs. (Scale factors: low and high
+  from Anthropic's published runs; xhigh and max extrapolated.) It gets two lines,
+  so it is never cut off.
+- **A saved key Windows will not decrypt is reported when Ghostband opens,**
+  not when Write is pressed. The refusal is logged with Windows' own error code,
+  and the unreadable file is kept, so the cause can be found if it happens again.
 - **Takes slide into their list.** Opening Takes brings the rows in from the
   side one after another, and a take you save slides into its place. The last
   of the agreed animations.

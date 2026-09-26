@@ -20,6 +20,9 @@ namespace gbsecret
     // blob from some other program using DPAPI for the same user cannot be
     // handed to this one and decrypted as though it were Ghostband's.
     static const char kEntropy[] = "Ghostband planner key v1";
+    static unsigned long gLastError = 0;
+
+    unsigned long lastError() { return gLastError; }
 
     static DATA_BLOB blobOf (const std::string& s)
     {
@@ -54,7 +57,11 @@ namespace gbsecret
 
         if (! CryptUnprotectData (&in, nullptr, &entropy, nullptr, nullptr,
                                   CRYPTPROTECT_UI_FORBIDDEN, &out))
+        {
+            gLastError = GetLastError();
             return false;
+        }
+        gLastError = 0;
 
         plain.assign (reinterpret_cast<const char*> (out.pbData), out.cbData);
 
@@ -74,6 +81,7 @@ namespace gbsecret
 {
     bool protect   (const std::string&, std::string&) { return false; }
     bool unprotect (const std::string&, std::string&) { return false; }
+    unsigned long lastError() { return 0; }
 }
 
 #endif

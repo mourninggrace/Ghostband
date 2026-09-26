@@ -5069,17 +5069,46 @@ int main (int argc, char** argv)
                                              "   (claude-opus-5-5, 3588 in / 2261 out)\n");
                     GhostbandProcessor::setChangeLogFileForTesting (costLog);
 
-                    gbEd->choosePlannerForTesting (1, 1);      // Opus 5.5, medium
+                    gbEd->choosePlannerForTesting (1, 1);      // Opus 5.5, medium: measured
                     const juce::String opus = gbEd->plannerCostForTesting();
-                    gbEd->choosePlannerForTesting (0, 1);      // Fable 5.1
+                    gbEd->choosePlannerForTesting (0, 1);      // Fable 5.1, medium: estimated
                     const juce::String fable = gbEd->plannerCostForTesting();
 
                     const juce::String cent = juce::String::fromUTF8 ("\xc2\xa2");
-                    check (opus.startsWith ("about 6" + cent) && fable.startsWith ("about 15" + cent)
-                               && opus.contains ("1 song"),
+                    check (opus.startsWith ("about 6" + cent) && opus.contains ("1 song")
+                               && fable.startsWith ("roughly 15" + cent) && fable.contains ("Estimated"),
                            "and the cost line prices this machine's own songs at the chosen model's rates",
                            opus.upToFirstOccurrenceOf (",", false, false) + " on Opus 5.5, "
-                               + fable.upToFirstOccurrenceOf (",", false, false) + " on Fable 5.1");
+                               + fable.upToFirstOccurrenceOf (".", false, false) + " on Fable 5.1");
+
+                    // EFFORT MOVES IT, the moment it is chosen. The owner changed
+                    // effort and watched the figure sit still. By hand: output
+                    // x1.3 at high, x2.2 at max, input unchanged - 7c and 11c.
+                    gbEd->choosePlannerForTesting (1, 2);      // Opus 5.5, high
+                    const juce::String high = gbEd->plannerCostForTesting();
+                    gbEd->choosePlannerForTesting (1, 4);      // Opus 5.5, max
+                    const juce::String max = gbEd->plannerCostForTesting();
+                    check (high.startsWith ("roughly 7" + cent) && max.startsWith ("roughly 11" + cent),
+                           "and changing the effort changes the cost straight away",
+                           high.upToFirstOccurrenceOf (".", false, false) + " at high, "
+                               + max.upToFirstOccurrenceOf (".", false, false) + " at max");
+
+                    // A song logged WITH its effort is measured at that effort.
+                    costLog.appendText ("2026-09-26 08:00:00  song written by the planner   Another"
+                                        "   (claude-opus-5-5, max, 4000 in / 6000 out)\n");
+                    gbEd->choosePlannerForTesting (1, 3);
+                    gbEd->choosePlannerForTesting (1, 4);
+                    check (gbEd->plannerCostForTesting().startsWith ("about 14" + cent),
+                           "and a song written at that effort is priced from its real tokens",
+                           gbEd->plannerCostForTesting().upToFirstOccurrenceOf (",", false, false));
+
+                    // THE WHOLE SENTENCE SHOWS. The first version ended in "..."
+                    // with the rest in a tooltip; the owner asked for it all.
+                    ed->setSize (kMinW, kMinH);
+                    gbEd->showScreenForSnapshot (3);      // Settings, at the smallest window
+                    check (gbEd->plannerCostFitsForTesting(),
+                           "and the cost line shows its whole sentence, never cut off",
+                           gbEd->plannerCostForTesting());
 
                     costLog.replaceWithText ("");
                     gbEd->choosePlannerForTesting (1, 1);
@@ -5100,6 +5129,39 @@ int main (int argc, char** argv)
         keyProc.clearPlannerKey();
         check (! keyProc.hasPlannerKey() && ! GhostbandProcessor::plannerKeyFile().existsAsFile(),
                "and Clear really deletes it");
+
+        // A KEY WINDOWS WILL NOT DECRYPT is said the moment the window opens -
+        // not after a prompt has been typed and Write pressed - and the refusal
+        // goes on the record with Windows' own error and a copy of the file.
+        {
+            const juce::File keyFile = GhostbandProcessor::plannerKeyFile();
+            keyFile.replaceWithText ("not a DPAPI blob at all");
+            for (const juce::File& f : keyFile.getParentDirectory().findChildFiles (juce::File::findFiles, false, "planner-key-unreadable-*"))
+                f.deleteFile();
+
+            if (auto* ed2 = keyProc.createEditorIfNeeded())
+            {
+                if (auto* gbEd2 = dynamic_cast<GhostbandEditor*> (ed2))
+                {
+                    gbEd2->refreshPlannerForTesting();
+                    const juce::String log = GhostbandProcessor::changeLogFile().loadFileAsString();
+                    const int kept = keyFile.getParentDirectory()
+                                         .findChildFiles (juce::File::findFiles, false, "planner-key-unreadable-*").size();
+
+                    check (gbEd2->writeStatusForTesting().contains ("Windows could not read")
+                               && log.contains ("planner key could not be read   Windows error")
+                               && kept == 1,
+                           "a saved key Windows will not decrypt is reported on opening, logged with Windows' reason, and kept",
+                           gbEd2->writeStatusForTesting() + " / " + juce::String (kept) + " kept");
+                }
+                keyProc.editorBeingDeleted (ed2);
+                delete ed2;
+            }
+
+            keyFile.deleteFile();
+            for (const juce::File& f : keyFile.getParentDirectory().findChildFiles (juce::File::findFiles, false, "planner-key-unreadable-*"))
+                f.deleteFile();
+        }
 
         // ---- WHAT LEAVES THE MACHINE ------------------------------------
         //

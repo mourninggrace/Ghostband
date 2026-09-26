@@ -475,11 +475,18 @@ public:
     // "about 6c a song ...": the average tokens of the songs this machine has
     // actually written (from changes.log), priced at the chosen model's rates.
     juce::String plannerCostEstimate() const;
+    juce::String writingWithEffort { "medium" };   // the effort the song in flight was asked at
     static void setPlannerKeyFileForTesting (const juce::File& f);
 
     bool setPlannerKey (const juce::String& key);
     void clearPlannerKey();
     bool hasPlannerKey() const;
+
+    // Decrypts the saved key and throws it away again: can Windows still read
+    // it? Asked once when the editor opens, so Settings can say so before
+    // Write does. Never exposes the key.
+    bool plannerKeyReadable() const;
+    static void logChangeStatic (const juce::String& what);
 
     // Written songs are saved as ordinary plan files in here, so Reload, Takes
     // and the file browser all treat them like any other song - and so a song
