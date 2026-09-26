@@ -168,6 +168,22 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
             const gb::RenderResult r = gb::renderPerformance (song, kit, bass, &gtr, &piano, &gtr2);
             const std::string songId = f.getFileNameWithoutExtension().toStdString() + "#" + std::to_string (k);
 
+            // GB_SHOW_G2=<song>: every guitar 2 note of that song, by section.
+            if (const char* show = std::getenv ("GB_SHOW_G2"))
+                if (k == 0 && f.getFileNameWithoutExtension() == juce::String (show))
+                    for (const gb::SectionReport& sc : r.sections)
+                    {
+                        std::printf ("=== %s  (%s)  bars %d\n", sc.name.c_str(), sc.guitar2Feel.c_str(), (sc.endTick - sc.startTick) / (gb::kPPQ * 4));
+                        for (const gb::LeadIntent& n : r.performance.guitar2.lead)
+                            if (n.tick >= sc.startTick && n.tick < sc.endTick)
+                            {
+                                const int rel = n.tick - sc.startTick;
+                                std::printf ("  bar %2d  %5.2f  pitch %3d  len %4d%s%s\n", rel / (gb::kPPQ * 4) + 1,
+                                             (rel % (gb::kPPQ * 4)) / double (gb::kPPQ) + 1.0, n.pitch, n.durationTicks,
+                                             n.bed ? " bed" : "", n.unswung ? " trip" : "");
+                            }
+                    }
+
             // Solos must not move: a checksum of every non-fill guitar-2 note.
             for (const gb::LeadIntent& n : r.performance.guitar2.lead)
             {
@@ -2076,7 +2092,12 @@ int main (int argc, char** argv)
                     const int next = i + 1 < all.size() ? all[i + 1].tick : 16 * barTicks;
                     longestSilence = std::max (longestSilence, next - end);
 
-                    if (all[i].bed)
+                    // CHANGED ON PURPOSE 2026-09-26: between answers it now SINGS
+                    // a phrase ("a single note every 4 bars - boring, empty"),
+                    // and a phrase passes through the scale on its way to the
+                    // chord. What must be the chord is what it RESTS on - every
+                    // note held a beat or longer.
+                    if (all[i].bed && all[i].durationTicks >= gb::kPPQ)
                     {
                         ++bedNotes;
                         const int pc = ((all[i].pitch % 12) + 12) % 12;
@@ -2090,21 +2111,21 @@ int main (int argc, char** argv)
                            + juce::String (barTicks));
 
                 check (bedNotes > 0 && bedOffChord == 0,
-                       "between answers it picks the chord underneath rather than nothing",
+                       "between answers it sings, resting on the chord underneath rather than nothing",
                        juce::String (bedNotes) + " notes, " + juce::String (bedOffChord)
                            + " outside the chord");
 
                 // And the arpeggio sits BEHIND the answers, not level with them.
                 double bedAccent = 0.0, answerAccent = 0.0;
-                int answers = 0;
+                int answers = 0, beds = 0;
                 for (const gb::LeadIntent& n : all)
                 {
-                    if (n.bed) bedAccent += n.accent;
-                    else     { answerAccent += n.accent; ++answers; }
+                    if (n.bed) { bedAccent += n.accent; ++beds; }
+                    else       { answerAccent += n.accent; ++answers; }
                 }
 
-                check (bedNotes > 0 && answers > 0
-                           && bedAccent / bedNotes < answerAccent / answers,
+                check (beds > 0 && answers > 0
+                           && bedAccent / beds < answerAccent / answers,
                        "and plays it softer than the answers it is holding the space for");
             }
 
@@ -7295,8 +7316,10 @@ int main (int argc, char** argv)
         //     empty, intermediate and as if to almost be hunting for notes to
         //     hit rather than with mindful intent". generateLeadSolo replaces
         //     generateSolo; guitar 2 now swings with the band in a shuffle.
+        //  3. same day, after listening to blues-3 and prog-2: complexity and
+        //     intuition now play the solo; the build starts earlier for a shredder.
         // From here the lock protects the NEW solos until he says otherwise.
-        check (f.soloSum == 0x1585e04eu,
+        check (f.soloSum == 0x721f31a6u,
                "the solos are exactly as the owner approved them - not one note moved",
                juce::String::toHexString ((juce::int64) f.soloSum));
 
