@@ -5,23 +5,57 @@ deliberately not being done. The detailed engineering notes behind each item are
 in [BACKLOG.md](BACKLOG.md); the questions only the owner can answer are in
 [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md).
 
-*Last updated 2026-09-24, with v2.0.0.*
+*Last updated 2026-09-26, session 29 (branch fills-v3-wip, installed, not yet released).*
 
-## Waiting on a listen
+## In the middle of right now
 
-These are built and measured. Whether they are *right* is a judgement only ears
-can make.
+All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or released.
 
-- [ ] **The reworked fills (v2.3.0)** — still samey or scale-walking? Too sparse
-      (15% fewer notes)? Fills level right (`kFillsLevel` 0.7, about -6 dB)?
+- [ ] **Fills v3** - the lick engine (Vai / Van Halen / Hammett / Satriani vocabulary,
+      every Shreddage articulation), per-playing timing, sung phrases between
+      answers, shuffle-correct. Waiting on the owner's ears.
+- [ ] **Solos v3** - `generateLeadSolo`: motif + answer, AAB, development, build,
+      climax, resolution; complexity/intuition now drive it. Waiting on ears.
+- [ ] **New knobs** - UNDER (guitar 2 fills level), BUSY per instrument, SHRED.
+      Waiting on ears.
+- [ ] **Release it** - merge to main, CHANGELOG, MANUAL, README, screenshots, NEXT,
+      cut the version. None of the docs describe session 29's work yet.
 
-## Next
+## Broken, or known to be short
 
-- [ ] **Read `stalls.log` after the next audio break-up.** `AUDIO FELL BEHIND`
-      lines now say whether the missing time was spent in Ghostband.
+- [ ] **Takes do not remember BUSY / SHRED** - recalling a take plays it with the
+      knobs as they are now.
+- [ ] **Bass BUSY up is weak in a shuffle** (1248 -> 1271 notes on blues-3).
+- [ ] **Blues fills answers are short** - a shuffle bar leaves two thirds of a bar
+      of room; they may need to reach into the bar before.
+- [ ] **Shreddage silent below ~40** - clamped around, never explained (BACKLOG C5).
+      Needs one Calibrate run.
+- [ ] **Clean-up** - old `generateSolo` and `kSoloGestures` kept unused until the
+      new solos are approved; the note-emitting loop is repeated three times.
+- [ ] **Host freezes** (not Ghostband) and **Kontakt 8.13.1 hanging on GP5 exit**
+      (installer works around it) - both outside this code.
 
-- [ ] **`bigMoment` fires only on chorus and solo** — a musical judgement for the
-      owner, not a bug.
+## Next, in order (owner's requests)
+
+1. [ ] **Guitar 1 and guitar 2 playing together** - harmonies, unison hits, trading
+       bars, guitar 1 leaving space - in fills, and especially solos.
+2. [ ] **Effects that fit the part** - research each instrument's effect controls
+       from its manual first. Known wall: Shreddage's Console effects have MIDI
+       learn removed (BACKLOG D2). Also answer AmpliTube 5 / Guitar Rig 7 (C4).
+3. [ ] **Capo** - check the Hydra manual for a real one; otherwise emulate open-string
+       voicings up the neck.
+4. [ ] **Calibrate: articulation test** - plays pinch, harmonic, tap, choke, rake,
+       each named, to confirm the keyswitch map on the owner's Shreddage.
+5. [ ] **Curated controls** - which of the solo engine's other choices (motif
+       return, register climb) deserve a knob. Few, not many.
+
+## Waiting on the owner
+
+- [ ] Listening verdict on everything in "In the middle".
+- [ ] `stalls.log` after the next audio break-up.
+- [ ] `bigMoment` fires only on chorus and solo - a musical judgement.
+- [ ] Defender exclusions / bisecting the rackspace for the host freezes.
+- [ ] One Calibrate run for Shreddage's low register.
 
 ## Version 3
 
