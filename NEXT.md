@@ -13,9 +13,9 @@ nobody has to read it.
 - **v2.0.0 released 2026-09-24** (first cut as v0.7.0 the same day and
   renumbered at the owner's request - the planner was v2's headline). Tagged,
   published, marked latest, and its checksum verified by downloading it back from GitHub.
-- **Unreleased on `main`:** the planner status-line fixes (session 23) and
-  audio-side stall logging (session 24), both in CHANGELOG under Unreleased.
-  Installed on the owner's machine; not yet a release.
+- **v2.1.0 released 2026-09-26:** the planner status-line fixes (session 23),
+  audio-side stall logging and the Gig Performer launcher (session 24), and the
+  front page's "Coming in version 3" banner.
 - **The AI planner works for real.** First live call 2026-09-24: "Slow Burn Iron",
   23 s, 3,588 in / 2,261 out (about 6¢), served by claude-opus-5-5 with no
   fallback. The owner: "awesome so far".

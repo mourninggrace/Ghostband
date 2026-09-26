@@ -14,6 +14,19 @@
 
 </div>
 
+> [!TIP]
+> ## 🚧 Coming in version 3
+>
+> - **Export the song as MIDI.** One button writes everything Ghostband played
+>   for the loaded song to a standard MIDI file, ready to drop into any DAW or
+>   plugin: drums, bass, both guitars and piano, one track each.
+> - **Edit single notes in the grid.** Change one note by hand and keep the rest
+>   of the performance.
+> - **More presets,** and more variations within each genre.
+>
+> Not built yet. Follow the [roadmap](TODO.md#version-3) or watch the repo to
+> hear when it lands.
+
 Ghostband makes no sound of its own. It writes an arrangement and **performs it
 through instruments you already own** — a drum sampler, a bass, two guitars, a
 piano — over MIDI, so the sounds are yours and the arranging is its job. It is a

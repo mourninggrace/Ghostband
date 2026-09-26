@@ -12,12 +12,7 @@ in [BACKLOG.md](BACKLOG.md); the questions only the owner can answer are in
 These are built and measured. Whether they are *right* is a judgement only ears
 can make.
 
-- [ ] **The fills-section arpeggio** — too busy, too present, or right? Half notes
-      when quiet, quarters in the middle, eighths when loud: two numbers to move.
-- [ ] **Do the lead guitar's fills still sound familiar** from song to song?
-- [ ] **Does the lead play enough** now that solos favour eighths and quarters?
-- [ ] **Does Intuition's useful range sit where the dial is,** or is it crammed
-      into one corner?
+Nothing waiting. The last round was answered on 2026-09-26 (see Done).
 
 ## Next
 
@@ -29,18 +24,24 @@ can make.
 - [ ] **Takes sliding into the list** — the last animation from the agreed list.
 - [ ] **The CLI's MIDI export overlaps notes on the lead channel** (the plugin does
       not). Found while measuring the lead; not yet traced.
-- [ ] **Per-note hand edits in the grid** — needs a spec first: where an override
-      is stored, what a reroll does to it, whether a take carries it.
 - [ ] **`bigMoment` fires only on chorus and solo** — a musical judgement for the
       owner, not a bug.
+
+## Version 3
+
+Announced on the front page, so people know what is coming.
+
+- [ ] **Export MIDI** — a button that writes what Ghostband plays for the loaded
+      song to a standard MIDI file (one track per part) for any DAW or plugin.
+      The CLI already exports; its lead-channel overlap must be fixed first.
+- [ ] **Per-note hand edits in the grid** — needs a spec first: where an override
+      is stored, what a reroll does to it, whether a take carries it.
+- [ ] **More presets**, and more variations within a genre.
 
 ## Later
 
 - [ ] **Live following** — comping behind what is actually played. Needs chord
       detection and tempo tracking; the largest unbuilt idea.
-- [ ] **A second rig, all UJAM**, for A/B-ing the same song through two sets of
-      instruments.
-- [ ] **More presets**, and more variations within a genre.
 
 ## Waiting on the owner's rig
 
@@ -69,11 +70,18 @@ Decided, with the reason, so they are not re-proposed.
   string choice; keyswitches do the job without that cost.
 - **Shreddage's Force String.** Its keyswitch layout is not documented, and a
   switch that pins every note to the wrong string is worse than none.
+- **A second, all-UJAM rig** for A/B comparisons. The owner is no longer
+  interested (2026-09-26).
 - **Per-note lead gestures on the Hydra** until its CC 40 is re-banded to carry
   them — values chosen for one layout and read under another were the whole of the
   v2.0.0 palm-mute bug.
 
 ## Done
+
+- [x] **The listening round** *(2026-09-26)* — fills-section arpeggio "about
+      right"; lead fills "more mixed up", as intended; lead amount "improved
+      exponentially"; the odd string scrape now "sounded like it belonged there
+      rather than the only option it had"; Intuition "works correctly".
 
 - [x] **The first real planner song** *(2026-09-24)* — "Slow Burn Iron", 23 s,
       3,588 in / 2,261 out, about 6¢. The owner's verdict: "awesome so far".

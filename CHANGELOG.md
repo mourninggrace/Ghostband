@@ -5,9 +5,15 @@ measured, not estimated; where something could not be measured yet, it says so.
 
 Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/releases).
 
-## [Unreleased]
+## [2.1.0] — 2026-09-26
+
+Fixes from the planner's first real songs, a sharper eye on audio drop-outs, and
+a cure for Gig Performer staying alive after Quit. The front page now says what
+is coming in version 3.
 
 ### Added
+- **"Coming in version 3" on the front page:** exporting a song as MIDI for any
+  DAW or plugin, editing single notes in the grid, and more presets.
 - **`tools/StartGigPerformer.ps1`: a Gig Performer launcher that clears leftovers.**
   Kontakt 8 (8.13.1) hangs while shutting down: in a bare test host it finished
   its work and never let the process exit, two runs out of two. SSD5, MODO Bass 2,

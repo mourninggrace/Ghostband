@@ -128,7 +128,11 @@ NVIDIA Broadcast were running, since any of them can loop audio back.
 took 23 seconds and cost about 6¢. The explanation line under Write is now
 cut at a word with "... more"; click it to read all of it.
 
-**Three things for your ears:**
+**Answered 2026-09-26, all of it:** the fills arpeggio is about right; lead
+fills sound more mixed up; the lead plays far more; the odd string scrape now
+sounds like it belongs; Intuition works. Nothing below is waiting any more.
+
+**Three things for your ears (asked 2026-09-24):**
 
 - **The fills-section arpeggio.** Between answers the second guitar now picks the
   chord softly instead of going silent. Half notes when quiet, quarters in the
