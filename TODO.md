@@ -12,7 +12,8 @@ in [BACKLOG.md](BACKLOG.md); the questions only the owner can answer are in
 These are built and measured. Whether they are *right* is a judgement only ears
 can make.
 
-Nothing waiting. The last round was answered on 2026-09-26 (see Done).
+- [ ] **The reworked fills (v2.3.0)** — still samey or scale-walking? Too sparse
+      (15% fewer notes)? Fills level right (`kFillsLevel` 0.7, about -6 dB)?
 
 ## Next
 
@@ -73,6 +74,12 @@ Decided, with the reason, so they are not re-proposed.
   v2.0.0 palm-mute bug.
 
 ## Done
+
+- [x] **Session 28 (2026-09-26)** — v2.3.0: fills re-timed with a per-song
+      personality and scale walks broken (measured: top-3 rhythms 46% -> 12%,
+      songs 0.43 -> 0.11 alike, walks 23% -> 10%); guitar 2 fills level; the solo
+      lock; idle timer at 10 Hz and no per-frame disk check; `--fillstats` and
+      `--perf` harness reports. Drawing confirmed on the GPU (Direct2D).
 
 - [x] **Session 26 (2026-09-26)** — v2.2.0 (planner model/effort + cost line, takes
       slide in, repeated-lead-note fix, measured buffer, section-title ladder, Load

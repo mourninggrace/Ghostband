@@ -3,7 +3,7 @@
 One file, so none of it has to be remembered. Answered items move to the bottom
 with a date rather than being deleted, so the same question is never asked twice.
 
-**Last updated 2026-09-26, end of session 26. v2.2.1 is out; nothing is waiting on you except item 000 if it recurs.**
+**Last updated 2026-09-26, end of session 28. v2.3.0 is out; one thing is waiting on your ears (item 000000).**
 
 ---
 
@@ -89,6 +89,24 @@ Also found then: the test suite had been writing into your `stalls.log`. It no
 longer does, and a full test run leaves your file byte-identical. Your old-format log was moved aside to
 `stalls-old-format-to-20260916.log` rather than deleted, so the new one starts
 clean and nothing was thrown away.
+
+### 000000. THE LEAD GUITAR'S FILLS - for your ears (v2.3.0)
+
+Reworked because they sounded the same song to song and walked the scale. Now:
+real lead figures (dotted, gallops, syncopation, triplets, flurries, one bent
+note after a pickup), a different habit per song, and scale walks turned into
+thirds, fourths, a pedal or a zig-zag. Guitar 2 also sits about 6 dB back while
+it plays fills and comes forward for its solos.
+
+**Worth telling me after a few songs:**
+- Do fills still sound alike from song to song, or still walk the scale?
+- Are they now too SPARSE? They play about 15% fewer notes, mostly the new
+  one-long-bent-note figure. That is one number to turn up.
+- Is the fills level right, too quiet, or not quiet enough? Also one number.
+
+**The solos are LOCKED** exactly as you approved them - compared against v2.1.0
+in every song first, and the build now fails if one solo note moves. They change
+only when you ask.
 
 ### 00000. SESSION 26 - all answered, nothing waiting
 
