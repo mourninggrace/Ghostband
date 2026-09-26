@@ -13,6 +13,9 @@ nobody has to read it.
 - **v2.0.0 released 2026-09-24** (first cut as v0.7.0 the same day and
   renumbered at the owner's request - the planner was v2's headline). Tagged,
   published, marked latest, and its checksum verified by downloading it back from GitHub.
+- **v2.2.0 released 2026-09-26:** planner model/effort + cost line, takes slide
+  in, the repeated-lead-note fix, measured buffer, section-title ladder, Load plan
+  menu, and Install.bat clearing Kontakt's leftover GP5 (session 25).
 - **v2.1.0 released 2026-09-26:** the planner status-line fixes (session 23),
   audio-side stall logging and the Gig Performer launcher (session 24), and the
   front page's "Coming in version 3" banner.

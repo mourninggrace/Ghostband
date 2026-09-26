@@ -5,7 +5,10 @@ measured, not estimated; where something could not be measured yet, it says so.
 
 Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/releases).
 
-## [Unreleased]
+## [2.2.0] — 2026-09-26
+
+Choose the planner's model and effort, a Load plan menu that reaches every song,
+section titles you can read, and a lead-guitar fix you could hear.
 
 ### Added
 - **Choose the planner's model and effort in Settings.** Claude Fable 5.1, Opus
