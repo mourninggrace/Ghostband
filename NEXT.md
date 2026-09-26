@@ -13,9 +13,10 @@ nobody has to read it.
 - **v2.0.0 released 2026-09-24** (first cut as v0.7.0 the same day and
   renumbered at the owner's request - the planner was v2's headline). Tagged,
   published, marked latest, and its checksum verified by downloading it back from GitHub.
+- **v2.2.2 released 2026-09-26:** the seven fixes from the session 27 audit.
 - **v2.2.1 released 2026-09-26:** the saved-key fix (session 26). The 2.2.1 build is installed on the
   owner's machine and confirmed by him: his existing key reads, no re-entry.
-  Nothing is unreleased.
+  (Superseded by 2.2.2.)
 - **v2.2.0 released 2026-09-26:** planner model/effort + cost line, takes slide
   in, the repeated-lead-note fix, measured buffer, section-title ladder, Load plan
   menu, and Install.bat clearing Kontakt's leftover GP5 (session 25).

@@ -5,7 +5,7 @@ measured, not estimated; where something could not be measured yet, it says so.
 
 Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/releases).
 
-## [Unreleased]
+## [2.2.2] — 2026-09-26
 
 From a bug audit on 2026-09-26. Every fix below was first shown failing by a
 new check, then fixed, then the check passed.
