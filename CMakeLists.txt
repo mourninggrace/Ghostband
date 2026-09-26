@@ -145,6 +145,7 @@ if (EXISTS "${GHOSTBAND_JUCE_PATH}/CMakeLists.txt")
 
     target_sources(ghostband_plugin_test PRIVATE
         test/PluginHarness.cpp
+        test/ProcessCpu.cpp
         plugin/PluginProcessor.cpp
         plugin/PluginEditor.cpp
         plugin/GhostbandLookAndFeel.cpp
@@ -159,6 +160,10 @@ if (EXISTS "${GHOSTBAND_JUCE_PATH}/CMakeLists.txt")
         JUCE_USE_CURL=0
         JUCE_STANDALONE_APPLICATION=1
         JUCE_DISPLAY_SPLASH_SCREEN=0
+
+        # --perf runs the editor on the desktop with a real message loop, so
+        # idle and playing CPU are measured the way a host would see them.
+        JUCE_MODAL_LOOPS_PERMITTED=1
     )
 
     target_link_libraries(ghostband_plugin_test PRIVATE

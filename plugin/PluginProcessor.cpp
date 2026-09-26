@@ -399,7 +399,22 @@ gbdiag::Scope::Scope (const char* n)
 gbdiag::Scope::~Scope()
 {
     if (counting)
-        Work::add (name, juce::Time::getMillisecondCounterHiRes() - start);
+    {
+        const double ms = juce::Time::getMillisecondCounterHiRes() - start;
+        Work::add (name, ms);
+        if (Profile::on)
+            Profile::add (name, ms);
+    }
+}
+
+bool gbdiag::Profile::on = false;
+std::map<std::string, std::pair<double, int>> gbdiag::Profile::totals;
+
+void gbdiag::Profile::add (const char* name, double ms)
+{
+    auto& t = totals[name];
+    t.first += ms;
+    ++t.second;
 }
 
 //==============================================================================
@@ -472,12 +487,14 @@ bool GhostbandProcessor::setPlannerKey (const juce::String& key)
         return false;
 
     // That a key was set, never what it was.
+    ++plannerKeyGeneration;
     logChange ("planner key saved");
     return true;
 }
 
 void GhostbandProcessor::clearPlannerKey()
 {
+    ++plannerKeyGeneration;
     if (plannerKeyFile().deleteFile())
         logChange ("planner key removed");
 }

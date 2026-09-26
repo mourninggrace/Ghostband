@@ -204,6 +204,23 @@ discarded the uncommitted harness work. Recovered by re-running the scratchpad
 scripts in order (same numbers after). Commit before experiments; inspect with
 `git diff`, never checkout.
 
+## Session 28, part 3: optimisation, measured
+
+`--perf [plan] [seconds]` in the harness: load, window, first frame, full redraw
+(SOFTWARE image - createComponentSnapshot is a Direct2D image on JUCE 8 and costs
+~150 ms per read-back whatever is drawn; the first report believed it), reroll,
+CPU via QueryProcessCycleTime (GetProcessTimes moves in 15.6 ms steps = the whole
+signal), medians of three, the harness loop alone as a floor (0.85%: it polls,
+a host sleeps), per-piece message-thread ms via gbdiag::Profile, renderer.
+
+Findings: load 6 ms, window 22 ms, first frame 16 ms, full redraw 11 ms (grid
+3 ms), reroll 1 ms, audio ~0. Idle: the key-file check 30/s was the biggest
+piece (2-4 ms/s -> 0.2, cached + plannerKeyGeneration). Timer drops to 10 Hz when
+stopped, not animating, mouse elsewhere, planner idle: Ghostband's idle share
+0.95% -> 0.75% of a core. Playing ~4%: mostly frame presentation of the 60 fps
+glide/flare, which he said to LEAVE ALONE. Renderer is Direct2D (GPU) already;
+nothing to move to the GPU, and OpenGL stays declined.
+
 ## Session 27: a bug audit, and seven real bugs
 
 He asked for a comprehensive audit, find and fix everything. Done by hand, no

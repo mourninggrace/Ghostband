@@ -30,6 +30,11 @@
 #include <map>
 #include <set>
 
+// test/ProcessCpu.cpp - CPU time and memory for --perf (needs <windows.h>, kept apart).
+double processCpuSeconds();
+double processMemoryMB();
+unsigned long long processCycles();
+
 namespace {
 
 class FakePlayHead : public juce::AudioPlayHead
@@ -309,6 +314,213 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
     return out;
 }
 
+// ---- --perf: what Ghostband costs a computer --------------------------------
+//
+// Measured, not guessed, before any optimisation: load, first frame, the window
+// idle on screen, the window open while the band plays in real time, a reroll,
+// and memory. CPU is the process's own user+kernel time from Windows, so it is
+// what Task Manager would show, not an estimate.
+
+static void perfReport (const juce::String& planPath, int seconds)
+{
+    auto now = [] { return juce::Time::getMillisecondCounterHiRes(); };
+    const double memStart = ::processMemoryMB();
+    // Paints into a SOFTWARE image. createComponentSnapshot makes a Direct2D
+    // image on JUCE 8 and reading it back costs ~150 ms whatever is drawn -
+    // the first run of this report measured that and called it a redraw.
+    auto drawCost = [&now] (juce::Component& c, int reps)
+    {
+        juce::Image img (juce::Image::ARGB, juce::jmax (1, c.getWidth()), juce::jmax (1, c.getHeight()), true, juce::SoftwareImageType());
+        const double c0 = now();
+        for (int r = 0; r < reps; ++r)
+        {
+            juce::Graphics g (img);
+            c.paintEntireComponent (g, true);
+        }
+        return (now() - c0) / reps;
+    };
+
+    double t0 = now();
+    auto proc = std::make_unique<GhostbandProcessor>();
+    proc->loadPlan (juce::File (planPath));
+    const double tLoad = now() - t0;
+
+    const double sr = 48000.0;
+    const int bs = 512;
+    proc->setRateAndBufferSizeDetails (sr, bs);
+    proc->prepareToPlay (sr, bs);
+
+    t0 = now();
+    auto* ed = proc->createEditorIfNeeded();
+    ed->setSize (1180, 820);
+    const double tEditor = now() - t0;
+
+    t0 = now();
+    drawCost (*ed, 1);
+    const double tFirstFrame = now() - t0;
+
+    // A full repaint, averaged - the cost of every frame that redraws everything.
+    const double tFrame = drawCost (*ed, 20);
+
+    // WHICH PART COSTS: every visible child drawn alone, and the editor's own
+    // background (everything minus its children), slowest first.
+    {
+        std::vector<std::pair<double, juce::String>> parts;
+        for (auto* c : ed->getChildren())
+        {
+            if (! c->isVisible() || c->getWidth() <= 0 || c->getHeight() <= 0) continue;
+            const double cost = drawCost (*c, 5);
+            juce::String name = c->getName().isNotEmpty() ? c->getName() : juce::String (typeid (*c).name());
+            if (auto* l = dynamic_cast<juce::Label*> (c)) name = "label '" + l->getText().substring (0, 20) + "'";
+            parts.push_back ({ cost, name + " " + juce::String (c->getWidth()) + "x" + juce::String (c->getHeight()) });
+        }
+        {
+            juce::Image img (juce::Image::ARGB, ed->getWidth(), ed->getHeight(), true);
+            juce::Graphics g (img);
+            const double c0 = now();
+            for (int i = 0; i < 5; ++i) ed->paint (g);
+            parts.push_back ({ (now() - c0) / 5.0, "EDITOR BACKGROUND (paint only)" });
+        }
+        std::sort (parts.rbegin(), parts.rend());
+        std::printf ("  slowest parts to draw:\n");
+        for (size_t i = 0; i < parts.size() && i < 10; ++i)
+            std::printf ("    %7.2f ms  %s\n", parts[i].first, parts[i].second.toRawUTF8());
+    }
+
+    // Rerolls: regenerate with a new seed, as Roll does.
+    t0 = now();
+    for (int i = 0; i < 20; ++i) { proc->seed.store (proc->seed.load() + 7919); proc->regenerate(); }
+    const double tReroll = (now() - t0) / 20.0;
+
+    // THE HARNESS ALONE: the same message loop with no Ghostband window on
+    // screen. runDispatchLoopUntil polls where a host sleeps, so this is the
+    // floor every figure below sits on, and none of it is the plugin.
+    const double loopCyclesPerSecond = [] {
+        const unsigned long long c = ::processCycles();
+        const double w = juce::Time::getMillisecondCounterHiRes();
+        volatile double x = 0.0;
+        while (juce::Time::getMillisecondCounterHiRes() - w < 250.0) x = x + 1.0;
+        return (::processCycles() - c) / ((juce::Time::getMillisecondCounterHiRes() - w) / 1000.0);
+    }();
+    double loopOnly = 0.0;
+    {
+        const unsigned long long c = ::processCycles(); const double w = now();
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (seconds * 1000);
+        loopOnly = (::processCycles() - c) / loopCyclesPerSecond / ((now() - w) / 1000.0) * 100.0;
+    }
+
+    ed->setVisible (true);
+    ed->addToDesktop (juce::ComponentPeer::windowHasTitleBar);
+    ed->setTopLeftPosition (40, 40);
+    if (auto* peer = ed->getPeer())
+    {
+        const auto engines = peer->getAvailableRenderingEngines();
+        std::printf ("  renderer                  %s (available: %s)\n",
+                     engines[peer->getCurrentRenderingEngine()].toRawUTF8(),
+                     engines.joinIntoString (", ").toRawUTF8());
+    }
+    juce::MessageManager::getInstance()->runDispatchLoopUntil (1500);   // settle
+
+    auto dumpProfile = [] (const char* phase, double seconds)
+    {
+        std::vector<std::pair<double, std::string>> v;
+        for (const auto& kv : gbdiag::Profile::totals)
+            v.push_back ({ kv.second.first, kv.first + "  (" + std::to_string (kv.second.second) + " calls)" });
+        std::sort (v.rbegin(), v.rend());
+        std::printf ("  where the message thread went, %s (ms per second):\n", phase);
+        for (size_t i = 0; i < v.size() && i < 8; ++i)
+            std::printf ("    %7.2f  %s\n", v[i].first / seconds, v[i].second.c_str());
+        gbdiag::Profile::totals.clear();
+    };
+    // IDLE: window on screen, transport stopped, nobody touching anything.
+    gbdiag::Profile::on = true; gbdiag::Profile::totals.clear();
+    auto median3 = [] (double a, double b, double c) { return std::max (std::min (a, b), std::min (std::max (a, b), c)); };
+    // Cycles per second of one busy core, so a cycle count reads as % of a core.
+    const double cyclesPerSecond = [] {
+        const unsigned long long c = ::processCycles();
+        const double w = juce::Time::getMillisecondCounterHiRes();
+        volatile double x = 0.0;
+        while (juce::Time::getMillisecondCounterHiRes() - w < 250.0) x = x + 1.0;
+        return (::processCycles() - c) / ((juce::Time::getMillisecondCounterHiRes() - w) / 1000.0);
+    }();
+    auto idleRun = [&] { const unsigned long long c = ::processCycles(); const double w = now();
+                         juce::MessageManager::getInstance()->runDispatchLoopUntil (seconds * 1000);
+                         return (::processCycles() - c) / cyclesPerSecond / ((now() - w) / 1000.0) * 100.0; };
+    GhostbandEditor::slowIdleTimer = false;
+    juce::MessageManager::getInstance()->runDispatchLoopUntil (500);
+    const double f1 = idleRun(), f2 = idleRun(), f3 = idleRun();
+    GhostbandEditor::slowIdleTimer = true;
+    juce::MessageManager::getInstance()->runDispatchLoopUntil (500);
+    if (auto* gbe = dynamic_cast<GhostbandEditor*> (ed))
+        std::printf ("  idle state: %s\n", gbe->livelinessForTesting().toRawUTF8());
+    const double i1 = idleRun(), i2 = idleRun(), i3 = idleRun();
+    const double idleCpu = median3 (i1, i2, i3);
+    double c0 = 0.0;
+    std::vector<std::string> idleLines; dumpProfile ("idle", seconds * 3.0);
+
+    // PLAYING: an audio thread calling processBlock at real time, window open.
+    struct Audio : juce::Thread
+    {
+        Audio (GhostbandProcessor& p, double r, int b) : juce::Thread ("perf audio"), proc (p), rate (r), block (b) {}
+        void run() override
+        {
+            FakePlayHead head; head.bpm = proc.getPlanBpm(); proc.setPlayHead (&head);
+            juce::AudioBuffer<float> buf (2, block); juce::MidiBuffer midi;
+            const double qPerBlock = (block / rate) * (head.bpm / 60.0);
+            const double msPerBlock = 1000.0 * block / rate;
+            double next = juce::Time::getMillisecondCounterHiRes();
+            for (int n = 0; ! threadShouldExit(); ++n)
+            {
+                head.ppq = n * qPerBlock;
+                buf.clear(); midi.clear();
+                proc.processBlock (buf, midi);
+                next += msPerBlock;
+                const double wait = next - juce::Time::getMillisecondCounterHiRes();
+                if (wait > 1.0) juce::Thread::sleep ((int) wait);
+            }
+            proc.setPlayHead (nullptr);
+        }
+        GhostbandProcessor& proc; double rate; int block;
+    } audio (*proc, sr, bs);
+
+    audio.startThread (juce::Thread::Priority::highest);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil (1000);    // into the song
+    (void) proc->takeAudioWork();
+    double playRuns[3];
+    t0 = now();
+    for (double& r : playRuns)
+    {
+        const unsigned long long cc = ::processCycles(); const double w = now();
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (seconds * 1000);
+        r = (::processCycles() - cc) / cyclesPerSecond / ((now() - w) / 1000.0) * 100.0;
+    }
+    const double wall = (now() - t0) / 1000.0;
+    const double playCpu = median3 (playRuns[0], playRuns[1], playRuns[2]);
+    const auto audioWork = proc->takeAudioWork();
+    dumpProfile ("playing", wall); gbdiag::Profile::on = false;
+    audio.stopThread (2000);
+
+    const double memEnd = ::processMemoryMB();
+
+    std::printf ("PERF  (%s, %d s windows)\n", juce::File (planPath).getFileName().toRawUTF8(), seconds);
+    std::printf ("  load plugin + song        %7.1f ms\n", tLoad);
+    std::printf ("  open the window           %7.1f ms\n", tEditor);
+    std::printf ("  first frame               %7.1f ms\n", tFirstFrame);
+    std::printf ("  a full redraw             %7.1f ms\n", tFrame);
+    std::printf ("  a reroll                  %7.2f ms\n", tReroll);
+    std::printf ("  CPU, harness loop alone, no window  %7.2f %% of one core  (the floor - not Ghostband)\n", loopOnly);
+    std::printf ("  CPU, window open, idle, timer always 30/s   %7.2f %% of one core (median of %.2f %.2f %.2f)\n", median3 (f1, f2, f3), f1, f2, f3);
+    std::printf ("  CPU, window open, idle       %7.2f %% of one core (median of %.2f %.2f %.2f)\n", idleCpu, i1, i2, i3);
+    std::printf ("  CPU, window open, playing %7.2f %% of one core (median of %.2f %.2f %.2f)\n", playCpu, playRuns[0], playRuns[1], playRuns[2]);
+    std::printf ("  audio thread's own work   %7.3f %% of real time (worst block %.3f ms of %.2f)\n",
+                 audioWork.totalMs / (wall * 1000.0) * 100.0, audioWork.worstBlockMs, 1000.0 * bs / sr);
+    std::printf ("  memory                    %7.1f MB after, %.1f MB at start (whole harness)\n", memEnd, memStart);
+
+    ed->removeFromDesktop();
+    proc->editorBeingDeleted (ed);
+    delete ed;
+}
+
 void layoutAudit (GhostbandProcessor& proc, const juce::String& planPath,
                   int wantW = 0, int wantH = 0)
 {
@@ -533,6 +745,13 @@ int main (int argc, char** argv)
     GhostbandProcessor::setUserSongsFolderForTesting (harnessSongs);
 
     GhostbandProcessor proc;
+
+    if (argc > 1 && juce::String (argv[1]) == "--perf")
+    {
+        perfReport (argc > 2 ? juce::String (argv[2]) : juce::String ("C:/Projects/Ghostband/plans/demo-metal.json"),
+                    argc > 3 ? juce::String (argv[3]).getIntValue() : 5);
+        return 0;
+    }
 
     if (argc > 1 && juce::String (argv[1]) == "--fillstats")
     {

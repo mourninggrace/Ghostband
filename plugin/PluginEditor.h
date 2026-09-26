@@ -804,6 +804,30 @@ private:
     juce::ComboBox   plannerModelBox, plannerEffortBox;
     double           plannerCostAtMs = 0.0;     // when the cost line was last worked out
     bool             plannerKeyUnreadable = false;   // saved, but Windows will not decrypt it
+
+    // PERFORMANCE, 2026-09-26 (harness --perf). Whether a key is saved was
+    // asked of the disk thirty times a second - the biggest single piece of
+    // the window's idle work. It changes only when a key is saved or cleared,
+    // which reset this, or if the file is removed by hand, which a two-second
+    // recheck covers.
+    bool             haveKeyCached = false;
+public:
+    static inline bool slowIdleTimer = true;   // --perf turns it off to measure what it saves
+    juce::String livelinessForTesting()
+    {
+        juce::String r;
+        if (processor.transportRunning.load())       r << "transport ";
+        if (animator.isTimerRunning())               r << "animating ";
+        if (veil.isVisible())                        r << "veil ";
+        if (isMouseOverOrDragging (true))            r << "mouse ";
+        if (processor.getPlannerStatus().busy)       r << "planner ";
+        r << "| timer " << getTimerInterval() << " ms";
+        return r;
+    }
+private:
+    int              keyGenerationSeen = -1;
+    double           keyCheckedAtMs = -1.0e9;
+    juce::String     keyPlaceholderShown;
     void             refreshPlannerCost();
 
     void refreshPlannerControls();

@@ -49,6 +49,15 @@ namespace gbdiag
         static void reset();
     };
 
+    // A running total per named piece, for the harness's --perf report only.
+    // Off unless switched on, so the plugin pays one bool test per scope.
+    struct Profile
+    {
+        static bool on;
+        static std::map<std::string, std::pair<double, int>> totals;   // name -> (ms, calls)
+        static void add (const char* name, double ms);
+    };
+
     struct Scope
     {
         explicit Scope (const char* n);
@@ -481,6 +490,10 @@ public:
     bool setPlannerKey (const juce::String& key);
     void clearPlannerKey();
     bool hasPlannerKey() const;
+
+    // Bumped by every save and clear, so a window can tell the key changed
+    // without asking the disk - see the editor's haveKeyCached.
+    std::atomic<int> plannerKeyGeneration { 0 };
 
     // Decrypts the saved key and throws it away again: can Windows still read
     // it? Asked once when the editor opens, so Settings can say so before

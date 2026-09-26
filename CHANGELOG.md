@@ -25,6 +25,13 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
 - **Guitar 2 sits back under its fills and comes forward for its solos.** In
   sections where it answers, its level control is sent about 6 dB below the GTR 2
   knob; in its solos, and everywhere else, the knob's own level.
+- **Lighter on the computer when idle.** With the band stopped, nothing moving
+  and the mouse elsewhere, the window updates 10 times a second instead of 30 -
+  back to 30 the moment anything plays, moves or the mouse comes over it. And
+  the window no longer asks the disk whether an API key is saved thirty times a
+  second. Measured with a new harness report (--perf): Ghostband's share of a CPU
+  core with its window open and idle fell from about 0.95% to 0.75%; playing,
+  about 4%. Drawing already runs on the GPU (Direct2D).
 - **The solos are locked.** A fingerprint of every solo note in every song is
   pinned in the tests; checked first against v2.1.0's output in all 33 songs with
   solos (same notes, lengths and legato). Solos change only when asked for.

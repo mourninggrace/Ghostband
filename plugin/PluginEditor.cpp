@@ -1858,6 +1858,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 
     plannerKeySave.onClick = [this]
     {
+        keyCheckedAtMs = -1.0e9;          // ask the disk again on the next tick
         const bool ok = processor.setPlannerKey (plannerKeyEditor.getText());
         if (ok)
             plannerKeyUnreadable = false;
@@ -1876,6 +1877,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 
     plannerKeyClear.onClick = [this]
     {
+        keyCheckedAtMs = -1.0e9;          // ask the disk again on the next tick
         processor.clearPlannerKey();
         plannerKeyEditor.clear();
         plannerKeyUnreadable = false;
@@ -4297,7 +4299,15 @@ void GhostbandEditor::easeDialsTo (double complexity, double humanize, double fi
 // a minute with nothing moving reads as a hang.
 void GhostbandEditor::refreshPlannerControls()
 {
-    const bool haveKey = processor.hasPlannerKey();
+    const double nowMs = juce::Time::getMillisecondCounterHiRes();
+    const int generation = processor.plannerKeyGeneration.load();
+    if (generation != keyGenerationSeen || nowMs - keyCheckedAtMs > 2000.0)
+    {
+        haveKeyCached     = processor.hasPlannerKey();
+        keyCheckedAtMs    = nowMs;
+        keyGenerationSeen = generation;
+    }
+    const bool haveKey = haveKeyCached;
     const GhostbandProcessor::PlannerStatus st = processor.getPlannerStatus();
 
     // NEVER HIDDEN. With no key the button is there, greyed, and says why - a
@@ -4329,10 +4339,18 @@ void GhostbandEditor::refreshPlannerControls()
     if (writeStatus.full != line)
         showWriteStatus (line, warn ? ghost::warn : ghost::dim);
 
-    plannerKeyEditor.setTextToShowWhenEmpty (! haveKey            ? "paste your Anthropic API key"
-                                             : plannerKeyUnreadable ? "saved key unreadable - paste it again"
-                                                                    : "saved, encrypted for this Windows user",
-                                             plannerKeyUnreadable ? ghost::warn : ghost::dim);
+    // Only when it changes: setting it repaints the field every time, and this
+    // runs on every tick.
+    {
+        const juce::String placeholder = ! haveKey            ? "paste your Anthropic API key"
+                                       : plannerKeyUnreadable ? "saved key unreadable - paste it again"
+                                                              : "saved, encrypted for this Windows user";
+        if (placeholder != keyPlaceholderShown)
+        {
+            keyPlaceholderShown = placeholder;
+            plannerKeyEditor.setTextToShowWhenEmpty (placeholder, plannerKeyUnreadable ? ghost::warn : ghost::dim);
+        }
+    }
     plannerKeyClear.setEnabled (haveKey);
 
     // The cost line reads changes.log, so it is worked out at most every two
@@ -4594,10 +4612,11 @@ void GhostbandEditor::timerCallback()
 {
     noteTimerTick();
     const double workStart = juce::Time::getMillisecondCounterHiRes();
+    GB_WORK ("timer: whole tick");
 
-    updateLatencyReadout();
-    refreshPlannerControls();
-    refreshTracker();
+    { GB_WORK ("timer: footer");        updateLatencyReadout(); }
+    { GB_WORK ("timer: planner line");  refreshPlannerControls(); }
+    { GB_WORK ("timer: tracker cells"); refreshTracker(); }
 
     // Playhead.
     const int tick = processor.transportRunning.load() ? processor.playbackTick.load() : -1;
@@ -4713,6 +4732,21 @@ void GhostbandEditor::timerCallback()
 
     // Last, so it measures everything above it.
     lastTimerWorkMs = juce::Time::getMillisecondCounterHiRes() - workStart;
+
+    // THIRTY A SECOND ONLY WHEN IT CAN SHOW. With the band stopped, nothing
+    // animating and the mouse somewhere else, nothing on this screen changes
+    // faster than a person could notice at ten - and each wake-up costs Windows
+    // and JUCE more than the work inside it. Back to thirty the moment the band
+    // plays, anything moves, or the mouse comes over the window, so a knob
+    // drag is never answered late. (Measured 2026-09-26, harness --perf.)
+    {
+        const bool lively = processor.transportRunning.load() || animator.isTimerRunning()
+                         || veil.isVisible() || isMouseOverOrDragging (true)
+                         || processor.getPlannerStatus().busy;
+        const int wantHz = (lively || ! slowIdleTimer) ? 30 : 10;
+        if (getTimerInterval() != 1000 / wantHz)
+            startTimerHz (wantHz);
+    }
 }
 
 void GhostbandEditor::styleButton (juce::TextButton& b, bool primary)
