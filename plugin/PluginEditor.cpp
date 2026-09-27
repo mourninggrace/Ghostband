@@ -4711,6 +4711,21 @@ void GhostbandEditor::timerCallback()
     const double workStart = juce::Time::getMillisecondCounterHiRes();
     GB_WORK ("timer: whole tick");
 
+    // Every guitar 2 level change the band makes, into the change log, so a
+    // "UNDER does nothing / the solo stays down" report can be read, not guessed.
+    {
+        static int lastLogged = 0;
+        const int n = processor.g2SentCount.load();
+        if (n != lastLogged)
+        {
+            lastLogged = n;
+            processor.logChange ("guitar 2 volume sent   CC" + juce::String (processor.g2SentCC.load())
+                                 + " = " + juce::String (processor.g2SentValue.load())
+                                 + "   bar " + juce::String (processor.g2SentBar.load())
+                                 + (processor.g2SentFills.load() ? "   (fills: UNDER applies)" : "   (not fills: full)"));
+        }
+    }
+
     { GB_WORK ("timer: footer");        updateLatencyReadout(); }
     { GB_WORK ("timer: planner line");  refreshPlannerControls(); }
     { GB_WORK ("timer: tracker cells"); refreshTracker(); }

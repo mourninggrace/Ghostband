@@ -1017,6 +1017,11 @@ private:
     std::atomic<int>              g2LevelChannel { -1 }, g2LevelCC { -1 }, g2LevelFull { -1 }, g2LevelFill { -1 };
     std::atomic<bool>             g2LevelDirty { true };
     int                           g2LevelLastSent = -1;     // audio thread only
+public:
+    // The last guitar 2 level the audio thread sent, for the change log.
+    std::atomic<int>              g2SentValue { -1 }, g2SentCC { -1 }, g2SentBar { 0 }, g2SentCount { 0 };
+    std::atomic<bool>             g2SentFills { false };
+private:
     int                           sequenceEndTick = 0;
     int                           barTicks        = 1920;
 

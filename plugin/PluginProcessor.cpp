@@ -4068,6 +4068,14 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
             {
                 midi.addEvent (juce::MidiMessage::controllerEvent (g2LevelChannel.load(), cc, value), 0);
                 g2LevelLastSent = value;
+
+                // For the change log (written by the editor's timer - no file
+                // work on this thread): what went out, where, and why.
+                g2SentValue.store (value);
+                g2SentCC.store (cc);
+                g2SentBar.store (barTicks > 0 ? static_cast<int> (at / barTicks) + 1 : 0);
+                g2SentFills.store (fills);
+                g2SentCount.fetch_add (1);
             }
         }
     }
