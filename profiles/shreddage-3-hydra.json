@@ -508,6 +508,11 @@
   // no velocity rule, so velocity 124 was just a loud picked note.
   "rake_velocity": 0,
 
+  // Returning to Sustain presses C-1 as well as CC 40 = 10, so it releases
+  // any latched key (only one is ever held). Needs Sustain's Rule 2 in TACT:
+  // Keyswitch, Latch, C-1 - the owner's one-time change, 2026-09-27.
+  "keyswitch_with_cc": true,
+
   "keyswitches_verified": true,
 
   // 100, and this is not arbitrary.

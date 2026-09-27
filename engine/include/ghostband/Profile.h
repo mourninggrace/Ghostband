@@ -541,6 +541,13 @@ public:
     // Articulations). 0 = no rake. The generator asks with LeadArtic::Rake.
     int rakeVelocity = 0;
 
+    // Send the keyswitch beside a CC as well as the CC (2026-09-27, Hydra).
+    // On the owner's map Sustain is a CC 40 band AND (once he adds the rule) a
+    // latching key; only one latching key is ever held, so pressing Sustain's
+    // releases a Staccato or Mute left latched - which the CC alone never did.
+    // Off for everything else: there the keyswitch is only a record.
+    bool keyswitchWithControl = false;
+
     // The per-note gestures, declared the same way as the section feels above
     // and selected by the same mechanism - because on this instrument they ARE
     // the same mechanism. Shreddage has one active articulation at a time,

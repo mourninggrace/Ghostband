@@ -1430,6 +1430,7 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
     // mechanism, so describing them differently would be a distinction the
     // hardware does not make.
     out.rakeVelocity = clampInt (j.intOr ("rake_velocity", 0), 0, 127);
+    out.keyswitchWithControl = j.boolOr ("keyswitch_with_cc", false);
 
     const Json& artics = j["lead_articulations"];
     if (artics.isObject())
@@ -1544,6 +1545,11 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
                 lastCC = sw.cc;
                 lastValue = sw.value;
                 lastKey = -1;   // whatever note was last sent no longer applies
+                if (keyswitchWithControl && sw.note >= 0)
+                {
+                    track.addNoteOn  (on, channel, sw.note, phraseVelocity);
+                    track.addNoteOff (on + std::max (1, phraseBlipTicks), channel, sw.note);
+                }
                 continue;
             }
 
@@ -1675,6 +1681,11 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
         if (sw.byControl())
         {
             track.addCC (at, channel, sw.cc, sw.value);
+            if (keyswitchWithControl && sw.note >= 0)
+            {
+                track.addNoteOn  (at, channel, sw.note, phraseVelocity);
+                track.addNoteOff (at + std::max (1, phraseBlipTicks), channel, sw.note);
+            }
             return;
         }
 
