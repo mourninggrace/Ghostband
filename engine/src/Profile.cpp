@@ -1431,6 +1431,8 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
     // hardware does not make.
     out.rakeVelocity = clampInt (j.intOr ("rake_velocity", 0), 0, 127);
     out.keyswitchWithControl = j.boolOr ("keyswitch_with_cc", false);
+    out.rakeAsPrelude        = j.boolOr ("rake_as_prelude", false);
+    out.slideKeyswitch       = clampInt (j.intOr ("slide_keyswitch", -1), -1, 127);
 
     const Json& artics = j["lead_articulations"];
     if (artics.isObject())
@@ -1705,9 +1707,22 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
 
         const bool haveNext = (i + 1 < part.lead.size());
 
+        // How far ahead of itself a note starts sounding: a rake or a slide
+        // plays a short note of its own first, and whatever came before must
+        // be out of the way by then or the two would slur together.
+        const auto preludeOf = [this] (const LeadIntent& m) -> int
+        {
+            if (m.artic == LeadArtic::Rake && rakeAsPrelude && rakeVelocity == 0
+                && switchFor (LeadArtic::Rake).mapped())
+                return 70;
+            if (m.bendSemis > 0 && m.bendShape == LeadIntent::BendShape::Scoop && slideKeyswitch >= 0)
+                return 110;
+            return 0;
+        };
+
         int end = n.tick + std::max (1, n.durationTicks);
         if (haveNext)
-            end = std::min (end, part.lead[i + 1].tick);
+            end = std::min (end, part.lead[i + 1].tick - preludeOf (part.lead[i + 1]));
         end = std::max (n.tick + 1, end);
 
         const int reach = static_cast<int> (bendSemitones + 0.5);
@@ -1720,11 +1735,40 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
         // the generator is allowed to ask for a pinch harmonic from something
         // that has none.
         const PhraseSwitch gesture = switchFor (n.artic);
+        const int  prelude     = preludeOf (n);
+        const bool rakePrelude = prelude > 0 && n.artic == LeadArtic::Rake;
+        const bool slideIn     = prelude > 0 && ! rakePrelude;
         const bool doGesture = n.artic != LeadArtic::Normal && gesture.mapped()
-                               && ! (n.artic == LeadArtic::Rake && rakeVelocity > 0);
+                               && ! (n.artic == LeadArtic::Rake && rakeVelocity > 0)
+                               && ! rakePrelude;
 
         if (doGesture)
             selectArtic (gesture, std::max (0, n.tick - phraseLeadTicks));
+
+        // The rake: its own short note on the Rake articulation, then straight
+        // back to the section's for the note itself.
+        if (rakePrelude)
+        {
+            const int at = std::max (0, n.tick - prelude);
+            selectArtic (gesture, std::max (0, at - 8));
+            track.addNoteOn  (at, channel, pitch, velocityFor (std::min (1.0, n.accent + 0.05), velocityMin, velocityMax));
+            track.addNoteOff (std::max (at + 1, n.tick - 6), channel, pitch);
+            if (sectionArtic.mapped())
+                selectArtic (sectionArtic, std::max (at + 1, n.tick - 4));
+        }
+
+        // The slide: a grace note two below (above, at the bottom of the
+        // range), the slide key held, running into the note.
+        if (slideIn)
+        {
+            const int graceAt = std::max (0, n.tick - prelude);
+            int grace = pitch - 2;
+            if (grace < chordLowest) grace = pitch + 2;
+            track.addNoteOn  (std::max (0, graceAt - 10), channel, slideKeyswitch, phraseVelocity);
+            track.addNoteOn  (graceAt, channel, grace, velocityFor (n.accent, velocityMin, velocityMax));
+            track.addNoteOff (n.tick + 24, channel, grace);
+            track.addNoteOff (n.tick + 40, channel, slideKeyswitch);
+        }
 
         // Only worth bending a note long enough to hear it arrive, and only if
         // the note it would start from is still on the instrument.
@@ -1741,7 +1785,7 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
         const int  bendTime  = shape == BS::Scoop ? std::min (45, std::max (20, (end - n.tick) / 4))
                              : n.bendSemis > 0    ? std::min (bendTicks, std::max (60, (end - n.tick) / 2))
                                                   : bendTicks;
-        const bool bendThisOne = canBend && (n.target || n.bendSemis > 0) && reachHere > 0 && ! doGesture
+        const bool bendThisOne = canBend && (n.target || n.bendSemis > 0) && reachHere > 0 && ! doGesture && ! slideIn
                               && end - n.tick > bendTime + 20
                               && pitch - reachHere >= chordLowest;
 

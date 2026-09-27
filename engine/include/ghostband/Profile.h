@@ -548,6 +548,19 @@ public:
     // Off for everything else: there the keyswitch is only a record.
     bool keyswitchWithControl = false;
 
+    // A RAKE THAT LEADS INTO ITS NOTE (2026-09-27). Where Rake is its own
+    // articulation (the owner's map: a CC 40 band), playing a note on it is a
+    // scrape and nothing else - "hit a note for a second and then went quiet".
+    // So the rake is played as a short note of its own just before, and the
+    // note itself on the section's articulation.
+    bool rakeAsPrelude = false;
+
+    // A REAL SLIDE INTO A NOTE: the key that holds Legato Slide (non-latching;
+    // C0 = 24 on the owner's map). A scoop is then a short note two semitones
+    // below, run into the target with this key held - a recorded slide rather
+    // than a pitch-wheel nudge nobody could hear. -1: scoop with the wheel.
+    int  slideKeyswitch = -1;
+
     // The per-note gestures, declared the same way as the section feels above
     // and selected by the same mechanism - because on this instrument they ARE
     // the same mechanism. Shreddage has one active articulation at a time,
@@ -615,6 +628,9 @@ public:
         // The hand-position note is a switch like any other, and it would
         // otherwise be reported as a note the instrument cannot play.
         if (handKeyswitch >= 0 && note == handKeyswitch) return SwitchKind::Hand;
+
+        // And the key held for a slide into a note.
+        if (slideKeyswitch >= 0 && note == slideKeyswitch) return SwitchKind::Artic;
 
         return SwitchKind::None;
     }

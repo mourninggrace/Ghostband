@@ -513,6 +513,13 @@
   // Keyswitch, Latch, C-1 - the owner's one-time change, 2026-09-27.
   "keyswitch_with_cc": true,
 
+  // Rake is its own CC 40 band on this map, so a rake is played as a short
+  // scrape just before its note (the owner heard a lone rake as "hit a note
+  // for a second and then went quiet"). And Legato Slide is held on C0 (key
+  // 24, non-latching, his page 2): a slide into a note is a real slide.
+  "rake_as_prelude": true,
+  "slide_keyswitch": 24,
+
   "keyswitches_verified": true,
 
   // 100, and this is not arbitrary.

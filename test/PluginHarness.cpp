@@ -2756,14 +2756,17 @@ int main (int argc, char** argv)
                 switch (i)
                 {
                     // The owner's CC 40 bands (his TACT map, 2026-09-27).
-                    case 1:  need (std::any_of (cc40.begin(), cc40.end(), [] (int v) { return v >= 21 && v <= 41; }),  "no CC 40 in the rake band"); break;
+                    case 1:  need (std::any_of (cc40.begin(), cc40.end(), [] (int v) { return v >= 21 && v <= 41; }),  "no CC 40 in the rake band");
+                             need (notes >= 2, "the rake did not lead into a note of its own"); break;
                     case 2:  need (std::any_of (cc40.begin(), cc40.end(), [] (int v) { return v >= 42 && v <= 62; }),  "no CC 40 in the pinch band"); break;
                     case 3:  need (std::any_of (cc40.begin(), cc40.end(), [] (int v) { return v >= 63 && v <= 83; }),  "no CC 40 in the harmonics band"); break;
                     case 4:  need (std::any_of (cc40.begin(), cc40.end(), [] (int v) { return v >= 84 && v <= 104; }), "no CC 40 in the tapping band"); break;
                     case 5:  need (std::any_of (cc40.begin(), cc40.end(), [] (int v) { return v >= 105; }),            "no CC 40 in the choke band"); break;
                     case 6:  need (overlaps > 0, "nothing played legato"); break;
-                    case 7: case 8: case 9: case 10:
+                    case 7: case 8: case 9:
                              need (bent, "the wheel never moved"); need (lastBend == 8192, "the wheel left off centre"); break;
+                    // A real slide on the owner's map: Legato Slide held on C0 (24).
+                    case 10: need (keys.count (24) > 0, "no slide key 24"); need (overlaps > 0, "nothing ran into the note"); break;
                     case 11: case 12: need (maxCC1 > 0, "no vibrato"); break;
                     default: break;
                 }
