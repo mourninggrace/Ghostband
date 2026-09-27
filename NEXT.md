@@ -6,13 +6,15 @@ useless for the one job it has: telling whoever picks this up next what is true
 right now. The history is in `docs/archive/NEXT-through-session-13.md`, and
 nobody has to read it.
 
-**Last touched 2026-09-27, session 30.** Session 30 (solo schools, articulation
-test, the owner's real Hydra map, fills by genre) is on `fills-v3-wip`
-@787dc13, installed. FIRST NEXT: UNDER - the owner's taught store
-(%APPDATA%\Ghostband\learned-controls.json, entry shreddage3_hydra) still
-names CC 20 "volume" as the level and overrides the profile's new CC 7
-"output volume"; migrate it in code, and have the owner tick Kontakt's
-"Accept standard controllers for Volume (#7) and Pan (#10)" for Hydra.
+**Last touched 2026-09-27, session 31.** On `fills-v3-wip`, pushed and
+INSTALLED; `main` = v2.3.0. Session 31: UNDER works (Kontakt's rack volume via
+the CC7 "Accept standard controllers" tick - per Hydra PRESET, resets on a
+preset change; Hydra's own VOLUME is pre-amp gain, unmapped), all 23 guitar 2
+articulation rows confirmed by ear, palm-mute dynamics, twin guitars + guitar 1
+making room, click-a-bar jump, levels restated on load/audition, gentle level
+sending after a Kontakt crash. FIRST NEXT: owner's verdict on twin guitars,
+making room and the bar jump; then cut v2.4.0 (merge to main, manual,
+screenshots). Then: warn when the Kontakt tick is lost; thrash note in songs.
 
 ## State
 
