@@ -1583,15 +1583,18 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
     // up to the pitch and only then starts shaking it, and vibrato applied from
     // the attack sounds like a synthesiser LFO, which is exactly the thing this
     // is trying not to sound like.
-    const auto shake = [this, &track] (int from, int to)
+    const auto shake = [this, &track] (int from, int to, bool wide = false)
     {
-        if (vibratoCC < 0 || to - from < vibratoTicks + 40)
+        // Wide vibrato goes further, and takes a little longer to open up -
+        // so it needs a longer note, or its ramp runs on into the next one.
+        const int depth = wide ? std::min (127, (vibratoDepth * 7) / 5) : vibratoDepth;
+        const int comeIn = wide ? (vibratoTicks * 3) / 2 : vibratoTicks;
+        if (vibratoCC < 0 || to - from < comeIn + 40)
             return;
-
         const int steps = 4;
         for (int i = 1; i <= steps; ++i)
-            track.addCC (from + (vibratoTicks * i) / steps, channel, vibratoCC,
-                         (vibratoDepth * i) / steps);
+            track.addCC (from + (comeIn * i) / steps, channel, vibratoCC,
+                         (depth * i) / steps);
 
         // Always back to nothing, or every note after this one is shaking too.
         track.addCC (std::max (from + 1, to - 1), channel, vibratoCC, 0);
@@ -1720,9 +1723,13 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
         // two ideas fighting for the same note, and neither survives.
         // A note may ask for its own bend (bendSemis), not only a target. Its
         // bend takes at most half the note, so a short bent note still arrives.
+        using BS = LeadIntent::BendShape;
+        const BS   shape     = n.bendSemis > 0 ? n.bendShape : BS::Into;
         const int  reachHere = n.bendSemis > 0 ? n.bendSemis : reach;
-        const int  bendTime  = n.bendSemis > 0 ? std::min (bendTicks, std::max (60, (end - n.tick) / 2))
-                                               : bendTicks;
+        // A scoop is a slide, not a bend: over in a flash.
+        const int  bendTime  = shape == BS::Scoop ? std::min (45, std::max (20, (end - n.tick) / 4))
+                             : n.bendSemis > 0    ? std::min (bendTicks, std::max (60, (end - n.tick) / 2))
+                                                  : bendTicks;
         const bool bendThisOne = canBend && (n.target || n.bendSemis > 0) && reachHere > 0 && ! doGesture
                               && end - n.tick > bendTime + 20
                               && pitch - reachHere >= chordLowest;
@@ -1733,27 +1740,50 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
             // at the pitch that was written.
             const int sounded = pitch - reachHere;
             const int steps   = 6;
+            const bool pre    = shape == BS::PreBend;
 
-            track.addPitchBend (n.tick, channel, 0.0, bendRangeSemitones);
+            // A pre-bend is struck already up: the wheel is there before the note.
+            track.addPitchBend (n.tick, channel, pre ? static_cast<double> (reachHere) : 0.0, bendRangeSemitones);
             track.addNoteOn    (n.tick, channel, sounded,
                                 (n.artic == LeadArtic::Rake && rakeVelocity > 0)
                                     ? rakeVelocity
                                     : velocityFor (n.accent, velocityMin, velocityMax));
 
-            for (int st = 1; st <= steps; ++st)
+            if (! pre)
+                for (int st = 1; st <= steps; ++st)
+                {
+                    const double through = static_cast<double> (st) / steps;
+
+                    // Eases out rather than climbing evenly: a bend is quick off the
+                    // fret and slow as it reaches the note, and a linear one sounds
+                    // like a pitch envelope instead of a finger.
+                    const double shaped = 1.0 - (1.0 - through) * (1.0 - through);
+                    track.addPitchBend (n.tick + (bendTime * st) / steps, channel,
+                                        shaped * reachHere, bendRangeSemitones);
+                }
+
+            const int arrived = pre ? n.tick : n.tick + bendTime;
+
+            if (shape == BS::Release || pre)
             {
-                const double through = static_cast<double> (st) / steps;
-
-                // Eases out rather than climbing evenly: a bend is quick off the
-                // fret and slow as it reaches the note, and a linear one sounds
-                // like a pitch envelope instead of a finger.
-                const double shaped = 1.0 - (1.0 - through) * (1.0 - through);
-                track.addPitchBend (n.tick + (bendTime * st) / steps, channel,
-                                    shaped * reachHere, bendRangeSemitones);
+                // Sings at the top, then comes down - slower than it went up, the
+                // way a finger lets a string back. The note ends where it began.
+                const int releaseTime = std::min ((bendTime * 3) / 2, std::max (60, (end - arrived) / 3));
+                const int releaseAt   = std::max (arrived + 30, end - releaseTime - std::max (20, (end - arrived) / 6));
+                shake (arrived, releaseAt, n.wideVibrato);
+                for (int st = 1; st <= steps; ++st)
+                {
+                    const double through = static_cast<double> (st) / steps;
+                    const double shaped  = through * through;          // slow off the top
+                    track.addPitchBend (releaseAt + (releaseTime * st) / steps, channel,
+                                        (1.0 - shaped) * reachHere, bendRangeSemitones);
+                }
             }
-
-            // Once the bend has arrived, not before.
-            shake (n.tick + bendTime, end);
+            else
+            {
+                // Once the bend has arrived, not before.
+                shake (arrived, end, n.wideVibrato);
+            }
 
             track.addNoteOff   (end, channel, sounded);
             track.addPitchBend (end, channel, 0.0, bendRangeSemitones);
@@ -1824,8 +1854,8 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
             // was bent into - some landings are approached from above and are
             // not bent at all, and they should still be alive. And any note
             // that asks for it.
-            if (n.target || n.vibrato)
-                shake (n.tick + std::max (60, bendTicks / 3), end);
+            if (n.target || n.vibrato || n.wideVibrato)
+                shake (n.tick + std::max (60, bendTicks / 3), end, n.wideVibrato);
 
             track.addNoteOff (off, channel, pitch);
         }

@@ -150,6 +150,17 @@ struct LeadIntent
     bool   unswung       = false;   // written in triplet time already: the swing pass leaves it alone
     int    bendSemis     = 0;
     bool   vibrato       = false;
+
+    // HOW the bend moves, for a note with bendSemis (2026-09-27, the owner's
+    // list of solos: Crossroads, Voodoo Child, B.B. King). The written pitch is
+    // always the TOP of the bend.
+    //   Into     up to the written pitch and stays - what every bend was
+    //   Release  up, sings there, and comes back down to where it started
+    //   PreBend  already bent when it is struck, then let down - the cry
+    //   Scoop    a quick slide up into the note
+    enum class BendShape { Into, Release, PreBend, Scoop };
+    BendShape bendShape  = BendShape::Into;
+    bool   wideVibrato   = false;   // the wide, slow, B.B. King kind
 };
 
 // Switch the instrument to this phrase. Emitted at section and phrase changes,
