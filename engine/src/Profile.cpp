@@ -1834,10 +1834,16 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
             // and stops. Leap 0 passed "within two semitones" for years; the
             // CLI's MIDI files showed it as same-pitch re-strikes on the lead
             // channel, and the plugin was sending the identical pair.
-            // Or wherever the note ASKS to slur into the next - a tapped
-            // arpeggio or a wide legato leap, where the hammer is the point.
+            // Or wherever the note ASKS to slur into the next - but only where
+            // a player really would: a tapped note, or a fast one, within a
+            // fifth. Asked for on anything (2026-09-26), 38% of guitar 2's
+            // notes came out hammered against v2.3.0's 17%, and a hammer-on is
+            // a quieter, thinner sample than a pick: "i can barely hear it".
+            const int  gapToNext = haveNext ? part.lead[i + 1].tick - n.tick : 1 << 30;
+            const bool slurHere  = n.slur && leap <= 7
+                                && (n.artic == LeadArtic::Tap || gapToNext <= 160);
             if (legatoOverlapTicks > 0 && haveNext && ! nextIsHeld
-                && leap > 0 && (leap <= legatoMaxLeapSemitones || n.slur))
+                && leap > 0 && (leap <= legatoMaxLeapSemitones || slurHere))
             {
                 const int nextStart = part.lead[i + 1].tick;
                 const int nextEnd   = nextStart + std::max (1, part.lead[i + 1].durationTicks);
