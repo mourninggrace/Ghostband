@@ -235,7 +235,11 @@ private:
 class CalibrationList : public juce::Component
 {
 public:
-    struct Row { juce::String label; int note = 0; };
+    // right: what is shown at the right edge ("note 36" when empty); badge: a
+    // mark beside it (the articulation test's right/wrong); dim: listed but
+    // not available yet - greyed, never hidden.
+    struct Row { juce::String label; int note = 0; juce::String right; juce::String badge;
+                 juce::Colour badgeColour; bool dim = false; };
 
     void setRows (std::vector<Row> r);
     void setSelected (int index);
@@ -1190,6 +1194,21 @@ private:
     juce::Viewport   calViewport;
     CalibrationList  calList;
     int              calSelected = 0;
+
+    // The tabs: drums, bass, and guitar 2's articulation test. calRows maps a
+    // visible row to its calibration step (drums and bass tabs only).
+    juce::TextButton calTab[3] { juce::TextButton { "DRUMS" }, juce::TextButton { "BASS" },
+                                 juce::TextButton { "GTR 2" } };
+    int              calTabIndex = 0;
+    std::vector<int> calRows;
+    juce::TextButton calPlayAllButton { "Play all" };
+    juce::TextButton calRightButton   { "Sounds right" };
+    juce::TextButton calWrongButton   { "Wrong" };
+    juce::Label      calNowLabel;
+    std::vector<double> calAllStarts;       // seconds from calAllStartMs
+    double           calAllStartMs = 0.0;
+    int              calNowPlaying = -1;
+    void             tickArticulationTest();
 
     std::unique_ptr<juce::FileChooser> chooser;
 

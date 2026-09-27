@@ -2715,6 +2715,62 @@ int main (int argc, char** argv)
         }
         check (heard, "auditioning sounds a note with the transport stopped");
 
+        // ---- the guitar 2 articulation test sends what each row names -------
+        // (2026-09-27, the owner: "every articulation used and in the hands and
+        // control of ghostband".) Played through the real profile, measured on
+        // the wire: the keyswitch, the velocity, the wheel, the controller.
+        {
+            const auto& demos = GhostbandProcessor::guitar2ArticDemos();
+            juce::StringArray wrong;
+            int played = 0;
+            for (int i = 0; i < static_cast<int> (demos.size()); ++i)
+            {
+                if (! demos[static_cast<size_t> (i)].available) continue;
+                if (proc.auditionGuitar2Artic (i).empty()) { wrong.add (demos[static_cast<size_t> (i)].name + ": nothing queued"); continue; }
+                ++played;
+
+                std::set<int> keys; int maxVel = 0, notes = 0, overlaps = 0, sounding = 0, maxCC1 = 0;
+                bool bent = false; int lastBend = 8192;
+                for (int b = 0; b < 700; ++b)
+                {
+                    buffer.clear(); midi.clear();
+                    proc.processBlock (buffer, midi);
+                    for (const juce::MidiMessageMetadata md : midi)
+                    {
+                        const juce::MidiMessage m = md.getMessage();
+                        if (m.isNoteOn())
+                        {
+                            const int n = m.getNoteNumber();
+                            if (n < 30 || n > 100) keys.insert (n);
+                            else { ++notes; maxVel = std::max (maxVel, static_cast<int> (m.getVelocity())); if (sounding > 0) ++overlaps; ++sounding; }
+                        }
+                        else if (m.isNoteOff() && m.getNoteNumber() >= 30 && m.getNoteNumber() <= 100) sounding = std::max (0, sounding - 1);
+                        else if (m.isPitchWheel()) { lastBend = m.getPitchWheelValue(); if (lastBend != 8192) bent = true; }
+                        else if (m.isController() && m.getControllerNumber() == 1) maxCC1 = std::max (maxCC1, m.getControllerValue());
+                    }
+                }
+                const juce::String nm = demos[static_cast<size_t> (i)].name;
+                auto need = [&wrong, &nm] (bool ok, const juce::String& what) { if (! ok) wrong.add (nm + ": " + what); };
+                need (notes > 0, "no notes");
+                switch (i)
+                {
+                    case 1:  need (maxVel >= 120, "no rake velocity"); break;
+                    case 2:  need (keys.count (22) > 0, "no key 22"); break;
+                    case 3:  need (keys.count (21) > 0, "no key 21"); break;
+                    case 4:  need (keys.count (20) > 0, "no key 20"); break;
+                    case 5:  need (keys.count (19) > 0, "no key 19"); break;
+                    case 6:  need (overlaps > 0, "nothing played legato"); break;
+                    case 7: case 8: case 9: case 10:
+                             need (bent, "the wheel never moved"); need (lastBend == 8192, "the wheel left off centre"); break;
+                    case 11: case 12: need (maxCC1 > 0, "no vibrato"); break;
+                    default: break;
+                }
+                if (i == 12) need (maxCC1 > 100, "wide vibrato no wider");
+            }
+            check (played >= 13 && wrong.isEmpty(), "the guitar 2 articulation test sends what each row names",
+                   wrong.isEmpty() ? juce::String (played) + " articulations" : wrong.joinIntoString ("; "));
+        }
+
         // ---- every step auditions the note it displays ----------------------
         // Reported: clicking the highest note played it, then clicking the
         // LOWEST note sounded the same high pitch again. Two explanations fit -

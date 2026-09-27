@@ -4390,6 +4390,9 @@ void GhostbandProcessor::getStateInformation (juce::MemoryBlock& destData)
     for (int i = 0; i < 5; ++i)
         xml.setAttribute ("busy" + juce::String (i), busyTrim[i].load());
     xml.setAttribute ("shredTrim", shredTrim.load());
+    for (size_t i = 0; i < articMarks.size(); ++i)
+        if (articMarks[i].load() != 0)
+            xml.setAttribute ("artMark" + juce::String (static_cast<int> (i)), articMarks[i].load());
     xml.setAttribute ("levelPiano",   levelPiano.load());
 
     xml.setAttribute ("chDrums",  channelDrums.load());
@@ -4444,6 +4447,8 @@ void GhostbandProcessor::setStateInformation (const void* data, int sizeInBytes)
         busyTrim[i].store (static_cast<float> (juce::jlimit (-1.0, 1.0,
                                xml->getDoubleAttribute ("busy" + juce::String (i), 0.0))));
     shredTrim.store (static_cast<float> (juce::jlimit (-1.0, 1.0, xml->getDoubleAttribute ("shredTrim", 0.0))));
+    for (size_t i = 0; i < articMarks.size(); ++i)
+        articMarks[i].store (juce::jlimit (0, 2, xml->getIntAttribute ("artMark" + juce::String (static_cast<int> (i)), 0)));
     levelPiano.store  (level ("levelPiano"));
 
     channelDrums.store  (juce::jlimit (1, 16, xml->getIntAttribute ("chDrums", 10)));
@@ -4467,4 +4472,148 @@ juce::AudioProcessorEditor* GhostbandProcessor::createEditor()
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new GhostbandProcessor();
+}
+
+
+//==============================================================================
+// THE GUITAR 2 ARTICULATION TEST. The owner: "every articulation used and in
+// the hands and control of ghostband". The ones marked unavailable are in the
+// Shreddage 3.5 Hydra manual (pp. 33-35) and not yet sent by Ghostband; they
+// are listed so the gap is visible, greyed rather than hidden.
+const std::vector<GhostbandProcessor::ArticDemo>& GhostbandProcessor::guitar2ArticDemos()
+{
+    static const std::vector<ArticDemo> demos = {
+        { "sustain (picked notes)",           "key 12",          true  },
+        { "rake into a note",                 "key 12, vel 124", true  },
+        { "pinch harmonic",                   "key 22",          true  },
+        { "natural harmonics",                "key 21",          true  },
+        { "tapping",                          "key 20",          true  },
+        { "choke",                            "key 19",          true  },
+        { "hammer-ons and pull-offs",         "legato",          true  },
+        { "bend up into a note",              "pitch wheel",     true  },
+        { "bend up and release",              "pitch wheel",     true  },
+        { "pre-bend and release",             "pitch wheel",     true  },
+        { "slide into a note",                "pitch wheel",     true  },
+        { "vibrato",                          "CC 1",            true  },
+        { "wide vibrato",                     "CC 1",            true  },
+        { "legato slide",                     "legato, 3-12 st", false },
+        { "palm-muted lead",                  "key 13",          false },
+        { "staccato",                         "key 14",          false },
+        { "tremolo picking",                  "key 18",          false },
+        { "slide to the next note",           "FX key 24",       false },
+        { "fret noise",                       "FX key 25",       false },
+        { "slide in from / out to the neck",  "FX key 26",       false },
+        { "thrash note",                      "FX key 27",       false },
+        { "picking mode",                     "keys 108-111",    false },
+        { "capo",                             "learned control", false },
+    };
+    return demos;
+}
+
+int GhostbandProcessor::guitar2ArticMark (int index) const
+{
+    return (index >= 0 && index < static_cast<int> (articMarks.size())) ? articMarks[static_cast<size_t> (index)].load() : 0;
+}
+
+void GhostbandProcessor::setGuitar2ArticMark (int index, int mark)
+{
+    if (index >= 0 && index < static_cast<int> (articMarks.size()))
+        articMarks[static_cast<size_t> (index)].store (juce::jlimit (0, 2, mark));
+}
+
+// One demo as lead notes. Ticks at 480 a quarter, played at 100 bpm; the
+// phrase switch sits a beat ahead so the section's articulation is set first.
+static gb::PhrasePart articDemoPart (int index)
+{
+    using BS = gb::LeadIntent::BendShape;
+    gb::PhrasePart part;
+    gb::PhraseIntent pi;
+    pi.tick = 240; pi.feel = gb::PhraseFeel::Solo; pi.accent = 0.9;
+    part.phrases.push_back (pi);
+
+    int t = 720;
+    auto note = [&part, &t] (int len, int pitch, double accent = 0.9) -> gb::LeadIntent&
+    {
+        gb::LeadIntent li;
+        li.tick = t; li.durationTicks = len; li.pitch = pitch; li.accent = accent;
+        part.lead.push_back (li);
+        t += len;
+        return part.lead.back();
+    };
+
+    switch (index)
+    {
+        case 0:  note (480, 64); note (480, 67); note (960, 69); break;
+        case 1:  note (960, 69).artic = gb::LeadArtic::Rake; break;
+        case 2:  note (240, 64); { auto& n = note (1200, 69); n.artic = gb::LeadArtic::Pinch; n.vibrato = true; } break;
+        case 3:  note (720, 76).artic = gb::LeadArtic::Harmonic; note (720, 71).artic = gb::LeadArtic::Harmonic;
+                 note (960, 64).artic = gb::LeadArtic::Harmonic; break;
+        case 4:  for (int p : { 76, 64, 69, 76, 64, 69, 76, 64, 69 })
+                 { auto& n = note (80, p); n.artic = gb::LeadArtic::Tap; n.slur = true; }
+                 note (480, 76).artic = gb::LeadArtic::Tap; break;
+        case 5:  for (int k = 0; k < 3; ++k) { note (120, 64).artic = gb::LeadArtic::Choke; t += 120; }
+                 note (720, 67); break;
+        case 6:  for (int p : { 64, 66, 67, 66, 64, 66, 67, 69 }) note (120, p); note (720, 67); break;
+        case 7:  { auto& n = note (960, 69); n.bendSemis = 2; n.bendShape = BS::Into; n.vibrato = true; } break;
+        case 8:  { auto& n = note (1440, 69); n.bendSemis = 2; n.bendShape = BS::Release; n.vibrato = true; }
+                 note (480, 64); break;
+        case 9:  { auto& n = note (1440, 69); n.bendSemis = 2; n.bendShape = BS::PreBend; n.wideVibrato = true; } break;
+        case 10: note (480, 64); { auto& n = note (960, 69); n.bendSemis = 1; n.bendShape = BS::Scoop; n.vibrato = true; } break;
+        case 11: note (1920, 69).vibrato = true; break;
+        case 12: note (1920, 69).wideVibrato = true; break;
+        default: break;
+    }
+    return part;
+}
+
+std::vector<double> GhostbandProcessor::auditionGuitar2Artic (int index)
+{
+    gb::PhraseProfile profile;
+    {
+        const juce::ScopedLock sl (stateLock);
+        if (! haveGuitar2)
+            return {};
+        profile = guitar2Profile;
+    }
+
+    const auto& demos = guitar2ArticDemos();
+    const double sr = juce::jmax (8000.0, getSampleRate());
+    const double secondsPerTick = 60.0 / (100.0 * gb::kPPQ);
+    const double gapSeconds = 0.6;
+
+    std::vector<double> starts;
+    std::vector<PendingMessage> queued;
+    double at = 0.0;
+
+    for (int i = 0; i < static_cast<int> (demos.size()); ++i)
+    {
+        if (index >= 0 && i != index) continue;
+        if (! demos[static_cast<size_t> (i)].available) { if (index >= 0) return {}; continue; }
+
+        const gb::PhrasePart part = articDemoPart (i);
+        gb::MidiTrack track;
+        profile.render (part, track);
+
+        std::vector<gb::MidiEvent> ev = track.events;
+        std::stable_sort (ev.begin(), ev.end(), [] (const gb::MidiEvent& a, const gb::MidiEvent& b)
+                          { return a.tick != b.tick ? a.tick < b.tick : a.order < b.order; });
+
+        int lastTick = 0;
+        for (const gb::MidiEvent& e : ev)
+        {
+            if (e.bytes.empty() || e.bytes[0] == 0xFF) continue;
+            const double when = at + e.tick * secondsPerTick;
+            queued.push_back ({ static_cast<int> (when * sr),
+                                juce::MidiMessage (e.bytes.data(), static_cast<int> (e.bytes.size())) });
+            lastTick = std::max (lastTick, e.tick);
+        }
+        // The demo "starts" when its first note does, a beat and a half in.
+        starts.push_back (at + 720 * secondsPerTick);
+        at += lastTick * secondsPerTick + gapSeconds;
+    }
+
+    const juce::SpinLock::ScopedLockType lock (auditionLock);
+    for (PendingMessage& m : queued)
+        pendingAuditions.push_back (std::move (m));
+    return starts;
 }

@@ -252,6 +252,8 @@ void SectionList::paint (juce::Graphics& g)
 
 //==============================================================================
 
+static const char* guitar2ArticUnavailableReason (int index);
+
 void CalibrationList::setRows (std::vector<Row> r)
 {
     rows = std::move (r);
@@ -293,14 +295,23 @@ void CalibrationList::paint (juce::Graphics& g)
         }
 
         auto inner = r.reduced (12, 0);
-        g.setColour (active ? ghost::accent : ghost::text);
+        const Row& row = rows[i];
+        g.setColour (row.dim ? ghost::dim.withMultipliedAlpha (0.7f) : active ? ghost::accent : ghost::text);
         g.setFont (juce::Font (juce::FontOptions (16.0f)));
-        g.drawText (rows[i].label, inner.removeFromLeft (inner.getWidth() - 60),
+        g.drawText (row.label, inner.removeFromLeft (inner.getWidth() - (row.right.isEmpty() ? 60 : 260)),
                     juce::Justification::centredLeft);
+
+        if (row.badge.isNotEmpty())
+        {
+            g.setColour (row.badgeColour);
+            g.setFont (juce::Font (juce::FontOptions (14.0f)));
+            g.drawText (row.badge, inner.removeFromRight (110), juce::Justification::centredRight);
+            inner.removeFromRight (12);
+        }
 
         g.setColour (ghost::dim);
         g.setFont (juce::Font (juce::FontOptions (15.0f)));
-        g.drawText ("note " + juce::String (rows[i].note), inner,
+        g.drawText (row.right.isEmpty() ? "note " + juce::String (row.note) : row.right, inner,
                     juce::Justification::centredRight);
     }
 }
@@ -2472,9 +2483,10 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     // ---- calibration ----
     for (juce::TextButton* b : std::initializer_list<juce::TextButton*> {
              &calibrateButton, &calDoneButton, &calSaveButton,
-             &calLowerButton, &calHigherButton, &calPlayButton })
+             &calLowerButton, &calHigherButton, &calPlayButton,
+             &calTab[0], &calTab[1], &calTab[2], &calPlayAllButton, &calRightButton, &calWrongButton })
     {
-        styleButton (*b, b == &calPlayButton);
+        styleButton (*b, b == &calPlayButton || b == &calPlayAllButton);
         addAndMakeVisible (*b);
     }
 
@@ -2503,9 +2515,37 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     calibrateButton.onClick = [this] { screen = Screen::Calibrate; calSelected = 0;
                                        processor.enterCalibration(); };
     calDoneButton.onClick   = [this] { screen = Screen::Song; processor.exitCalibration(); };
-    calPlayButton.onClick   = [this] { processor.auditionStep (calSelected); };
-    calLowerButton.onClick  = [this] { processor.nudgeCalibrationNote (calSelected, -1); };
-    calHigherButton.onClick = [this] { processor.nudgeCalibrationNote (calSelected, +1); };
+    calPlayButton.onClick   = [this]
+    {
+        if (calTabIndex == 2)
+        {
+            calAllStarts.clear(); calNowPlaying = -1;
+            if (processor.auditionGuitar2Artic (calSelected).empty())
+                calHintLabel.setText ("Nothing to play: " + juce::String (guitar2ArticUnavailableReason (calSelected)),
+                                      juce::dontSendNotification);
+            return;
+        }
+        if (calSelected >= 0 && calSelected < static_cast<int> (calRows.size()))
+            processor.auditionStep (calRows[static_cast<size_t> (calSelected)]);
+    };
+    calPlayAllButton.onClick = [this]
+    {
+        calAllStarts  = processor.auditionGuitar2Artic (-1);
+        calAllStartMs = juce::Time::getMillisecondCounterHiRes();
+        calNowPlaying = -1;
+        if (calAllStarts.empty())
+            calHintLabel.setText ("This song has no guitar 2 - load one that does.", juce::dontSendNotification);
+    };
+    calRightButton.onClick = [this] { processor.setGuitar2ArticMark (calSelected, 1); refreshCalibration(); };
+    calWrongButton.onClick = [this] { processor.setGuitar2ArticMark (calSelected, 2); refreshCalibration(); };
+    for (int i = 0; i < 3; ++i)
+        calTab[i].onClick = [this, i] { calTabIndex = i; calSelected = 0; calAllStarts.clear();
+                                        calNowPlaying = -1; refreshCalibration(); resized(); };
+    initLabel (calNowLabel, "", 15.0f, ghost::accent, juce::Justification::centredLeft);
+    calLowerButton.onClick  = [this] { if (calSelected < static_cast<int> (calRows.size()))
+                                           processor.nudgeCalibrationNote (calRows[static_cast<size_t> (calSelected)], -1); };
+    calHigherButton.onClick = [this] { if (calSelected < static_cast<int> (calRows.size()))
+                                           processor.nudgeCalibrationNote (calRows[static_cast<size_t> (calSelected)], +1); };
 
     calSaveButton.onClick = [this]
     {
@@ -2531,7 +2571,8 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     {
         calSelected = row;
         calList.setSelected (row);
-        processor.auditionStep (row);
+        if (calTabIndex == 2) { calAllStarts.clear(); processor.auditionGuitar2Artic (row); }
+        else if (row < static_cast<int> (calRows.size())) processor.auditionStep (calRows[static_cast<size_t> (row)]);
         refreshCalibration();
     };
 
@@ -3353,6 +3394,12 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         tip (calSaveButton,   "Write what you measured into the driver profile. It names every "
                               "note that changed.");
         tip (calDoneButton,   "Back to the song, discarding anything not saved.");
+        tip (calTab[0],       "Drums: check each drum voice sounds like its name.");
+        tip (calTab[1],       "Bass: check the lowest note the bass can play.");
+        tip (calTab[2],       "Guitar 2: hear every articulation Ghostband plays on the lead guitar, and mark each one.");
+        tip (calPlayAllButton, "Play every articulation in turn. The row that is sounding lights up.");
+        tip (calRightButton,  "Mark the selected articulation as sounding right on your rig.");
+        tip (calWrongButton,  "Mark the selected articulation as wrong, so it gets fixed.");
 
         // ---- takes ----
         tip (tkName,       "What to call this performance. Saving over a name replaces that take.");
@@ -4768,6 +4815,8 @@ void GhostbandEditor::timerCallback()
 
     pollChangeLog();
 
+    tickArticulationTest();
+
     // Debounced regenerate after the dials settle.
     if (dialsDirty && juce::Time::getMillisecondCounter() - lastDialMove > 200)
     {
@@ -4952,7 +5001,9 @@ void GhostbandEditor::updateModeVisibility()
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &calDoneButton, &calSaveButton, &calLowerButton, &calHigherButton,
-             &calPlayButton, &calHintLabel, &calNoteLabel, &calViewport })
+             &calPlayButton, &calHintLabel, &calNoteLabel, &calViewport,
+             &calTab[0], &calTab[1], &calTab[2], &calPlayAllButton, &calRightButton, &calWrongButton,
+             &calNowLabel })
         c->setVisible (cal);
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
@@ -5762,21 +5813,69 @@ void GhostbandEditor::pushSectionEdit()
 
 void GhostbandEditor::refreshCalibration()
 {
-    const int count = processor.getCalibrationStepCount();
+    if (calTabIndex == 2)
+    {
+        const auto& demos = GhostbandProcessor::guitar2ArticDemos();
+        calSelected = juce::jlimit (0, static_cast<int> (demos.size()) - 1, calSelected);
+        std::vector<CalibrationList::Row> rows;
+        for (int i = 0; i < static_cast<int> (demos.size()); ++i)
+        {
+            const auto& d = demos[static_cast<size_t> (i)];
+            CalibrationList::Row row;
+            row.label = d.name;
+            row.right = d.key;
+            row.dim   = ! d.available;
+            const int mark = processor.guitar2ArticMark (i);
+            if (! d.available)  { row.badge = "not yet";      row.badgeColour = ghost::dim; }
+            else if (mark == 1) { row.badge = "sounds right"; row.badgeColour = ghost::accent; }
+            else if (mark == 2) { row.badge = "wrong";        row.badgeColour = ghost::warn; }
+            else                { row.badge = "not checked";  row.badgeColour = ghost::dim; }
+            rows.push_back (row);
+        }
+        calList.setRows (std::move (rows));
+        calList.setSelected (calSelected);
+        calList.setSize (juce::jmax (100, calViewport.getWidth() - 10), calList.getHeight());
+
+        const bool avail = demos[static_cast<size_t> (calSelected)].available;
+        calPlayButton.setEnabled (avail);
+        calRightButton.setEnabled (avail);
+        calWrongButton.setEnabled (avail);
+        calHintLabel.setText (avail ? "Each articulation plays a short phrase on guitar 2. Mark it right or wrong by ear."
+                                    : "\"" + demos[static_cast<size_t> (calSelected)].name
+                                      + "\" is in Shreddage but Ghostband does not send it yet - it is being added.",
+                              juce::dontSendNotification);
+        calHintLabel.setColour (juce::Label::textColourId, ghost::text);
+        calSaveButton.setEnabled (false);
+        calSaveButton.setTooltip ("Nothing to save on the guitar 2 tab - your marks are kept automatically.");
+        return;
+    }
+
+    // Drums, or the bass: the calibration steps of that kind.
+    calRows.clear();
+    for (int i = 0; i < processor.getCalibrationStepCount(); ++i)
+        if (processor.getCalibrationStep (i).isDrum == (calTabIndex == 0))
+            calRows.push_back (i);
+    const int count = static_cast<int> (calRows.size());
     calSelected = juce::jlimit (0, juce::jmax (0, count - 1), calSelected);
+    calPlayButton.setEnabled (count > 0);
+    calSaveButton.setTooltip ("Write what you measured into the driver profile. It names every "
+                              "note that changed.");
 
     std::vector<CalibrationList::Row> rows;
     rows.reserve (static_cast<size_t> (count));
-    for (int i = 0; i < count; ++i)
+    for (int i : calRows)
     {
-        const auto s = processor.getCalibrationStep (i);
-        rows.push_back ({ s.label, s.note });
+        const auto st = processor.getCalibrationStep (i);
+        CalibrationList::Row row;
+        row.label = st.label;
+        row.note  = st.note;
+        rows.push_back (row);
     }
     calList.setRows (std::move (rows));
     calList.setSelected (calSelected);
     calList.setSize (juce::jmax (100, calViewport.getWidth() - 10), calList.getHeight());
 
-    const auto s = processor.getCalibrationStep (calSelected);
+    const auto s = processor.getCalibrationStep (count > 0 ? calRows[static_cast<size_t> (calSelected)] : 0);
     calNoteLabel.setText ("note " + juce::String (s.note), juce::dontSendNotification);
 
     if (! calHintLabel.getText().startsWith ("Saved"))
@@ -6571,18 +6670,57 @@ void GhostbandEditor::resized()
         planRow.removeFromLeft (10);
         planLabel.setBounds (planRow);
 
+        // The tabs sit on the header row, after the song's name.
+        {
+            auto tabs = planLabel.getBounds().removeFromRight (3 * 84 + 12);
+            planLabel.setBounds (planLabel.getBounds().withTrimmedRight (3 * 84 + 16));
+            for (int i = 0; i < 3; ++i)
+            {
+                calTab[i].setBounds (tabs.removeFromLeft (84).reduced (2, 0));
+                styleButton (calTab[i], i == calTabIndex);   // the tab you are on is lit
+            }
+        }
+
         r.removeFromTop (10);
         calHintLabel.setBounds (r.removeFromTop (18));
         r.removeFromTop (10);
 
         auto nudge = r.removeFromTop (40);
-        calLowerButton.setBounds (nudge.removeFromLeft (52));
-        nudge.removeFromLeft (8);
-        calNoteLabel.setBounds (nudge.removeFromLeft (120));
-        nudge.removeFromLeft (8);
-        calHigherButton.setBounds (nudge.removeFromLeft (52));
-        nudge.removeFromLeft (16);
-        calPlayButton.setBounds (nudge.removeFromLeft (90));
+        if (calTabIndex == 2)
+        {
+            // Guitar 2: play the selected one, play them all, and mark it.
+            calPlayButton.setBounds (nudge.removeFromLeft (90));
+            nudge.removeFromLeft (8);
+            calPlayAllButton.setBounds (nudge.removeFromLeft (100));
+            nudge.removeFromLeft (16);
+            calRightButton.setBounds (nudge.removeFromLeft (120));
+            nudge.removeFromLeft (8);
+            calWrongButton.setBounds (nudge.removeFromLeft (80));
+            nudge.removeFromLeft (16);
+            calNowLabel.setBounds (nudge);
+            for (juce::Component* c : { (juce::Component*) &calLowerButton, (juce::Component*) &calHigherButton,
+                                        (juce::Component*) &calNoteLabel })
+                c->setBounds ({});
+            for (juce::Component* c : { (juce::Component*) &calPlayAllButton, (juce::Component*) &calRightButton,
+                                        (juce::Component*) &calWrongButton, (juce::Component*) &calNowLabel })
+                c->setVisible (true);
+        }
+        else
+        {
+            calLowerButton.setBounds (nudge.removeFromLeft (52));
+            nudge.removeFromLeft (8);
+            calNoteLabel.setBounds (nudge.removeFromLeft (120));
+            nudge.removeFromLeft (8);
+            calHigherButton.setBounds (nudge.removeFromLeft (52));
+            nudge.removeFromLeft (16);
+            calPlayButton.setBounds (nudge.removeFromLeft (90));
+            for (juce::Component* c : { (juce::Component*) &calPlayAllButton, (juce::Component*) &calRightButton,
+                                        (juce::Component*) &calWrongButton, (juce::Component*) &calNowLabel })
+            {
+                c->setBounds ({});
+                c->setVisible (false);
+            }
+        }
 
         r.removeFromTop (12);
         layOutFooter (r.removeFromBottom (58));
@@ -6987,4 +7125,39 @@ void GhostbandEditor::refreshTrimLabels()
     for (int i = 0; i < 5; ++i)
         busyLabel[i].setText ("BUSY " + steps (busyKnob[i].getValue()), juce::dontSendNotification);
     shredLabel.setText ("SHRED " + steps (shredKnob.getValue()), juce::dontSendNotification);
+}
+
+static const char* guitar2ArticUnavailableReason (int index)
+{
+    const auto& demos = GhostbandProcessor::guitar2ArticDemos();
+    if (index >= 0 && index < static_cast<int> (demos.size()) && ! demos[static_cast<size_t> (index)].available)
+        return "Ghostband does not send this one yet.";
+    return "this song has no guitar 2 - load one that does.";
+}
+
+// Lights the row that is sounding during Play all, from the starts the
+// processor returned. Called from the timer.
+void GhostbandEditor::tickArticulationTest()
+{
+    if (screen != Screen::Calibrate || calTabIndex != 2 || calAllStarts.empty())
+        return;
+    const double elapsed = (juce::Time::getMillisecondCounterHiRes() - calAllStartMs) / 1000.0;
+    const auto& demos = GhostbandProcessor::guitar2ArticDemos();
+    int playing = -1, n = 0;
+    for (int i = 0; i < static_cast<int> (demos.size()); ++i)
+    {
+        if (! demos[static_cast<size_t> (i)].available) continue;
+        if (n < static_cast<int> (calAllStarts.size()) && elapsed >= calAllStarts[static_cast<size_t> (n)])
+            playing = i;
+        ++n;
+    }
+    if (elapsed > calAllStarts.back() + 4.0) { playing = -1; calAllStarts.clear(); }
+    if (playing != calNowPlaying)
+    {
+        calNowPlaying = playing;
+        if (playing >= 0) { calSelected = playing; calList.setSelected (playing); }
+        calNowLabel.setText (playing >= 0 ? "now: " + demos[static_cast<size_t> (playing)].name.toUpperCase() : juce::String(),
+                             juce::dontSendNotification);
+        refreshCalibration();
+    }
 }

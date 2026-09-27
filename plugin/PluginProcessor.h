@@ -682,6 +682,24 @@ public:
     };
 
     void enterCalibration();
+
+    // THE GUITAR 2 ARTICULATION TEST (2026-09-27). Every articulation the lead
+    // guitar uses, each as a short phrase rendered through the SAME profile
+    // code the songs use - so what passes here is what the songs send. The
+    // owner marks each one right or wrong by ear; marks are kept with the rig.
+    struct ArticDemo
+    {
+        juce::String name;        // "pinch harmonic"
+        juce::String key;         // "key 22", "pitch wheel", "legato"
+        bool         available;   // false: in the manual, not in Ghostband yet
+    };
+    static const std::vector<ArticDemo>& guitar2ArticDemos();
+    // Plays one (index) or all (-1). Returns each demo's start, in seconds from
+    // now, so the screen can light the row that is sounding; empty if there is
+    // no guitar 2 in this song.
+    std::vector<double> auditionGuitar2Artic (int index);
+    int  guitar2ArticMark (int index) const;                 // 0 unmarked, 1 right, 2 wrong
+    void setGuitar2ArticMark (int index, int mark);
     void exitCalibration();
     bool isCalibrating() const { return calibrating.load(); }
 
@@ -1096,6 +1114,7 @@ private:
     struct PendingMessage { int samplesUntil = 0; juce::MidiMessage message; };
     juce::SpinLock                auditionLock;
     std::vector<PendingMessage>   pendingAuditions;
+    std::array<std::atomic<int>, 32> articMarks {};
 
     std::atomic<bool>             levelsPending { true };
     juce::String                  lastMidiReport;
