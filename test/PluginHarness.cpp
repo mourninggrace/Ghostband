@@ -2769,6 +2769,7 @@ int main (int argc, char** argv)
                     // A real slide on the owner's map: Legato Slide held on C0 (24).
                     case 10: need (keys.count (24) > 0, "no slide key 24"); need (overlaps > 0, "nothing ran into the note"); break;
                     case 11: case 12: need (maxCC1 > 0, "no vibrato"); break;
+                    case 13: need (keys.count (24) > 0, "no legato slide key 24"); need (overlaps >= 2, "the notes did not run into each other"); break;
                     default: break;
                 }
                 if (i == 12) need (maxCC1 > 100, "wide vibrato no wider");
@@ -2787,7 +2788,7 @@ int main (int argc, char** argv)
                 }
                 for (int k : keys) need (k < 13 || k > 18 || k == latch, "sent latching key " + juce::String (k));
             }
-            check (played >= 16 && wrong.isEmpty(), "the guitar 2 articulation test sends what each row names",
+            check (played >= 17 && wrong.isEmpty(), "the guitar 2 articulation test sends what each row names",
                    wrong.isEmpty() ? juce::String (played) + " articulations" : wrong.joinIntoString ("; "));
         }
 

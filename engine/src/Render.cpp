@@ -670,7 +670,9 @@ namespace fillvoice
         Release = 1024u, PreBend = 2048u, Scoop = 4096u, WideVib = 8192u,
         // Palm-muted, clipped short, tremolo-picked (2026-09-27: "every
         // articulation used").
-        Mute = 16384u, Stacc = 32768u, Trem = 65536u
+        Mute = 16384u, Stacc = 32768u, Trem = 65536u,
+        // Slide, still sounding, into the next note (Hydra's Legato Slide).
+        Glide = 131072u
     };
 
     // One note of a lick: when, how long, which pitch (a step in a space,
@@ -1411,7 +1413,8 @@ namespace fillvoice
     {
         Lick L; L.family = Anyone;
         const bool up = r.chance (0.5);
-        L.notes.push_back ({ 0,   480, Scale, up ? -3 : 3, 0 });
+        // The theme's first move is a slide up (or down) the string.
+        L.notes.push_back ({ 0,   480, Scale, up ? -3 : 3, Glide });
         L.notes.push_back ({ 480, 240, Scale, up ? -1 : 1, 0 });
         L.notes.push_back ({ 720, 240, Scale, up ?  1 : -1, 0 });
         L.notes.push_back ({ 960, 480, Scale, up ?  2 : -2, Vib });
@@ -1782,6 +1785,7 @@ static void generateFills (const SectionPlan& s,
             li.accent        = std::min (0.88, 0.58 + soloLike * 0.08 + s.intensity * 0.14 + ((n.f & Target) ? 0.06 : 0.0) + rng.bipolar (0.04));
             li.target        = (n.f & Target) != 0;
             li.slur          = (n.f & Slur) != 0;
+            li.glide         = (n.f & Glide) != 0;
             li.vibrato       = (n.f & Vib) != 0;
             li.bendSemis     = (n.f & Bend2) ? 2 : ((n.f & Bend1) ? 1 : 0);
             expression (li, n.f);
@@ -1896,6 +1900,7 @@ static void generateFills (const SectionPlan& s,
                         li.accent        = std::min (0.8, 0.52 + s.intensity * 0.12 + rng.bipolar (0.04));
                         li.target        = (n.f & Target) != 0;
                         li.slur          = (n.f & Slur) != 0;
+            li.glide         = (n.f & Glide) != 0;
                         li.vibrato       = (n.f & Vib) != 0;
                         li.bendSemis     = (n.f & Bend2) ? 2 : ((n.f & Bend1) ? 1 : 0);
                         expression (li, n.f);
@@ -2204,6 +2209,7 @@ static void generateLeadSolo (const SectionPlan& s,
                                                + ((n.f & Target) ? 0.08 : 0.0) + rng.bipolar (0.04));
             li.target        = (n.f & Target) != 0;
             li.slur          = (n.f & Slur) != 0;
+            li.glide         = (n.f & Glide) != 0;
             li.vibrato       = (n.f & Vib) != 0;
             li.bendSemis     = (n.f & Bend2) ? 2 : ((n.f & Bend1) ? 1 : 0);
             expression (li, n.f);

@@ -4504,7 +4504,7 @@ const std::vector<GhostbandProcessor::ArticDemo>& GhostbandProcessor::guitar2Art
         { "slide into a note",                "pitch wheel",     true  },
         { "vibrato",                          "CC 1",            true  },
         { "wide vibrato",                     "CC 1",            true  },
-        { "legato slide",                     "legato, 3-12 st", false },
+        { "legato slide",                     "C0 held, overlap", true  },
         { "palm-muted lead",                  "key 13",          true  },
         { "staccato",                         "key 14",          true  },
         { "tremolo picking",                  "key 18",          true  },
@@ -4571,6 +4571,8 @@ static gb::PhrasePart articDemoPart (int index)
         case 10: note (480, 64); { auto& n = note (960, 69); n.bendSemis = 1; n.bendShape = BS::Scoop; n.vibrato = true; } break;
         case 11: note (2880, 69).vibrato = true; break;
         case 12: note (2880, 69).wideVibrato = true; break;
+        // Row 13: a slide up a fourth and back down a third, no re-pick.
+        case 13: note (720, 64).glide = true; note (720, 69).glide = true; note (1440, 66); break;
         // Rows 14-16. Each ends on a plain ringing note, so you hear the
         // articulation let go as well as take hold.
         case 14: for (int k = 0; k < 4; ++k)          // the gallop, muted

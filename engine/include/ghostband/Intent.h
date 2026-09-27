@@ -163,7 +163,8 @@ struct LeadIntent
     //   Scoop    a quick slide up into the note
     enum class BendShape { Into, Release, PreBend, Scoop };
     BendShape bendShape  = BendShape::Into;
-    bool   wideVibrato   = false;   // the wide, slow, B.B. King kind
+    bool   wideVibrato   = false;
+    bool   glide         = false;   // a legato SLIDE into the next note, no re-pick   // the wide, slow, B.B. King kind
 };
 
 // Switch the instrument to this phrase. Emitted at section and phrase changes,

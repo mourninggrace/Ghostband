@@ -1933,8 +1933,22 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
             // or longer is picked, for the attack (heard 2026-09-27: the lines
             // "sound better" picked). Runs, trills and taps keep the hammer.
             const bool fastStep = leap <= legatoMaxLeapSemitones && gapToNext <= 200;
+
+            // A LEGATO SLIDE: the note runs into the next with the slide key
+            // held across the change, so the instrument glides there on the
+            // same string instead of picking it (Hydra: Legato Slide, C0 on
+            // the owner's map; the manual's range is up to 12 semitones).
+            const bool glideHere = n.glide && slideKeyswitch >= 0 && haveNext && ! nextIsHeld
+                                && leap >= 3 && leap <= 12 && legatoOverlapTicks > 0;
+            if (glideHere)
+            {
+                const int nextStart = part.lead[i + 1].tick;
+                track.addNoteOn  (std::max (n.tick + 1, nextStart - 10), channel, slideKeyswitch, phraseVelocity);
+                track.addNoteOff (nextStart + 40, channel, slideKeyswitch);
+            }
+
             if (legatoOverlapTicks > 0 && haveNext && ! nextIsHeld
-                && leap > 0 && (fastStep || slurHere))
+                && leap > 0 && (fastStep || slurHere || glideHere))
             {
                 const int nextStart = part.lead[i + 1].tick;
                 const int nextEnd   = nextStart + std::max (1, part.lead[i + 1].durationTicks);
