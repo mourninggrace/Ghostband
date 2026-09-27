@@ -22,6 +22,20 @@ Session 29. Built and measured; not released until the owner has listened.
   a build, a climax, a held and bent root. Solo notes inside one-way scale runs
   21% -> 12%. Complexity and Intuition now drive it; neither reached it before.
 
+### Added (session 31)
+- **Palm-muted lead, staccato and tremolo picking on guitar 2** (Hydra keys 13, 14,
+  18 - the owner's latching keys, released by his C-1 Sustain rule). The NWOBHM
+  gallop and the thrash crawl are palm-muted, blues and rock stabs can be
+  staccato, and a thrash tremolo burst is one held note on Hydra's looping
+  tremolo (other instruments pick it out as written). Not one approved solo
+  note moved. Calibrate > GTR 2 rows 14-16 now play.
+- **changes.log records every guitar 2 level change** (value, bar, fills or full).
+
+### Fixed (session 31)
+- **UNDER read backwards** (100% meant no drop) - the knob now shows the drop.
+- A latching articulation key could stay held into the next gesture; it is now
+  always released unless the next note wants the same key.
+
 ### Added (session 30)
 - **Solo schools** from the owner's list of reference solos - blues, melodic
   rock, neoclassical, NWOBHM, thrash - built from each school's techniques

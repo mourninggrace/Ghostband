@@ -4505,9 +4505,9 @@ const std::vector<GhostbandProcessor::ArticDemo>& GhostbandProcessor::guitar2Art
         { "vibrato",                          "CC 1",            true  },
         { "wide vibrato",                     "CC 1",            true  },
         { "legato slide",                     "legato, 3-12 st", false },
-        { "palm-muted lead",                  "key 13",          false },
-        { "staccato",                         "key 14",          false },
-        { "tremolo picking",                  "key 18",          false },
+        { "palm-muted lead",                  "key 13",          true  },
+        { "staccato",                         "key 14",          true  },
+        { "tremolo picking",                  "key 18",          true  },
         { "slide to the next note",           "FX key 24",       false },
         { "fret noise",                       "FX key 25",       false },
         { "slide in from / out to the neck",  "FX key 26",       false },
@@ -4571,6 +4571,21 @@ static gb::PhrasePart articDemoPart (int index)
         case 10: note (480, 64); { auto& n = note (960, 69); n.bendSemis = 1; n.bendShape = BS::Scoop; n.vibrato = true; } break;
         case 11: note (2880, 69).vibrato = true; break;
         case 12: note (2880, 69).wideVibrato = true; break;
+        // Rows 14-16. Each ends on a plain ringing note, so you hear the
+        // articulation let go as well as take hold.
+        case 14: for (int k = 0; k < 4; ++k)          // the gallop, muted
+                 {
+                     note (240, 64).artic = gb::LeadArtic::Mute;
+                     note (120, 64).artic = gb::LeadArtic::Mute;
+                     note (120, 64).artic = gb::LeadArtic::Mute;
+                 }
+                 note (1440, 69); break;
+        case 15: for (int p : { 69, 67, 69, 72 })     // clipped, air between
+                 { note (100, p).artic = gb::LeadArtic::Staccato; t += 140; }
+                 note (1440, 69); break;
+        case 16: note (1440, 69).artic = gb::LeadArtic::Tremolo;
+                 note (960, 72).artic = gb::LeadArtic::Tremolo;
+                 note (1440, 69); break;
         default: break;
     }
     return part;

@@ -73,7 +73,8 @@ PhraseFeel phraseFeelFromName (const std::string& s, bool& ok)
 
 static const char* kLeadArticNames[] =
 {
-    "normal", "rake", "pinch", "choke", "harmonic", "tap"
+    "normal", "rake", "pinch", "choke", "harmonic", "tap",
+    "mute", "staccato", "tremolo"
 };
 
 static const size_t kNumLeadArtics = sizeof (kLeadArticNames) / sizeof (kLeadArticNames[0]);
@@ -1735,6 +1736,37 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
         // the generator is allowed to ask for a pinch harmonic from something
         // that has none.
         const PhraseSwitch gesture = switchFor (n.artic);
+
+        // A TREMOLO RUN is written as the notes a hand would pick - so an
+        // instrument without a looping tremolo plays exactly that - and an
+        // instrument WITH one (Hydra, key 18) gets the run as one held note:
+        // the loop does the picking. Later notes of the run are folded in.
+        size_t runLast = i;   // the last note this one stands for
+        if (n.artic == LeadArtic::Tremolo && gesture.mapped())
+        {
+            const bool continuesRun = i > 0 && part.lead[i - 1].artic == LeadArtic::Tremolo
+                                   && part.lead[i - 1].pitch == n.pitch
+                                   && n.tick - (part.lead[i - 1].tick + part.lead[i - 1].durationTicks) < 30;
+            if (continuesRun)
+                continue;
+
+            size_t last = i;
+            while (last + 1 < part.lead.size()
+                   && part.lead[last + 1].artic == LeadArtic::Tremolo
+                   && part.lead[last + 1].pitch == n.pitch
+                   && part.lead[last + 1].tick - (part.lead[last].tick + part.lead[last].durationTicks) < 30)
+                ++last;
+
+            runLast = last;
+            if (last > i)
+            {
+                end = part.lead[last].tick + std::max (1, part.lead[last].durationTicks);
+                if (last + 1 < part.lead.size())
+                    end = std::min (end, part.lead[last + 1].tick - preludeOf (part.lead[last + 1]));
+                end = std::max (n.tick + 1, end);
+            }
+        }
+
         const int  prelude     = preludeOf (n);
         const bool rakePrelude = prelude > 0 && n.artic == LeadArtic::Rake;
         const bool slideIn     = prelude > 0 && ! rakePrelude;
@@ -1944,9 +1976,21 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
         // well is not just redundant, it is wrong.
         if (doGesture && sectionArtic.mapped())
         {
+            // The note after this one - after the whole run, for a tremolo
+            // that stood for several.
+            const size_t nextIdx  = runLast + 1;
+            const bool   haveNxt  = nextIdx < part.lead.size();
+            const PhraseSwitch nextSw = haveNxt ? switchFor (part.lead[nextIdx].artic) : PhraseSwitch();
+
+            // A LATCHING key (mute, staccato, tremolo) stays down until C-1
+            // lets it go, and another gesture's select does not - a pinch after
+            // a muted note would come out muted. So a key is always released
+            // unless the next note wants that very same key.
+            const bool sameKeyNext = haveNxt && gesture.note >= 0 && ! gesture.byControl()
+                                  && nextSw.note == gesture.note && ! nextSw.byControl();
             const bool nextIsGestured =
-                haveNext && part.lead[i + 1].artic != LeadArtic::Normal
-                         && switchFor (part.lead[i + 1].artic).mapped();
+                haveNxt && part.lead[nextIdx].artic != LeadArtic::Normal && nextSw.mapped()
+                        && ((gesture.byControl() && nextSw.byControl()) || sameKeyNext);
 
             if (! nextIsGestured)
             {
@@ -1954,13 +1998,16 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
                 // end + 1 is right when the next note is a way off and too late
                 // when it is not.
                 int at = end + 1;
-                if (haveNext)
+                if (haveNxt)
                     at = std::min (at, std::max (end,
-                             part.lead[i + 1].tick - phraseLeadTicks - 1));
+                             part.lead[nextIdx].tick - phraseLeadTicks - 1));
 
                 selectArtic (sectionArtic, at);
 
-                if (sectionArtic.byControl() && sectionArtic.note >= 0 && gesture.note >= 0)
+                // Not when selectArtic just pressed it (keyswitch_with_cc): the
+                // same key twice on one tick is a re-strike, not a release.
+                if (sectionArtic.byControl() && sectionArtic.note >= 0 && gesture.note >= 0
+                    && ! keyswitchWithControl)
                 {
                     track.addNoteOn  (at, channel, sectionArtic.note, phraseVelocity);
                     track.addNoteOff (at + std::max (1, phraseBlipTicks), channel, sectionArtic.note);

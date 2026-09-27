@@ -501,7 +501,13 @@
     "pinch":    { "cc": 40, "value": 52 },
     "harmonic": { "cc": 40, "value": 73 },
     "tap":      { "cc": 40, "value": 94 },
-    "choke":    { "cc": 40, "value": 116 }
+    "choke":    { "cc": 40, "value": 116 },
+    // The owner's latching keys (his Articulations tab, 2026-09-27): Mute C#-1,
+    // Staccato D-1, Tremolo F#-1. Latching is safe now: going back to Sustain
+    // presses C-1, his Sustain rule, which releases whichever is held.
+    "mute":     { "keyswitch": 13 },
+    "staccato": { "keyswitch": 14 },
+    "tremolo":  { "keyswitch": 18 }
   },
 
   // No velocity rake on this map: Rake is its own CC 40 band, and Sustain has

@@ -52,9 +52,9 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
        settle on one CC and have Hydra listen on ch 11 only.
 0. [x] **Piano dial did nothing** - Virtual Pianist had lost its CC28 learn; owner
        re-taught it (Settings > volume > Teach), works (2026-09-27).
-0. [ ] **The ten articulations not sent yet** (legato slide as a phrase tool,
-       palm-mute lead, staccato, tremolo, FX 24-27, picking mode, capo) - now
-       releasable, since Sustain presses C-1. Each confirmed in the test.
+0. [ ] **The articulations not sent yet**: legato slide as a phrase tool, FX
+       24-27, picking mode, capo. DONE 2026-09-27: palm-mute lead (13),
+       staccato (14), tremolo (18) - owner to confirm rows 14-16 by ear.
 0. [ ] Drums BUSY up is weak in a shuffle (+6%).
 0. [ ] One-click GP5 close that also clears Kontakt's hung process.
 

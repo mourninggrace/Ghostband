@@ -667,7 +667,10 @@ namespace fillvoice
         Tap = 32u, Pinch = 64u, HarmF = 128u, Rake = 256u, Choke = 512u,
         // How a bend moves and how wide the shake is (2026-09-27): bend and
         // let down, struck already bent, a slide in, the B.B. King vibrato.
-        Release = 1024u, PreBend = 2048u, Scoop = 4096u, WideVib = 8192u
+        Release = 1024u, PreBend = 2048u, Scoop = 4096u, WideVib = 8192u,
+        // Palm-muted, clipped short, tremolo-picked (2026-09-27: "every
+        // articulation used").
+        Mute = 16384u, Stacc = 32768u, Trem = 65536u
     };
 
     // One note of a lick: when, how long, which pitch (a step in a space,
@@ -920,7 +923,7 @@ namespace fillvoice
         {
             L.notes.push_back ({ t,       120, Pent, 2, Bend1 });
             L.notes.push_back ({ t + 120, 120, Pent, 1, Slur });
-            L.notes.push_back ({ t + 240, 120, Pent, 0, 0 });
+            L.notes.push_back ({ t + 240, 120, Pent, 0, Stacc });
             t += 360;
         }
         L.notes.push_back ({ t, 600, Pent, 0, Bend2 | Vib | Target });
@@ -1182,7 +1185,7 @@ namespace fillvoice
         Lick L; L.family = Hammett;
         int t = 0;
         L.notes.push_back ({ t, 360, Pent,  2, Bend2 });  t += 360;
-        L.notes.push_back ({ t, 120, Pent,  1, 0 });      t += 120;
+        L.notes.push_back ({ t, 120, Pent,  1, Stacc });  t += 120;
         L.notes.push_back ({ t, 240, Pent, -1, 0 });      t += 240;
         if (r.chance (0.5)) { L.notes.push_back ({ t, 240, Pent, 1, Bend1 }); t += 240; }
         L.notes.push_back ({ t, 720, Pent, 0, Target | Vib });
@@ -1395,9 +1398,10 @@ namespace fillvoice
         for (int k = 0; k < n; ++k)
         {
             const int base = -2 * n + 2 * k;
-            L.notes.push_back ({ t,       240, Scale, base,     0 });
-            L.notes.push_back ({ t + 240, 120, Scale, base + 1, 0 });
-            L.notes.push_back ({ t + 360, 120, Scale, base + 2, Slur });
+            // The gallop is palm-muted, the way a twin-guitar band plays it.
+            L.notes.push_back ({ t,       240, Scale, base,     Mute });
+            L.notes.push_back ({ t + 240, 120, Scale, base + 1, Mute });
+            L.notes.push_back ({ t + 360, 120, Scale, base + 2, Mute });
             t += 480;
         }
         L.notes.push_back ({ t, 720, Scale, 0, Target | Bend2 | Vib });
@@ -1418,10 +1422,13 @@ namespace fillvoice
     static Lick tremoloBurst (Rng& r)          // one note picked as fast as it goes, then a step
     {
         Lick L; L.family = Anyone; L.fast = true;
+        // Marked tremolo: on Hydra each run of one pitch is played as ONE
+        // held note on its looping tremolo (key 18); anything else picks the
+        // notes as written. The notes themselves are unchanged.
         const int a = r.range (4, 6), b = r.range (3, 4);
         int t = 0;
-        for (int i = 0; i < a; ++i) { L.notes.push_back ({ t, 60, Scale, 1, 0 }); t += 60; }
-        for (int i = 0; i < b; ++i) { L.notes.push_back ({ t, 60, Exotic, 2, 0 }); t += 60; }
+        for (int i = 0; i < a; ++i) { L.notes.push_back ({ t, 60, Scale, 1, Trem }); t += 60; }
+        for (int i = 0; i < b; ++i) { L.notes.push_back ({ t, 60, Exotic, 2, Trem }); t += 60; }
         L.notes.push_back ({ t, 600, Scale, 0, Target | Pinch | Vib });
         return L;
     }
@@ -1436,10 +1443,10 @@ namespace fillvoice
     static Lick chromaticMenace (Rng&)         // crawling round the note, then a stab
     {
         Lick L; L.family = Anyone;
-        L.notes.push_back ({ 0,   120, Semis,  0, 0 });
-        L.notes.push_back ({ 120, 120, Semis,  1, 0 });
-        L.notes.push_back ({ 240, 120, Semis,  0, 0 });
-        L.notes.push_back ({ 360, 120, Semis, -1, 0 });
+        L.notes.push_back ({ 0,   120, Semis,  0, Mute });
+        L.notes.push_back ({ 120, 120, Semis,  1, Mute });
+        L.notes.push_back ({ 240, 120, Semis,  0, Mute });
+        L.notes.push_back ({ 360, 120, Semis, -1, Mute });
         L.notes.push_back ({ 480, 240, Semis,  3, Bend1 });
         L.notes.push_back ({ 720, 120, Semis,  1, 0 });
         L.notes.push_back ({ 840, 600, Semis,  0, Target | Pinch | Vib });
@@ -1779,7 +1786,10 @@ static void generateFills (const SectionPlan& s,
             li.bendSemis     = (n.f & Bend2) ? 2 : ((n.f & Bend1) ? 1 : 0);
             expression (li, n.f);
             li.unswung       = shuffle && L.triplet;
-            li.artic         = (n.f & Tap)   ? LeadArtic::Tap
+            li.artic         = (n.f & Trem)  ? LeadArtic::Tremolo
+                             : (n.f & Tap)   ? LeadArtic::Tap
+                             : (n.f & Mute)  ? LeadArtic::Mute
+                             : (n.f & Stacc) ? LeadArtic::Staccato
                              : (n.f & Pinch) ? LeadArtic::Pinch
                              : (n.f & HarmF)  ? LeadArtic::Harmonic
                              : (n.f & Rake)  ? LeadArtic::Rake
@@ -2199,8 +2209,11 @@ static void generateLeadSolo (const SectionPlan& s,
             expression (li, n.f);
             li.unswung       = shuffle && L.triplet;
             const bool gesture = rng.chance (how.gestures);
-            li.artic         = ! gesture       ? LeadArtic::Normal
+            li.artic         = (n.f & Trem)    ? LeadArtic::Tremolo
+                             : ! gesture       ? LeadArtic::Normal
                              : (n.f & Tap)     ? LeadArtic::Tap
+                             : (n.f & Mute)    ? LeadArtic::Mute
+                             : (n.f & Stacc)   ? LeadArtic::Staccato
                              : (n.f & Pinch)   ? LeadArtic::Pinch
                              : (n.f & HarmF)    ? LeadArtic::Harmonic
                              : (n.f & Rake)    ? LeadArtic::Rake

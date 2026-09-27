@@ -2730,6 +2730,7 @@ int main (int argc, char** argv)
                 ++played;
 
                 std::set<int> keys, cc40; int maxVel = 0, notes = 0, overlaps = 0, sounding = 0, maxCC1 = 0;
+                std::vector<int> keyOrder;
                 bool bent = false; int lastBend = 8192;
                 for (int b = 0; b < 700; ++b)
                 {
@@ -2741,7 +2742,7 @@ int main (int argc, char** argv)
                         if (m.isNoteOn())
                         {
                             const int n = m.getNoteNumber();
-                            if (n < 30 || n > 100) keys.insert (n);
+                            if (n < 30 || n > 100) { keys.insert (n); keyOrder.push_back (n); }
                             else { ++notes; maxVel = std::max (maxVel, static_cast<int> (m.getVelocity())); if (sounding > 0) ++overlaps; ++sounding; }
                         }
                         else if (m.isNoteOff() && m.getNoteNumber() >= 30 && m.getNoteNumber() <= 100) sounding = std::max (0, sounding - 1);
@@ -2771,9 +2772,22 @@ int main (int argc, char** argv)
                     default: break;
                 }
                 if (i == 12) need (maxCC1 > 100, "wide vibrato no wider");
-                for (int k : keys) need (k < 13 || k > 18, "sent latching key " + juce::String (k));
+
+                // Rows 14-16: the owner's latching key (13 mute, 14 staccato,
+                // 18 tremolo), and C-1 (12) pressed AFTER it - his Sustain
+                // rule, the only thing that lets a latch go. Any other
+                // latching key, on any row, is still a fault.
+                const int latch = i == 14 ? 13 : i == 15 ? 14 : i == 16 ? 18 : -1;
+                if (latch > 0)
+                {
+                    const auto last = std::find (keyOrder.rbegin(), keyOrder.rend(), latch);
+                    need (last != keyOrder.rend(), "no key " + juce::String (latch));
+                    need (last != keyOrder.rend() && std::find (keyOrder.rbegin(), last, 12) != last,
+                          "key " + juce::String (latch) + " never released by C-1");
+                }
+                for (int k : keys) need (k < 13 || k > 18 || k == latch, "sent latching key " + juce::String (k));
             }
-            check (played >= 13 && wrong.isEmpty(), "the guitar 2 articulation test sends what each row names",
+            check (played >= 16 && wrong.isEmpty(), "the guitar 2 articulation test sends what each row names",
                    wrong.isEmpty() ? juce::String (played) + " articulations" : wrong.joinIntoString ("; "));
         }
 

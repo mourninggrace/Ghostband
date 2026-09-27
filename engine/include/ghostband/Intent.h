@@ -110,7 +110,10 @@ enum class LeadArtic
     Pinch,       // a pinch harmonic - a squeal on the note a phrase leans on
     Choke,       // a ringing note cut dead, ending a phrase
     Harmonic,    // a natural harmonic, for colour high on the neck
-    Tap          // two-handed tapping, for a fast run
+    Tap,         // two-handed tapping, for a fast run
+    Mute,        // palm-muted: the gallop and the chug inside a lead line
+    Staccato,    // clipped short and let go - a stab with air after it
+    Tremolo      // one note picked as fast as the hand goes, for its length
 };
 
 const char* leadArticName     (LeadArtic a);
