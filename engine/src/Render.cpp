@@ -1600,6 +1600,24 @@ static double trimmedComplexity (double complexity, double trim)
     return trim == 0.0 ? complexity : std::clamp (complexity + trim * 0.5, 0.0, 1.0);
 }
 
+// HOW SOLO-LIKE A STYLE'S FILLS MAY BE (2026-09-27). The owner: "for blues,
+// fills can easily sound like parts of a solo here and there, but for say a
+// rock song, fills vary but mostly differ from the solo... you won't find a
+// one size fits all". 0 keeps a fill to a short answer and held support; 1
+// lets it play solo-length licks and sing full phrases between them.
+static double fillSoloLikeness (const std::string& style)
+{
+    struct S { const char* style; double v; };
+    static const S table[] = {
+        { "blues", 0.8 }, { "doom", 0.5 }, { "sludge", 0.5 },
+        { "hard_rock", 0.3 }, { "ballad", 0.3 },
+        { "metal", 0.25 }, { "thrash", 0.25 }, { "groove_metal", 0.25 }, { "prog_metal", 0.25 },
+        { "alt_rock", 0.2 }, { "emo", 0.2 }, { "punk", 0.2 },
+    };
+    for (const S& e : table) if (style == e.style) return e.v;
+    return 0.3;
+}
+
 static void generateFills (const SectionPlan& s,
                            const std::vector<Chord>& chords,
                            int sectionStartTick,
@@ -1650,6 +1668,7 @@ static void generateFills (const SectionPlan& s,
 
     const Personality who = personalityFor (songSeed);
     const int sectionEnd = sectionStartTick + s.bars * barTicks;
+    const double soloLike = fillSoloLikeness (style);
     auto juce_clamp_tick = [] (int t, int lo, int hi) { return std::max (lo, std::min (hi, t)); };
     const bool hot     = s.intensity > 0.6;
     const bool shuffle = swing > 0.0;
@@ -1679,7 +1698,7 @@ static void generateFills (const SectionPlan& s,
             // An ANSWER, not a solo: at most a phrase's worth of notes (more
             // as BUSY rises). Heard 2026-09-27 on Nine Cent Rain's last verse:
             // "the fill sounded more like the solo continuing on".
-            const size_t cap = static_cast<size_t> (std::clamp (7.0 + busyTrim * 4.0, 4.0, 11.0));
+            const size_t cap = static_cast<size_t> (std::clamp (5.0 + soloLike * 7.0 + busyTrim * 4.0, 4.0, 14.0));
             while (L.notes.size() > cap)
             {
                 const int drop = L.notes[1].on;
@@ -1753,7 +1772,7 @@ static void generateFills (const SectionPlan& s,
             li.pitch         = pitch;
             // Softer than a solo (which strikes about 0.95): the answer sits
             // behind the band and the solo steps out in front when it comes.
-            li.accent        = std::min (0.85, 0.60 + s.intensity * 0.14 + ((n.f & Target) ? 0.06 : 0.0) + rng.bipolar (0.04));
+            li.accent        = std::min (0.88, 0.58 + soloLike * 0.08 + s.intensity * 0.14 + ((n.f & Target) ? 0.06 : 0.0) + rng.bipolar (0.04));
             li.target        = (n.f & Target) != 0;
             li.slur          = (n.f & Slur) != 0;
             li.vibrato       = (n.f & Vib) != 0;
@@ -1821,11 +1840,11 @@ static void generateFills (const SectionPlan& s,
         // Mostly a held note now; a short figure sometimes. The sung phrase
         // was a full six-note bent melody in every free bar, and with the
         // answers around it the guitar never stopped leading.
-        if (to - from >= barTicks / 2 && rng.chance (std::clamp (0.2 + complexity * 0.3 + busyTrim * 0.35, 0.0, 0.9)))
+        if (to - from >= barTicks / 2 && rng.chance (std::clamp (0.12 + soloLike * 0.35 + complexity * 0.3 + busyTrim * 0.35, 0.0, 0.9)))
         {
             Rng lr (deriveSeed (static_cast<uint32_t> (rng.next()), 0x5E1Au));
             Lick P = kSung[lr.below (kNumSung)] (lr);
-            while (P.notes.size() > 3)          // a figure, not a phrase
+            while (P.notes.size() > static_cast<size_t> (3.0 + soloLike * 4.0))   // a figure, or in a blues a phrase
             {
                 const int drop = P.notes[1].on;
                 P.notes.erase (P.notes.begin());
