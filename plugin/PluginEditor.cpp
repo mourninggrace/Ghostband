@@ -7026,7 +7026,7 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
             levelGuitar2Fills.setAlpha (alpha);
             levelGuitar2FillsLabel.setAlpha (alpha);
             levelGuitar2Fills.setTooltip (
-                reachable ? "UNDER: how far guitar 2 drops while it plays fills (not solos). 0% = no drop, "
+                reachable ? "UNDER: how far guitar 2 drops while it plays fills (not solos). About 1.8 dB per 10%, "
                             "100% = fills silent. Solos always play at the full GTR 2 level. "
                             "Double-click for the default."
                           : "Nothing can set guitar 2's level (see the GTR 2 knob), so nothing can "

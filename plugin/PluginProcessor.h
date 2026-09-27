@@ -930,7 +930,21 @@ public:
     // and on the Kontakt volume knob Shreddage's level is taught to that was
     // only a few dB - "fill level is still too loud". Now it is the owner's own
     // FILLS knob on the GTR 2 row, set by ear, starting well lower.
-    static constexpr float kFillsLevelDefault = 0.45f;
+    // UNDER 20% on the knob's face (the owner settled on 17%, 2026-09-27).
+    static constexpr float kFillsLevelDefault = 0.80f;
+
+    // How much of the part's level controller fills keep, for a stored UNDER
+    // fraction (1 = no drop). The drop is even in DECIBELS - 1.8 dB per 10% of
+    // the knob, 100% silent - because an even drop in controller value put
+    // every useful setting in the bottom fifth: 50% sounded "almost silent".
+    // Assumes the usual volume law, gain = (cc/127)^2, i.e. 40*log10 of the
+    // controller ratio.
+    static double fillsControllerScale (double keep)
+    {
+        const double under = 1.0 - juce::jlimit (0.0, 1.0, keep);
+        if (under >= 0.995) return 0.0;
+        return std::pow (10.0, -(under * 18.0) / 40.0);
+    }
     int guitar2LevelForSectionForTesting (bool fills) const { return fills ? g2LevelFill.load() : g2LevelFull.load(); }
     void refreshLevels();
     bool levelIsTaught (int part) const;

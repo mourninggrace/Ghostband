@@ -2627,7 +2627,7 @@ void GhostbandProcessor::sendLevels()
                         g2LevelCC.store (def.cc);
                         g2LevelFull.store (value);
                         g2LevelFill.store (juce::jlimit (0, 127, juce::roundToInt (
-                                              def.valueAt (p.level * levelGuitar2Fills.load()) * 127.0)));
+                                              def.valueAt (p.level * fillsControllerScale (levelGuitar2Fills.load())) * 127.0)));
                     }
 
                     // One knob, one control. Two places upstream now make a
@@ -2649,7 +2649,7 @@ void GhostbandProcessor::sendLevels()
                     g2LevelChannel.store (p.channel);
                     g2LevelCC.store (7);
                     g2LevelFull.store (value);
-                    g2LevelFill.store (juce::jlimit (0, 127, juce::roundToInt (p.level * levelGuitar2Fills.load() * 127.0f)));
+                    g2LevelFill.store (juce::jlimit (0, 127, juce::roundToInt (p.level * fillsControllerScale (levelGuitar2Fills.load()) * 127.0)));
                 }
             }
             else if (! taught && isGuitar2)
