@@ -4268,6 +4268,49 @@ RenderResult renderPerformance (const SongPlan& plan,
                             ++q;
                     }
                 }
+
+                // BUSY up: an APPROACH NOTE on the bar's last eighth, a semitone
+                // into the next chord's root - what a bassist adds to walk into
+                // a change. On the eighth, so a shuffle keeps it (the dead notes
+                // BUSY added before fell between eighths and were swung away:
+                // 1248 -> 1271 notes). Its own stream; at zero it draws nothing.
+                auto& bl = result.performance.bass;
+                if (plan.busy[1] > 0.0 && bl.size() > bassBefore && (! lastBar || ! isLastSection))
+                {
+                    Rng br (deriveSeed (sectionSeed, 0xBA56u + static_cast<uint32_t> (bar)));
+                    if (br.chance (std::min (0.95, plan.busy[1] * 0.95)))
+                    {
+                        const int eighth = beatTicks / 2;
+                        const int at     = barStart + barTicks - eighth;
+                        int ref = bl.back().pitch;
+                        for (size_t q = bassBefore; q < bl.size(); ++q)
+                            if (bl[q].tick < at) ref = bl[q].pitch;
+
+                        // Make room: nothing of this bar may start on or after it.
+                        for (size_t q = bassBefore; q < bl.size(); )
+                        {
+                            if (bl[q].tick >= at) bl.erase (bl.begin() + static_cast<long> (q));
+                            else { bl[q].durationTicks = std::min (bl[q].durationTicks, at - bl[q].tick); ++q; }
+                        }
+
+                        int target = ref;
+                        for (int d = 0; d <= 6; ++d)
+                        {
+                            if (((ref + d) % 12 + 12) % 12 == next.rootPc) { target = ref + d; break; }
+                            if (((ref - d) % 12 + 12) % 12 == next.rootPc) { target = ref - d; break; }
+                        }
+                        int approach = target + (br.chance (0.6) ? -1 : 1);
+                        if (approach < lowestBass)  approach += 2;
+                        if (approach > highestBass) approach -= 2;
+
+                        BassIntent a;
+                        a.tick          = at;
+                        a.durationTicks = eighth - eighth / 8;
+                        a.pitch         = approach;
+                        a.accent        = 0.72;
+                        bl.push_back (a);
+                    }
+                }
             }
         }
 
