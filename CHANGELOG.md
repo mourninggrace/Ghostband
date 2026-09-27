@@ -34,6 +34,9 @@ Session 29. Built and measured; not released until the owner has listened.
   test row only until heard), pick direction (108-111: alternate, down-picked
   when palm-muted). Used sparingly and without random draws - no approved solo
   note moved. Calibrate rows 13 and 17-21 play; 22 of 23 rows live (capo left).
+- **Click a bar to jump there** while the band plays (on the next bar line);
+  stopped, a click still edits the row. Landing mid-section re-sends every
+  instrument's latest articulation, latched key, controls and pick direction.
 - **Twin guitars.** In metal, hard rock, prog, thrash, groove and doom, guitar 1
   stops strumming and plays guitar 2's line a diatonic third below - on the
   licks written for two guitars (twin theme, sequence, gallop) and on every

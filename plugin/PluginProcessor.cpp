@@ -2746,6 +2746,54 @@ bool GhostbandProcessor::levelIsTaught (int part) const
 // auditionLock held. An instrument that finished loading after the last level
 // was sent never heard it - Hydra sat at its preset's -9 dB until the GTR 2
 // dial was touched - so anything about to make a sound says the levels first.
+// Every controller's latest value before `tick`, and each channel's latest
+// switch keys (below 30 and from 100 up - keyswitch territory on the phrase
+// instruments), sent at `sample`. Audio thread, sequenceLock held. The drum
+// channel's notes are drums, not switches, and are left alone.
+void GhostbandProcessor::restateBefore (int tick, juce::MidiBuffer& midi, int sample)
+{
+    static int lastCC[16][128];
+    int lowKey[16], highKey[16];
+    for (int c = 0; c < 16; ++c)
+    {
+        lowKey[c] = highKey[c] = -1;
+        for (int n = 0; n < 128; ++n) lastCC[c][n] = -1;
+    }
+
+    const int drumCh = drumChannelForAudio.load();
+    for (const TimedMessage& t : sequence)
+    {
+        if (t.tick >= tick) break;
+        const juce::MidiMessage& m = t.message;
+        const int ch = m.getChannel() - 1;
+        if (ch < 0 || ch >= 16) continue;
+        if (m.isController())
+        {
+            const int cc = m.getControllerNumber();
+            if (cc != 120 && cc != 123) lastCC[ch][cc] = m.getControllerValue();
+        }
+        else if (m.isNoteOn() && ch + 1 != drumCh)
+        {
+            if (m.getNoteNumber() < 30)        lowKey[ch]  = m.getNoteNumber();
+            else if (m.getNoteNumber() >= 100) highKey[ch] = m.getNoteNumber();
+        }
+    }
+
+    const int offAt = std::min (sample + 32, std::max (sample, midi.getLastEventTime()));
+    for (int c = 0; c < 16; ++c)
+    {
+        for (int n = 0; n < 128; ++n)
+            if (lastCC[c][n] >= 0)
+                midi.addEvent (juce::MidiMessage::controllerEvent (c + 1, n, lastCC[c][n]), sample);
+        for (int k : { lowKey[c], highKey[c] })
+            if (k >= 0)
+            {
+                midi.addEvent (juce::MidiMessage::noteOn  (c + 1, k, (juce::uint8) 100), sample);
+                midi.addEvent (juce::MidiMessage::noteOff (c + 1, k), std::max (sample + 1, offAt));
+            }
+    }
+}
+
 void GhostbandProcessor::restateLevelsLocked()
 {
     for (const juce::MidiMessage& m : levelMessages)
@@ -3618,11 +3666,13 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
     // Published for the audio thread, which can no longer read the plan itself.
     // Here because every path that changes the tempo ends in a regenerate.
     planBpmForAudio.store (planToUse.bpm);
+    drumChannelForAudio.store (kit.channel);
 
     // And for the interface, which asks how long a beat is thirty times a
     // second. Both halves of that answer are in hand right here; working it out
     // later from two separately locked values was where they could disagree.
     beatTicksForUi.store (beat);
+    barTicksForUi.store (bar);
 }
 
 //==============================================================================
@@ -4022,9 +4072,12 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
         }
     };
 
-    const int queued = queuedSection.load();
-    const bool jumpPending = queued >= 0 && queued < static_cast<int> (sectionRanges.size())
-                             && barTicks > 0;
+    const int queued    = queuedSection.load();
+    const int queuedBar = queuedBarTick.load();
+    const bool toSection = queued >= 0 && queued < static_cast<int> (sectionRanges.size());
+    const bool toBar     = ! toSection && queuedBar >= 0 && ! sectionRanges.empty()
+                           && queuedBar < sectionRanges.back().endTick;
+    const bool jumpPending = (toSection || toBar) && barTicks > 0;
 
     if (jumpPending)
     {
@@ -4043,17 +4096,34 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
             sendAllNotesOff (midi, juce::jlimit (0, numSamples - 1,
                                                  static_cast<int> (sampleAtBoundary)));
 
-            const double target = sectionRanges[static_cast<size_t> (queued)].startTick;
+            const double target = toSection
+                                    ? static_cast<double> (sectionRanges[static_cast<size_t> (queued)].startTick)
+                                    : static_cast<double> ((queuedBar / barTicks) * barTicks);
             jumpOffset += target - boundary;
+
+            // Landing MID-SECTION skips whatever the section set up at its
+            // start - an articulation, a latched key, a pickup, the pick
+            // direction - so the latest of each before the target is said
+            // again first. A section start needs none of it: it sets its own.
+            if (toBar)
+                restateBefore (static_cast<int> (target), midi,
+                               juce::jlimit (0, numSamples - 1, static_cast<int> (sampleAtBoundary)));
 
             emitSpan (target, target + (songEnd - boundary), sampleAtBoundary);
 
             queuedSection.store (-1);
+            queuedBarTick.store (-1);
             songStart = target;   // for the reporting below
 
             const int tickNow = static_cast<int> (target);
             playbackTick.store (tickNow);
-            activeSection.store (queued);
+            int landedIn = queued;
+            if (toBar)
+                for (size_t i = 0; i < sectionRanges.size(); ++i)
+                    if (tickNow >= sectionRanges[i].startTick && tickNow < sectionRanges[i].endTick)
+                        { landedIn = static_cast<int> (i); break; }
+            activeSection.store (landedIn);
+            g2LevelDirty.store (true);   // guitar 2's level for where it landed
             return;
         }
     }

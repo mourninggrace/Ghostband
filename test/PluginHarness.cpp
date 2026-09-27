@@ -7621,6 +7621,43 @@ int main (int argc, char** argv)
             GhostbandProcessor::setLearnedControlsFileForTesting (juce::File());
         }
 
+        // A CLICK ON A BAR, WHILE PLAYING, JUMPS THERE (2026-09-27, the owner's
+        // choice B). Clicked in bar 5 on a tick inside bar 20: the band lands on
+        // bar 20's first beat, at a bar line, and says guitar 2's articulation
+        // (CC 40) again as it lands - mid-section, nothing else would.
+        {
+            GhostbandProcessor pj;
+            pj.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-blues-2.json"));
+            const double sr = 48000.0; const int bs = 512;
+            pj.setRateAndBufferSizeDetails (sr, bs);
+            pj.prepareToPlay (sr, bs);
+            FakePlayHead ph; ph.bpm = pj.getPlanBpm(); pj.setPlayHead (&ph);
+            juce::AudioBuffer<float> buf (2, bs); juce::MidiBuffer m;
+            const double q = (bs / sr) * (ph.bpm / 60.0);
+            const int bar = gb::kPPQ * 4;
+            int landedAt = -1; bool cc40OnLanding = false, clicked = false;
+            for (int blk = 0; blk < static_cast<int> (40.0 * 4 / q) && landedAt < 0; ++blk)
+            {
+                ph.ppq = blk * q; buf.clear(); m.clear();
+                if (! clicked && pj.playbackTick.load() >= 4 * bar + 100) { pj.queueBar (19 * bar + 700); clicked = true; }
+                const int before = pj.playbackTick.load();
+                pj.processBlock (buf, m);
+                const int after = pj.playbackTick.load();
+                if (clicked && after >= 19 * bar && before < 19 * bar - bar)
+                {
+                    landedAt = after;
+                    for (const juce::MidiMessageMetadata e : m)
+                        if (e.getMessage().isController() && e.getMessage().getChannel() == 11
+                            && e.getMessage().getControllerNumber() == 40) cc40OnLanding = true;
+                }
+            }
+            pj.setPlayHead (nullptr);
+            check (landedAt == 19 * bar && cc40OnLanding,
+                   "clicking a bar while playing jumps to its first beat and restates the instruments",
+                   "landed at tick " + juce::String (landedAt) + " (bar 20 = " + juce::String (19 * bar) + "), CC 40 "
+                       + (cc40OnLanding ? "restated" : "NOT restated"));
+        }
+
         // A FRESH LOAD SAYS THE LEVELS BY ITSELF (2026-09-27: "the gtr 2 mix
         // dial does not sync with hydra's vol dial until it is moved"). Stopped,
         // nobody touching anything: within ten seconds guitar 2's level

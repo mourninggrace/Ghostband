@@ -586,6 +586,7 @@ public:
     // publishing the answer is cheaper than computing it from two sources that
     // can disagree.
     std::atomic<int> beatTicksForUi { 96 };
+    std::atomic<int> barTicksForUi  { 384 };
 
     std::atomic<int> trackerZoom { 0 };
     static constexpr int numTrackerZooms = 4;
@@ -655,7 +656,14 @@ public:
     // Live section jumping. Clicking a section queues it; the jump lands on the
     // next bar line so the band never falls off the beat. -1 cancels.
     std::atomic<int> queuedSection { -1 };
-    void queueSection (int index) { queuedSection.store (index); }
+    void queueSection (int index) { queuedBarTick.store (-1); queuedSection.store (index); }
+
+    // And to any BAR (2026-09-27, the owner: "press on any bar while a song is
+    // playing and it jump to that part"). Any tick inside the bar will do; it
+    // lands on the bar's first beat, on the next bar line. -1: none.
+    std::atomic<int> queuedBarTick { -1 };
+    void queueBar (int tick) { queuedSection.store (-1); queuedBarTick.store (std::max (0, tick)); }
+    std::atomic<int> drumChannelForAudio { 10 };
 
     // Song controls. These write to the plan and regenerate, so they are message
     // thread only. Key transposes rather than only affecting auto progressions,
@@ -1035,6 +1043,7 @@ private:
     juce::int64                   samplesSinceStart  = 0;         // audio thread only
     int                           startupRestates    = 0;         // audio thread only
     void                          restateLevelsLocked();          // auditionLock held
+    void                          restateBefore (int tick, juce::MidiBuffer& midi, int sample);
 public:
     // The last guitar 2 level the audio thread sent, for the change log.
     std::atomic<int>              g2SentValue { -1 }, g2SentCC { -1 }, g2SentBar { 0 }, g2SentCount { 0 };

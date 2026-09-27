@@ -1301,7 +1301,9 @@ void TrackerView::mouseMove (const juce::MouseEvent& e)
                              + "\" - " + juce::String (sections[(size_t) i].bars)
                              + " bars. Click to jump here on the next bar line. "
                                "Ctrl-click to add it to the reroll selection."
-                       : juce::String ("What Ghostband is actually sending, one column per "
+                       : juce::String ("While the band plays, click a row to jump to that bar "
+                                       "(on the next bar line). Stopped, a click edits the row.\n\n"
+                                       "What Ghostband is actually sending, one column per "
                                        "player: the note, how hard it is played, and how many "
                                        "landed in the row.\n\n"
                                        "Dim lowercase is WIRING rather than music - a control "
@@ -2184,7 +2186,22 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 
     trkClose.onClick = [this] { closeTrackerEdit(); };
 
-    tracker.onRowClicked = [this] (int tick) { openTrackerEdit (tick); };
+    // While the band plays a click JUMPS there (on the next bar line); while
+    // stopped it opens the row to edit, as it always did (owner's choice B).
+    tracker.onRowClicked = [this] (int tick)
+    {
+        if (processor.transportRunning.load())
+        {
+            processor.queueBar (tick);
+            statusLabel.setText ("Jumping to bar " + juce::String (tick / std::max (1, processor.barTicksForUi.load()) + 1)
+                                 + " on the next bar line.", juce::dontSendNotification);
+            animator.wake();
+        }
+        else
+        {
+            openTrackerEdit (tick);
+        }
+    };
 
     // ---- how much music one tracker row covers ----
     styleCombo (zoomBox);
