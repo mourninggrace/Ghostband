@@ -2730,7 +2730,7 @@ int main (int argc, char** argv)
                 ++played;
 
                 std::set<int> keys, cc40; int maxVel = 0, notes = 0, overlaps = 0, sounding = 0, maxCC1 = 0;
-                std::vector<int> keyOrder;
+                std::vector<int> keyOrder; int minVel = 128;
                 bool bent = false; int lastBend = 8192;
                 for (int b = 0; b < 700; ++b)
                 {
@@ -2743,7 +2743,7 @@ int main (int argc, char** argv)
                         {
                             const int n = m.getNoteNumber();
                             if (n < 30 || n > 100) { keys.insert (n); keyOrder.push_back (n); }
-                            else { ++notes; maxVel = std::max (maxVel, static_cast<int> (m.getVelocity())); if (sounding > 0) ++overlaps; ++sounding; }
+                            else { ++notes; maxVel = std::max (maxVel, static_cast<int> (m.getVelocity())); minVel = std::min (minVel, static_cast<int> (m.getVelocity())); if (sounding > 0) ++overlaps; ++sounding; }
                         }
                         else if (m.isNoteOff() && m.getNoteNumber() >= 30 && m.getNoteNumber() <= 100) sounding = std::max (0, sounding - 1);
                         else if (m.isPitchWheel()) { lastBend = m.getPitchWheelValue(); if (lastBend != 8192) bent = true; }
@@ -2770,6 +2770,8 @@ int main (int argc, char** argv)
                     case 10: need (keys.count (24) > 0, "no slide key 24"); need (overlaps > 0, "nothing ran into the note"); break;
                     case 11: case 12: need (maxCC1 > 0, "no vibrato"); break;
                     case 13: need (keys.count (24) > 0, "no legato slide key 24"); need (overlaps >= 2, "the notes did not run into each other"); break;
+                    // The gallop's beat harder than its sixteenths (Hydra: velocity = how muted).
+                    case 14: need (maxVel - minVel >= 12, "the palm mutes all struck alike (" + juce::String (minVel) + "-" + juce::String (maxVel) + ")"); break;
                     case 17: need (keys.count (24) > 0, "no slide key 24"); break;
                     case 18: need (keys.count (25) > 0, "no fret noise key 25"); break;
                     case 19: need (std::count (keyOrder.begin(), keyOrder.end(), 26) >= 2, "slide note key 26 not pressed before AND during"); break;

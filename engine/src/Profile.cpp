@@ -2019,10 +2019,27 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
                 off = std::max (off, end);
             }
 
+            // PALM-MUTE DYNAMICS (2026-09-27). On Hydra the velocity of a muted
+            // note sets how muted it is - lighter is tighter and decays faster
+            // (manual pp23, 33). A player digs in on the beat and rides the
+            // notes between, so: the beat harder and more open, the eighth
+            // between as written, the sixteenths lighter and tighter, and a
+            // small fixed wobble so no two chugs are the same.
+            double accentHere = n.accent;
+            if (n.artic == LeadArtic::Mute)
+            {
+                const int inBeat = n.tick % 480;
+                accentHere += inBeat < 30 || inBeat > 450 ? 0.08
+                            : std::abs (inBeat - 240) < 30 ? 0.0
+                                                          : -0.12;
+                accentHere += (((n.tick / 60) * 7) % 5 - 2) * 0.012;
+                accentHere = std::clamp (accentHere, 0.35, 1.0);
+            }
+
             track.addNoteOn  (n.tick, channel, pitch,
                               (n.artic == LeadArtic::Rake && rakeVelocity > 0)
                                   ? rakeVelocity
-                                  : velocityFor (n.accent, velocityMin, velocityMax));
+                                  : velocityFor (accentHere, velocityMin, velocityMax));
 
             // A held note the phrase lands on gets vibrato whether or not it
             // was bent into - some landings are approached from above and are
