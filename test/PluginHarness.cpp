@@ -7512,6 +7512,24 @@ int main (int argc, char** argv)
     // guitar 2's level control: the lower value in answering sections, the
     // knob's own in the solo, and nothing else.
     {
+        // GUITAR 2's BUSY, THROUGH THE PLUGIN (2026-09-27: "the busy dial does
+        // nothing still"). The engine check passed; this turns the actual knob
+        // value on a processor playing Nine Cent Rain and counts what it sends.
+        {
+            GhostbandProcessor pb;
+            pb.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-blues-2.json"));
+            auto countAt = [&pb] (float trim)
+            {
+                pb.busyTrim[3].store (trim);
+                pb.regenerate();
+                return pb.notesOnChannelForTesting (11);
+            };
+            const int lo = countAt (-1.0f), mid = countAt (0.0f), hi = countAt (1.0f);
+            check (lo < mid * 0.8 && hi > mid * 1.25,
+                   "guitar 2's BUSY knob, turned in the plugin, changes what Nine Cent Rain plays",
+                   juce::String (lo) + " / " + juce::String (mid) + " / " + juce::String (hi) + " guitar 2 notes");
+        }
+
         GhostbandProcessor p3;
         p3.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-prog.json"));
         const double sr = 48000.0;

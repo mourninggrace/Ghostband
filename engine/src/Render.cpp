@@ -1676,6 +1676,16 @@ static void generateFills (const SectionPlan& s,
             const int scaleT = 1;   // already in the shuffle's time - see toSwungEighths
             // Down to three notes to fit; below that only if vary() stretched
             // the tail past the room (a held note, a breath).
+            // An ANSWER, not a solo: at most a phrase's worth of notes (more
+            // as BUSY rises). Heard 2026-09-27 on Nine Cent Rain's last verse:
+            // "the fill sounded more like the solo continuing on".
+            const size_t cap = static_cast<size_t> (std::clamp (7.0 + busyTrim * 4.0, 4.0, 11.0));
+            while (L.notes.size() > cap)
+            {
+                const int drop = L.notes[1].on;
+                L.notes.erase (L.notes.begin());
+                for (LickNote& n : L.notes) n.on -= drop;
+            }
             while (L.notes.size() > 1 && L.span() * scaleT > room
                    && (L.notes.size() > 3
                        || (L.notes.back().on + 120) * scaleT > room))
@@ -1741,7 +1751,9 @@ static void generateFills (const SectionPlan& s,
                                                 sectionStartTick, sectionEnd - 1);
             li.durationTicks = std::max (1, n.len);
             li.pitch         = pitch;
-            li.accent        = std::min (0.98, 0.72 + s.intensity * 0.18 + ((n.f & Target) ? 0.08 : 0.0) + rng.bipolar (0.04));
+            // Softer than a solo (which strikes about 0.95): the answer sits
+            // behind the band and the solo steps out in front when it comes.
+            li.accent        = std::min (0.85, 0.60 + s.intensity * 0.14 + ((n.f & Target) ? 0.06 : 0.0) + rng.bipolar (0.04));
             li.target        = (n.f & Target) != 0;
             li.slur          = (n.f & Slur) != 0;
             li.vibrato       = (n.f & Vib) != 0;
@@ -1806,10 +1818,19 @@ static void generateFills (const SectionPlan& s,
         static const Builder kSung[] = { singingBend, bendAndReturn, pentBends, pickupCall,
                                          octaveCall, bluesRepeat, harmonics, arpSkip };
         static constexpr int kNumSung = static_cast<int> (sizeof (kSung) / sizeof (kSung[0]));
-        if (to - from >= barTicks / 2 && rng.chance (std::clamp (0.45 + complexity * 0.5 + busyTrim * 0.4, 0.0, 1.0)))
+        // Mostly a held note now; a short figure sometimes. The sung phrase
+        // was a full six-note bent melody in every free bar, and with the
+        // answers around it the guitar never stopped leading.
+        if (to - from >= barTicks / 2 && rng.chance (std::clamp (0.2 + complexity * 0.3 + busyTrim * 0.35, 0.0, 0.9)))
         {
             Rng lr (deriveSeed (static_cast<uint32_t> (rng.next()), 0x5E1Au));
             Lick P = kSung[lr.below (kNumSung)] (lr);
+            while (P.notes.size() > 3)          // a figure, not a phrase
+            {
+                const int drop = P.notes[1].on;
+                P.notes.erase (P.notes.begin());
+                for (LickNote& n : P.notes) n.on -= drop;
+            }
             if (shuffle && ! P.triplet) toSwungEighths (P);
             // Starts where the room starts, lands, and holds to its end.
             int at = from;
@@ -1843,7 +1864,7 @@ static void generateFills (const SectionPlan& s,
                                                             sectionStartTick, sectionEnd - 1);
                         li.durationTicks = std::max (1, n.len);
                         li.pitch         = pitch;
-                        li.accent        = std::min (0.9, 0.62 + s.intensity * 0.15 + rng.bipolar (0.04));
+                        li.accent        = std::min (0.8, 0.52 + s.intensity * 0.12 + rng.bipolar (0.04));
                         li.target        = (n.f & Target) != 0;
                         li.slur          = (n.f & Slur) != 0;
                         li.vibrato       = (n.f & Vib) != 0;
@@ -1873,7 +1894,7 @@ static void generateFills (const SectionPlan& s,
         li.pitch         = lastPitch > 0 ? tones[static_cast<size_t> (nearestIndex (tones, lastPitch + rng.range (-4, 4)))]
                                          : tones[static_cast<size_t> (rng.below (static_cast<int> (tones.size())))];
         lastPitch        = li.pitch;
-        li.accent        = 0.64 + s.intensity * 0.15;
+        li.accent        = 0.54 + s.intensity * 0.12;
         li.bendSemis     = rng.chance (0.55) ? 2 : 0;
         li.vibrato       = true;
         li.bed           = true;     // support, not an answer - see LeadIntent::bed
@@ -1896,6 +1917,7 @@ static void generateFills (const SectionPlan& s,
     const double third = busyTrim > 0.0 ? busyTrim * 0.8 : 0.0;
     const double first = busyTrim > 0.5 ? (busyTrim - 0.5) * 0.9 : 0.0;   // and near the top, the first bar too
     int lastEnd = sectionStartTick;      // where the last note of this section ended
+    bool answeredLastEnding = true;      // so the first line may rest
 
     for (int bar = 0; bar < s.bars; ++bar)
     {
@@ -1907,7 +1929,14 @@ static void generateFills (const SectionPlan& s,
 
         bool answer = false;
         if (inGroup == 3 || (lastOfSection && iq > 0.0))
+        {
             answer = fillAmount >= 0.999 || rng.chance (0.35 + fillAmount * 0.65);
+            // Never two line-endings running without an answer. Nine Cent Rain's
+            // last verse drew two misses at 13% each and played eight bars of
+            // held notes - chance, but an unlucky song is still a bad song.
+            if (! answer && ! answeredLastEnding) answer = true;
+            answeredLastEnding = answer;
+        }
         else if (inGroup == 1)
             answer = rng.chance (second);
         else if (inGroup == 2 && third > 0.0)

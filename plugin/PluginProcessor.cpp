@@ -4619,3 +4619,14 @@ std::vector<double> GhostbandProcessor::auditionGuitar2Artic (int index)
         pendingAuditions.push_back (std::move (m));
     return starts;
 }
+
+int GhostbandProcessor::notesOnChannelForTesting (int channel) const
+{
+    const juce::SpinLock::ScopedLockType lock (sequenceLock);
+    int n = 0;
+    for (const TimedMessage& tm : sequence)
+        if (tm.message.isNoteOn() && tm.message.getChannel() == channel
+            && tm.message.getNoteNumber() >= 30 && tm.message.getNoteNumber() <= 100)
+            ++n;
+    return n;
+}

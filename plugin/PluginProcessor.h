@@ -965,6 +965,7 @@ public:
     // notes by pitch, which is all of them. Returns "ch 11: 7" per offending
     // channel, empty when clean. For the harness; takes the sequence lock only.
     juce::String restrikesForTesting() const;
+    int notesOnChannelForTesting (int channel) const;   // playable notes in the built sequence
 
 private:
     struct TimedMessage
