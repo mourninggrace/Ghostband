@@ -2729,7 +2729,7 @@ int main (int argc, char** argv)
                 if (proc.auditionGuitar2Artic (i).empty()) { wrong.add (demos[static_cast<size_t> (i)].name + ": nothing queued"); continue; }
                 ++played;
 
-                std::set<int> keys; int maxVel = 0, notes = 0, overlaps = 0, sounding = 0, maxCC1 = 0;
+                std::set<int> keys, cc40; int maxVel = 0, notes = 0, overlaps = 0, sounding = 0, maxCC1 = 0;
                 bool bent = false; int lastBend = 8192;
                 for (int b = 0; b < 700; ++b)
                 {
@@ -2747,6 +2747,7 @@ int main (int argc, char** argv)
                         else if (m.isNoteOff() && m.getNoteNumber() >= 30 && m.getNoteNumber() <= 100) sounding = std::max (0, sounding - 1);
                         else if (m.isPitchWheel()) { lastBend = m.getPitchWheelValue(); if (lastBend != 8192) bent = true; }
                         else if (m.isController() && m.getControllerNumber() == 1) maxCC1 = std::max (maxCC1, m.getControllerValue());
+                        else if (m.isController() && m.getControllerNumber() == 40) cc40.insert (m.getControllerValue());
                     }
                 }
                 const juce::String nm = demos[static_cast<size_t> (i)].name;
@@ -2754,11 +2755,12 @@ int main (int argc, char** argv)
                 need (notes > 0, "no notes");
                 switch (i)
                 {
-                    case 1:  need (maxVel >= 120, "no rake velocity"); break;
-                    case 2:  need (keys.count (22) > 0, "no key 22"); break;
-                    case 3:  need (keys.count (21) > 0, "no key 21"); break;
-                    case 4:  need (keys.count (20) > 0, "no key 20"); break;
-                    case 5:  need (keys.count (19) > 0, "no key 19"); break;
+                    // The owner's CC 40 bands (his TACT map, 2026-09-27).
+                    case 1:  need (std::any_of (cc40.begin(), cc40.end(), [] (int v) { return v >= 21 && v <= 41; }),  "no CC 40 in the rake band"); break;
+                    case 2:  need (std::any_of (cc40.begin(), cc40.end(), [] (int v) { return v >= 42 && v <= 62; }),  "no CC 40 in the pinch band"); break;
+                    case 3:  need (std::any_of (cc40.begin(), cc40.end(), [] (int v) { return v >= 63 && v <= 83; }),  "no CC 40 in the harmonics band"); break;
+                    case 4:  need (std::any_of (cc40.begin(), cc40.end(), [] (int v) { return v >= 84 && v <= 104; }), "no CC 40 in the tapping band"); break;
+                    case 5:  need (std::any_of (cc40.begin(), cc40.end(), [] (int v) { return v >= 105; }),            "no CC 40 in the choke band"); break;
                     case 6:  need (overlaps > 0, "nothing played legato"); break;
                     case 7: case 8: case 9: case 10:
                              need (bent, "the wheel never moved"); need (lastBend == 8192, "the wheel left off centre"); break;
@@ -2766,6 +2768,7 @@ int main (int argc, char** argv)
                     default: break;
                 }
                 if (i == 12) need (maxCC1 > 100, "wide vibrato no wider");
+                for (int k : keys) need (k < 13 || k > 18, "sent latching key " + juce::String (k));
             }
             check (played >= 13 && wrong.isEmpty(), "the guitar 2 articulation test sends what each row names",
                    wrong.isEmpty() ? juce::String (played) + " articulations" : wrong.joinIntoString ("; "));
@@ -5509,24 +5512,26 @@ int main (int argc, char** argv)
         // none of them on CC 40, whose bands belong to the section styles. The
         // fault was a gesture on a CC 40 band that meant palm mute; the check
         // is now exactly that, plus that each sits where the manual puts it.
-        int onCC40 = 0, rightKey = 0;
-        const gb::LeadArtic all[] = { gb::LeadArtic::Rake, gb::LeadArtic::Pinch,
-                                      gb::LeadArtic::Choke, gb::LeadArtic::Harmonic,
-                                      gb::LeadArtic::Tap };
-        for (gb::LeadArtic a : all)
+        // CHANGED AGAIN 2026-09-27, from the OWNER'S OWN TACT MAP (screenshot),
+        // which is not the manual's factory layout: on his instance the five
+        // gestures are CC 40 bands - Rake 21-41, Pinch 42-62, Harmonics 63-83,
+        // Tapping 84-104, Choke 105-127 - and keys 19-22 are mapped to nothing.
+        // The articulation test caught the keyswitch version playing plain
+        // notes. The check is now: each gesture on CC 40, inside ITS band.
+        struct Band { gb::LeadArtic a; int lo, hi; };
+        const Band bands[] = { { gb::LeadArtic::Rake, 21, 41 }, { gb::LeadArtic::Pinch, 42, 62 },
+                               { gb::LeadArtic::Harmonic, 63, 83 }, { gb::LeadArtic::Tap, 84, 104 },
+                               { gb::LeadArtic::Choke, 105, 127 } };
+        int inBand = 0;
+        for (const Band& b : bands)
         {
-            const auto sw = hydra.switchFor (a);
-            if (sw.cc == 40) ++onCC40;
+            const auto sw = hydra.switchFor (b.a);
+            if (sw.cc == 40 && sw.value >= b.lo && sw.value <= b.hi && sw.note < 0) ++inBand;
         }
-        rightKey = (hydra.switchFor (gb::LeadArtic::Choke).note == 19)
-                 + (hydra.switchFor (gb::LeadArtic::Tap).note == 20)
-                 + (hydra.switchFor (gb::LeadArtic::Harmonic).note == 21)
-                 + (hydra.switchFor (gb::LeadArtic::Pinch).note == 22);
 
-        check (loaded && onCC40 == 0 && rightKey == 4 && hydra.rakeVelocity >= 120,
-               "the Hydra gestures sit on the manual's keyswitches, none on the CC 40 that means palm mute",
-               loaded ? juce::String (onCC40) + " on CC 40, " + juce::String (rightKey) + " of 4 on the manual's keys, rake at velocity "
-                            + juce::String (hydra.rakeVelocity)
+        check (loaded && inBand == 5 && hydra.rakeVelocity == 0,
+               "the Hydra gestures sit in the owner's own CC 40 bands, each in its own",
+               loaded ? juce::String (inBand) + " of 5 in band, rake velocity " + juce::String (hydra.rakeVelocity)
                       : juce::String (he));
     }
 

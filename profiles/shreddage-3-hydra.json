@@ -302,11 +302,19 @@
   // rather than an instruction - the cc is what gets sent - and those numbers
   // were read off the Articulations page once, which is work worth not redoing.
   "phrases": {
+    // ALL ON CC 40 SUSTAIN (2026-09-27). Sparse, muted, driving and busy were
+    // the latching keys 14, 13, 15 and 18 - and on the owner's map Sustain is
+    // a CC 40 band, not a key, so nothing could ever release them. His
+    // screenshot showed Staccato latched: every guitar 2 note after a "sparse"
+    // section came out clipped, which is what "no sustain" and "guitar 2 is
+    // quiet" both were. Guitar 2 is the lead; it rings. Palm mute, staccato
+    // and tremolo come back as per-note articulations once there is a way to
+    // release them (see OPEN-QUESTIONS, the latch test).
     "open":    { "cc": 40, "value": 10, "keyswitch": 12 },
-    "sparse":  14,
-    "muted":   13,
-    "driving": 15,
-    "busy":    18,
+    "sparse":  { "cc": 40, "value": 10, "keyswitch": 12 },
+    "muted":   { "cc": 40, "value": 10, "keyswitch": 12 },
+    "driving": { "cc": 40, "value": 10, "keyswitch": 12 },
+    "busy":    { "cc": 40, "value": 10, "keyswitch": 12 },
     "solo":    { "cc": 40, "value": 10, "keyswitch": 12 },
 
     // Fills get Sustain too, and this one was missing until the wire was
@@ -478,11 +486,27 @@
   //
   // Used by the FILLS only for now. The solo engine asks for these too, and
   // the solos stay exactly as approved until the owner says otherwise.
-  "lead_articulations": { "choke": 19, "tap": 20, "harmonic": 21, "pinch": 22 },
+  //
+  // CORRECTED 2026-09-27 FROM THE OWNER'S OWN TACT MAP (screenshot of the
+  // Articulations tab), which is NOT the manual's factory layout. On his
+  // instance these five are CC 40 bands, not keys:
+  //   Sustain 0-20  Rake 21-41  Pinch 42-62  Harmonics 63-83
+  //   Tapping 84-104  Choke 105-127
+  // and keys 19-22 are mapped to nothing. The keyswitch version (session 29)
+  // was read from the manual without checking his map - the articulation test
+  // caught it: pinch, harmonics, choke and rake all came out as plain notes.
+  // Each value is the middle of its band.
+  "lead_articulations": {
+    "rake":     { "cc": 40, "value": 31 },
+    "pinch":    { "cc": 40, "value": 52 },
+    "harmonic": { "cc": 40, "value": 73 },
+    "tap":      { "cc": 40, "value": 94 },
+    "choke":    { "cc": 40, "value": 116 }
+  },
 
-  // A rake is Sustain at velocity 120-127 (manual). Everything else is capped
-  // at 119 so nothing rakes by accident; this is the one deliberate exception.
-  "rake_velocity": 124,
+  // No velocity rake on this map: Rake is its own CC 40 band, and Sustain has
+  // no velocity rule, so velocity 124 was just a loud picked note.
+  "rake_velocity": 0,
 
   "keyswitches_verified": true,
 

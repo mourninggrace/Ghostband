@@ -4483,12 +4483,12 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 const std::vector<GhostbandProcessor::ArticDemo>& GhostbandProcessor::guitar2ArticDemos()
 {
     static const std::vector<ArticDemo> demos = {
-        { "sustain (picked notes)",           "key 12",          true  },
-        { "rake into a note",                 "key 12, vel 124", true  },
-        { "pinch harmonic",                   "key 22",          true  },
-        { "natural harmonics",                "key 21",          true  },
-        { "tapping",                          "key 20",          true  },
-        { "choke",                            "key 19",          true  },
+        { "sustain (picked notes)",           "CC40 = 10",       true  },
+        { "rake into a note",                 "CC40 = 31",       true  },
+        { "pinch harmonic",                   "CC40 = 52",       true  },
+        { "natural harmonics",                "CC40 = 73",       true  },
+        { "tapping",                          "CC40 = 94",       true  },
+        { "choke",                            "CC40 = 116",      true  },
         { "hammer-ons and pull-offs",         "legato",          true  },
         { "bend up into a note",              "pitch wheel",     true  },
         { "bend up and release",              "pitch wheel",     true  },
@@ -4543,7 +4543,9 @@ static gb::PhrasePart articDemoPart (int index)
 
     switch (index)
     {
-        case 0:  note (480, 64); note (480, 67); note (960, 69); break;
+        // Long enough to hear it ring and fade (the owner: "hitting it and
+        // letting it ring out until it fades away naturally").
+        case 0:  note (480, 64); note (3840, 69); break;
         case 1:  note (960, 69).artic = gb::LeadArtic::Rake; break;
         case 2:  note (240, 64); { auto& n = note (1200, 69); n.artic = gb::LeadArtic::Pinch; n.vibrato = true; } break;
         case 3:  note (720, 76).artic = gb::LeadArtic::Harmonic; note (720, 71).artic = gb::LeadArtic::Harmonic;
@@ -4559,8 +4561,8 @@ static gb::PhrasePart articDemoPart (int index)
                  note (480, 64); break;
         case 9:  { auto& n = note (1440, 69); n.bendSemis = 2; n.bendShape = BS::PreBend; n.wideVibrato = true; } break;
         case 10: note (480, 64); { auto& n = note (960, 69); n.bendSemis = 1; n.bendShape = BS::Scoop; n.vibrato = true; } break;
-        case 11: note (1920, 69).vibrato = true; break;
-        case 12: note (1920, 69).wideVibrato = true; break;
+        case 11: note (2880, 69).vibrato = true; break;
+        case 12: note (2880, 69).wideVibrato = true; break;
         default: break;
     }
     return part;
