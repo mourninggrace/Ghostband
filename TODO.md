@@ -37,11 +37,10 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
 
 ## Next, in order (owner's requests) - updated session 30
 
-0. [ ] **UNDER - owner to confirm by ear** (2026-09-27). No migration needed:
-       the store only supplies CC numbers, the profile's "follows" wins, so the
-       level already goes out on CC 7 (installed profile checked). The blocker
-       was Kontakt ignoring CC 7; the owner has now ticked "Accept standard
-       controllers for Volume (#7) and Pan (#10)".
+0. [x] **UNDER works** (2026-09-27). Kontakt 8 ignored CC 7; the owner MIDI-learned
+       Kontakt's Vol slider to CC 85 (Settings > output volume > Teach). The GP5
+       16-channel Audio Mixer block was making up the lost level (on/off only);
+       disabled, UNDER fades properly. Guitar 2's balance is now the GTR 2 knob.
 0. [ ] **The ten articulations not sent yet** (legato slide as a phrase tool,
        palm-mute lead, staccato, tremolo, FX 24-27, picking mode, capo) - now
        releasable, since Sustain presses C-1. Each confirmed in the test.
