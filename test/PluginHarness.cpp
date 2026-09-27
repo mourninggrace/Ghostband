@@ -124,7 +124,7 @@ void check (bool condition, const juce::String& what, const juce::String& detail
 // phrase (not the bed) in every "fills" section of every song, at six seeds, is
 // fingerprinted three ways - rhythm, contour, rhythm+intervals - and the report
 // says how many phrases share a fingerprint with phrases in OTHER songs.
-struct FillNumbers { double top3Share = 1.0, betweenSongs = 1.0, withinSong = 1.0; int phrases = 0, notes = 0; uint32_t soloSum = 0; double walkShare = 1.0;
+struct FillNumbers { int twinInStyle = 0, twinOutOfStyle = 0, twinSongs = 0; double top3Share = 1.0, betweenSongs = 1.0, withinSong = 1.0; int phrases = 0, notes = 0; uint32_t soloSum = 0; double walkShare = 1.0;
                      double soloStepShare = 1.0, soloWalkShare = 1.0, soloHeldShare = 0.0; int soloNotes = 0;
                      double soloAccent = 0.0; };
 
@@ -147,6 +147,7 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
     int phrases = 0, notes = 0, songsWithFills = 0;
     long bedNotes = 0, answerNotes = 0, bedTicks = 0, answerTicks = 0, sectionTicks = 0;
     uint32_t soloSum = 17u;
+    int twinInStyle = 0, twinOutOfStyle = 0, twinSongs = 0;
     int walks = 0, walkCandidates = 0;
     // SOLOS, measured the way the fills were: how many moves are a step, how
     // much of the line is a run of four or more steps in one direction (the
@@ -169,6 +170,21 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
             gb::SongPlan song = base;
             song.seed = base.seed + static_cast<unsigned> (k) * 7919u;
             const gb::RenderResult r = gb::renderPerformance (song, kit, bass, &gtr, &piano, &gtr2);
+
+            // Twin harmony: guitar 1 single notes struck with a guitar 2 note,
+            // a third below. Only the twin-guitar styles may have any.
+            if (k == 0)
+            {
+                int twins = 0;
+                for (const gb::LeadIntent& a : r.performance.guitar.lead)
+                    for (const gb::LeadIntent& b : r.performance.guitar2.lead)
+                        if (b.tick == a.tick && (b.pitch - a.pitch == 3 || b.pitch - a.pitch == 4)) { ++twins; break; }
+                static const char* twinStyles[] = { "metal", "hard_rock", "prog_metal", "thrash", "groove_metal", "doom" };
+                const bool twinStyle = std::any_of (std::begin (twinStyles), std::end (twinStyles),
+                                                    [&song] (const char* st) { return song.style == st; });
+                if (twinStyle) { twinInStyle += twins; if (twins > 0) ++twinSongs; }
+                else             twinOutOfStyle += twins;
+            }
             const std::string songId = f.getFileNameWithoutExtension().toStdString() + "#" + std::to_string (k);
 
             // GB_SHOW_G2=<song>: every guitar 2 note of that song, by section.
@@ -182,7 +198,7 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
                             {
                                 const int rel = n.tick - sc.startTick;
                                 static const char* kShape[] = { "", " release", " prebend", " scoop" };
-                                static const char* kArt2[]  = { "", " RAKE", " PINCH", " CHOKE", " HARM", " TAP" };
+                                static const char* kArt2[]  = { "", " RAKE", " PINCH", " CHOKE", " HARM", " TAP", " MUTE", " STACC", " TREM" };
                                 std::printf ("  bar %2d  %5.2f  pitch %3d  len %4d%s%s%s%s%s%s\n", rel / (gb::kPPQ * 4) + 1,
                                              (rel % (gb::kPPQ * 4)) / double (gb::kPPQ) + 1.0, n.pitch, n.durationTicks,
                                              n.bed ? " bed" : "", n.unswung ? " trip" : "",
@@ -443,6 +459,7 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
         out.phrases = phrases;
         out.notes = notes;
         out.soloSum = soloSum;
+        out.twinInStyle = twinInStyle; out.twinOutOfStyle = twinOutOfStyle; out.twinSongs = twinSongs;
         out.walkShare = walkCandidates ? walks / double (walkCandidates) : 0.0;
     }
     return out;
@@ -7515,6 +7532,14 @@ int main (int argc, char** argv)
         check (f.soloSum == 0x785a332fu,
                "the solos are exactly as the owner approved them - not one note moved",
                juce::String::toHexString ((juce::int64) f.soloSum));
+
+        // TWIN GUITARS (2026-09-27): in the twin-guitar styles guitar 1 plays
+        // guitar 2's written-for-two lines and each solo's last phrase a third
+        // below; in every other style it never does.
+        check (f.twinSongs >= 10 && f.twinOutOfStyle == 0,
+               "guitar 1 harmonises guitar 2 in the twin-guitar styles, and only there",
+               juce::String (f.twinInStyle) + " harmony notes in " + juce::String (f.twinSongs) + " songs, "
+                   + juce::String (f.twinOutOfStyle) + " elsewhere");
 
         // STRUCK LIKE A SOLO. The rebuilt solos came in at an accent of about
         // 0.7 against the old engine's 0.9 - fifteen velocity lower on

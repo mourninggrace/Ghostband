@@ -726,6 +726,7 @@ namespace fillvoice
         Family family = Anyone;
         bool   triplet = false;     // off the straight grid: not under a shuffle
         bool   fast    = false;     // wants a hot section
+        bool   twin    = false;     // a line two guitars harmonise
         int    span() const
         {
             int e = 0;
@@ -1328,7 +1329,7 @@ namespace fillvoice
     // ---- melodic rock
     static Lick themeSequence (Rng& r)         // a little shape, walked up the neck
     {
-        Lick L; L.family = Anyone;
+        Lick L; L.family = Anyone; L.twin = true;
         static const int cellA[3] = { 0, 2, 1 };
         static const int cellB[3] = { 0, -1, 1 };
         const int* cell = r.chance (0.5) ? cellA : cellB;
@@ -1394,7 +1395,7 @@ namespace fillvoice
     // ---- NWOBHM
     static Lick gallopRun (Rng& r)             // eighth, two sixteenths - the gallop, climbing
     {
-        Lick L; L.family = Anyone;
+        Lick L; L.family = Anyone; L.twin = true;
         const int n = r.range (3, 4);
         int t = 0;
         for (int k = 0; k < n; ++k)
@@ -1411,7 +1412,7 @@ namespace fillvoice
     }
     static Lick twinTheme (Rng& r)             // a sung theme, the kind two guitars harmonise
     {
-        Lick L; L.family = Anyone;
+        Lick L; L.family = Anyone; L.twin = true;
         const bool up = r.chance (0.5);
         // The theme's first move is a slide up (or down) the string.
         L.notes.push_back ({ 0,   480, Scale, up ? -3 : 3, Glide });
@@ -2227,6 +2228,7 @@ static void generateLeadSolo (const SectionPlan& s,
             li.tick          = clampTick (start + n.on * sc + static_cast<int> (rng.bipolar (humanize * 3.0)));
             li.durationTicks = std::max (1, n.len * sc);
             li.pitch         = pitch;
+            li.twin          = L.twin;
             li.accent        = std::min (1.0, 0.80 + s.intensity * 0.14 + lift
                                                + ((n.f & Target) ? 0.08 : 0.0) + rng.bipolar (0.04));
             li.target        = (n.f & Target) != 0;
@@ -3781,6 +3783,136 @@ static PhraseFeel supportFeel (PhraseFeel wanted)
     }
 }
 
+// Guitar 1 around guitar 2, within one section. See the call site.
+static void twoGuitars (PhrasePart& g1, size_t g1ChordsFrom, size_t g1LeadFrom,
+                        const PhrasePart& g2, size_t g2LeadFrom,
+                        PhraseFeel g2Feel, const std::string& style, int keyPc, Mode mode)
+{
+    (void) g1LeadFrom;
+    auto& chords = g1.chords;
+
+    // Drop guitar 1's strums starting inside [from, to) and stop anything of
+    // its that is still ringing at `from`.
+    const auto clearSpan = [&chords, g1ChordsFrom] (int from, int to, bool holdInstead)
+    {
+        ChordIntent* sounding = nullptr;
+        for (size_t c = g1ChordsFrom; c < chords.size(); ++c)
+            if (chords[c].tick <= from + 30) sounding = &chords[c];
+
+        std::vector<ChordIntent> kept (chords.begin(), chords.begin() + static_cast<std::ptrdiff_t> (g1ChordsFrom));
+        for (size_t c = g1ChordsFrom; c < chords.size(); ++c)
+        {
+            ChordIntent ch = chords[c];
+            const bool inside = ch.tick > from + 30 && ch.tick < to;
+            if (inside) continue;
+            if (&chords[c] == sounding)
+            {
+                if (holdInstead) ch.durationTicks = std::max (ch.durationTicks, to - ch.tick);
+                else if (ch.tick < from) ch.durationTicks = std::max (1, std::min (ch.durationTicks, from - ch.tick));
+                else continue;   // a strum right on the twin line's first note: the harmony replaces it
+            }
+            kept.push_back (ch);
+        }
+        chords.swap (kept);
+    };
+
+    // ---- 1. TWIN HARMONY: the lines written for two guitars, in the styles
+    // that have twin guitars (Maiden, Lizzy, Priest, Megadeth).
+    static const char* twinStyles[] = { "metal", "hard_rock", "prog_metal", "thrash", "groove_metal", "doom" };
+    const bool twinStyle = std::any_of (std::begin (twinStyles), std::end (twinStyles),
+                                        [&style] (const char* s) { return style == s; });
+
+    if (twinStyle && g2Feel == PhraseFeel::Solo)
+    {
+        const std::vector<int>& scale = soloScale (mode, style);
+        const auto inKey = [&] (int p)
+        {
+            const int pc = ((p - keyPc) % 12 + 12) % 12;
+            return std::find (scale.begin(), scale.end(), pc) != scale.end();
+        };
+        // A diatonic third below: whichever of three or four semitones down is
+        // in the key; a passing note keeps the interval the line last used.
+        int lastInterval = 3;
+        const auto thirdBelow = [&] (int p)
+        {
+            if (inKey (p - 3) && ! inKey (p - 4)) lastInterval = 3;
+            else if (inKey (p - 4) && ! inKey (p - 3)) lastInterval = 4;
+            return p - lastInterval;
+        };
+
+        // And the solo's LAST phrase, whatever it was built from: the big
+        // close is where a twin-guitar band harmonises, so every solo in these
+        // styles ends on one - the twin licks add more along the way.
+        size_t lastPhraseFrom = g2.lead.size();
+        {
+            size_t k = g2.lead.size();
+            while (k > g2LeadFrom && g2.lead[k - 1].bed) --k;
+            if (k > g2LeadFrom)
+            {
+                size_t a = k - 1;
+                while (a > g2LeadFrom && ! g2.lead[a - 1].bed
+                       && g2.lead[a].tick - (g2.lead[a - 1].tick + g2.lead[a - 1].durationTicks) < 240)
+                    --a;
+                lastPhraseFrom = a;
+            }
+        }
+        const auto harmonised = [&] (size_t k)
+        {
+            return ! g2.lead[k].bed && (g2.lead[k].twin || k >= lastPhraseFrom);
+        };
+
+        size_t i = g2LeadFrom;
+        while (i < g2.lead.size())
+        {
+            if (! harmonised (i)) { ++i; continue; }
+            size_t j = i;
+            while (j + 1 < g2.lead.size() && harmonised (j + 1)
+                   && g2.lead[j + 1].tick - (g2.lead[j].tick + g2.lead[j].durationTicks) < 240)
+                ++j;
+
+            const int from = g2.lead[i].tick;
+            const int to   = g2.lead[j].tick + g2.lead[j].durationTicks;
+            clearSpan (from, to, false);
+
+            for (size_t k = i; k <= j; ++k)
+            {
+                LeadIntent h = g2.lead[k];
+                h.pitch  = thirdBelow (h.pitch);
+                h.accent = h.accent * 0.92;
+                h.artic  = LeadArtic::Normal;      // the rhythm guitar has no Hydra keys
+                h.glide = h.neckSlideIn = h.slideOff = h.fretNoise = false;
+                h.thrashRepeats = 0;
+                h.pick  = LeadIntent::Pick::Auto;
+                h.twin  = false;
+                g1.lead.push_back (h);
+            }
+            i = j + 1;
+        }
+    }
+
+    // ---- 2. GUITAR 1 MAKES ROOM. Under guitar 2's answers it holds the chord
+    // instead of strumming over them; under a solo it plays a little softer.
+    if (g2Feel == PhraseFeel::Fills)
+    {
+        size_t i = g2LeadFrom;
+        while (i < g2.lead.size())
+        {
+            if (g2.lead[i].bed) { ++i; continue; }
+            size_t j = i;
+            while (j + 1 < g2.lead.size() && ! g2.lead[j + 1].bed
+                   && g2.lead[j + 1].tick - (g2.lead[j].tick + g2.lead[j].durationTicks) < 240)
+                ++j;
+            clearSpan (g2.lead[i].tick, g2.lead[j].tick + g2.lead[j].durationTicks, true);
+            i = j + 1;
+        }
+    }
+    else if (g2Feel == PhraseFeel::Solo)
+    {
+        for (size_t c = g1ChordsFrom; c < chords.size(); ++c)
+            chords[c].accent *= 0.88;
+    }
+}
+
 static void generatePhrasePart (const SectionPlan& s,
                                 const std::vector<Chord>& chords,
                                 int sectionStartTick,
@@ -4497,6 +4629,10 @@ RenderResult renderPerformance (const SongPlan& plan,
                          + (feel == PhraseFeel::Silent ? std::string() : role (supports));
             };
 
+            const size_t g1ChordsBefore = result.performance.guitar.chords.size();
+            const size_t g1LeadBefore   = result.performance.guitar.lead.size();
+            const size_t g2LeadBefore   = result.performance.guitar2.lead.size();
+
             if (playGuitar)
                 play (guitar, guitarFeel, guitarSupports, result.performance.guitar,
                       report.guitarChords, report.guitarFeel, &report.guitarNotes);
@@ -4504,6 +4640,16 @@ RenderResult renderPerformance (const SongPlan& plan,
             if (playGuitar2)
                 play (guitar2, guitar2Feel, guitar2Supports, result.performance.guitar2,
                       report.guitar2Chords, report.guitar2Feel, &report.guitar2Notes);
+
+            // ---- THE TWO GUITARS TOGETHER (2026-09-27, the owner chose twin
+            // harmony and guitar 1 making room). Guitar 2's notes are never
+            // touched here - only guitar 1 moves - so an approved solo stays
+            // exactly as approved. No random draws either.
+            if (playGuitar && playGuitar2 && guitarFeel != PhraseFeel::Silent
+                && guitar2Feel != PhraseFeel::Silent)
+                twoGuitars (result.performance.guitar, g1ChordsBefore, g1LeadBefore,
+                            result.performance.guitar2, g2LeadBefore,
+                            guitar2Feel, plan.style, keyPc, mode);
 
             if (playPiano)
                 play (piano, pianoFeel, pianoSupports, result.performance.piano,

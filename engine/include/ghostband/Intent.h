@@ -177,6 +177,10 @@ struct LeadIntent
     // profile (alternate; down-picked when palm-muted).
     enum class Pick { Auto, Up, Down, Alternate, Economy };
     Pick   pick          = Pick::Auto;
+
+    // Written to be HARMONISED: where the song's style has twin guitars,
+    // the other guitar plays this line a third below (2026-09-27).
+    bool   twin          = false;
 };
 
 // Switch the instrument to this phrase. Emitted at section and phrase changes,

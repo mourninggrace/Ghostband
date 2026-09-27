@@ -66,7 +66,7 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
 0. [ ] Drums BUSY up is weak in a shuffle (+6%).
 0. [ ] One-click GP5 close that also clears Kontakt's hung process.
 
-1. [ ] **Guitar 1 and guitar 2 playing together** - harmonies, unison hits, trading
+1. [x] (2026-09-27: twin harmony + guitar 1 makes room done; unison hits and trading bars not chosen) **Guitar 1 and guitar 2 playing together** - harmonies, unison hits, trading
        bars, guitar 1 leaving space - in fills, and especially solos.
 2. [-] SHELVED 2026-09-27 (owner: no extra plugins; Hydra's own presets cover tone). **Effects that fit the part** - research each instrument's effect controls
        from its manual first. Known wall: Shreddage's Console effects have MIDI

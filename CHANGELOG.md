@@ -34,6 +34,17 @@ Session 29. Built and measured; not released until the owner has listened.
   test row only until heard), pick direction (108-111: alternate, down-picked
   when palm-muted). Used sparingly and without random draws - no approved solo
   note moved. Calibrate rows 13 and 17-21 play; 22 of 23 rows live (capo left).
+- **Twin guitars.** In metal, hard rock, prog, thrash, groove and doom, guitar 1
+  stops strumming and plays guitar 2's line a diatonic third below - on the
+  licks written for two guitars (twin theme, sequence, gallop) and on every
+  solo's closing phrase. 399 harmony notes across 18 songs; none in blues,
+  punk, emo, alt rock, ballads or sludge.
+- **Guitar 1 makes room**: it holds its chord under guitar 2's fill answers
+  instead of strumming over them, and plays ~12% softer under a solo.
+- **Palm-mute dynamics**: the beat struck harder and more open, the sixteenths
+  lighter and tighter (Hydra: velocity = how muted).
+- **Levels restated** 3 and 8 s after audio starts and before every Calibrate
+  audition, so an instrument that loads late still matches its dial.
 - **UNDER drops evenly in dB** (1.8 dB per 10%, 100% silent), default 20%.
 - **Guitar 2's level is sent gently** - on a change only, ~20/s at most - after
   Kontakt 8 crashed under a burst while the dial was dragged.
