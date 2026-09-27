@@ -50,6 +50,13 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
        installer carried it. Kontakt learned CC7. Works, but CC7 is what other
        parts' fallbacks send (guitar 1 sends CC7 ch2) and Hydra is on Omni -
        settle on one CC and have Hydra listen on ch 11 only.
+0. [ ] **Warn when Kontakt's "Accept standard controllers" tick is lost** (it is
+       saved with the Hydra PRESET and resets on every preset change - owner hit
+       it 2026-09-27). The GTR 2 dial/UNDER reach Kontakt's rack volume (after
+       the amp) only with it ticked; Hydra's own VOLUME knob is pre-amp gain.
+0. [x] **Kontakt 8 crashed** while the GTR 2 dial was dragged (13:00, access
+       violation inside Kontakt 8.vst3). Guitar 2's level now goes out only when
+       it changes, at most ~20/s while playing, and not twice per move.
 0. [x] **Piano dial did nothing** - Virtual Pianist had lost its CC28 learn; owner
        re-taught it (Settings > volume > Teach), works (2026-09-27).
 0. [ ] **The articulations not sent yet**: legato slide as a phrase tool, FX

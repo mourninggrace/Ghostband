@@ -2628,7 +2628,6 @@ void GhostbandProcessor::sendLevels()
                         g2LevelFull.store (value);
                         g2LevelFill.store (juce::jlimit (0, 127, juce::roundToInt (
                                               def.valueAt (p.level * levelGuitar2Fills.load()) * 127.0)));
-                        g2LevelDirty.store (true);
                     }
 
                     // One knob, one control. Two places upstream now make a
@@ -2651,7 +2650,6 @@ void GhostbandProcessor::sendLevels()
                     g2LevelCC.store (7);
                     g2LevelFull.store (value);
                     g2LevelFill.store (juce::jlimit (0, 127, juce::roundToInt (p.level * levelGuitar2Fills.load() * 127.0f)));
-                    g2LevelDirty.store (true);
                 }
             }
             else if (! taught && isGuitar2)
@@ -2716,6 +2714,15 @@ void GhostbandProcessor::sendLevels()
         const juce::MidiMessage msg = juce::MidiMessage::controllerEvent (m.channel, m.cc,
                                                                          m.value);
         levelMessages.push_back (msg);
+
+        // NOT guitar 2's: the audio thread sends that one, at the level its
+        // section wants, only when it changes and never faster than twenty a
+        // second. Sending it here as well put two messages on the wire per
+        // pixel of a dial drag, most of them repeats - and Kontakt 8 crashed
+        // under exactly that burst (owner, 2026-09-27, 13:00).
+        // Stopped, there is no audio-thread send, so the dial goes straight out.
+        if (transportRunning.load() && m.channel == g2LevelChannel.load() && m.cc == g2LevelCC.load())
+            continue;
         pendingAuditions.push_back ({ 0, msg });
     }
 }
@@ -4064,8 +4071,11 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
                                && sectionGuitar2Fills[static_cast<size_t> (ahead)] != 0;
             const int value = fills ? g2LevelFill.load() : g2LevelFull.load();
 
-            if (value >= 0 && (value != g2LevelLastSent || g2LevelDirty.exchange (false)))
+            g2SamplesSinceSend = std::min (g2SamplesSinceSend + numSamples, 1 << 28);
+            const bool mayChange = g2SamplesSinceSend >= static_cast<int> (getSampleRate() * 0.05);
+            if (value >= 0 && ((value != g2LevelLastSent && mayChange) || g2LevelDirty.exchange (false)))
             {
+                g2SamplesSinceSend = 0;
                 midi.addEvent (juce::MidiMessage::controllerEvent (g2LevelChannel.load(), cc, value), 0);
                 g2LevelLastSent = value;
 
