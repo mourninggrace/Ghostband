@@ -7594,6 +7594,33 @@ int main (int argc, char** argv)
             GhostbandProcessor::setLearnedControlsFileForTesting (juce::File());
         }
 
+        // A FRESH LOAD SAYS THE LEVELS BY ITSELF (2026-09-27: "the gtr 2 mix
+        // dial does not sync with hydra's vol dial until it is moved"). Stopped,
+        // nobody touching anything: within ten seconds guitar 2's level
+        // controller has gone out at least twice - after the instruments load.
+        {
+            GhostbandProcessor pf;
+            pf.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-blues-2.json"));
+            const double sr = 48000.0; const int bs = 512;
+            pf.setRateAndBufferSizeDetails (sr, bs);
+            pf.prepareToPlay (sr, bs);
+            FakePlayHead ph; ph.playing = false; pf.setPlayHead (&ph);
+            juce::AudioBuffer<float> buf (2, bs); juce::MidiBuffer m;
+            int restated = 0;
+            for (int blk = 0; blk < static_cast<int> (10.0 * sr / bs); ++blk)
+            {
+                buf.clear(); m.clear();
+                pf.processBlock (buf, m);
+                bool sawG2 = false;
+                for (const juce::MidiMessageMetadata e : m)
+                    if (e.getMessage().isController() && e.getMessage().getChannel() == 11) sawG2 = true;
+                if (sawG2 && blk > static_cast<int> (1.0 * sr / bs)) ++restated;
+            }
+            pf.setPlayHead (nullptr);
+            check (restated >= 2, "a fresh load re-sends the levels by itself, after the instruments are up",
+                   juce::String (restated) + " restatements to guitar 2 in 10 s, stopped");
+        }
+
         GhostbandProcessor p3;
         p3.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-prog.json"));
         const double sr = 48000.0;

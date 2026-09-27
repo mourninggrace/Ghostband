@@ -59,9 +59,10 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
        it changes, at most ~20/s while playing, and not twice per move.
 0. [x] **Piano dial did nothing** - Virtual Pianist had lost its CC28 learn; owner
        re-taught it (Settings > volume > Teach), works (2026-09-27).
-0. [ ] **The articulations not sent yet**: legato slide as a phrase tool, FX
-       24-27, picking mode, capo. DONE 2026-09-27: palm-mute lead (13),
-       staccato (14), tremolo (18) - owner to confirm rows 14-16 by ear.
+0. [ ] **Capo** - the last articulation row (22 of 23 confirmed by ear
+       2026-09-27). Hydra's capo is a MIDI-learned knob, so it resets with the
+       preset like the CC7 tick. Thrash note (27) is confirmed but not yet used
+       in songs - fast same-pitch repeats are the place for it.
 0. [ ] Drums BUSY up is weak in a shuffle (+6%).
 0. [ ] One-click GP5 close that also clears Kontakt's hung process.
 

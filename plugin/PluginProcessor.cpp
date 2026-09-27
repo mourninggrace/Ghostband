@@ -2742,6 +2742,16 @@ bool GhostbandProcessor::levelIsTaught (int part) const
     return p != nullptr && p->hasLevelControl();
 }
 
+// Every part's level as the dials have it, queued to go out now. Called with
+// auditionLock held. An instrument that finished loading after the last level
+// was sent never heard it - Hydra sat at its preset's -9 dB until the GTR 2
+// dial was touched - so anything about to make a sound says the levels first.
+void GhostbandProcessor::restateLevelsLocked()
+{
+    for (const juce::MidiMessage& m : levelMessages)
+        pendingAuditions.push_back ({ 0, m });
+}
+
 void GhostbandProcessor::auditionStep (int index)
 {
     const CalibrationStep s = getCalibrationStep (index);
@@ -2754,6 +2764,8 @@ void GhostbandProcessor::auditionStep (int index)
 
     const juce::SpinLock::ScopedLockType lock (auditionLock);
 
+    // The dials' levels first - see restateLevelsLocked.
+    restateLevelsLocked();
     pendingAuditions.push_back ({ 0, juce::MidiMessage::noteOn (s.channel, s.note, (juce::uint8) 100) });
     pendingAuditions.push_back ({ holdSamples, juce::MidiMessage::noteOff (s.channel, s.note) });
 }
@@ -3785,6 +3797,26 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
         }
     }
 
+    // THE LEVELS AGAIN, 3 and 8 seconds after audio starts: a fresh GP5 load
+    // brings the instruments up after Ghostband's first word, and they would
+    // otherwise sit at their presets' volume until a dial moved.
+    if (startupRestates < 2)
+    {
+        samplesSinceStart += numSamples;
+        const double due = (startupRestates == 0 ? 3.0 : 8.0) * juce::jmax (8000.0, getSampleRate());
+        if (static_cast<double> (samplesSinceStart) >= due)
+        {
+            const juce::SpinLock::ScopedTryLockType levels (auditionLock);
+            if (levels.isLocked())
+            {
+                for (const juce::MidiMessage& m : levelMessages)
+                    midi.addEvent (m, 0);
+                g2LevelDirty.store (true);   // and guitar 2's section level after it
+                ++startupRestates;
+            }
+        }
+    }
+
     // While calibrating, the song stays silent - otherwise the part you are
     // trying to identify is buried under a full band.
     if (calibrating.load())
@@ -4659,6 +4691,7 @@ std::vector<double> GhostbandProcessor::auditionGuitar2Artic (int index)
     }
 
     const juce::SpinLock::ScopedLockType lock (auditionLock);
+    restateLevelsLocked();
     for (PendingMessage& m : queued)
         pendingAuditions.push_back (std::move (m));
     return starts;

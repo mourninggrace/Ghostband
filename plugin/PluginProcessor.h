@@ -1032,6 +1032,9 @@ private:
     std::atomic<bool>             g2LevelDirty { true };
     int                           g2LevelLastSent = -1;     // audio thread only
     int                           g2SamplesSinceSend = 1 << 28;   // audio thread only: rate limit
+    juce::int64                   samplesSinceStart  = 0;         // audio thread only
+    int                           startupRestates    = 0;         // audio thread only
+    void                          restateLevelsLocked();          // auditionLock held
 public:
     // The last guitar 2 level the audio thread sent, for the change log.
     std::atomic<int>              g2SentValue { -1 }, g2SentCC { -1 }, g2SentBar { 0 }, g2SentCount { 0 };
