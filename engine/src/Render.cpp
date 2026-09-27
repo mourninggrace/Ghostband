@@ -1234,6 +1234,15 @@ namespace fillvoice
         }
     }
 
+    // BUSY steers WHICH licks, not only how many: up favours the ones with a
+    // lot to say, down the ones with a few notes and room. A trim of zero is 1.
+    static double busyWeight (const Lick& L, double busyTrim)
+    {
+        if (busyTrim == 0.0) return 1.0;
+        const double n = std::max (1.0, static_cast<double> (L.notes.size()));
+        return std::pow (n / 5.0, busyTrim * (busyTrim > 0.0 ? 2.4 : 1.6));
+    }
+
     enum SoloRole { Develop = 1, Build = 2, Climax = 4 };
 
     //--------------------------------------------------------------------------
@@ -1607,7 +1616,8 @@ static void generateFills (const SectionPlan& s,
                            double iq,
                            uint32_t songSeed,
                            double complexity,
-                           double shredTrim)
+                           double shredTrim,
+                           double busyTrim)
 {
     using namespace fillvoice;
 
@@ -1774,6 +1784,7 @@ static void generateFills (const SectionPlan& s,
             // SHRED: up leans on the fast licks, down on the sung ones.
             if (shredTrim != 0.0)                 w[i] *= L.fast ? (1.0 + shredTrim) : (1.0 - shredTrim * 0.6);
             if (i == lastLick || i == beforeThat) w[i] *= 0.08;
+            w[i] *= busyWeight (L, busyTrim);
             total += w[i];
         }
         if (total <= 0.0) return -1;
@@ -1795,7 +1806,7 @@ static void generateFills (const SectionPlan& s,
         static const Builder kSung[] = { singingBend, bendAndReturn, pentBends, pickupCall,
                                          octaveCall, bluesRepeat, harmonics, arpSkip };
         static constexpr int kNumSung = static_cast<int> (sizeof (kSung) / sizeof (kSung[0]));
-        if (to - from >= barTicks / 2 && rng.chance (0.45 + complexity * 0.5))
+        if (to - from >= barTicks / 2 && rng.chance (std::clamp (0.45 + complexity * 0.5 + busyTrim * 0.4, 0.0, 1.0)))
         {
             Rng lr (deriveSeed (static_cast<uint32_t> (rng.next()), 0x5E1Au));
             Lick P = kSung[lr.below (kNumSung)] (lr);
@@ -1879,7 +1890,11 @@ static void generateFills (const SectionPlan& s,
     const double wHalf  = byIntuition (iq, 100.0, 30.0, 12.0);
     const double wEnd   = byIntuition (iq,   0.0, 50.0, 45.0);
     const double wEarly = byIntuition (iq,   0.0, 20.0, 43.0);
-    const double second = std::min (0.95, byIntuition (iq, 0.0, who.answerSecond, 0.85) * (0.6 + complexity * 0.9));
+    const double second = std::clamp (byIntuition (iq, 0.0, who.answerSecond, 0.85) * (0.6 + complexity * 0.9)
+                                      * (1.0 + busyTrim * 0.9), 0.0, 0.95);
+    // BUSY up also answers in the THIRD bar of a group, a busy player's habit.
+    const double third = busyTrim > 0.0 ? busyTrim * 0.8 : 0.0;
+    const double first = busyTrim > 0.5 ? (busyTrim - 0.5) * 0.9 : 0.0;   // and near the top, the first bar too
     int lastEnd = sectionStartTick;      // where the last note of this section ended
 
     for (int bar = 0; bar < s.bars; ++bar)
@@ -1895,6 +1910,10 @@ static void generateFills (const SectionPlan& s,
             answer = fillAmount >= 0.999 || rng.chance (0.35 + fillAmount * 0.65);
         else if (inGroup == 1)
             answer = rng.chance (second);
+        else if (inGroup == 2 && third > 0.0)
+            answer = rng.chance (third);
+        else if (inGroup == 0 && first > 0.0)
+            answer = rng.chance (first);
 
         int lickStart = barEnd;   // where the answer begins, if any
         if (answer)
@@ -1976,7 +1995,8 @@ static void generateLeadSolo (const SectionPlan& s,
                               double iq,
                               uint32_t songSeed,
                               double complexity,
-                              double shredTrim)
+                              double shredTrim,
+                              double busyTrim)
 {
     using namespace fillvoice;
 
@@ -2190,6 +2210,7 @@ static void generateLeadSolo (const SectionPlan& s,
             // runs in it too, between the sung ideas.
             if (role == Develop && L.fast) w[i] *= how.shred * 1.5;
             if (i == recent[0] || i == recent[1]) w[i] *= 0.06;
+            w[i] *= busyWeight (L, busyTrim);
             total += w[i];
         }
         if (total <= 0.0) return -1;
@@ -2294,7 +2315,8 @@ static void generateLeadSolo (const SectionPlan& s,
         // A shuffle phrases in more, shorter breaths - held less, said more.
         const int holdBase = shuffle ? (barTicks * 3) / 8
                            : (isMotif || role == Build) ? barTicks / 2 : (barTicks * 3) / 4;
-        const int holdCap  = std::max (barTicks / 4, static_cast<int> (holdBase * (1.3 - how.busy * 0.6)));
+        const int holdCap  = std::max (barTicks / 8, static_cast<int> (holdBase * (1.3 - how.busy * 0.6)
+                                                                       * (1.0 - busyTrim * 0.7)));
         const int holdTo  = final ? sectionEnd - barTicks / 16
                                   : std::min (slotEnd - std::max (barTicks / 8, breath), landing + holdCap);
 
@@ -2327,8 +2349,10 @@ static void generateLeadSolo (const SectionPlan& s,
             // A phrase is a line of ideas, chained back to the room's start - a
             // lick runs into the next one's landing - not one idea and a wait.
             // A busy player fills even an eighth of room; a sparse one leaves a quarter.
-            const int minRoom = how.busy > 0.7 ? barTicks / 8 : barTicks / 4;
-            for (int more = 0; more < 4 && start >= 0 && start - earliest >= minRoom; ++more)
+            const int minRoom = busyTrim < -0.3 ? barTicks
+                              : (how.busy > 0.7 || busyTrim > 0.3) ? barTicks / 8 : barTicks / 4;
+            const int maxMore = busyTrim > 0.3 ? 7 : 4;
+            for (int more = 0; more < maxMore && start >= 0 && start - earliest >= minRoom; ++more)
             {
                 // Not before the motif's FIRST statement: the solo's idea is
                 // stated on its own. Said again later, it can be run into.
@@ -2358,7 +2382,9 @@ static void generateLeadSolo (const SectionPlan& s,
         {
             const int tagFrom = lastEnd + barTicks / 16;
             const int tagEnd  = slotEnd - std::max (barTicks / 8, breath);
-            if (tagEnd - tagFrom >= (barTicks * 3) / 8)
+            // BUSY down leaves the space; up fills even a quarter of a bar.
+            const int tagRoom = busyTrim > 0.3 ? barTicks / 4 : (barTicks * 3) / 8;
+            if (busyTrim > -0.3 && tagEnd - tagFrom >= tagRoom)
             {
                 const int j = choose (role == Develop ? Develop : Build);
                 if (j >= 0)
@@ -3721,7 +3747,7 @@ static void generatePhrasePart (const SectionPlan& s,
         if (fills)
         {
             generateFills (s, chords, sectionStartTick, barTicks, keyPc, mode, style,
-                           swing, profile, humanize, soloRng, out, fillAmount, iq, songSeed, complexity, shredTrim);
+                           swing, profile, humanize, soloRng, out, fillAmount, iq, songSeed, complexity, shredTrim, busyTrim);
             return;
         }
 
@@ -3729,7 +3755,7 @@ static void generatePhrasePart (const SectionPlan& s,
         // substance". The old generator stays below, unused, until this has
         // been heard.
         generateLeadSolo (s, chords, sectionStartTick, barTicks, keyPc, mode, style,
-                          swing, profile, humanize, soloRng, out, iq, songSeed, complexity, shredTrim);
+                          swing, profile, humanize, soloRng, out, iq, songSeed, complexity, shredTrim, busyTrim);
         return;
     }
 

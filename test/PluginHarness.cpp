@@ -7428,6 +7428,9 @@ int main (int argc, char** argv)
                 lo.busy[part] = -1.0; hi.busy[part] = 1.0;
                 const long mid = count (base, part), down = count (lo, part), up = count (hi, part);
                 if (! (down < mid && mid < up)) allMove = false;
+                // Guitar 2's moved 15% and the owner heard nothing (2026-09-27):
+                // it must move at least a quarter each way to be heard.
+                if (part == 3 && (up < mid * 1.25 || down > mid * 0.8)) allMove = false;
                 detail << kNames[part] << " " << (int) down << "/" << (int) mid << "/" << (int) up << "   ";
             }
             check (allMove, "each BUSY knob makes its own instrument sparer at the bottom and busier at the top",
