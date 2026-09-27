@@ -561,6 +561,11 @@ public:
     // than a pitch-wheel nudge nobody could hear. -1: scoop with the wheel.
     int  slideKeyswitch = -1;
 
+    // The other FX keys and the picking-mode keys (manual pp17, 35: fixed
+    // keys, not part of the articulation map). -1: the instrument has none.
+    int  fretNoiseKey = -1, slideNoteKey = -1, thrashNoteKey = -1;
+    int  pickUpKey = -1, pickDownKey = -1, pickAlternateKey = -1, pickEconomyKey = -1;
+
     // The per-note gestures, declared the same way as the section feels above
     // and selected by the same mechanism - because on this instrument they ARE
     // the same mechanism. Shreddage has one active articulation at a time,
@@ -631,6 +636,9 @@ public:
 
         // And the key held for a slide into a note.
         if (slideKeyswitch >= 0 && note == slideKeyswitch) return SwitchKind::Artic;
+        for (int k : { fretNoiseKey, slideNoteKey, thrashNoteKey,
+                       pickUpKey, pickDownKey, pickAlternateKey, pickEconomyKey })
+            if (k >= 0 && note == k) return SwitchKind::Artic;
 
         return SwitchKind::None;
     }

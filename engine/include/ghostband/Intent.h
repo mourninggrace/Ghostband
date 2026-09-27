@@ -163,8 +163,20 @@ struct LeadIntent
     //   Scoop    a quick slide up into the note
     enum class BendShape { Into, Release, PreBend, Scoop };
     BendShape bendShape  = BendShape::Into;
-    bool   wideVibrato   = false;
-    bool   glide         = false;   // a legato SLIDE into the next note, no re-pick   // the wide, slow, B.B. King kind
+    bool   wideVibrato   = false;   // the wide, slow, B.B. King kind
+    bool   glide         = false;   // a legato SLIDE into the next note, no re-pick
+
+    // THE FX KEYS (Hydra manual p35, fixed keys; 2026-09-27). All off by
+    // default, so a note that does not ask sounds as it always did.
+    bool   neckSlideIn   = false;   // slides in from the far end of the neck
+    bool   slideOff      = false;   // falls off the end of the neck as it ends
+    bool   fretNoise     = false;   // a fret squeak in the gap before it
+    int    thrashRepeats = 0;       // re-picked this many times (thrash note)
+
+    // Pick direction for this note and those after it: Auto leaves it to the
+    // profile (alternate; down-picked when palm-muted).
+    enum class Pick { Auto, Up, Down, Alternate, Economy };
+    Pick   pick          = Pick::Auto;
 };
 
 // Switch the instrument to this phrase. Emitted at section and phrase changes,

@@ -1435,6 +1435,22 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
     out.rakeAsPrelude        = j.boolOr ("rake_as_prelude", false);
     out.slideKeyswitch       = clampInt (j.intOr ("slide_keyswitch", -1), -1, 127);
 
+    const Json& fx = j["fx_keys"];
+    if (fx.isObject())
+    {
+        out.fretNoiseKey  = clampInt (fx.intOr ("fret_noise",  -1), -1, 127);
+        out.slideNoteKey  = clampInt (fx.intOr ("slide_note",  -1), -1, 127);
+        out.thrashNoteKey = clampInt (fx.intOr ("thrash_note", -1), -1, 127);
+    }
+    const Json& pk = j["picking_keys"];
+    if (pk.isObject())
+    {
+        out.pickUpKey        = clampInt (pk.intOr ("up",        -1), -1, 127);
+        out.pickDownKey      = clampInt (pk.intOr ("down",      -1), -1, 127);
+        out.pickAlternateKey = clampInt (pk.intOr ("alternate", -1), -1, 127);
+        out.pickEconomyKey   = clampInt (pk.intOr ("economy",   -1), -1, 127);
+    }
+
     const Json& artics = j["lead_articulations"];
     if (artics.isObject())
     {
@@ -1696,6 +1712,8 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
         track.addNoteOff (at + std::max (1, phraseBlipTicks), channel, sw.note);
     };
 
+    int lastPickKey = -1;   // the picking mode the instrument was last told
+
     for (size_t i = 0; i < part.lead.size(); ++i)
     {
         const LeadIntent& n = part.lead[i];
@@ -1765,6 +1783,51 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
                     end = std::min (end, part.lead[last + 1].tick - preludeOf (part.lead[last + 1]));
                 end = std::max (n.tick + 1, end);
             }
+        }
+
+        // ---- the FX keys and the pick direction (manual pp17, 35) ----
+        {
+            const auto blip = [&track, this] (int at, int key, int len)
+            {
+                track.addNoteOn  (std::max (0, at), channel, key, phraseVelocity);
+                track.addNoteOff (std::max (1, at + len), channel, key);
+            };
+
+            // Pick direction: what the note asks for, else down-picked when
+            // palm-muted (the chug) and alternate otherwise. Sent on a change
+            // only, a little ahead of the note, like any switch.
+            using PK = LeadIntent::Pick;
+            const PK want = n.pick != PK::Auto ? n.pick
+                          : n.artic == LeadArtic::Mute ? PK::Down : PK::Alternate;
+            const int key = want == PK::Up ? pickUpKey : want == PK::Down ? pickDownKey
+                          : want == PK::Economy ? pickEconomyKey : pickAlternateKey;
+            if (key >= 0 && key != lastPickKey)
+            {
+                blip (n.tick - phraseLeadTicks - 2, key, std::max (1, phraseBlipTicks));
+                lastPickKey = key;
+            }
+
+            // A fret squeak in the gap before the note, if there is a gap.
+            if (n.fretNoise && fretNoiseKey >= 0)
+            {
+                const int prevEnd = i > 0 ? part.lead[i - 1].tick + part.lead[i - 1].durationTicks : 0;
+                const int at = std::max (prevEnd + 10, n.tick - 160);
+                if (at < n.tick - 40)
+                    blip (at, fretNoiseKey, 30);
+            }
+
+            // Slide in from the far end of the neck: the key before the note.
+            if (n.neckSlideIn && slideNoteKey >= 0)
+                blip (n.tick - 20, slideNoteKey, 30);
+
+            // Fall off the end: the same key DURING the note, near its end.
+            if (n.slideOff && slideNoteKey >= 0 && end - n.tick >= 240)
+                blip (std::max (n.tick + 120, end - 200), slideNoteKey, 30);
+
+            // Re-picked: the thrash key, spread over the note.
+            if (n.thrashRepeats > 0 && thrashNoteKey >= 0)
+                for (int r = 1; r <= n.thrashRepeats; ++r)
+                    blip (n.tick + (end - n.tick) * r / (n.thrashRepeats + 1), thrashNoteKey, 20);
         }
 
         const int  prelude     = preludeOf (n);

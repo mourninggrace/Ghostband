@@ -2770,6 +2770,11 @@ int main (int argc, char** argv)
                     case 10: need (keys.count (24) > 0, "no slide key 24"); need (overlaps > 0, "nothing ran into the note"); break;
                     case 11: case 12: need (maxCC1 > 0, "no vibrato"); break;
                     case 13: need (keys.count (24) > 0, "no legato slide key 24"); need (overlaps >= 2, "the notes did not run into each other"); break;
+                    case 17: need (keys.count (24) > 0, "no slide key 24"); break;
+                    case 18: need (keys.count (25) > 0, "no fret noise key 25"); break;
+                    case 19: need (std::count (keyOrder.begin(), keyOrder.end(), 26) >= 2, "slide note key 26 not pressed before AND during"); break;
+                    case 20: need (std::count (keyOrder.begin(), keyOrder.end(), 27) >= 5, "thrash key 27 not pressed five times"); break;
+                    case 21: need (keys.count (109) > 0 && keys.count (110) > 0, "no down (109) then alternate (110)"); break;
                     default: break;
                 }
                 if (i == 12) need (maxCC1 > 100, "wide vibrato no wider");
@@ -2788,7 +2793,7 @@ int main (int argc, char** argv)
                 }
                 for (int k : keys) need (k < 13 || k > 18 || k == latch, "sent latching key " + juce::String (k));
             }
-            check (played >= 17 && wrong.isEmpty(), "the guitar 2 articulation test sends what each row names",
+            check (played >= 22 && wrong.isEmpty(), "the guitar 2 articulation test sends what each row names",
                    wrong.isEmpty() ? juce::String (played) + " articulations" : wrong.joinIntoString ("; "));
         }
 

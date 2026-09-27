@@ -1786,6 +1786,17 @@ static void generateFills (const SectionPlan& s,
             li.target        = (n.f & Target) != 0;
             li.slur          = (n.f & Slur) != 0;
             li.glide         = (n.f & Glide) != 0;
+            // THE FX KEYS in the songs, sparingly and without a random draw
+            // (so not one approved note moves): a held landing now and then
+            // falls off the neck, a lick now and then opens with a fret squeak
+            // in the gap before it or slides in from up the neck.
+            {
+                const int beat = li.tick / 480;
+                const bool plainStart = n.on == 0 && ! (n.f & (Bend1 | Bend2 | Scoop | Rake | Tap | PreBend));
+                li.slideOff    = (n.f & Target) && n.len >= 600 && beat % 7 == 2;
+                li.fretNoise   = n.on == 0 && beat % 8 == 3;
+                li.neckSlideIn = plainStart && beat % 13 == 4;
+            }
             li.vibrato       = (n.f & Vib) != 0;
             li.bendSemis     = (n.f & Bend2) ? 2 : ((n.f & Bend1) ? 1 : 0);
             expression (li, n.f);
@@ -1901,6 +1912,17 @@ static void generateFills (const SectionPlan& s,
                         li.target        = (n.f & Target) != 0;
                         li.slur          = (n.f & Slur) != 0;
             li.glide         = (n.f & Glide) != 0;
+            // THE FX KEYS in the songs, sparingly and without a random draw
+            // (so not one approved note moves): a held landing now and then
+            // falls off the neck, a lick now and then opens with a fret squeak
+            // in the gap before it or slides in from up the neck.
+            {
+                const int beat = li.tick / 480;
+                const bool plainStart = n.on == 0 && ! (n.f & (Bend1 | Bend2 | Scoop | Rake | Tap | PreBend));
+                li.slideOff    = (n.f & Target) && n.len >= 600 && beat % 7 == 2;
+                li.fretNoise   = n.on == 0 && beat % 8 == 3;
+                li.neckSlideIn = plainStart && beat % 13 == 4;
+            }
                         li.vibrato       = (n.f & Vib) != 0;
                         li.bendSemis     = (n.f & Bend2) ? 2 : ((n.f & Bend1) ? 1 : 0);
                         expression (li, n.f);
@@ -2210,6 +2232,17 @@ static void generateLeadSolo (const SectionPlan& s,
             li.target        = (n.f & Target) != 0;
             li.slur          = (n.f & Slur) != 0;
             li.glide         = (n.f & Glide) != 0;
+            // THE FX KEYS in the songs, sparingly and without a random draw
+            // (so not one approved note moves): a held landing now and then
+            // falls off the neck, a lick now and then opens with a fret squeak
+            // in the gap before it or slides in from up the neck.
+            {
+                const int beat = li.tick / 480;
+                const bool plainStart = n.on == 0 && ! (n.f & (Bend1 | Bend2 | Scoop | Rake | Tap | PreBend));
+                li.slideOff    = (n.f & Target) && n.len >= 600 && beat % 7 == 2;
+                li.fretNoise   = n.on == 0 && beat % 8 == 3;
+                li.neckSlideIn = plainStart && beat % 13 == 4;
+            }
             li.vibrato       = (n.f & Vib) != 0;
             li.bendSemis     = (n.f & Bend2) ? 2 : ((n.f & Bend1) ? 1 : 0);
             expression (li, n.f);

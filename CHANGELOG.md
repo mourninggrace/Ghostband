@@ -29,6 +29,14 @@ Session 29. Built and measured; not released until the owner has listened.
   staccato, and a thrash tremolo burst is one held note on Hydra's looping
   tremolo (other instruments pick it out as written). Not one approved solo
   note moved. Calibrate > GTR 2 rows 14-16 now play.
+- **Legato slide, the FX keys and picking mode on guitar 2**: slides between notes
+  (C0 held), fret noise (25), slide in from / off the neck (26), thrash note (27,
+  test row only until heard), pick direction (108-111: alternate, down-picked
+  when palm-muted). Used sparingly and without random draws - no approved solo
+  note moved. Calibrate rows 13 and 17-21 play; 22 of 23 rows live (capo left).
+- **UNDER drops evenly in dB** (1.8 dB per 10%, 100% silent), default 20%.
+- **Guitar 2's level is sent gently** - on a change only, ~20/s at most - after
+  Kontakt 8 crashed under a burst while the dial was dragged.
 - **changes.log records every guitar 2 level change** (value, bar, fills or full).
 
 ### Fixed (session 31)

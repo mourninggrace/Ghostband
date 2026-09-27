@@ -4518,11 +4518,11 @@ const std::vector<GhostbandProcessor::ArticDemo>& GhostbandProcessor::guitar2Art
         { "palm-muted lead",                  "key 13",          true  },
         { "staccato",                         "key 14",          true  },
         { "tremolo picking",                  "key 18",          true  },
-        { "slide to the next note",           "FX key 24",       false },
-        { "fret noise",                       "FX key 25",       false },
-        { "slide in from / out to the neck",  "FX key 26",       false },
-        { "thrash note",                      "FX key 27",       false },
-        { "picking mode",                     "keys 108-111",    false },
+        { "slide to the next note",           "FX key 24",       true  },
+        { "fret noise",                       "FX key 25",       true  },
+        { "slide in from / out to the neck",  "FX key 26",       true  },
+        { "thrash note",                      "FX key 27",       true  },
+        { "picking mode (down, then alternate)", "keys 109, 110", true  },
         { "capo",                             "learned control", false },
     };
     return demos;
@@ -4595,6 +4595,15 @@ static gb::PhrasePart articDemoPart (int index)
         case 15: for (int p : { 69, 67, 69, 72 })     // clipped, air between
                  { note (100, p).artic = gb::LeadArtic::Staccato; t += 140; }
                  note (1440, 69); break;
+        // Rows 17-21, the FX keys and the pick direction.
+        case 17: note (960, 64).glide = true; note (1440, 67); break;
+        case 18: note (960, 64); t += 480; note (1440, 67).fretNoise = true; break;
+        case 19: { auto& n = note (1920, 69); n.neckSlideIn = true; n.slideOff = true; } break;
+        case 20: note (1920, 64).thrashRepeats = 5; note (1440, 67); break;
+        case 21: for (int k = 0; k < 8; ++k) note (120, 64).pick = gb::LeadIntent::Pick::Down;
+                 t += 240;
+                 for (int k = 0; k < 8; ++k) note (120, 64).pick = gb::LeadIntent::Pick::Alternate;
+                 note (1440, 64); break;
         case 16: note (1440, 69).artic = gb::LeadArtic::Tremolo;
                  note (960, 72).artic = gb::LeadArtic::Tremolo;
                  note (1440, 69); break;

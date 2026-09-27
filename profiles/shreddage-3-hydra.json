@@ -526,6 +526,12 @@
   "rake_as_prelude": true,
   "slide_keyswitch": 24,
 
+  // The other FX keys and the picking-mode keys: fixed keys in the manual
+  // (p35: C#0 fret noise, D0 slide note, D#0 thrash note; p17: C7-D#7 pick
+  // up / down / alternate / economy), not part of the articulation map.
+  "fx_keys":      { "fret_noise": 25, "slide_note": 26, "thrash_note": 27 },
+  "picking_keys": { "up": 108, "down": 109, "alternate": 110, "economy": 111 },
+
   "keyswitches_verified": true,
 
   // 100, and this is not arbitrary.
