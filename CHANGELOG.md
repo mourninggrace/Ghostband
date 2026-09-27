@@ -22,6 +22,27 @@ Session 29. Built and measured; not released until the owner has listened.
   a build, a climax, a held and bent root. Solo notes inside one-way scale runs
   21% -> 12%. Complexity and Intuition now drive it; neither reached it before.
 
+### Added (session 30)
+- **Solo schools** from the owner's list of reference solos - blues, melodic
+  rock, neoclassical, NWOBHM, thrash - built from each school's techniques
+  (nothing transcribed). Bend-and-release, pre-bends, slides, wide vibrato.
+- **Calibrate: DRUMS | BASS | GTR 2**, with a guitar 2 articulation test that
+  plays each articulation through the real renderer, to be marked by ear.
+- **Bass BUSY up** walks into chord changes with approach notes.
+
+### Fixed (session 30)
+- **Hydra spoke the wrong articulation map.** The owner's TACT map puts
+  Sustain, Rake, Pinch, Harmonics, Tapping and Choke on CC 40 bands; Ghostband
+  sent the manual's keys. And Staccato was found LATCHED - sections switched to
+  keys that nothing released - clipping every note. Now: his bands, Sustain
+  presses C-1 to release latches, rake leads into its note, slide-in is a real
+  Legato Slide (C0). All 13 test rows confirmed right by ear.
+- **Solos struck softly** (accent 0.7 vs v2.3.0's 0.9) - back to 0.95.
+- **Fills sounded like the solo continuing**: answers capped and softer, held
+  support between them, never two line-endings unanswered, and how solo-like a
+  fill may be now depends on the style (blues most, alt/emo/punk least).
+- **Guitar 2 BUSY** acts directly: 72 / 157 / 212 notes on Nine Cent Rain.
+
 ### Added
 - **UNDER** - how far guitar 2 drops while it plays fills (default 45%, was a fixed 70%).
 - **BUSY** on every MIX row and **SHRED** for guitar 2 - trims whose middle is

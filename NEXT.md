@@ -6,7 +6,13 @@ useless for the one job it has: telling whoever picks this up next what is true
 right now. The history is in `docs/archive/NEXT-through-session-13.md`, and
 nobody has to read it.
 
-**Last touched 2026-09-26, session 29.**
+**Last touched 2026-09-27, session 30.** Session 30 (solo schools, articulation
+test, the owner's real Hydra map, fills by genre) is on `fills-v3-wip`
+@787dc13, installed. FIRST NEXT: UNDER - the owner's taught store
+(%APPDATA%\Ghostband\learned-controls.json, entry shreddage3_hydra) still
+names CC 20 "volume" as the level and overrides the profile's new CC 7
+"output volume"; migrate it in code, and have the owner tick Kontakt's
+"Accept standard controllers for Volume (#7) and Pan (#10)" for Hydra.
 
 ## State
 

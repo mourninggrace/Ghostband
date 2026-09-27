@@ -35,7 +35,17 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
 - [ ] **Host freezes** (not Ghostband) and **Kontakt 8.13.1 hanging on GP5 exit**
       (installer works around it) - both outside this code.
 
-## Next, in order (owner's requests)
+## Next, in order (owner's requests) - updated session 30
+
+0. [ ] **UNDER does nothing** (owner, 2026-09-27; it was never BUSY). It moves
+       Hydra's pre-FX gain. Profile now puts the level on CC 7 (Kontakt output)
+       but his taught store still says CC 20 - migrate it; owner ticks Kontakt's
+       "Accept standard controllers for Volume (#7) and Pan (#10)".
+0. [ ] **The ten articulations not sent yet** (legato slide as a phrase tool,
+       palm-mute lead, staccato, tremolo, FX 24-27, picking mode, capo) - now
+       releasable, since Sustain presses C-1. Each confirmed in the test.
+0. [ ] Drums BUSY up is weak in a shuffle (+6%).
+0. [ ] One-click GP5 close that also clears Kontakt's hung process.
 
 1. [ ] **Guitar 1 and guitar 2 playing together** - harmonies, unison hits, trading
        bars, guitar 1 leaving space - in fills, and especially solos.
