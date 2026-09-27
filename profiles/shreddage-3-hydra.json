@@ -685,7 +685,11 @@
     // volume once Instrument Options > Controller > "Accept standard
     // controllers for Volume (#7) and Pan (#10)" is ticked - the owner's one
     // step. Hydra's gain knob is parked at full on CC 20 instead.
-    "output volume": { "cc": 7, "follows": "level", "type": "knob", "low": 0, "high": 1 },
+    // CC 85, NOT CC 7 (2026-09-27): with "Accept standard controllers" ticked,
+    // Kontakt's Vol slider still never moved for CC 7 in the owner's GP5 rig.
+    // So the slider is MIDI-learned instead (right-click Vol > Learn, then
+    // Settings > this control > Teach) on a controller nothing else uses.
+    "output volume": { "cc": 85, "follows": "level", "type": "knob", "low": 0, "high": 1 },
     "volume": { "cc": 20, "follows": "fixed", "type": "knob", "low": 1, "high": 1 },
     // Already the one control that told a fill from a solo - 19 against 108 -
     // and now it has company rather than doing the whole job alone.

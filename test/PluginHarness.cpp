@@ -7557,7 +7557,7 @@ int main (int argc, char** argv)
                     for (const juce::MidiMessageMetadata e : m)
                     {
                         const auto msg = e.getMessage();
-                        if (msg.isController() && (msg.getControllerNumber() == 7 || msg.getControllerNumber() == 20))
+                        if (msg.isController() && (msg.getControllerNumber() == 7 || msg.getControllerNumber() == 20 || msg.getControllerNumber() == 85))
                             std::printf ("  bar %5.1f  ch %2d  CC %2d = %3d\n", ph.ppq / 4.0 + 1.0,
                                          msg.getChannel(), msg.getControllerNumber(), msg.getControllerValue());
                     }
