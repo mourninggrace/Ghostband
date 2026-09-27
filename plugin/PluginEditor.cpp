@@ -2326,11 +2326,16 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
                                                juce::MathConstants<float>::pi * 2.8f, true);
         levelGuitar2Fills.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
         levelGuitar2Fills.setRange (0.0, 1.0, 0.01);
-        levelGuitar2Fills.setValue (processor.levelGuitar2Fills.load(), juce::dontSendNotification);
-        levelGuitar2Fills.setDoubleClickReturnValue (true, GhostbandProcessor::kFillsLevelDefault);
+        // THE KNOB SHOWS THE DROP, the processor keeps the level. The owner
+        // (2026-09-27) turned UNDER to 100% expecting guitar 2 further under,
+        // and got fills at full level - the knob showed what fills play AT.
+        // Now 0% = no drop, 100% = fills gone; the stored value (and every saved
+        // song) is unchanged, only the face of the knob is turned round.
+        levelGuitar2Fills.setValue (1.0 - processor.levelGuitar2Fills.load(), juce::dontSendNotification);
+        levelGuitar2Fills.setDoubleClickReturnValue (true, 1.0 - GhostbandProcessor::kFillsLevelDefault);
         levelGuitar2Fills.onValueChange = [this]
         {
-            processor.levelGuitar2Fills.store (static_cast<float> (levelGuitar2Fills.getValue()));
+            processor.levelGuitar2Fills.store (static_cast<float> (1.0 - levelGuitar2Fills.getValue()));
             processor.sendLevels();
             refreshFillsLevelLabel();
         };
@@ -7006,8 +7011,8 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
             levelGuitar2Fills.setAlpha (alpha);
             levelGuitar2FillsLabel.setAlpha (alpha);
             levelGuitar2Fills.setTooltip (
-                reachable ? "UNDER: how far guitar 2 drops while it plays fills (not solos), as a share of the GTR 2 knob. Solos play at "
-                            "the full GTR 2 level; fills drop to this, so they sit behind the band. "
+                reachable ? "UNDER: how far guitar 2 drops while it plays fills (not solos). 0% = no drop, "
+                            "100% = fills silent. Solos always play at the full GTR 2 level. "
                             "Double-click for the default."
                           : "Nothing can set guitar 2's level (see the GTR 2 knob), so nothing can "
                             "lower it for fills either.");

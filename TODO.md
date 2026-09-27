@@ -50,7 +50,7 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
 
 1. [ ] **Guitar 1 and guitar 2 playing together** - harmonies, unison hits, trading
        bars, guitar 1 leaving space - in fills, and especially solos.
-2. [ ] **Effects that fit the part** - research each instrument's effect controls
+2. [-] SHELVED 2026-09-27 (owner: no extra plugins; Hydra's own presets cover tone). **Effects that fit the part** - research each instrument's effect controls
        from its manual first. Known wall: Shreddage's Console effects have MIDI
        learn removed (BACKLOG D2). Also answer AmpliTube 5 / Guitar Rig 7 (C4).
 3. [ ] **Capo** - check the Hydra manual for a real one; otherwise emulate open-string

@@ -7531,6 +7531,42 @@ int main (int argc, char** argv)
                    juce::String (lo) + " / " + juce::String (mid) + " / " + juce::String (hi) + " guitar 2 notes");
         }
 
+        // GB_UNDER_PROBE=<learned-controls.json>: plays Nine Cent Rain against
+        // that store at UNDER 0 and 1 and prints every controller guitar 2 gets.
+        if (const char* store = std::getenv ("GB_UNDER_PROBE"))
+        {
+            GhostbandProcessor::setLearnedControlsFileForTesting (juce::File (juce::String (store)));
+            for (float under : { 0.0f, 1.0f })
+            {
+                GhostbandProcessor pu;
+                pu.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-blues-2.json"));
+                pu.levelGuitar2Fills.store (under);
+                pu.sendLevels();
+                const double sr = 48000.0; const int bs = 512;
+                pu.setRateAndBufferSizeDetails (sr, bs);
+                pu.prepareToPlay (sr, bs);
+                FakePlayHead ph; ph.bpm = pu.getPlanBpm(); pu.setPlayHead (&ph);
+                std::printf ("UNDER %.0f%%: full %d fill %d\n", under * 100.0f,
+                             pu.guitar2LevelForSectionForTesting (false), pu.guitar2LevelForSectionForTesting (true));
+                juce::AudioBuffer<float> buf (2, bs); juce::MidiBuffer m;
+                const double q = (bs / sr) * (ph.bpm / 60.0);
+                for (int blk = 0; blk < static_cast<int> ((pu.getStatus().bars + 2) * 4 / q); ++blk)
+                {
+                    ph.ppq = blk * q; buf.clear(); m.clear();
+                    pu.processBlock (buf, m);
+                    for (const juce::MidiMessageMetadata e : m)
+                    {
+                        const auto msg = e.getMessage();
+                        if (msg.isController() && (msg.getControllerNumber() == 7 || msg.getControllerNumber() == 20))
+                            std::printf ("  bar %5.1f  ch %2d  CC %2d = %3d\n", ph.ppq / 4.0 + 1.0,
+                                         msg.getChannel(), msg.getControllerNumber(), msg.getControllerValue());
+                    }
+                }
+                pu.setPlayHead (nullptr);
+            }
+            GhostbandProcessor::setLearnedControlsFileForTesting (juce::File());
+        }
+
         GhostbandProcessor p3;
         p3.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-prog.json"));
         const double sr = 48000.0;
