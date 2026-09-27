@@ -7556,7 +7556,7 @@ int main (int argc, char** argv)
                     const double barNow = blk * q / 4.0 + 1.0;
                     static int step = 0;
                     if (blk == 0) step = 0;
-                    if (step == 0 && barNow >= 20.0) { pu.levelGuitar2.store (0.69f); pu.sendLevels(); step = 1; std::printf ("  -- GTR2 knob 69%% at bar 20\n"); }
+                    if (step == 0 && barNow >= 20.0) { pu.levelGuitar2.store (0.69f); pu.levelPiano.store (0.3f); pu.sendLevels(); step = 1; std::printf ("  -- GTR2 knob 69%%, PIANO 30%% at bar 20\n"); }
                     if (step == 1 && barNow >= 24.0) { pu.paused.store (true); step = 2; std::printf ("  -- paused at bar 24\n"); }
                     if (step == 2 && barNow >= 25.0) { pu.paused.store (false); step = 3; std::printf ("  -- resumed\n"); }
                     ph.ppq = blk * q; buf.clear(); m.clear();
@@ -7564,7 +7564,7 @@ int main (int argc, char** argv)
                     for (const juce::MidiMessageMetadata e : m)
                     {
                         const auto msg = e.getMessage();
-                        if (msg.isController() && (msg.getControllerNumber() == 85))
+                        if (msg.isController() && (msg.getControllerNumber() == 28 || msg.getControllerNumber() == 7))
                             std::printf ("  bar %5.1f  ch %2d  CC %2d = %3d\n", ph.ppq / 4.0 + 1.0,
                                          msg.getChannel(), msg.getControllerNumber(), msg.getControllerValue());
                     }

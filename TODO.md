@@ -41,6 +41,17 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
        Kontakt's Vol slider to CC 85 (Settings > output volume > Teach). The GP5
        16-channel Audio Mixer block was making up the lost level (on/off only);
        disabled, UNDER fades properly. Guitar 2's balance is now the GTR 2 knob.
+0. [ ] **Solo doesn't sound louder than fills** even at full level (owner, 2026-09-27;
+       the Vol slider does rise at the solo, and the GTR 2 knob is audible in it).
+       Lead: at the solo Ghostband flips Hydra's pickup neck->bridge (CC22 0->127)
+       and bite 28->99 - likely thinner/quieter. Owner parked it for now.
+0. [ ] **Guitar 2 level is on CC7 in the owner's rig**, not CC85: his Settings Save
+       (12:18) wrote an older in-memory set into the installed profile and the
+       installer carried it. Kontakt learned CC7. Works, but CC7 is what other
+       parts' fallbacks send (guitar 1 sends CC7 ch2) and Hydra is on Omni -
+       settle on one CC and have Hydra listen on ch 11 only.
+0. [x] **Piano dial did nothing** - Virtual Pianist had lost its CC28 learn; owner
+       re-taught it (Settings > volume > Teach), works (2026-09-27).
 0. [ ] **The ten articulations not sent yet** (legato slide as a phrase tool,
        palm-mute lead, staccato, tremolo, FX 24-27, picking mode, capo) - now
        releasable, since Sustain presses C-1. Each confirmed in the test.
