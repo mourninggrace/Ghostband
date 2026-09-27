@@ -534,11 +534,12 @@
   //   Poly Input Latency = 0                     manual p11 recommends very low
   //                       or zero for fast parts, or the fretting jumps around
   //   Pitch Bend Range   = 2                     matches the bend block below
-  // EVERY NOTE PICKED (2026-09-27). Tried as an A/B for guitar 2 sounding
-  // quiet; it was not the cause, but the owner heard the solos and fills
-  // "sound better" picked, so it stays. Overlap 12 made Shreddage hammer and
-  // pull 33-38% of the new lines, softer than a pick.
-  "legato": { "overlap_ticks": 0, "max_leap_semitones": 2 },
+  // LEGATO BACK, WHERE A PLAYER USES IT (2026-09-27). Switched off for an
+  // A/B, the owner heard the lines "sound better" picked - and then, rightly:
+  // every articulation in use. So hammer-ons and pull-offs stay, but the
+  // renderer now only slurs FAST notes (runs, trills, tapping); melodic notes
+  // of an eighth or longer are picked, which is the punch he heard.
+  "legato": { "overlap_ticks": 12, "max_leap_semitones": 2 },
 
   // Bends. Declared because this is a lead instrument and pitch bend is the
   // articulation Ghostband can send safely - it is a channel message rather

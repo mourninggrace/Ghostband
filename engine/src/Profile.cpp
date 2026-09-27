@@ -1842,8 +1842,12 @@ void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
             const int  gapToNext = haveNext ? part.lead[i + 1].tick - n.tick : 1 << 30;
             const bool slurHere  = n.slur && leap <= 7
                                 && (n.artic == LeadArtic::Tap || gapToNext <= 160);
+            // And the plain step-wise legato only on FAST notes too: an eighth
+            // or longer is picked, for the attack (heard 2026-09-27: the lines
+            // "sound better" picked). Runs, trills and taps keep the hammer.
+            const bool fastStep = leap <= legatoMaxLeapSemitones && gapToNext <= 200;
             if (legatoOverlapTicks > 0 && haveNext && ! nextIsHeld
-                && leap > 0 && (leap <= legatoMaxLeapSemitones || slurHere))
+                && leap > 0 && (fastStep || slurHere))
             {
                 const int nextStart = part.lead[i + 1].tick;
                 const int nextEnd   = nextStart + std::max (1, part.lead[i + 1].durationTicks);
