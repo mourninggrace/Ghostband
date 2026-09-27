@@ -7012,11 +7012,11 @@ int main (int argc, char** argv)
             // The profile says its three tone controls follow "lead": up and
             // brighter when this guitar is out front. Only its CC numbers are
             // the store's business.
-            int levels = 0, leads = 0;
+            int levels = 0, leads = 0; int levelCC = -1;
             for (int i = 0; i < count; ++i)
             {
                 const auto c = proc.getControl (gtr2, i);
-                if (c.follows == "level") ++levels;
+                if (c.follows == "level") { ++levels; levelCC = c.cc; }
                 if (c.follows == "lead")  ++leads;
             }
 
@@ -7074,10 +7074,11 @@ int main (int argc, char** argv)
                 }
             }
 
-            // A taught level goes out on its own controller; an untaught one
-            // falls back to CC 7. Either is correct - sending nothing at all,
-            // or sending both, is not.
-            check (cc > 0 && (taught ? cc != 7 : cc == 7),
+            // A taught level goes out on ITS controller - which may itself be
+            // CC 7 now: Hydra's level is Kontakt's output volume (2026-09-27);
+            // an untaught one falls back to CC 7. Sending nothing, or another
+            // controller than the one claimed, is the fault.
+            check (cc > 0 && (taught ? cc == levelCC : cc == 7),
                    "the mix knob leaves the plugin on the controller it claims",
                    "CC" + juce::String (cc) + " ch" + juce::String (channel)
                        + "=" + juce::String (value)

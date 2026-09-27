@@ -678,7 +678,15 @@
   // drag CC 20 onto the volume slider. That is a drag, not a right-click, which
   // is why right-clicking it did nothing.
   "controls": {
-    "volume": { "cc": 20, "follows": "level", "type": "knob", "low": 0, "high": 1 },
+    // LEVEL IS KONTAKT'S OUTPUT NOW, ON CC 7 (2026-09-27). CC 20 drove Hydra's
+    // own Volume knob, which the manual (p9) says is PRE-FX GAIN: with the amp
+    // after it, less gain made the tone cleaner and the loudness the same, and
+    // the owner heard UNDER "doing nothing". CC 7 is Kontakt's instrument
+    // volume once Instrument Options > Controller > "Accept standard
+    // controllers for Volume (#7) and Pan (#10)" is ticked - the owner's one
+    // step. Hydra's gain knob is parked at full on CC 20 instead.
+    "output volume": { "cc": 7, "follows": "level", "type": "knob", "low": 0, "high": 1 },
+    "volume": { "cc": 20, "follows": "fixed", "type": "knob", "low": 1, "high": 1 },
     // Already the one control that told a fill from a solo - 19 against 108 -
     // and now it has company rather than doing the whole job alone.
     "bite": { "cc": 21, "follows": "lead", "type": "knob", "low": 0.1, "high": 0.9 },
