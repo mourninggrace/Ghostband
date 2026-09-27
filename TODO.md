@@ -37,10 +37,11 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
 
 ## Next, in order (owner's requests) - updated session 30
 
-0. [ ] **UNDER does nothing** (owner, 2026-09-27; it was never BUSY). It moves
-       Hydra's pre-FX gain. Profile now puts the level on CC 7 (Kontakt output)
-       but his taught store still says CC 20 - migrate it; owner ticks Kontakt's
-       "Accept standard controllers for Volume (#7) and Pan (#10)".
+0. [ ] **UNDER - owner to confirm by ear** (2026-09-27). No migration needed:
+       the store only supplies CC numbers, the profile's "follows" wins, so the
+       level already goes out on CC 7 (installed profile checked). The blocker
+       was Kontakt ignoring CC 7; the owner has now ticked "Accept standard
+       controllers for Volume (#7) and Pan (#10)".
 0. [ ] **The ten articulations not sent yet** (legato slide as a phrase tool,
        palm-mute lead, staccato, tremolo, FX 24-27, picking mode, capo) - now
        releasable, since Sustain presses C-1. Each confirmed in the test.
@@ -64,8 +65,12 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
 - [ ] Listening verdict on everything in "In the middle".
 - [ ] `stalls.log` after the next audio break-up.
 - [ ] `bigMoment` fires only on chorus and solo - a musical judgement.
-- [ ] Defender exclusions / bisecting the rackspace for the host freezes.
-- [ ] One Calibrate run for Shreddage's low register.
+- [x] Defender exclusion for GP5 (owner, already in place 2026-09-27).
+- [x] Guitar 2 lowest note re-set in Calibrate (owner, 2026-09-27 - it was set
+      wrong; may explain the "silent below E2" workaround - listen for it).
+- [x] Kontakt CC 7 tick; GP5 launcher re-pinned from the Start menu loader.
+- [ ] AmpliTube 5 / Guitar Rig 7: does he own either, and should Ghostband
+      drive an amp/FX plugin after Hydra (C4)?
 
 ## Version 3
 
