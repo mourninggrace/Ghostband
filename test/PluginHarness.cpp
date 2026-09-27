@@ -125,7 +125,8 @@ void check (bool condition, const juce::String& what, const juce::String& detail
 // fingerprinted three ways - rhythm, contour, rhythm+intervals - and the report
 // says how many phrases share a fingerprint with phrases in OTHER songs.
 struct FillNumbers { double top3Share = 1.0, betweenSongs = 1.0, withinSong = 1.0; int phrases = 0, notes = 0; uint32_t soloSum = 0; double walkShare = 1.0;
-                     double soloStepShare = 1.0, soloWalkShare = 1.0, soloHeldShare = 0.0; int soloNotes = 0; };
+                     double soloStepShare = 1.0, soloWalkShare = 1.0, soloHeldShare = 0.0; int soloNotes = 0;
+                     double soloAccent = 0.0; };
 
 static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool print = true)
 {
@@ -153,6 +154,7 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
     // notes held a beat or longer (a line that sings, not one that hunts).
     long soloMoves = 0, soloSteps = 0, soloNoteCount = 0, soloInWalks = 0, soloTicks = 0, soloHeldTicks = 0;
     std::map<std::string, std::pair<long, long>> soloDensity;   // style -> notes, bars
+    double soloAccentSum = 0.0;
     std::map<std::string, int> soloRunLen;
 
     for (const juce::File& f : plansDir.findChildFiles (juce::File::findFiles, false, "*.json"))
@@ -217,6 +219,7 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
                 std::sort (so.begin(), so.end(), [] (const auto& a, const auto& b) { return a.tick < b.tick; });
                 soloNoteCount += static_cast<long> (so.size());
                 soloDensity[song.style].first  += static_cast<long> (so.size());
+                for (const gb::LeadIntent& n : so) soloAccentSum += n.accent;
                 soloDensity[song.style].second += (sec.endTick - sec.startTick) / (gb::kPPQ * 4);
 
                 // GB_SHOW_SOLO=<song>: print that song's solos note by note, to read one.
@@ -421,6 +424,8 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
     out.soloWalkShare = soloNoteCount ? soloInWalks / double (soloNoteCount) : 1.0;
     out.soloHeldShare = soloTicks ? soloHeldTicks / double (soloTicks) : 0.0;
     out.soloNotes     = static_cast<int> (soloNoteCount);
+    out.soloAccent    = soloNoteCount ? soloAccentSum / soloNoteCount : 0.0;
+    if (print) std::printf ("  solo accent, mean: %.2f (v2.3.0's solos were about 0.9)\n", out.soloAccent);
     if (print) std::printf ("  most common rhythms (onset:length in 16ths):\n%s", top (rhythmCount, 8).c_str());
     if (print) std::printf ("  most common contours:\n%s", top (contourCount, 8).c_str());
     if (print) std::printf ("  most common full shapes:\n%s", top (fullCount, 8).c_str());
@@ -7420,6 +7425,13 @@ int main (int argc, char** argv)
         check (f.soloSum == 0x785a332fu,
                "the solos are exactly as the owner approved them - not one note moved",
                juce::String::toHexString ((juce::int64) f.soloSum));
+
+        // STRUCK LIKE A SOLO. The rebuilt solos came in at an accent of about
+        // 0.7 against the old engine's 0.9 - fifteen velocity lower on
+        // Shreddage, whose velocity picks the sample layer - and the owner
+        // heard it straight away: "even the solo is quiet" (2026-09-27).
+        check (f.soloAccent >= 0.85, "the solos are struck as hard as a solo should be",
+               "mean accent " + juce::String (f.soloAccent, 2));
 
         check (f.phrases > 200 && f.top3Share < 0.20 && f.betweenSongs < 0.25,
                "the lead guitar's fills do not share one rhythm, and two songs do not share one habit",

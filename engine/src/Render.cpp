@@ -1731,7 +1731,7 @@ static void generateFills (const SectionPlan& s,
                                                 sectionStartTick, sectionEnd - 1);
             li.durationTicks = std::max (1, n.len);
             li.pitch         = pitch;
-            li.accent        = std::min (0.95, 0.62 + s.intensity * 0.18 + ((n.f & Target) ? 0.08 : 0.0) + rng.bipolar (0.04));
+            li.accent        = std::min (0.98, 0.72 + s.intensity * 0.18 + ((n.f & Target) ? 0.08 : 0.0) + rng.bipolar (0.04));
             li.target        = (n.f & Target) != 0;
             li.slur          = (n.f & Slur) != 0;
             li.vibrato       = (n.f & Vib) != 0;
@@ -1832,7 +1832,7 @@ static void generateFills (const SectionPlan& s,
                                                             sectionStartTick, sectionEnd - 1);
                         li.durationTicks = std::max (1, n.len);
                         li.pitch         = pitch;
-                        li.accent        = std::min (0.9, 0.50 + s.intensity * 0.15 + rng.bipolar (0.04));
+                        li.accent        = std::min (0.9, 0.62 + s.intensity * 0.15 + rng.bipolar (0.04));
                         li.target        = (n.f & Target) != 0;
                         li.slur          = (n.f & Slur) != 0;
                         li.vibrato       = (n.f & Vib) != 0;
@@ -1862,7 +1862,7 @@ static void generateFills (const SectionPlan& s,
         li.pitch         = lastPitch > 0 ? tones[static_cast<size_t> (nearestIndex (tones, lastPitch + rng.range (-4, 4)))]
                                          : tones[static_cast<size_t> (rng.below (static_cast<int> (tones.size())))];
         lastPitch        = li.pitch;
-        li.accent        = 0.55 + s.intensity * 0.15;
+        li.accent        = 0.64 + s.intensity * 0.15;
         li.bendSemis     = rng.chance (0.55) ? 2 : 0;
         li.vibrato       = true;
         li.bed           = true;     // support, not an answer - see LeadIntent::bed
@@ -2122,7 +2122,7 @@ static void generateLeadSolo (const SectionPlan& s,
             li.tick          = clampTick (start + n.on * sc + static_cast<int> (rng.bipolar (humanize * 3.0)));
             li.durationTicks = std::max (1, n.len * sc);
             li.pitch         = pitch;
-            li.accent        = std::min (0.97, 0.60 + s.intensity * 0.16 + lift
+            li.accent        = std::min (1.0, 0.80 + s.intensity * 0.14 + lift
                                                + ((n.f & Target) ? 0.08 : 0.0) + rng.bipolar (0.04));
             li.target        = (n.f & Target) != 0;
             li.slur          = (n.f & Slur) != 0;
@@ -2154,7 +2154,7 @@ static void generateLeadSolo (const SectionPlan& s,
         li.tick          = clampTick (from + static_cast<int> (rng.bipolar (humanize * 3.0)));
         li.durationTicks = to - from;
         li.pitch         = tones[static_cast<size_t> (nearestIndex (tones, reg + rng.range (-4, 4)))];
-        li.accent        = std::min (0.95, 0.62 + s.intensity * 0.14 + lift);
+        li.accent        = std::min (0.98, 0.78 + s.intensity * 0.12 + lift);
         li.bendSemis     = rng.chance (0.6) ? 2 : 0;
         li.vibrato       = true;
         if (li.bendSemis == 0 && rng.chance (0.2 * how.gestures)) li.artic = LeadArtic::Harmonic;
