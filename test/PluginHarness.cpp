@@ -4950,6 +4950,7 @@ int main (int argc, char** argv)
                 // was "the playhead is not moving but audio is still heard like
                 // normal". That has audio blocks by definition.
                 {
+                    gbEd->resetIdleGapsForTesting();
                     const int  before  = gbEd->stallCountForTesting();
                     const auto sizeWas = testLog.getSize();
 
