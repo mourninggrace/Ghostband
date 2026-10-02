@@ -3913,6 +3913,131 @@ static void twoGuitars (PhrasePart& g1, size_t g1ChordsFrom, size_t g1LeadFrom,
     }
 }
 
+// SHRED (2026-10-02, the owner: "i need to know they actually change things
+// when adjusted as intended"). It used to reweight which licks a solo drew,
+// which re-rolled the whole solo: on a third of the songs turning it UP made
+// the solo SLOWER (Brass Hour 58% -> 22% of notes at sixteenth speed). Now it
+// EDITS the line that SHRED 0 plays - which is the approved one, untouched:
+//   up    a held note before a gap becomes a sixteenth run stepping through
+//         the key into the next note, more of them the further it goes;
+//   down  runs of fast notes keep every other note, each held longer.
+// Its own stream, so the base line never moves.
+static void shredEdit (std::vector<LeadIntent>& lead, size_t from, double shred,
+                       int keyPc, Mode mode, const std::string& style,
+                       const PhraseProfile* profile, uint32_t seed)
+{
+    if (shred == 0.0 || from >= lead.size())
+        return;
+
+    Rng r (seed);
+    const int lowest  = std::max (profile != nullptr ? profile->chordLowest  : 40, 50);
+    const int highest = std::min (profile != nullptr ? profile->chordHighest : 96, 88);
+    const std::vector<int>& scale = soloScale (mode, style);
+    const auto inKey = [&] (int p)
+    {
+        const int pc = ((p - keyPc) % 12 + 12) % 12;
+        return scale.empty() || std::find (scale.begin(), scale.end(), pc) != scale.end();
+    };
+    const auto step = [&] (int p, int dir)   // the next note of the key, up or down
+    {
+        for (int k = 1; k <= 3; ++k)
+            if (inKey (p + dir * k)) return p + dir * k;
+        return p + dir * 2;
+    };
+
+    std::vector<LeadIntent> out (lead.begin(), lead.begin() + static_cast<std::ptrdiff_t> (from));
+
+    if (shred > 0.0)
+    {
+        for (size_t i = from; i < lead.size(); ++i)
+        {
+            const LeadIntent& n = lead[i];
+            const bool haveNext = i + 1 < lead.size();
+            const int  room     = haveNext ? lead[i + 1].tick - n.tick : 0;
+            const int  sixteenth = 120;
+            const int  k        = std::clamp ((room - 240) / sixteenth, 3, 3 + static_cast<int> (shred * 4.0));
+            const int  runStart = haveNext ? lead[i + 1].tick - k * sixteenth : 0;
+
+            // Where a player fills in: a held note, or a rest after a note,
+            // before the next one. A landing keeps at least a beat and a half,
+            // a bend the time to arrive.
+            const bool restAfter = room - n.durationTicks >= 360;
+            const bool candidate = haveNext && ! n.bed && ! lead[i + 1].bed
+                                && n.artic == LeadArtic::Normal && room >= 480
+                                && (n.durationTicks >= 360 || restAfter)
+                                && runStart - n.tick >= (n.target ? 720 : n.bendSemis > 0 ? 480 : 120);
+            if (! candidate || ! r.chance (std::min (1.0, shred)))
+            {
+                out.push_back (n);
+                continue;
+            }
+
+            // Held for the first part (or as written, before a rest), then a
+            // run of sixteenths walking into the next note.
+            const int target = lead[i + 1].pitch;
+            const int dir    = n.pitch <= target ? 1 : -1;   // approach from the side we come from
+
+            LeadIntent head = n;
+            head.durationTicks = std::max (60, std::min (n.durationTicks, runStart - n.tick));
+            head.slideOff = false;
+            out.push_back (head);
+
+            std::vector<int> pitches;
+            int p = target;
+            for (int q = 0; q < k; ++q) { p = step (p, -dir); pitches.push_back (p); }
+            std::reverse (pitches.begin(), pitches.end());
+
+            for (int q = 0; q < k; ++q)
+            {
+                const int pitch = std::clamp (pitches[static_cast<size_t> (q)], lowest, highest);
+                LeadIntent rn;
+                rn.tick          = runStart + q * sixteenth;
+                rn.durationTicks = sixteenth;
+                rn.pitch         = pitch;
+                rn.accent        = std::min (1.0, n.accent * 0.94 + (q == 0 ? 0.04 : 0.0));
+                rn.slur          = q % 2 == 1;   // picked and hammered, a real run
+                rn.unswung       = true;          // a run is its own time
+                out.push_back (rn);
+            }
+        }
+    }
+    else
+    {
+        const double thin = std::min (1.0, -shred);
+        size_t i = from;
+        while (i < lead.size())
+        {
+            size_t j = i;
+            while (j + 1 < lead.size() && ! lead[j + 1].bed && ! lead[j].bed
+                   && lead[j + 1].tick - lead[j].tick <= 130)
+                ++j;
+
+            if (j - i + 1 >= 3 && r.chance (thin))
+            {
+                // Every other note of the run, the landing always kept.
+                for (size_t q = i; q <= j; ++q)
+                {
+                    const bool keep = (q - i) % 2 == 0 || q == j || lead[q].target;
+                    if (! keep) continue;
+                    LeadIntent kept = lead[q];
+                    size_t nx = q + 1;
+                    while (nx <= j && ! ((nx - i) % 2 == 0 || nx == j || lead[nx].target)) ++nx;
+                    if (nx <= j) kept.durationTicks = std::max (kept.durationTicks, lead[nx].tick - kept.tick);
+                    kept.slur = false;
+                    out.push_back (kept);
+                }
+            }
+            else
+            {
+                for (size_t q = i; q <= j; ++q) out.push_back (lead[q]);
+            }
+            i = j + 1;
+        }
+    }
+
+    lead.swap (out);
+}
+
 static void generatePhrasePart (const SectionPlan& s,
                                 const std::vector<Chord>& chords,
                                 int sectionStartTick,
@@ -3978,16 +4103,22 @@ static void generatePhrasePart (const SectionPlan& s,
         // until the owner says otherwise. See kSoloGestures.
         if (fills)
         {
+            const size_t before = out.lead.size();
             generateFills (s, chords, sectionStartTick, barTicks, keyPc, mode, style,
-                           swing, profile, humanize, soloRng, out, fillAmount, iq, songSeed, complexity, shredTrim, busyTrim);
+                           swing, profile, humanize, soloRng, out, fillAmount, iq, songSeed, complexity, 0.0, busyTrim);
+            shredEdit (out.lead, before, shredTrim * 0.5, keyPc, mode, style, profile,
+                       deriveSeed (sectionSeed, 0x5ED0Fu));
             return;
         }
 
         // SOLOS v3 (2026-09-26), at the owner's word: "they need more
         // substance". The old generator stays below, unused, until this has
         // been heard.
+        const size_t before = out.lead.size();
         generateLeadSolo (s, chords, sectionStartTick, barTicks, keyPc, mode, style,
-                          swing, profile, humanize, soloRng, out, iq, songSeed, complexity, shredTrim, busyTrim);
+                          swing, profile, humanize, soloRng, out, iq, songSeed, complexity, 0.0, busyTrim);
+        shredEdit (out.lead, before, shredTrim, keyPc, mode, style, profile,
+                   deriveSeed (sectionSeed, 0x5ED05u));
         return;
     }
 
@@ -4322,7 +4453,10 @@ RenderResult renderPerformance (const SongPlan& plan,
         GrooveContext ctx;
         ctx.feel        = feelFromString (s.feel);
         ctx.intensity   = s.intensity;
-        ctx.complexity  = trimmedComplexity (plan.complexity, plan.busy[0]);   // the drums' own
+        // The song's complexity, NOT trimmed by BUSY: the trim reweighted the
+        // rolls and could land on a sparser groove. BUSY acts directly instead
+        // (chooseGroove, the pickup kick).
+        ctx.complexity  = plan.complexity;
         ctx.swung       = plan.swing > 0.0;
         ctx.busyTrim    = plan.busy[0];
         ctx.humanize    = plan.humanize;
@@ -4450,6 +4584,51 @@ RenderResult renderPerformance (const SongPlan& plan,
                             b.erase (b.begin() + static_cast<long> (q));
                         else
                             ++q;
+                    }
+                }
+
+                // BUSY up, DRIVEN (2026-10-02: up added only ~5%). A note held
+                // a beat or longer is split: the root on the beat, a push on
+                // the off-beat - the octave, or the root again - the way a
+                // bassist leans into a part. Swung eighths in a shuffle land on
+                // its grid. Its own stream; at zero it draws nothing.
+                if (plan.busy[1] > 0.0)
+                {
+                    Rng dr (deriveSeed (sectionSeed, 0xBA57u + static_cast<uint32_t> (bar)));
+                    auto& bb = result.performance.bass;
+                    const int eighth = beatTicks / 2;
+                    const int pushAt = plan.swing ? (beatTicks * 2) / 3 : eighth;
+                    std::vector<BassIntent> added;
+                    for (size_t q = bassBefore; q < bb.size(); ++q)
+                    {
+                        BassIntent& b = bb[q];
+                        if (b.artic == BassArtic::Dead || b.durationTicks < beatTicks - beatTicks / 8) continue;
+                        if (! dr.chance (std::min (0.95, plan.busy[1] * 0.9))) continue;
+                        BassIntent push = b;
+                        push.tick          = b.tick + pushAt;
+                        push.durationTicks = std::max (1, b.durationTicks - pushAt);
+                        push.pitch         = dr.chance (0.5) ? b.pitch + 12 : b.pitch;
+                        push.accent        = std::max (0.3, b.accent * 0.85);
+                        b.durationTicks    = pushAt - 6;
+                        added.push_back (push);
+                    }
+                    bb.insert (bb.end(), added.begin(), added.end());
+                    std::stable_sort (bb.begin() + static_cast<std::ptrdiff_t> (bassBefore), bb.end(),
+                                      [] (const BassIntent& x, const BassIntent& y) { return x.tick < y.tick; });
+
+                    // And MOVEMENT where the line is already all eighths (a
+                    // shuffle's walking bass has nothing long to split): a
+                    // repeated root becomes the octave, or the fifth on beat
+                    // three - a busier bassist moves more, not only plays more.
+                    for (size_t q = bassBefore + 1; q < bb.size(); ++q)
+                    {
+                        BassIntent& b = bb[q];
+                        if (b.artic == BassArtic::Dead || b.pitch != bb[q - 1].pitch) continue;
+                        const int inBar = (b.tick - barStart) % barTicks;
+                        if (inBar < beatTicks / 8) continue;   // the downbeat stays the root
+                        if (! dr.chance (std::min (0.9, plan.busy[1] * 0.12))) continue;
+                        const bool beatThree = std::abs (inBar - 2 * beatTicks) < beatTicks / 8;
+                        b.pitch += beatThree ? 7 : 12;
                     }
                 }
 

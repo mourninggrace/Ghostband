@@ -222,6 +222,26 @@ SectionGroove buildSectionGroove (const GrooveContext& ctx, Rng& rng)
     // ---- fills -----------------------------------------------------------
     g.fillShape = rng.below (5);
 
+    // DRUMS BUSY, DIRECTLY (2026-10-02). It used to shift complexity, which
+    // only reweighted the hat roll - so turning it UP could re-roll a sparser
+    // groove (Iron Weather: 1656 -> 1609 drum notes). Now, after every roll
+    // and without a draw of its own, so at zero this changes nothing:
+    //   up    the hats one subdivision denser, more ghost notes;
+    //   down  the hats one subdivision sparser, fewer ghosts.
+    if (ctx.busyTrim > 0.0)
+    {
+        // In a shuffle the hats stop at swung eighths - sixteenths fall off
+        // its grid and are swung away - and the busyness goes into ghosts.
+        const int densest = ctx.swung ? 2 : 1;
+        if (ctx.busyTrim >= 0.34 && ctx.feel != Feel::Blast && g.hatStep > densest) g.hatStep /= 2;
+        g.ghostDensity = std::min (0.9, g.ghostDensity + ctx.busyTrim * (ctx.swung ? 0.7 : 0.35));
+    }
+    else if (ctx.busyTrim < 0.0)
+    {
+        if (ctx.busyTrim <= -0.34 && g.hatStep < 4) g.hatStep *= 2;
+        g.ghostDensity *= 1.0 + ctx.busyTrim;
+    }
+
     return g;
 }
 
@@ -378,7 +398,8 @@ BarGrid buildBarGrid (const GrooveContext& ctx,
     // An occasional extra pickup kick, weighted by complexity. Deliberately rare:
     // the kick pattern is the spine both the drums and the bass hang off, so it
     // has to stay recognisable bar to bar.
-    if (rng.chance (ctx.complexity * 0.18) && beats >= 2)
+    if (rng.chance (std::clamp (ctx.complexity * 0.18 * (1.0 + std::min (0.0, ctx.busyTrim))
+                                + std::max (0.0, ctx.busyTrim) * 0.5, 0.0, 1.0)) && beats >= 2)
     {
         const int tick = (beats - 1) * ctx.beatTicks + 3 * sixteenth;
         if (! contains (grid.kickOnsets, tick))

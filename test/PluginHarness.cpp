@@ -124,7 +124,7 @@ void check (bool condition, const juce::String& what, const juce::String& detail
 // phrase (not the bed) in every "fills" section of every song, at six seeds, is
 // fingerprinted three ways - rhythm, contour, rhythm+intervals - and the report
 // says how many phrases share a fingerprint with phrases in OTHER songs.
-struct FillNumbers { int twinInStyle = 0, twinOutOfStyle = 0, twinSongs = 0; double top3Share = 1.0, betweenSongs = 1.0, withinSong = 1.0; int phrases = 0, notes = 0; uint32_t soloSum = 0; double walkShare = 1.0;
+struct FillNumbers { int shredSongs = 0; juce::StringArray shredWrongWay; int twinInStyle = 0, twinOutOfStyle = 0, twinSongs = 0; double top3Share = 1.0, betweenSongs = 1.0, withinSong = 1.0; int phrases = 0, notes = 0; uint32_t soloSum = 0; double walkShare = 1.0;
                      double soloStepShare = 1.0, soloWalkShare = 1.0, soloHeldShare = 0.0; int soloNotes = 0;
                      double soloAccent = 0.0; };
 
@@ -148,6 +148,7 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
     long bedNotes = 0, answerNotes = 0, bedTicks = 0, answerTicks = 0, sectionTicks = 0;
     uint32_t soloSum = 17u;
     int twinInStyle = 0, twinOutOfStyle = 0, twinSongs = 0;
+    int shredSongs = 0; juce::StringArray shredWrongWay;
     int walks = 0, walkCandidates = 0;
     // SOLOS, measured the way the fills were: how many moves are a step, how
     // much of the line is a run of four or more steps in one direction (the
@@ -188,6 +189,56 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
             const std::string songId = f.getFileNameWithoutExtension().toStdString() + "#" + std::to_string (k);
 
             // GB_SHOW_G2=<song>: every guitar 2 note of that song, by section.
+            // GB_SHRED_PROBE=1: in the solos, the share of notes at sixteenth
+            // speed or faster, at SHRED -1 / 0 / +1 (k == 0 only).
+            if (k == 0)
+            {
+                juce::String line = f.getFileNameWithoutExtension().paddedRight (' ', 20);
+                int share[3] = { 0, 0, 0 }, solos = 0;
+                for (int st = -1; st <= 1; ++st)
+                {
+                    gb::SongPlan sp = song;
+                    sp.shredTrim = static_cast<double> (st);
+                    const gb::RenderResult rr = gb::renderPerformance (sp, kit, bass, &gtr, &piano, &gtr2);
+                    int all = 0, fast = 0;
+                    for (const gb::SectionReport& sc : rr.sections)
+                    {
+                        if (sc.guitar2Feel.rfind ("solo", 0) != 0) continue;
+                        std::vector<int> ticks;
+                        for (const gb::LeadIntent& n : rr.performance.guitar2.lead)
+                            if (n.tick >= sc.startTick && n.tick < sc.endTick && ! n.bed) ticks.push_back (n.tick);
+                        for (size_t q = 0; q + 1 < ticks.size(); ++q) { ++all; if (ticks[q + 1] - ticks[q] <= 130) ++fast; }
+                    }
+                    line << "  " << st << ": " << fast << "/" << all << " (" << (all ? 100 * fast / all : 0) << "%)";
+                    share[st + 1] = all > 0 ? (1000 * fast) / all : 0;
+                    solos = std::max (solos, all);
+                }
+                if (solos > 0)
+                {
+                    ++shredSongs;
+                    if (share[0] > share[1] || share[2] < share[1]) shredWrongWay.add (f.getFileNameWithoutExtension());
+                }
+                if (std::getenv ("GB_SHRED_PROBE"))
+                    std::printf ("SHRED %s\n", line.toRawUTF8());
+
+                // And the bass under BUSY: notes, and how often the pitch moves.
+                if (std::getenv ("GB_SHRED_PROBE"))
+                {
+                juce::String b = f.getFileNameWithoutExtension().paddedRight (' ', 20);
+                for (int st = -1; st <= 1; ++st)
+                {
+                    gb::SongPlan sp = song;
+                    sp.busy[1] = static_cast<double> (st);
+                    const gb::RenderResult rr = gb::renderPerformance (sp, kit, bass, &gtr, &piano, &gtr2);
+                    int moves = 0;
+                    for (size_t q = 1; q < rr.performance.bass.size(); ++q)
+                        if (rr.performance.bass[q].pitch != rr.performance.bass[q - 1].pitch) ++moves;
+                    b << "  " << st << ": " << static_cast<int> (rr.performance.bass.size()) << " notes, " << moves << " moves";
+                }
+                std::printf ("BASS  %s\n", b.toRawUTF8());
+                }
+            }
+
             if (const char* show = std::getenv ("GB_SHOW_G2"))
                 if (k == 0 && f.getFileNameWithoutExtension() == juce::String (show))
                     for (const gb::SectionReport& sc : r.sections)
@@ -460,6 +511,7 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
         out.notes = notes;
         out.soloSum = soloSum;
         out.twinInStyle = twinInStyle; out.twinOutOfStyle = twinOutOfStyle; out.twinSongs = twinSongs;
+        out.shredSongs = shredSongs; out.shredWrongWay = shredWrongWay;
         out.walkShare = walkCandidates ? walks / double (walkCandidates) : 0.0;
     }
     return out;
@@ -7537,6 +7589,13 @@ int main (int argc, char** argv)
         // TWIN GUITARS (2026-09-27): in the twin-guitar styles guitar 1 plays
         // guitar 2's written-for-two lines and each solo's last phrase a third
         // below; in every other style it never does.
+        // SHRED MOVES THE SOLO THE WAY IT SAYS, in every song with one
+        // (2026-10-02: it used to re-roll the solo; a third went the wrong way).
+        check (f.shredSongs >= 25 && f.shredWrongWay.isEmpty(),
+               "SHRED never makes a solo slower turning up, nor faster turning down",
+               juce::String (f.shredSongs) + " songs"
+                   + (f.shredWrongWay.isEmpty() ? juce::String() : ", wrong way: " + f.shredWrongWay.joinIntoString (", ")));
+
         check (f.twinSongs >= 10 && f.twinOutOfStyle == 0,
                "guitar 1 harmonises guitar 2 in the twin-guitar styles, and only there",
                juce::String (f.twinInStyle) + " harmony notes in " + juce::String (f.twinSongs) + " songs, "
@@ -7657,6 +7716,89 @@ int main (int argc, char** argv)
                    "clicking a bar while playing jumps to its first beat and restates the instruments",
                    "landed at tick " + juce::String (landedAt) + " (bar 20 = " + juce::String (19 * bar) + "), CC 40 "
                        + (cc40OnLanding ? "restated" : "NOT restated"));
+        }
+
+        // EVERY BUSY DIAL AND SHRED DO WHAT THEY SAY (2026-10-02, the owner: "i
+        // need to know they actually change things when adjusted as intended").
+        // On a shuffle, a thrash song and a ballad, through the plugin: each
+        // instrument's notes strictly fewer at -1 and more at +1 (drums, bass and
+        // guitar 1 by 4%, guitar 2 and piano by 10%), and guitar 2 never slower with SHRED up.
+        {
+            const char* songs[] = { "preset-blues-2", "preset-thrash", "preset-ballad" };
+            const int   chans[5] = { 10, 1, 7, 11, 3 };   // guitar 1 is on 7 in the test store
+            const char* names[5] = { "drums", "bass", "guitar 1", "guitar 2", "piano" };
+            juce::StringArray wrong;
+            for (const char* sg : songs)
+            {
+                GhostbandProcessor pd;
+                pd.loadPlan (juce::File ("C:/Projects/Ghostband/plans/" + juce::String (sg) + ".json"));
+                for (int part = 0; part < 5; ++part)
+                {
+                    int n[3];
+                    for (int k = 0; k < 3; ++k)
+                    {
+                        pd.busyTrim[part].store (static_cast<float> (k - 1));
+                        pd.regenerate();
+                        n[k] = pd.notesOnChannelForTesting (chans[part]);
+                    }
+                    pd.busyTrim[part].store (0.0f);
+                    if (n[1] < 20) continue;   // a part this song barely uses
+                    // How much busier is honest: a thrash guitar already chugging
+                    // sixteenths has little room (+6%), and a shuffle's walking bass
+                    // gets busier by MOVING (52 -> 196 pitch changes) more than by
+                    // adding notes (+5%). Guitar 2 and piano have room for 10%.
+                    const double gain = (part == 3 || part == 4) ? 1.10 : 1.04;
+                    if (! (n[0] < n[1] && n[2] > n[1] * gain))
+                        wrong.add (juce::String (sg) + " " + names[part] + " " + juce::String (n[0]) + "/"
+                                   + juce::String (n[1]) + "/" + juce::String (n[2]));
+                }
+                pd.regenerate();
+            }
+            check (wrong.isEmpty(), "every BUSY dial makes its instrument sparser down and busier up",
+                   wrong.isEmpty() ? juce::String ("3 songs x 5 instruments") : wrong.joinIntoString ("; "));
+        }
+
+        // GB_DIAL_PROBE=1: what every BUSY dial and SHRED actually change, per
+        // song, through the plugin - notes per instrument at -1 / 0 / +1.
+        if (std::getenv ("GB_DIAL_PROBE"))
+        {
+            const char* songs[] = { "preset-blues-2", "preset-blues", "preset-thrash", "preset-hard-rock",
+                                    "preset-prog", "preset-metal-1", "preset-ballad", "preset-punk" };
+            const int  chans[5] = { 10, 1, 7, 11, 3 };   // guitar 1 is on 7 in the test store
+            const char* names[5] = { "drums", "bass", "gtr1", "gtr2", "piano" };
+            for (const char* sg : songs)
+            {
+                GhostbandProcessor pd;
+                pd.loadPlan (juce::File ("C:/Projects/Ghostband/plans/" + juce::String (sg) + ".json"));
+                juce::String line = juce::String (sg).paddedRight (' ', 18);
+                {
+                    juce::String chs = "  channels:";
+                    for (int c = 1; c <= 16; ++c) { const int k = pd.notesOnChannelForTesting (c); if (k > 0) chs << " " << c << "=" << k; }
+                    std::printf ("%s\n", chs.toRawUTF8());
+                }
+                for (int part = 0; part < 5; ++part)
+                {
+                    int n[3];
+                    for (int k = 0; k < 3; ++k)
+                    {
+                        pd.busyTrim[part].store (static_cast<float> (k - 1));
+                        pd.regenerate();
+                        n[k] = pd.notesOnChannelForTesting (chans[part]);
+                    }
+                    pd.busyTrim[part].store (0.0f);
+                    line << names[part] << " " << n[0] << "/" << n[1] << "/" << n[2] << "   ";
+                }
+                int s[3];
+                for (int k = 0; k < 3; ++k)
+                {
+                    pd.shredTrim.store (static_cast<float> (k - 1));
+                    pd.regenerate();
+                    s[k] = pd.notesOnChannelForTesting (11);
+                }
+                pd.shredTrim.store (0.0f);
+                line << "SHRED gtr2 " << s[0] << "/" << s[1] << "/" << s[2];
+                std::printf ("%s\n", line.toRawUTF8());
+            }
         }
 
         // NEVER A BURST OF GUITAR 2 LEVELS (2026-10-02: Kontakt 8.13.1 crashed

@@ -30,6 +30,20 @@ Session 29. Built and measured; not released until the owner has listened.
   knob's level and the section's on the same instant. Stopped, it speaks only
   when the knob moves. Checked under a dragged dial, pause, resume and a jump.
 
+### Fixed (session 32) - the dials, verified
+- **Drums BUSY acts directly**: hats a subdivision denser/sparser, more/fewer
+  ghosts and pickup kicks (in a shuffle the hats stop at swung eighths and the
+  busyness goes to ghosts). It used to reweight a roll, and turning it up could
+  land on a SPARSER groove (Iron Weather 1656 -> 1609).
+- **Bass BUSY up drives**: held notes split with an off-beat push (octave or
+  root), and an eighth-note line moves more (octaves, fifths) - up was +5%.
+- **SHRED edits the approved solo instead of re-rolling it**: up turns held notes
+  and rests into sixteenth runs into the next note, down thins fast runs. It
+  went the wrong way on a third of the songs; now on none (checked, 33 songs).
+- Checks: every BUSY dial busier up and sparser down on 3 songs x 5 instruments;
+  SHRED never the wrong way in any song. At 0 nothing moves - the approved
+  solo lock holds.
+
 ### Added (session 31)
 - **Palm-muted lead, staccato and tremolo picking on guitar 2** (Hydra keys 13, 14,
   18 - the owner's latching keys, released by his C-1 Sustain rule). The NWOBHM
