@@ -2721,8 +2721,8 @@ void GhostbandProcessor::sendLevels()
         // pixel of a dial drag, most of them repeats - and Kontakt 8 crashed
         // under exactly that burst (owner, 2026-09-27, 13:00).
         // Stopped, there is no audio-thread send, so the dial goes straight out.
-        if (transportRunning.load() && m.channel == g2LevelChannel.load() && m.cc == g2LevelCC.load())
-            continue;
+        if (m.channel == g2LevelChannel.load() && m.cc == g2LevelCC.load())
+            continue;   // its one sender has it (sendGuitar2Level)
         pendingAuditions.push_back ({ 0, msg });
     }
 }
@@ -2797,7 +2797,37 @@ void GhostbandProcessor::restateBefore (int tick, juce::MidiBuffer& midi, int sa
 void GhostbandProcessor::restateLevelsLocked()
 {
     for (const juce::MidiMessage& m : levelMessages)
-        pendingAuditions.push_back ({ 0, m });
+        if (! isGuitar2Level (m))
+            pendingAuditions.push_back ({ 0, m });
+    g2LevelDirty.store (true);   // guitar 2's from its one sender
+}
+
+bool GhostbandProcessor::sendGuitar2Level (juce::MidiBuffer& midi, int value, int bar, bool fills)
+{
+    const int cc = g2LevelCC.load();
+    if (cc < 0 || value < 0)
+        return false;
+
+    const bool mayChange = g2SamplesSinceSend >= static_cast<int> (juce::jmax (8000.0, getSampleRate()) * 0.05);
+    if (! mayChange)
+        return false;   // too soon; a pending dirty flag waits for the next block
+
+    if (value == g2LevelLastSent && ! g2LevelDirty.exchange (false))
+        return false;
+    g2LevelDirty.store (false);
+
+    g2SamplesSinceSend = 0;
+    midi.addEvent (juce::MidiMessage::controllerEvent (g2LevelChannel.load(), cc, value), 0);
+    g2LevelLastSent = value;
+
+    // For the change log (written by the editor's timer - no file work on
+    // this thread): what went out, where, and why.
+    g2SentValue.store (value);
+    g2SentCC.store (cc);
+    g2SentBar.store (bar);
+    g2SentFills.store (fills);
+    g2SentCount.fetch_add (1);
+    return true;
 }
 
 void GhostbandProcessor::auditionStep (int index)
@@ -3847,6 +3877,25 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
         }
     }
 
+    // Guitar 2's level while the band is NOT playing (stopped, paused,
+    // calibrating): the knob's own value, through the one sender.
+    g2SamplesSinceSend = std::min (g2SamplesSinceSend + numSamples, 1 << 28);
+    // Only when the KNOB moves (or a restatement asks): stopping the band is
+    // not a reason to say anything - once stopped, Ghostband is quiet.
+    if (! transportRunning.load())
+    {
+        const int full = g2LevelFull.load();
+        if ((full != g2LastFullSeen || g2LevelDirty.load())
+            && sendGuitar2Level (midi, full, 0, false))
+            g2LastFullSeen = full;
+        else if (g2LastFullSeen < 0)
+            g2LastFullSeen = full;
+    }
+    else
+    {
+        g2LastFullSeen = g2LevelFull.load();
+    }
+
     // THE LEVELS AGAIN, 3 and 8 seconds after audio starts: a fresh GP5 load
     // brings the instruments up after Ghostband's first word, and they would
     // otherwise sit at their presets' volume until a dial moved.
@@ -3860,8 +3909,9 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
             if (levels.isLocked())
             {
                 for (const juce::MidiMessage& m : levelMessages)
-                    midi.addEvent (m, 0);
-                g2LevelDirty.store (true);   // and guitar 2's section level after it
+                    if (! isGuitar2Level (m))
+                        midi.addEvent (m, 0);
+                g2LevelDirty.store (true);   // guitar 2's from its one sender
                 ++startupRestates;
             }
         }
@@ -3956,7 +4006,8 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
             // knob position until somebody moved the knob - the mix was wrong
             // from the moment the song started until it was touched.
             for (const juce::MidiMessage& m : levelMessages)
-                midi.addEvent (m, 0);
+                if (! isGuitar2Level (m))
+                    midi.addEvent (m, 0);
         }
     }
 
@@ -4173,22 +4224,7 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
                                && sectionGuitar2Fills[static_cast<size_t> (ahead)] != 0;
             const int value = fills ? g2LevelFill.load() : g2LevelFull.load();
 
-            g2SamplesSinceSend = std::min (g2SamplesSinceSend + numSamples, 1 << 28);
-            const bool mayChange = g2SamplesSinceSend >= static_cast<int> (getSampleRate() * 0.05);
-            if (value >= 0 && ((value != g2LevelLastSent && mayChange) || g2LevelDirty.exchange (false)))
-            {
-                g2SamplesSinceSend = 0;
-                midi.addEvent (juce::MidiMessage::controllerEvent (g2LevelChannel.load(), cc, value), 0);
-                g2LevelLastSent = value;
-
-                // For the change log (written by the editor's timer - no file
-                // work on this thread): what went out, where, and why.
-                g2SentValue.store (value);
-                g2SentCC.store (cc);
-                g2SentBar.store (barTicks > 0 ? static_cast<int> (at / barTicks) + 1 : 0);
-                g2SentFills.store (fills);
-                g2SentCount.fetch_add (1);
-            }
+            sendGuitar2Level (midi, value, barTicks > 0 ? static_cast<int> (at / barTicks) + 1 : 0, fills);
         }
     }
 

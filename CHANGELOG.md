@@ -22,6 +22,14 @@ Session 29. Built and measured; not released until the owner has listened.
   a build, a climax, a held and bent root. Solo notes inside one-way scale runs
   21% -> 12%. Complexity and Intuition now drive it; neither reached it before.
 
+### Fixed (session 32)
+- **Kontakt 8.13.1 crashed** (three times, the same null read on its UI thread)
+  around bursts of the CC 7 that Hydra's rack volume answers once "Accept
+  standard controllers" is ticked. Guitar 2's level now has ONE sender: never
+  two in a block, never within 50 ms, and restatements no longer stack the
+  knob's level and the section's on the same instant. Stopped, it speaks only
+  when the knob moves. Checked under a dragged dial, pause, resume and a jump.
+
 ### Added (session 31)
 - **Palm-muted lead, staccato and tremolo picking on guitar 2** (Hydra keys 13, 14,
   18 - the owner's latching keys, released by his C-1 Sustain rule). The NWOBHM

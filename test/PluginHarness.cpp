@@ -7658,6 +7658,57 @@ int main (int argc, char** argv)
                        + (cc40OnLanding ? "restated" : "NOT restated"));
         }
 
+        // NEVER A BURST OF GUITAR 2 LEVELS (2026-10-02: Kontakt 8.13.1 crashed
+        // three times on its UI thread around bursts of the CC 7 that Hydra's
+        // rack volume answers). Played through with a dial dragged every block,
+        // a pause and resume and a bar jump: guitar 2's level never goes out
+        // twice in one block, nor twice within 50 ms.
+        {
+            GhostbandProcessor pb;
+            pb.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-blues-2.json"));
+            const double sr = 48000.0; const int bs = 256;
+            pb.setRateAndBufferSizeDetails (sr, bs);
+            pb.prepareToPlay (sr, bs);
+            FakePlayHead ph; ph.bpm = pb.getPlanBpm(); pb.setPlayHead (&ph);
+            juce::AudioBuffer<float> buf (2, bs); juce::MidiBuffer m;
+            const double q = (bs / sr) * (ph.bpm / 60.0);
+            const int g2ch = 11;
+            long long lastAt = -1000000; int minGap = 1 << 30, inOneBlock = 0, sent = 0;
+            for (int blk = 0; blk < static_cast<int> (60.0 * sr / bs); ++blk)
+            {
+                const double secs = blk * bs / sr;
+                if (secs > 5.0 && secs < 9.0)   // a dial being dragged
+                {
+                    pb.levelGuitar2.store (0.6f + 0.4f * static_cast<float> (std::fmod (secs, 1.0)));
+                    pb.levelGuitar2Fills.store (0.5f + 0.5f * static_cast<float> (std::fmod (secs * 1.7, 1.0)));
+                    pb.sendLevels();
+                }
+                if (std::abs (secs - 12.0) < bs / sr) pb.paused.store (true);
+                if (std::abs (secs - 14.0) < bs / sr) pb.paused.store (false);
+                if (std::abs (secs - 20.0) < bs / sr) pb.queueBar (gb::kPPQ * 4 * 30);
+                ph.ppq = blk * q; buf.clear(); m.clear();
+                pb.processBlock (buf, m);
+                int here = 0;
+                for (const juce::MidiMessageMetadata e : m)
+                {
+                    const auto msg = e.getMessage();
+                    if (msg.isController() && msg.getChannel() == g2ch
+                        && (msg.getControllerNumber() == 7 || msg.getControllerNumber() == 85))
+                    {
+                        const long long at = static_cast<long long> (blk) * bs + e.samplePosition;
+                        minGap = std::min (minGap, static_cast<int> (at - lastAt));
+                        lastAt = at; ++here; ++sent;
+                    }
+                }
+                if (here > 1) ++inOneBlock;
+            }
+            pb.setPlayHead (nullptr);
+            check (sent > 0 && inOneBlock == 0 && minGap >= static_cast<int> (sr * 0.05),
+                   "guitar 2's level never goes out in a burst - one at a time, 50 ms apart",
+                   juce::String (sent) + " sent, closest " + juce::String (minGap / sr * 1000.0, 1) + " ms, "
+                       + juce::String (inOneBlock) + " blocks with two");
+        }
+
         // A FRESH LOAD SAYS THE LEVELS BY ITSELF (2026-09-27: "the gtr 2 mix
         // dial does not sync with hydra's vol dial until it is moved"). Stopped,
         // nobody touching anything: within ten seconds guitar 2's level

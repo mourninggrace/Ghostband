@@ -37,6 +37,11 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
 
 ## Next, in order (owner's requests) - updated session 30
 
+0. [ ] **AFTER today's items (owner, 2026-10-02):** (a) VERIFY everything works
+       as intended - mainly that BUSY and SHRED audibly change things when
+       turned; (b) a COMPREHENSIVE BUG AUDIT - find and fix everything. Without
+       breaking anything approved (feedback-dont-break-the-good-stuff).
+
 0. [x] **UNDER works** (2026-09-27). Kontakt 8 ignored CC 7; the owner MIDI-learned
        Kontakt's Vol slider to CC 85 (Settings > output volume > Teach). The GP5
        16-channel Audio Mixer block was making up the lost level (on/off only);

@@ -1044,6 +1044,19 @@ private:
     int                           startupRestates    = 0;         // audio thread only
     void                          restateLevelsLocked();          // auditionLock held
     void                          restateBefore (int tick, juce::MidiBuffer& midi, int sample);
+
+    // THE ONLY PLACE GUITAR 2'S LEVEL IS SENT (2026-10-02). Kontakt 8.13.1
+    // crashed three times on its UI thread around bursts of CC 7, which
+    // Hydra's rack volume answers once "Accept standard controllers" is
+    // ticked; a restatement sent the knob's level and then the section's in
+    // the same instant. Now one message at a time, 50 ms apart at least.
+    bool isGuitar2Level (const juce::MidiMessage& m) const
+    {
+        return m.isController() && m.getChannel() == g2LevelChannel.load()
+            && m.getControllerNumber() == g2LevelCC.load();
+    }
+    bool sendGuitar2Level (juce::MidiBuffer& midi, int value, int bar, bool fills);
+    int  g2LastFullSeen = -1;   // audio thread only: the knob's level last acted on while stopped
 public:
     // The last guitar 2 level the audio thread sent, for the change log.
     std::atomic<int>              g2SentValue { -1 }, g2SentCC { -1 }, g2SentBar { 0 }, g2SentCount { 0 };
