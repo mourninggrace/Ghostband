@@ -6,7 +6,7 @@ useless for the one job it has: telling whoever picks this up next what is true
 right now. The history is in `docs/archive/NEXT-through-session-13.md`, and
 nobody has to read it.
 
-**Last touched 2026-10-03, session 34. v2.5.0 RELEASED** (main = v2.5.0, fast-forwarded from fills-v3-wip). Everything installed. Iron 2: CC30 = finisher ON/OFF, CC37 = finisher effect, CC29 stomp on/off, CC36 pedal. Five approved songs pinned via plan "sound". Dropout detector writes "AUDIO DROPOUT" to changes.log. NEXT: Export MIDI (V3) - sketch the button first.
+**Last touched 2026-10-03, session 34. v2.5.0 RELEASED** (main = v2.5.0, fast-forwarded from fills-v3-wip). Everything installed. Iron 2: CC30 = finisher ON/OFF, CC37 = finisher effect, CC29 stomp on/off, CC36 pedal. Five approved songs pinned via plan "sound". Dropout detector writes "AUDIO DROPOUT" to changes.log. Capo by key installed and on. NEXT: build Export MIDI (V3) - layout A chosen: "Export MIDI..." button beside Load/Takes/Edit song/Calibrate.
 
 ## State
 

@@ -106,7 +106,7 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
 
 Announced on the front page, so people know what is coming.
 
-- [ ] **Export MIDI** — a button that writes what Ghostband plays for the loaded
+- [ ] **Export MIDI** (NEXT - layout A chosen 2026-10-03: an "Export MIDI..." button with Load/Takes/Edit song/Calibrate; save dialog, one track per instrument, tempo + section markers, current knob settings) — a button that writes what Ghostband plays for the loaded
       song to a standard MIDI file (one track per part) for any DAW or plugin.
       The CLI already exports, and as of the 2026-09-26 audit its MIDI has no
       re-struck notes in any of the 34 songs (lead and chords both fixed).
