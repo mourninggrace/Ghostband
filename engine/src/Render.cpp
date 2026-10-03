@@ -1796,7 +1796,10 @@ static void generateLeadSolo (const SectionPlan& s,
                               uint32_t songSeed,
                               double complexity,
                               double shredTrim,
-                              double busyTrim)
+                              double busyTrim,
+                              double climbTrim  = 0.0,
+                              double themeTrim  = 0.0,
+                              double tricksTrim = 0.0)
 {
     using namespace fillvoice;
 
@@ -1806,6 +1809,12 @@ static void generateLeadSolo (const SectionPlan& s,
     SoloStyle how;
     how.shred = std::clamp (0.15 + complexity * 0.6 + iq * 0.3 + shredTrim * 0.6, 0.0, 1.0);
     how.busy  = std::clamp (0.2 + complexity * 0.9 + iq * 0.2, 0.0, 1.0);
+
+    // THE SOLO KNOBS. 0 leaves each exactly where it was, and every draw they
+    // feed is taken whatever the value, so the approved solos do not move.
+    how.climb       = 0.45 + (climbTrim > 0.0 ? climbTrim * 0.35 : climbTrim * 0.40);   // 0.05 .. 0.80
+    how.motifReturn = 0.60 + (themeTrim > 0.0 ? themeTrim * 0.40 : themeTrim * 0.60);   // 0 .. 1
+    how.gestures    = 1.00 + tricksTrim;                                                 // 0 .. 2 (harmonics on held notes double)
 
     if (chords.empty() || profile == nullptr || s.bars <= 0 || barTicks <= 0)
         return;
@@ -2059,7 +2068,9 @@ static void generateLeadSolo (const SectionPlan& s,
         const Chord& landChord = chordAt (lastBar);
 
         // The register rises through the solo; the dynamics with it.
-        const int  reg  = lowest + static_cast<int> ((highest - lowest) * (0.28 + how.climb * t + (final && K > 1 ? 0.10 : 0.0)));
+        // Capped below the top so CLIMB up cannot ask for a register above it;
+        // at CLIMB 0 the share never passes 0.83, so nothing approved changes.
+        const int  reg  = lowest + static_cast<int> ((highest - lowest) * std::min (0.97, 0.28 + how.climb * t + (final && K > 1 ? 0.10 : 0.0)));
         const double lift = -0.05 + 0.13 * t;
 
         // AAB: the opening phrase, said again note for note - then answered.
@@ -2666,7 +2677,10 @@ static void generatePhrasePart (const SectionPlan& s,
                                 double complexity,
                                 double busyTrim,
                                 double shredTrim,
-                                const std::map<std::string, double>* pins)
+                                const std::map<std::string, double>* pins,
+                                double climbTrim,
+                                double themeTrim,
+                                double tricksTrim)
 {
     PhraseIntent pi;
     pi.tick   = sectionStartTick;
@@ -2723,7 +2737,26 @@ static void generatePhrasePart (const SectionPlan& s,
         // been heard.
         const size_t before = out.lead.size();
         generateLeadSolo (s, chords, sectionStartTick, barTicks, keyPc, mode, style,
-                          swing, profile, humanize, soloRng, out, iq, songSeed, complexity, 0.0, busyTrim);
+                          swing, profile, humanize, soloRng, out, iq, songSeed, complexity, 0.0, busyTrim,
+                          climbTrim, themeTrim, tricksTrim);
+
+        // TRICKS UP: the same solo, more of it played as a trick - a landing
+        // note squealed as a pinch harmonic in the heavy styles, rung as a
+        // harmonic in the rest. Its own stream, so no note moves.
+        if (tricksTrim > 0.0)
+        {
+            const bool heavy = style == "metal" || style == "thrash" || style == "groove_metal"
+                            || style == "prog_metal" || style == "doom" || style == "sludge" || style == "hard_rock";
+            Rng tr (deriveSeed (songSeed, hashString ("solo tricks/" + std::to_string (sectionStartTick))));
+            for (size_t k = before; k < out.lead.size(); ++k)
+            {
+                LeadIntent& li = out.lead[k];
+                if (li.bed || li.artic != LeadArtic::Normal || li.durationTicks < 240) continue;
+                if (! li.target && li.durationTicks < 480) continue;
+                if (tr.chance (tricksTrim * 0.5))
+                    li.artic = heavy ? LeadArtic::Pinch : LeadArtic::Harmonic;
+            }
+        }
         shredEdit (out.lead, before, shredTrim, keyPc, mode, style, profile,
                    deriveSeed (sectionSeed, 0x5ED05u));
         return;
@@ -3409,7 +3442,8 @@ RenderResult renderPerformance (const SongPlan& plan,
                                     plan.intuition,
                                     trimmedComplexity (plan.complexity, plan.busy[part]),
                                     plan.busy[part], plan.shredTrim,
-                                    pinned != plan.sound.end() ? &pinned->second : nullptr);
+                                    pinned != plan.sound.end() ? &pinned->second : nullptr,
+                                    plan.soloClimb, plan.soloTheme, plan.soloTricks);
                 count = static_cast<int> (out.chords.size() - before);
                 if (leadCount != nullptr)
                     *leadCount = static_cast<int> (out.lead.size() - leadBefore);

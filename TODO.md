@@ -83,7 +83,7 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
        voicings up the neck.
 4. [ ] **Calibrate: articulation test** - plays pinch, harmonic, tap, choke, rake,
        each named, to confirm the keyswitch map on the owner's Shreddage.
-5. [ ] **Curated controls** - which of the solo engine's other choices (motif
+5. [x] (2026-10-03: CLIMB, THEME, TRICKS under GTR 2, layout A) **Curated controls** - which of the solo engine's other choices (motif
        return, register climb) deserve a knob. Few, not many.
 
 ## Waiting on the owner

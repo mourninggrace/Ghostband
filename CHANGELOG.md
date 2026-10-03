@@ -8,6 +8,18 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
 ## [Unreleased]
 
 ### Added
+- **The solo knobs: CLIMB, THEME, TRICKS** (layout A, chosen by the owner from
+  three sketches): a third line under GTR 2. CLIMB - how far up the neck a solo
+  rises (last-third peak 74.6 -> 86.4 from bottom to top, over 30 songs); THEME
+  - how often the opening idea returns; TRICKS - pinches, taps, harmonics,
+  rakes, chokes (0 at the bottom, 186 in the middle, 356 at the top). The middle
+  of each is the approved solos, note for note (the solo lock holds). Saved
+  with the session and in takes. The mix rows are 3 px tighter to fit it at
+  the default window size.
+- **Audio dropout detector.** A buffer the host delivers late (far longer than
+  its length after the last) is written to changes.log as AUDIO DROPOUT, with
+  the bar and what Ghostband itself spent on the buffer before - so a cut-out
+  says whether it was Ghostband or something else.
 - **Effects picked by genre.** A new control type, "style": each song style
   lists the settings the instrument maker's own genre presets use, and the song
   picks one for its whole length. Guitar 1 (VG Iron 2): amp, guitar and finisher

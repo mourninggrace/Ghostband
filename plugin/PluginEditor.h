@@ -913,6 +913,9 @@ private:
     // middle being the song exactly as the dials make it.
     juce::Slider busyKnob[5], shredKnob;
     juce::Label  busyLabel[5], shredLabel;
+    // The solo knobs, a third line under GTR 2 (2026-10-03, layout A).
+    juce::Slider climbKnob, motifKnob, tricksKnob;
+    juce::Label  climbLabel, motifLabel, tricksLabel;
     void refreshTrimLabels();
 
     juce::TextEditor seedEditor;

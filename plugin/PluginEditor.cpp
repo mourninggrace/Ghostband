@@ -2386,6 +2386,9 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         for (int i = 0; i < 5; ++i)
             setUpTrim (busyKnob[i], busyLabel[i], processor.busyTrim[i]);
         setUpTrim (shredKnob, shredLabel, processor.shredTrim);
+        setUpTrim (climbKnob,  climbLabel,  processor.soloClimb);
+        setUpTrim (motifKnob,  motifLabel,  processor.soloTheme);
+        setUpTrim (tricksKnob, tricksLabel, processor.soloTricks);
         refreshTrimLabels();
     }
     initLabel (keyLabel,        "KEY",        15.0f, ghost::dim,   juce::Justification::centredLeft);
@@ -3453,6 +3456,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
                              &intuitionSlider,
                              &levelDrums, &levelBass, &levelGuitar,
                              &levelGuitar2, &levelPiano, &levelGuitar2Fills, &shredKnob,
+                             &climbKnob, &motifKnob, &tricksKnob,
                              &busyKnob[0], &busyKnob[1], &busyKnob[2], &busyKnob[3], &busyKnob[4] })
         registerTrail (*s);
 
@@ -5034,6 +5038,7 @@ void GhostbandEditor::updateModeVisibility()
              &levelDrumsLabel, &levelBassLabel, &levelGuitarLabel,
              &levelGuitar2Label, &levelPianoLabel,
              &levelGuitar2Fills, &levelGuitar2FillsLabel, &shredKnob, &shredLabel,
+             &climbKnob, &climbLabel, &motifKnob, &motifLabel, &tricksKnob, &tricksLabel,
              &busyKnob[0], &busyKnob[1], &busyKnob[2], &busyKnob[3], &busyKnob[4],
              &busyLabel[0], &busyLabel[1], &busyLabel[2], &busyLabel[3], &busyLabel[4] })
         c->setVisible (song);
@@ -6053,6 +6058,9 @@ void GhostbandEditor::refreshFromProcessor()
     for (int i = 0; i < 5; ++i)
         busyKnob[i].setValue (processor.busyTrim[i].load(), juce::dontSendNotification);
     shredKnob.setValue (processor.shredTrim.load(), juce::dontSendNotification);
+    climbKnob.setValue  (processor.soloClimb.load(),  juce::dontSendNotification);
+    motifKnob.setValue  (processor.soloTheme.load(),  juce::dontSendNotification);
+    tricksKnob.setValue (processor.soloTricks.load(), juce::dontSendNotification);
     refreshTrimLabels();
 
     // Not while it has focus, or the refresh overwrites what is being typed.
@@ -6913,7 +6921,7 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
         bpmEditor.setBounds (row.removeFromLeft (62));
     }
 
-    rail.removeFromTop (16);
+    rail.removeFromTop (10);
 
     // ---- the mix ----
     //
@@ -6923,6 +6931,8 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
     // side each one gets a whole line, and "PIANO - not in song" fits as
     // written.
     mixLabel.setBounds (rail.removeFromTop (16));
+    // (The gap above was 16 and each row 28 until the solo knobs' line under
+    // GTR 2 needed 22 pixels at the default window size - 2026-10-03.)
     rail.removeFromTop (4);
 
     juce::Slider* levelSliders[5] = { &levelDrums, &levelBass, &levelGuitar,
@@ -7017,7 +7027,7 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
                         : juce::String (kLevelNames[i])
                               + " level, sent to the instrument's own volume control.");
 
-        auto row = rail.removeFromTop (28);
+        auto row = rail.removeFromTop (25);
 
         // BUSY, at the right of every row. Greyed with the reason, never hidden:
         // a part not in the song, or one whose instrument plays its own phrases.
@@ -7079,6 +7089,35 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
             levelGuitar2Fills.setBounds (fillsArea.removeFromLeft (28).reduced (1));
             fillsArea.removeFromLeft (4);
             levelGuitar2FillsLabel.setBounds (fillsArea);
+
+            // THE SOLO KNOBS, a third line (2026-10-03, layout A): what the
+            // solos do, beside the other lead controls. Greyed with the reason
+            // when guitar 2 is not in the song, never hidden.
+            auto line3 = rail.removeFromTop (22);
+            line3.removeFromLeft (44);
+            struct SoloKnob { juce::Slider& k; juce::Label& l; const char* tip; };
+            const SoloKnob soloKnobs[] = {
+                { climbKnob,  climbLabel,  "CLIMB: how far up the neck guitar 2's solos rise to their peak - down stays "
+                                           "in one register, up starts low and ends screaming. Middle is the solos as "
+                                           "approved. Double-click for the middle." },
+                { motifKnob,  motifLabel,  "THEME: how often a solo's opening idea comes back in the middle - down "
+                                           "never, up always. Middle is the solos as approved. Double-click for the middle." },
+                { tricksKnob, tricksLabel, "TRICKS: pinch harmonics, taps, harmonics, rakes and chokes in the solos - "
+                                           "down plain picked notes, up more harmonics on held notes. Middle is the "
+                                           "solos as approved. Double-click for the middle." } };
+            for (const SoloKnob& sk : soloKnobs)
+            {
+                auto area = line3.removeFromLeft (92);
+                sk.k.setVisible (screen == Screen::Song);
+                sk.l.setVisible (screen == Screen::Song);
+                sk.k.setEnabled (inSong);
+                sk.k.setAlpha (inSong ? 1.0f : 0.3f);
+                sk.l.setAlpha (inSong ? 1.0f : 0.3f);
+                sk.k.setTooltip (inSong ? sk.tip : "Guitar 2 is not in this song, so it has no solos.");
+                sk.k.setBounds (area.removeFromLeft (24).reduced (1));
+                area.removeFromLeft (3);
+                sk.l.setBounds (area);
+            }
         }
 
         levelSliders[i]->setBounds (row.removeFromLeft (28).reduced (1));
@@ -7171,6 +7210,9 @@ void GhostbandEditor::refreshTrimLabels()
     for (int i = 0; i < 5; ++i)
         busyLabel[i].setText ("BUSY " + steps (busyKnob[i].getValue()), juce::dontSendNotification);
     shredLabel.setText ("SHRED " + steps (shredKnob.getValue()), juce::dontSendNotification);
+    climbLabel.setText  ("CLIMB "  + steps (climbKnob.getValue()),  juce::dontSendNotification);
+    motifLabel.setText  ("THEME "  + steps (motifKnob.getValue()),  juce::dontSendNotification);
+    tricksLabel.setText ("TRICKS " + steps (tricksKnob.getValue()), juce::dontSendNotification);
 }
 
 static const char* guitar2ArticUnavailableReason (int index)

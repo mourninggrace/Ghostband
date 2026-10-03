@@ -1785,6 +1785,9 @@ std::vector<GhostbandProcessor::Take> GhostbandProcessor::readTakes() const
         for (int i = 0; i < 5; ++i)
             t.busy[i] = juce::jlimit (-1.0, 1.0, number (*o, ("busy" + std::to_string (i)).c_str(), 0.0));
         t.shred      = juce::jlimit (-1.0, 1.0, number (*o, "shred", 0.0));
+        t.climb      = juce::jlimit (-1.0, 1.0, number (*o, "climb", 0.0));
+        t.theme      = juce::jlimit (-1.0, 1.0, number (*o, "theme", 0.0));
+        t.tricks     = juce::jlimit (-1.0, 1.0, number (*o, "tricks", 0.0));
 
         // A take with no name cannot be picked out of a list, and one with no
         // song cannot be played. Neither is worth carrying forward.
@@ -1816,6 +1819,9 @@ bool GhostbandProcessor::writeTakes (const std::vector<Take>& takes) const
         for (int i = 0; i < 5; ++i)
             o->setProperty (juce::Identifier ("busy" + juce::String (i)), t.busy[i]);
         o->setProperty ("shred",      t.shred);
+        o->setProperty ("climb",      t.climb);
+        o->setProperty ("theme",      t.theme);
+        o->setProperty ("tricks",     t.tricks);
 
         // Last, and last for a reason: it is by far the longest value, and a
         // file anyone might open by hand reads better with the short fields at
@@ -1856,6 +1862,9 @@ bool GhostbandProcessor::saveTake (const juce::String& name, juce::String& error
     for (int i = 0; i < 5; ++i)
         t.busy[i] = busyTrim[i].load();
     t.shred      = shredTrim.load();
+    t.climb      = soloClimb.load();
+    t.theme      = soloTheme.load();
+    t.tricks     = soloTricks.load();
 
     {
         const juce::ScopedLock sl (stateLock);
@@ -1953,6 +1962,9 @@ void GhostbandProcessor::recallTake (int index)
         for (int i = 0; i < 5; ++i)
             busyTrim[i].store (static_cast<float> (t.busy[i]));
         shredTrim.store  (static_cast<float> (t.shred));
+        soloClimb.store  (static_cast<float> (t.climb));
+        soloTheme.store  (static_cast<float> (t.theme));
+        soloTricks.store (static_cast<float> (t.tricks));
 
         juce::String profileError;
         resolveProfiles (profileError);
@@ -3633,6 +3645,9 @@ void GhostbandProcessor::regenerate()
     working.complexity = complexity.load();
     for (int i = 0; i < 5; ++i) working.busy[i] = busyTrim[i].load();
     working.shredTrim  = shredTrim.load();
+    working.soloClimb  = soloClimb.load();
+    working.soloTheme  = soloTheme.load();
+    working.soloTricks = soloTricks.load();
     working.humanize   = humanize.load();
     working.fills      = fills.load();
     working.intuition  = intuition.load();
@@ -4685,6 +4700,9 @@ void GhostbandProcessor::getStateInformation (juce::MemoryBlock& destData)
     for (int i = 0; i < 5; ++i)
         xml.setAttribute ("busy" + juce::String (i), busyTrim[i].load());
     xml.setAttribute ("shredTrim", shredTrim.load());
+    xml.setAttribute ("soloClimb", soloClimb.load());
+    xml.setAttribute ("soloTheme", soloTheme.load());
+    xml.setAttribute ("soloTricks", soloTricks.load());
     for (size_t i = 0; i < articMarks.size(); ++i)
         if (articMarks[i].load() != 0)
             xml.setAttribute ("artMark" + juce::String (static_cast<int> (i)), articMarks[i].load());
@@ -4742,6 +4760,9 @@ void GhostbandProcessor::setStateInformation (const void* data, int sizeInBytes)
         busyTrim[i].store (static_cast<float> (juce::jlimit (-1.0, 1.0,
                                xml->getDoubleAttribute ("busy" + juce::String (i), 0.0))));
     shredTrim.store (static_cast<float> (juce::jlimit (-1.0, 1.0, xml->getDoubleAttribute ("shredTrim", 0.0))));
+    soloClimb.store  (static_cast<float> (juce::jlimit (-1.0, 1.0, xml->getDoubleAttribute ("soloClimb", 0.0))));
+    soloTheme.store  (static_cast<float> (juce::jlimit (-1.0, 1.0, xml->getDoubleAttribute ("soloTheme", 0.0))));
+    soloTricks.store (static_cast<float> (juce::jlimit (-1.0, 1.0, xml->getDoubleAttribute ("soloTricks", 0.0))));
     for (size_t i = 0; i < articMarks.size(); ++i)
         articMarks[i].store (juce::jlimit (0, 2, xml->getIntAttribute ("artMark" + juce::String (static_cast<int> (i)), 0)));
     levelPiano.store  (level ("levelPiano"));

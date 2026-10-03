@@ -7800,6 +7800,76 @@ int main (int argc, char** argv)
                    juce::String (b1, 2) + " / " + juce::String (b2, 2) + " / " + juce::String (b3, 2)
                    + " beats in the blues, " + juce::String (r1, 2) + " / " + juce::String (r2, 2) + " in rock and metal");
 
+            // THE SOLO KNOBS DO WHAT THEY SAY (2026-10-03). Over every song with
+            // a solo: CLIMB up ends the solos higher than CLIMB down; THEME
+            // changes them (the opening idea comes back or not); TRICKS down
+            // plays no pinch, tap, harmonic, rake or choke, and up plays more
+            // harmonics than the middle. The middle is the solo lock's job.
+            {
+                double topLo = 0.0, topHi = 0.0; int themeMoved = 0, songsWithSolos = 0;
+                long tricksLo = 0, tricksMid = 0, tricksHi = 0;
+                for (const juce::File& f : juce::File ("C:/Projects/Ghostband/plans").findChildFiles (juce::File::findFiles, false, "preset-*.json"))
+                {
+                    gb::SongPlan base;
+                    if (! gb::SongPlan::load (f.getFullPathName().toStdString(), base, e)) continue;
+                    auto solo = [&] (double climb, double theme, double tricks)
+                    {
+                        gb::SongPlan q = base; q.soloClimb = climb; q.soloTheme = theme; q.soloTricks = tricks;
+                        const gb::RenderResult r = gb::renderPerformance (q, kit, bass, &gtr, &piano, &gtr2);
+                        std::vector<gb::LeadIntent> v;
+                        for (const gb::SectionReport& sc : r.sections)
+                            if (sc.guitar2Feel.rfind ("solo", 0) == 0)
+                                for (const gb::LeadIntent& li : r.performance.guitar2.lead)
+                                    if (li.tick >= sc.startTick && li.tick < sc.endTick && ! li.bed) v.push_back (li);
+                        return v;
+                    };
+                    const auto mid = solo (0, 0, 0);
+                    if (mid.size() < 12) continue;
+                    ++songsWithSolos;
+                    auto peak = [] (const std::vector<gb::LeadIntent>& v)   // the top of the last third
+                    {
+                        int top = 0;
+                        for (size_t i = v.size() * 2 / 3; i < v.size(); ++i) top = std::max (top, v[i].pitch);
+                        return (double) top;
+                    };
+                    topLo += peak (solo (-1, 0, 0));
+                    topHi += peak (solo (+1, 0, 0));
+                    auto sameNotes = [] (const std::vector<gb::LeadIntent>& a, const std::vector<gb::LeadIntent>& b)
+                    {
+                        if (a.size() != b.size()) return false;
+                        for (size_t i = 0; i < a.size(); ++i) if (a[i].pitch != b[i].pitch || a[i].tick != b[i].tick) return false;
+                        return true;
+                    };
+                    if (! sameNotes (solo (0, -1, 0), solo (0, +1, 0))) ++themeMoved;
+                    auto tricky = [] (const std::vector<gb::LeadIntent>& v, bool harmonicsOnly)
+                    {
+                        long n = 0;
+                        for (const gb::LeadIntent& li : v)
+                        {
+                            const bool g = li.artic == gb::LeadArtic::Pinch || li.artic == gb::LeadArtic::Tap
+                                        || li.artic == gb::LeadArtic::Harmonic || li.artic == gb::LeadArtic::Rake
+                                        || li.artic == gb::LeadArtic::Choke;
+                            if (harmonicsOnly ? li.artic == gb::LeadArtic::Harmonic : g) ++n;
+                        }
+                        return n;
+                    };
+                    tricksLo  += tricky (solo (0, 0, -1), false);
+                    tricksMid += tricky (mid, false);
+                    tricksHi  += tricky (solo (0, 0, +1), false);
+                }
+                check (songsWithSolos >= 20 && topHi > topLo + songsWithSolos * 2.0,
+                       "CLIMB up ends the solos higher than CLIMB down",
+                       juce::String (songsWithSolos) + " songs, last-third peak averages " + juce::String (topLo / songsWithSolos, 1)
+                       + " -> " + juce::String (topHi / songsWithSolos, 1));
+                check (themeMoved >= songsWithSolos / 2,
+                       "THEME changes the solos from one end to the other",
+                       juce::String (themeMoved) + " of " + juce::String (songsWithSolos) + " solos differ");
+                check (tricksLo == 0 && tricksMid > 0 && tricksHi > tricksMid * 1.3,
+                       "TRICKS down plays no tricks; up plays clearly more than the middle",
+                       juce::String (tricksLo) + " tricks at the bottom, " + juce::String (tricksMid) + " in the middle, "
+                       + juce::String (tricksHi) + " at the top");
+            }
+
             // THE THRASH NOTE PLAYS WHERE IT BELONGS (2026-10-03): re-picked
             // pedal riffs in the thrash family's fills, nowhere else, and
             // never in a solo.
@@ -8839,9 +8909,11 @@ int main (int argc, char** argv)
             proc.busyTrim[0].store (0.75f);
             proc.busyTrim[3].store (-0.5f);
             proc.shredTrim.store (0.6f);
+            proc.soloClimb.store (0.4f); proc.soloTheme.store (-0.6f); proc.soloTricks.store (1.0f);
             juce::String err;
             const bool saved = proc.saveTake ("busy check", err);
             proc.busyTrim[0].store (0.0f); proc.busyTrim[3].store (0.0f); proc.shredTrim.store (0.0f);
+            proc.soloClimb.store (0.0f); proc.soloTheme.store (0.0f); proc.soloTricks.store (0.0f);
             int at = -1;
             const auto all = proc.getTakes();
             for (size_t i = 0; i < all.size(); ++i) if (all[i].name == "busy check") at = static_cast<int> (i);
@@ -8851,8 +8923,14 @@ int main (int argc, char** argv)
                    "a recalled take brings back its BUSY and SHRED",
                    "drums " + juce::String (proc.busyTrim[0].load(), 2) + ", guitar 2 " + juce::String (proc.busyTrim[3].load(), 2)
                        + ", shred " + juce::String (proc.shredTrim.load(), 2));
+            check (std::abs (proc.soloClimb.load() - 0.4f) < 0.01f && std::abs (proc.soloTheme.load() + 0.6f) < 0.01f
+                       && std::abs (proc.soloTricks.load() - 1.0f) < 0.01f,
+                   "a recalled take brings back its CLIMB, THEME and TRICKS",
+                   juce::String (proc.soloClimb.load(), 2) + " / " + juce::String (proc.soloTheme.load(), 2)
+                       + " / " + juce::String (proc.soloTricks.load(), 2));
             if (at >= 0) proc.deleteTake (at);
             proc.busyTrim[0].store (0.0f); proc.busyTrim[3].store (0.0f); proc.shredTrim.store (0.0f);
+            proc.soloClimb.store (0.0f); proc.soloTheme.store (0.0f); proc.soloTricks.store (0.0f);
         }
 
         // ---- the library is on disk, not in the plugin ----

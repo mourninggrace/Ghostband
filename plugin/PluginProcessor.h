@@ -283,6 +283,7 @@ public:
         // before they were stored, which is the middle - the old behaviour.
         double busy[5]    = { 0.0, 0.0, 0.0, 0.0, 0.0 };
         double shred      = 0.0;
+        double climb = 0.0, theme = 0.0, tricks = 0.0;   // the solo knobs (2026-10-03)
     };
 
     std::vector<Take> getTakes() const;
@@ -971,6 +972,8 @@ public:
     // piano (the MIX rows' order). And guitar 2's SHRED trim.
     std::atomic<float> busyTrim[5] { {0.0f}, {0.0f}, {0.0f}, {0.0f}, {0.0f} };
     std::atomic<float> shredTrim { 0.0f };
+    // The solo knobs under GTR 2 (2026-10-03): trims -1..1, 0 = the approved solos.
+    std::atomic<float> soloClimb { 0.0f }, soloTheme { 0.0f }, soloTricks { 0.0f };
     bool partIsPhraseDriven (int part) const;
     std::atomic<float> levelPiano   { 1.0f };
 

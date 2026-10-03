@@ -92,6 +92,15 @@ struct SongPlan
     // the rig - never written to a plan file.
     double   busy[5]   = { 0.0, 0.0, 0.0, 0.0, 0.0 };
     double   shredTrim = 0.0;
+
+    // THE SOLO KNOBS (2026-10-03, the owner chose layout A): trims -1..1 on
+    // three of the solo engine's own choices, 0 = exactly the approved solos.
+    //   climb  - how far up the neck the solo rises to its peak
+    //   theme  - how likely the opening idea comes back mid-solo
+    //   tricks - how freely pinches, taps, harmonics, rakes and chokes are used
+    double   soloClimb  = 0.0;
+    double   soloTheme  = 0.0;
+    double   soloTricks = 0.0;
     double   humanize   = 0.5;              // timing and velocity looseness
 
     // How often the answering guitar takes an opening it is offered.

@@ -272,6 +272,16 @@ clear the learn; if the GTR 2 knob stops moving the slider, repeat steps 2-4.
 - **UNDER** - how far the lead guitar drops while it plays fills (not solos):
   0% no drop, about 1.8 dB per 10%, 100% silent. Solos always play at the full
   GTR 2 level.
+- **CLIMB**, **THEME** and **TRICKS** - the solo knobs, on the line under SHRED.
+  The middle of each is the solos exactly as they were approved.
+  - CLIMB: how far up the neck a solo rises to its peak. Down stays in one
+    register; up starts low and ends screaming.
+  - THEME: how often a solo's opening idea comes back in the middle. Down
+    never, up always.
+  - TRICKS: pinch harmonics, taps, harmonics, rakes and chokes. Down plays
+    plain picked notes; up turns more landing notes into a trick (a pinch
+    squeal in the heavy styles, a harmonic in the rest) - the same notes,
+    played differently.
 
 ### Reading the grid, and editing it
 
@@ -523,8 +533,9 @@ thing. Saving under a name already in the list replaces it.
 
 What a take carries:
 
-- **BUSY** for each part and **SHRED** - how busy the band was playing is part
-  of the performance (from v2.4; an older take recalls them at the middle).
+- **BUSY** for each part, **SHRED**, and the solo knobs **CLIMB**, **THEME** and
+  **TRICKS** - how the band was playing is part of the performance (an older
+  take recalls any it did not store at the middle).
 - the **seed**, and **complexity**, **humanize** and **fills** — the seed alone
   does not reproduce what you heard, because all four feed the same random
   stream. Seed 88345 at humanize 0.5 is a different take from the same seed at
