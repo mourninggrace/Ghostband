@@ -4746,7 +4746,7 @@ void GhostbandProcessor::setStateInformation (const void* data, int sizeInBytes)
     // header, so a session saved before this opens at the new size rather than
     // at a cramped old one.
     editorWidth.store  (juce::jlimit (700, 2400, xml->getIntAttribute ("editorW", 800)));
-    editorHeight.store (juce::jlimit (820, 2200, xml->getIntAttribute ("editorH", 960)));
+    editorHeight.store (juce::jlimit (850, 2200, xml->getIntAttribute ("editorH", 960)));
     usePlanTempo.store (xml->getBoolAttribute ("planTempo", true));
     trackerZoom.store (juce::jlimit (0, numTrackerZooms - 1,
                                      xml->getIntAttribute ("trackerZoom", 0)));

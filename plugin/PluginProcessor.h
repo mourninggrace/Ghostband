@@ -613,7 +613,7 @@ public:
     // 31% of the width and 67% of the height, and the song screen's controls
     // stopped 45% short of its right edge. See layOutSongScreen.
     std::atomic<int> editorWidth  { 1180 };
-    std::atomic<int> editorHeight { 820 };
+    std::atomic<int> editorHeight { 850 };
 
     // How much music one tracker row covers: 0 bar, 1 beat, 2 eighth, 3
     // sixteenth. Which one is right depends entirely on what you are looking

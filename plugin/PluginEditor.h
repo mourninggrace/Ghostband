@@ -1001,6 +1001,8 @@ private:
     // is what made the window read as a form rather than as an instrument. A
     // ground with panels ON it is most of what separates the two.
     juce::Rectangle<int> controlsPanel;
+    juce::Rectangle<int> mixBoxes[5];   // drums, bass, guitar, guitar 2, piano - outlined in paint()
+    juce::Rectangle<int> levelCaptions[5];   // "LEVEL" beside the small boxes' knobs, painted
 
     // The quick edit strip's own surface, painted behind it so it reads as one
     // thing attached to the grid rather than four loose controls.

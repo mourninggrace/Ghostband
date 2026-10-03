@@ -2857,7 +2857,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     aboutButton.onClick    = [this] { screen = Screen::About;    updateModeVisibility(); };
     backButton.onClick     = [this] { screen = Screen::Song;     updateModeVisibility(); };
 
-    resetSizeButton.onClick = [this] { setSize (1180, 820); };
+    resetSizeButton.onClick = [this] { setSize (1180, 850); };
 
     styleCombo (themeBox);
     addChildComponent (themeBox);
@@ -3148,13 +3148,13 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     // which is about 900. Settings wants a 460 column of channels beside a 496
     // column of the learn form, which is 1020 - and a minimum that fits five
     // screens and breaks the sixth is not a minimum.
-    setResizeLimits (1020, 820, 2400, 2200);
+    setResizeLimits (1020, 850, 2400, 2200);
 
     // Restore the remembered size, then start recording changes to it. The
     // order matters: recording before this point captures the zero-sized
     // editor and loses what was remembered.
     setSize (juce::jmax (1020, processor.editorWidth.load()),
-             juce::jmax (820, processor.editorHeight.load()));
+             juce::jmax (850, processor.editorHeight.load()));
     sizeInitialised = true;
 
     // ---- tooltips ----
@@ -6162,6 +6162,22 @@ void GhostbandEditor::paint (juce::Graphics& g)
     if (screen == Screen::Song && ! trackerEditStrip.isEmpty())
         ghost::drawSurface (g, trackerEditStrip.toFloat(), 8.0f);
 
+    // Each instrument's box in the mix (2026-10-03).
+    if (screen == Screen::Song)
+    {
+        g.setColour (ghost::line.brighter (0.25f));
+        for (const auto& b : mixBoxes)
+            if (! b.isEmpty())
+                g.drawRoundedRectangle (b.toFloat().reduced (0.5f), 6.0f, 1.0f);
+
+        // What the left knob of a small box is, beside it.
+        g.setColour (ghost::dim);
+        g.setFont (juce::FontOptions (12.0f));
+        for (const auto& c : levelCaptions)
+            if (! c.isEmpty())
+                g.drawText ("LEVEL", c, juce::Justification::centredLeft, false);
+    }
+
     // The footer's own separator. Without it the two lines down there read as
     // more page rather than as a distinct block - which was the complaint: no
     // obvious separation other than the colour.
@@ -6948,9 +6964,25 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
     // side each one gets a whole line, and "PIANO - not in song" fits as
     // written.
     mixLabel.setBounds (rail.removeFromTop (16));
-    // (The gap above was 16 and each row 28 until the solo knobs' line under
-    // GTR 2 needed 22 pixels at the default window size - 2026-10-03.)
     rail.removeFromTop (4);
+
+    // EACH INSTRUMENT IN ITS OWN BOX (2026-10-03, the owner: "the spacing is
+    // too crowded... put each instrument and its accompanying adjustment dials
+    // inside a box-like outline". Layout B of three sketches): drums and bass,
+    // guitar and piano two to a row, one line each; guitar 2 across the whole
+    // rail, because it carries seven controls. The outlines are painted in
+    // paint(), behind the knobs.
+    {
+        const int gap = 6, smallH = 52, bigH = 82;
+        auto top = rail.removeFromTop (smallH);
+        rail.removeFromTop (gap);
+        auto mid = rail.removeFromTop (smallH);
+        rail.removeFromTop (gap);
+        const int half = (top.getWidth() - gap) / 2;
+        mixBoxes[0] = top.removeFromLeft (half);  top.removeFromLeft (gap);  mixBoxes[1] = top;   // drums, bass
+        mixBoxes[2] = mid.removeFromLeft (half);  mid.removeFromLeft (gap);  mixBoxes[4] = mid;   // guitar, piano
+        mixBoxes[3] = rail.removeFromTop (bigH);                                                   // guitar 2
+    }
 
     juce::Slider* levelSliders[5] = { &levelDrums, &levelBass, &levelGuitar,
                                       &levelGuitar2, &levelPiano };
@@ -7022,6 +7054,10 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
         levelSliders[i]->setEnabled (reachable);
         levelSliders[i]->setAlpha (alpha);
         levelLabels[i]->setColour (juce::Label::textColourId, colour);
+        // The name and, when there is one, the reason it is greyed - "never
+        // hide a control; grey it out with the reason". The small boxes give it
+        // a line of its own; guitar 2's full-width box has it beside the knob.
+        const bool wide = (i == 3);
         levelLabels[i]->setText (juce::String (kLevelNames[i]) + suffix,
                                  juce::dontSendNotification);
 
@@ -7044,7 +7080,10 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
                         : juce::String (kLevelNames[i])
                               + " level, sent to the instrument's own volume control.");
 
-        auto row = rail.removeFromTop (25);
+        auto inner = mixBoxes[static_cast<size_t> (i)].reduced (6, wide ? 5 : 3);
+        if (! wide)
+            levelLabels[i]->setBounds (inner.removeFromTop (22));
+        auto row = inner.removeFromTop (24);
 
         // BUSY, at the right of every row. Greyed with the reason, never hidden:
         // a part not in the song, or one whose instrument plays its own phrases.
@@ -7063,9 +7102,9 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
                          : "BUSY: how much " + juce::String (kLevelNames[i]).toLowerCase()
                            + " plays, on top of COMPLEXITY. Middle is the song exactly as it is; up is busier, "
                              "down is sparer. Double-click for the middle.");
-            auto busyArea = row.removeFromRight (78);
-            busyKnob[i].setBounds (busyArea.removeFromLeft (28).reduced (1));
-            busyArea.removeFromLeft (4);
+            auto busyArea = row.removeFromRight (wide ? 78 : 66);
+            busyKnob[i].setBounds (busyArea.removeFromLeft (24).reduced (1));
+            busyArea.removeFromLeft (3);
             busyLabel[i].setBounds (busyArea);
         }
 
@@ -7084,10 +7123,8 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
                             "Double-click for the default."
                           : "Nothing can set guitar 2's level (see the GTR 2 knob), so nothing can "
                             "lower it for fills either.");
-            // A second line under GTR 2 for its two lead controls - there is
-            // no room for three knobs and a name on one.
-            auto line2 = rail.removeFromTop (26);
-            line2.removeFromLeft (44);
+            // A second line in GTR 2's box for its two lead controls.
+            auto line2 = inner.removeFromTop (24);
             auto shredArea = line2.removeFromLeft (110);
             shredKnob.setVisible (screen == Screen::Song);
             shredLabel.setVisible (screen == Screen::Song);
@@ -7098,20 +7135,19 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
                                            "Middle follows COMPLEXITY and INTUITION as it always has. "
                                            "Double-click for the middle."
                                          : "Guitar 2 is not in this song.");
-            shredKnob.setBounds (shredArea.removeFromLeft (28).reduced (1));
-            shredArea.removeFromLeft (4);
+            shredKnob.setBounds (shredArea.removeFromLeft (24).reduced (1));
+            shredArea.removeFromLeft (3);
             shredLabel.setBounds (shredArea);
 
             auto fillsArea = line2.removeFromLeft (110);
-            levelGuitar2Fills.setBounds (fillsArea.removeFromLeft (28).reduced (1));
-            fillsArea.removeFromLeft (4);
+            levelGuitar2Fills.setBounds (fillsArea.removeFromLeft (24).reduced (1));
+            fillsArea.removeFromLeft (3);
             levelGuitar2FillsLabel.setBounds (fillsArea);
 
             // THE SOLO KNOBS, a third line (2026-10-03, layout A): what the
             // solos do, beside the other lead controls. Greyed with the reason
             // when guitar 2 is not in the song, never hidden.
-            auto line3 = rail.removeFromTop (22);
-            line3.removeFromLeft (44);
+            auto line3 = inner.removeFromTop (24);
             struct SoloKnob { juce::Slider& k; juce::Label& l; const char* tip; };
             const SoloKnob soloKnobs[] = {
                 { climbKnob,  climbLabel,  "CLIMB: how far up the neck guitar 2's solos rise to their peak - down stays "
@@ -7124,7 +7160,7 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
                                            "solos as approved. Double-click for the middle." } };
             for (const SoloKnob& sk : soloKnobs)
             {
-                auto area = line3.removeFromLeft (92);
+                auto area = line3.removeFromLeft (100);
                 sk.k.setVisible (screen == Screen::Song);
                 sk.l.setVisible (screen == Screen::Song);
                 sk.k.setEnabled (inSong);
@@ -7137,9 +7173,12 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
             }
         }
 
-        levelSliders[i]->setBounds (row.removeFromLeft (28).reduced (1));
-        row.removeFromLeft (10);
-        levelLabels[i]->setBounds (row);
+        levelSliders[i]->setBounds (row.removeFromLeft (24).reduced (1));
+        row.removeFromLeft (6);
+        if (wide)
+            levelLabels[i]->setBounds (row);
+        else
+            levelCaptions[i] = row.removeFromLeft (44);   // "LEVEL", painted
     }
 
     // ---- the grid, and the two lines that frame it ----

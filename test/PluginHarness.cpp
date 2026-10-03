@@ -87,7 +87,7 @@ double contrastRatio (juce::Colour a, juce::Colour b)
 // Settings is what sets it: a 460 column of channels beside a 496 column of the
 // learn form. The song screen alone would be happy at 900.
 constexpr int kMinW = 1020;
-constexpr int kMinH = 820;
+constexpr int kMinH = 850;
 
 // Same idea as the local `describe` lambdas, at file scope so checks outside
 // those blocks can name a component too.
@@ -656,7 +656,7 @@ static void perfReport (const juce::String& planPath, int seconds)
 
     t0 = now();
     auto* ed = proc->createEditorIfNeeded();
-    ed->setSize (1180, 820);
+    ed->setSize (1180, 850);
     const double tEditor = now() - t0;
 
     t0 = now();
@@ -9091,11 +9091,11 @@ int main (int argc, char** argv)
                 // Sized per screen rather than uniformly: a settings page with a
                 // scrolling control list needs the height, and the song screen
                 // at that height is mostly empty floor.
-                shots.push_back ({ 0, 1180,  820, "-docs" });   // song
+                shots.push_back ({ 0, 1180,  850, "-docs" });   // song
                 shots.push_back ({ 1, 1180,  980, "-docs" });   // calibrate
                 shots.push_back ({ 2, 1180,  980, "-docs" });   // edit
                 shots.push_back ({ 3, 1180,  900, "-docs" });   // settings
-                shots.push_back ({ 4, 1180,  820, "-docs" });   // about
+                shots.push_back ({ 4, 1180,  850, "-docs" });   // about
                 shots.push_back ({ 5, 1180,  900, "-docs" });   // takes
 
                 // About at the size it is actually used at. It is the one
@@ -9109,10 +9109,10 @@ int main (int argc, char** argv)
                 // reasoned about. A 150 ms cubic ease-out is already down to
                 // 12% opacity at its halfway point, which is a flicker rather
                 // than a transition - and that is not visible in any still.
-                shots.push_back ({ 0, 1180, 820, "-glow" });
+                shots.push_back ({ 0, 1180, 850, "-glow" });
 
                 for (int f = 0; f < 4; ++f)
-                    shots.push_back ({ 0, 1180, 820, f == 0 ? "-fade-100"
+                    shots.push_back ({ 0, 1180, 850, f == 0 ? "-fade-100"
                                                    : f == 1 ? "-fade-70"
                                                    : f == 2 ? "-fade-40" : "-fade-15" });
 
@@ -9122,7 +9122,7 @@ int main (int argc, char** argv)
                 // The click happens in the render loop below, not here: every
                 // shot switches screens, and leaving one closes the strip.
                 if (gbEd != nullptr && proc.getBarTicks() > 0)
-                    shots.push_back ({ 0, 1180, 820, "-editing" });
+                    shots.push_back ({ 0, 1180, 850, "-editing" });
 
                 for (const Shot& shot : shots)
                 {

@@ -7,6 +7,16 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
 
 ## [Unreleased]
 
+### Changed
+- **Each instrument's mix controls in their own box** (the owner: "too
+  crowded"; layout B of three sketches). Drums and bass, guitar and piano two
+  to a row - the name and why a knob is greyed on one line, LEVEL and BUSY on
+  the next - and guitar 2 across the rail with all seven of its controls. The
+  window's default and minimum height went from 820 to 850 to give them room.
+- **Double-click resets every knob and slider.** The trims and levels already
+  did; now the four feel dials go back to the song's own values and a
+  section's intensity to what it had when picked. A check walks every slider.
+
 ### Added
 - **The solo knobs: CLIMB, THEME, TRICKS** (layout A, chosen by the owner from
   three sketches): a third line under GTR 2. CLIMB - how far up the neck a solo
