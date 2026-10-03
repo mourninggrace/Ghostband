@@ -29,6 +29,17 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
   wrong. Checked: 43 pinned settings in 4 songs reach the instrument exactly and
   survive a save; the genre check skips pinned settings.
 
+### Changed
+- **Blues fill answers reach back into the bar before.** A twelve-bar line is
+  the singer's for two bars and the guitar's for two, but guitar 2's answer had
+  only the back half of the last bar - two beats, the same as a rock fill. At
+  the end of a line (three times in four) it now starts talking in the back
+  half of the bar before: a phrase, a breath, then the landing. Blues answers
+  average 3.1 / 3.6 / 4.3 beats in the three blues songs (were about 2); rock
+  and metal unchanged. Its own random stream, so no other note in any song
+  moves (the solo lock holds). BUSY moves it: never at the bottom, always at
+  the top, where the second and third bars' answers reach back too.
+
 ### Fixed
 - **No more dice on effects.** Guitar 1 (VG Iron 2) and the piano (Virtual
   Pianist) had their effects rolled per song - one of Iron 2's 63 finishers

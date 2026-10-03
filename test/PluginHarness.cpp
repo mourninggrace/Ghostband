@@ -251,6 +251,47 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
                 if (std::getenv ("GB_SHRED_PROBE"))
                     std::printf ("SHRED %s\n", line.toRawUTF8());
 
+                // GB_FILL_PROBE=1: guitar 2's fill answers - how many, how long
+                // (beats, first note to last note's end), how many notes, and how
+                // much of the fills sections guitar 2 sounds at all.
+                if (std::getenv ("GB_FILL_PROBE"))
+                {
+                    const gb::RenderResult rr = gb::renderPerformance (song, kit, bass, &gtr, &piano, &gtr2);
+                    int answers = 0, notesIn = 0; long answerTicks = 0, soundTicks = 0, fillTicks = 0;
+                    std::vector<int> lens;
+                    for (const gb::SectionReport& sc : rr.sections)
+                    {
+                        if (sc.guitar2Feel.rfind ("fills", 0) != 0) continue;
+                        fillTicks += sc.endTick - sc.startTick;
+                        int aStart = -1, aEnd = -1, aNotes = 0;
+                        auto close = [&]
+                        {
+                            if (aStart < 0) return;
+                            if (std::getenv ("GB_FILL_DETAIL") && f.getFileNameWithoutExtension() == std::getenv ("GB_FILL_DETAIL"))
+                                std::printf ("   answer bar %d beat %.2f  -> bar %d beat %.2f  %d notes\n", aStart / (gb::kPPQ * 4) + 1, (aStart % (gb::kPPQ * 4)) / (double) gb::kPPQ + 1, aEnd / (gb::kPPQ * 4) + 1, (aEnd % (gb::kPPQ * 4)) / (double) gb::kPPQ + 1, aNotes);
+                            ++answers; notesIn += aNotes; answerTicks += aEnd - aStart; lens.push_back (aEnd - aStart);
+                            aStart = -1; aNotes = 0;
+                        };
+                        for (const gb::LeadIntent& n : rr.performance.guitar2.lead)
+                        {
+                            if (n.tick < sc.startTick || n.tick >= sc.endTick) continue;
+                            soundTicks += n.durationTicks;
+                            if (n.bed) { close(); continue; }
+                            if (aStart >= 0 && n.tick - aEnd > gb::kPPQ) close();
+                            if (aStart < 0) aStart = n.tick;
+                            aEnd = std::max (aEnd, n.tick + n.durationTicks); ++aNotes;
+                        }
+                        close();
+                    }
+                    std::sort (lens.begin(), lens.end());
+                    std::printf ("FILLS %-18s %-10s answers %3d  avg %.2f beats (median %.2f)  %.1f notes  g2 sounds %2d%% of fills sections\n",
+                                 f.getFileNameWithoutExtension().toRawUTF8(), song.style.c_str(), answers,
+                                 answers ? answerTicks / (double) answers / gb::kPPQ : 0.0,
+                                 lens.empty() ? 0.0 : lens[lens.size() / 2] / (double) gb::kPPQ,
+                                 answers ? notesIn / (double) answers : 0.0,
+                                 fillTicks ? (int) (100 * soundTicks / fillTicks) : 0);
+                }
+
                 // And the bass under BUSY: notes, and how often the pitch moves.
                 if (std::getenv ("GB_SHRED_PROBE"))
                 {
@@ -7677,6 +7718,39 @@ int main (int argc, char** argv)
                    "a song's pinned sound reaches the instrument exactly, and survives a save",
                    juce::String (songs) + " songs, " + juce::String (pins) + " pinned settings, "
                    + juce::String (wrong) + " wrong, " + juce::String (lostOnSave) + " lost on save");
+
+            // A BLUES ANSWER TALKS FOR MORE THAN TWO BEATS (2026-10-03: they
+            // were two beats, the same as a rock fill; at the end of a line the
+            // answer now reaches back into the bar before). Rock stays short.
+            auto answerBeats = [&] (const char* name)
+            {
+                gb::SongPlan p;
+                gb::SongPlan::load ("C:/Projects/Ghostband/plans/preset-" + std::string (name) + ".json", p, e);
+                const gb::RenderResult r = gb::renderPerformance (p, kit, bass, &gtr, &piano, &gtr2);
+                long ticks = 0; int answers = 0;
+                for (const gb::SectionReport& sc : r.sections)
+                {
+                    if (sc.guitar2Feel.rfind ("fills", 0) != 0) continue;
+                    int aStart = -1, aEnd = -1;
+                    auto close = [&] { if (aStart >= 0) { ticks += aEnd - aStart; ++answers; aStart = -1; } };
+                    for (const gb::LeadIntent& n : r.performance.guitar2.lead)
+                    {
+                        if (n.tick < sc.startTick || n.tick >= sc.endTick) continue;
+                        if (n.bed) { close(); continue; }
+                        if (aStart >= 0 && n.tick - aEnd > gb::kPPQ) close();
+                        if (aStart < 0) aStart = n.tick;
+                        aEnd = std::max (aEnd, n.tick + n.durationTicks);
+                    }
+                    close();
+                }
+                return answers > 0 ? ticks / (double) answers / gb::kPPQ : 0.0;
+            };
+            const double b1 = answerBeats ("blues"), b2 = answerBeats ("blues-2"), b3 = answerBeats ("blues-3");
+            const double r1 = answerBeats ("hard-rock"), r2 = answerBeats ("metal-1");
+            check (b1 >= 2.75 && b2 >= 2.75 && b3 >= 2.75 && r1 < 2.5 && r2 < 2.5,
+                   "a blues answer reaches back into the bar before; a rock answer stays short",
+                   juce::String (b1, 2) + " / " + juce::String (b2, 2) + " / " + juce::String (b3, 2)
+                   + " beats in the blues, " + juce::String (r1, 2) + " / " + juce::String (r2, 2) + " in rock and metal");
         }
 
         check (f.g1Clashes == 0, "guitar 1 never rings one chord over a different one",

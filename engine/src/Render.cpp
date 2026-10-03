@@ -1268,6 +1268,10 @@ static void generateFills (const SectionPlan& s,
         return v;
     };
 
+    // Which stream the lick placing draws from: the section's, except for the
+    // blues reach below, which has its own so not one other note moves.
+    Rng* lr = &rng;
+
     // Places one lick so it ENDS at `endTick`, anchored on a tone of `chord`.
     auto playLick = [&] (Lick L, int endTick, const Chord& chord, bool fromBelow, int room)
     {
@@ -1302,7 +1306,7 @@ static void generateFills (const SectionPlan& s,
                 L.notes.back().len = std::max (120, L.notes.back().len - (over + scaleT - 1) / scaleT);
         }
         // Upside down sometimes: the same shape, heard as a different lick.
-        if (rng.chance (who.invert))
+        if (lr->chance (who.invert))
             for (LickNote& n : L.notes)
                 if (n.sp != Semis) n.st = -n.st;
 
@@ -1331,7 +1335,7 @@ static void generateFills (const SectionPlan& s,
         // it, low enough for one that falls - and a little random, so the same
         // lick lands in a different place on the neck.
         const int mid    = lowest + (highest - lowest) * (fromBelow ? 3 : 2) / 5;
-        const int anchor = tones[static_cast<size_t> (nearestIndex (tones, mid + rng.range (-4, 4)))];
+        const int anchor = tones[static_cast<size_t> (nearestIndex (tones, mid + lr->range (-4, 4)))];
 
         for (const LickNote& n : L.notes)
         {
@@ -1349,13 +1353,13 @@ static void generateFills (const SectionPlan& s,
             LeadIntent li;
             // Inside its own section, always: a jitter that nudged the first
             // note back a few ticks put it in the section before - a solo.
-            li.tick          = juce_clamp_tick (start + n.on + static_cast<int> (rng.bipolar (humanize * 3.0)),
+            li.tick          = juce_clamp_tick (start + n.on + static_cast<int> (lr->bipolar (humanize * 3.0)),
                                                 sectionStartTick, sectionEnd - 1);
             li.durationTicks = std::max (1, n.len);
             li.pitch         = pitch;
             // Softer than a solo (which strikes about 0.95): the answer sits
             // behind the band and the solo steps out in front when it comes.
-            li.accent        = std::min (0.88, 0.58 + soloLike * 0.08 + s.intensity * 0.14 + ((n.f & Target) ? 0.06 : 0.0) + rng.bipolar (0.04));
+            li.accent        = std::min (0.88, 0.58 + soloLike * 0.08 + s.intensity * 0.14 + ((n.f & Target) ? 0.06 : 0.0) + lr->bipolar (0.04));
             li.target        = (n.f & Target) != 0;
             li.slur          = (n.f & Slur) != 0;
             li.glide         = (n.f & Glide) != 0;
@@ -1417,7 +1421,7 @@ static void generateFills (const SectionPlan& s,
             total += w[i];
         }
         if (total <= 0.0) return -1;
-        double pick = rng.unit() * total;
+        double pick = lr->unit() * total;
         for (int i = 0; i < kNumLicks; ++i)
             if ((pick -= w[i]) < 0.0) return i;
         return kNumLicks - 1;
@@ -1547,6 +1551,7 @@ static void generateFills (const SectionPlan& s,
     const double first = busyTrim > 0.5 ? (busyTrim - 0.5) * 0.9 : 0.0;   // and near the top, the first bar too
     int lastEnd = sectionStartTick;      // where the last note of this section ended
     bool answeredLastEnding = true;      // so the first line may rest
+    int lastAnswerEnd = sectionStartTick;   // where the last ANSWER (not a sung bed) ended
 
     for (int bar = 0; bar < s.bars; ++bar)
     {
@@ -1554,7 +1559,7 @@ static void generateFills (const SectionPlan& s,
         const int barEnd   = barStart + barTicks;
         const int inGroup  = bar % 4;
         const bool lastOfSection = (bar == s.bars - 1);
-        const size_t before = out.lead.size();
+        size_t before = out.lead.size();
 
         bool answer = false;
         if (inGroup == 3 || (lastOfSection && iq > 0.0))
@@ -1603,9 +1608,68 @@ static void generateFills (const SectionPlan& s,
                     int first = end;
                     for (size_t k = before; k < out.lead.size(); ++k) first = std::min (first, out.lead[k].tick);
                     lickStart = first;
+
+                    // THE BLUES ANSWER REACHES BACK (2026-10-03). A twelve-bar
+                    // line is the singer's for two bars and the guitar's for two;
+                    // the answer above had only the back of the last one - two
+                    // beats, the same as a rock fill. So at the end of a line the
+                    // guitar starts talking in the bar before: a phrase from the
+                    // back half of bar three, a breath, then the landing above.
+                    // Its own stream: no other note in the song moves.
+                    // BUSY moves it too: at a line's end always at the top and
+                    // never at the bottom; turned up, the second and third bars'
+                    // answers reach back into the bar before them as well.
+                    if (style == "blues" && bar > 0 && (inGroup == 3 || ((inGroup == 1 || inGroup == 2) && busyTrim > 0.0)))
+                    {
+                        Rng reach (deriveSeed (songSeed, hashString ("blues reach/" + std::to_string (barStart))));
+                        const int from  = std::max (barStart - barTicks / 2, lastAnswerEnd + kPPQ / 2);
+                        const int upTo  = lickStart - kPPQ / 2;
+                        const int roomR = upTo - from;
+                        const double reachChance = inGroup != 3      ? busyTrim
+                                                 : busyTrim >= 0.0   ? 0.75 + busyTrim * 0.25
+                                                                     : 0.75 * (1.0 + busyTrim);
+                        if (reach.chance (reachChance) && roomR >= kPPQ)
+                        {
+                            lr = &reach;
+                            const int j = chooseLick (roomR);
+                            if (j >= 0)
+                            {
+                                Rng lickRng2 (deriveSeed (static_cast<uint32_t> (reach.next()), 0xA12u + static_cast<uint32_t> (bar)));
+                                Lick R = kBuilders[j] (lickRng2);
+                                vary (R, reach, who, shuffle);
+                                if (shuffle && ! R.triplet) toSwungEighths (R);
+                                const size_t mark = out.lead.size();
+                                const bool okR = playLick (R, upTo, chordAt (upTo >= barStart ? bar : bar - 1), reach.chance (0.5), roomR);
+                                if (okR)
+                                {
+                                    int firstR = upTo;
+                                    for (size_t k = mark; k < out.lead.size(); ++k) firstR = std::min (firstR, out.lead[k].tick);
+                                    // What the bar before sang from there on gives way.
+                                    for (size_t k = firstOfSection; k < mark; )
+                                    {
+                                        const LeadIntent& o = out.lead[k];
+                                        if (o.bed && o.tick >= firstR && o.tick < barEnd)
+                                        {
+                                            out.lead.erase (out.lead.begin() + static_cast<long> (k));
+                                            if (k < before) --before;
+                                        }
+                                        else ++k;
+                                    }
+                                    lickStart = firstR;
+                                    beforeThat = lastLick;
+                                    lastLick   = j;
+                                }
+                            }
+                            lr = &rng;
+                        }
+                    }
                 }
             }
         }
+
+        for (size_t k = before; k < out.lead.size(); ++k)
+            if (! out.lead[k].bed)
+                lastAnswerEnd = std::max (lastAnswerEnd, out.lead[k].tick + out.lead[k].durationTicks);
 
         // Anything before the answer in this bar sings or rests - but never two
         // silent bars running: "a cut out in gtr lasts a second or two".

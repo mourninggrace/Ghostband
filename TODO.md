@@ -26,7 +26,8 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
 - [x] **Takes do not remember BUSY / SHRED** (fixed 2026-10-02) - recalling a take plays it with the
       knobs as they are now.
 - [x] **Bass BUSY up is weak in a shuffle** (fixed 2026-10-02: pushes + movement) (1248 -> 1271 notes on blues-3).
-- [ ] **Blues fills answers are short** - a shuffle bar leaves two thirds of a bar
+- [x] **Blues fills answers are short** (2026-10-03: line-end answers now reach back
+      into the bar before; ~2 beats -> 3.1-4.3) - a shuffle bar leaves two thirds of a bar
       of room; they may need to reach into the bar before.
 - [ ] **Shreddage silent below ~40** - clamped around, never explained (BACKLOG C5).
       Needs one Calibrate run.
