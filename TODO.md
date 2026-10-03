@@ -53,7 +53,7 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
        the Vol slider does rise at the solo, and the GTR 2 knob is audible in it).
        Lead: at the solo Ghostband flips Hydra's pickup neck->bridge (CC22 0->127)
        and bite 28->99 - likely thinner/quieter. Owner parked it for now.
-0. [ ] **Guitar 2 level is on CC7 in the owner's rig**, not CC85: his Settings Save
+0. [x] (settled 2026-10-02: Kontakt header Output Volume learned on CC7, Hydra on ch 11) **Guitar 2 level is on CC7 in the owner's rig**, not CC85: his Settings Save
        (12:18) wrote an older in-memory set into the installed profile and the
        installer carried it. Kontakt learned CC7. Works, but CC7 is what other
        parts' fallbacks send (guitar 1 sends CC7 ch2) and Hydra is on Omni -
@@ -79,16 +79,16 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
 2. [-] SHELVED 2026-09-27 (owner: no extra plugins; Hydra's own presets cover tone). **Effects that fit the part** - research each instrument's effect controls
        from its manual first. Known wall: Shreddage's Console effects have MIDI
        learn removed (BACKLOG D2). Also answer AmpliTube 5 / Guitar Rig 7 (C4).
-3. [ ] **Capo** - check the Hydra manual for a real one; otherwise emulate open-string
+3. [x] (2026-09-27: owner mapped Hydra's capo to CC26; not driven by songs - open-string voicing emulation not needed so far) **Capo** - check the Hydra manual for a real one; otherwise emulate open-string
        voicings up the neck.
-4. [ ] **Calibrate: articulation test** - plays pinch, harmonic, tap, choke, rake,
+4. [x] (built: Calibrate > GUITAR 2 tab; all 23 rows confirmed by ear 2026-09-27) **Calibrate: articulation test** - plays pinch, harmonic, tap, choke, rake,
        each named, to confirm the keyswitch map on the owner's Shreddage.
 5. [x] (2026-10-03: CLIMB, THEME, TRICKS under GTR 2, layout A) **Curated controls** - which of the solo engine's other choices (motif
        return, register climb) deserve a knob. Few, not many.
 
 ## Waiting on the owner
 
-- [ ] Install the last two commits (double-click resets, mix boxes) - close GP5 first; then his verdict on the boxes and the 850 window.
+- [ ] His verdict on the mix boxes and the 850 window (installed 2026-10-03).
 - [ ] Any audio dropout: note the time; read changes.log for "AUDIO DROPOUT" (says whether Ghostband was slow).
 - [ ] Release v2.5.0 when he says (everything in CHANGELOG [Unreleased]).
 
@@ -99,7 +99,7 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
 - [x] Guitar 2 lowest note re-set in Calibrate (owner, 2026-09-27 - it was set
       wrong; may explain the "silent below E2" workaround - listen for it).
 - [x] Kontakt CC 7 tick; GP5 launcher re-pinned from the Start menu loader.
-- [ ] AmpliTube 5 / Guitar Rig 7: does he own either, and should Ghostband
+- [-] NOT DOING (no extra plugins - feedback 2026-09-27) AmpliTube 5 / Guitar Rig 7: does he own either, and should Ghostband
       drive an amp/FX plugin after Hydra (C4)?
 
 ## Version 3
