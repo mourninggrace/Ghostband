@@ -5,7 +5,7 @@ deliberately not being done. The detailed engineering notes behind each item are
 in [BACKLOG.md](BACKLOG.md); the questions only the owner can answer are in
 [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md).
 
-*Last updated 2026-09-26, session 29 (branch fills-v3-wip, installed, not yet released).*
+*Last updated 2026-10-03, session 33 (branch fills-v3-wip ahead of v2.4.0; last two commits not yet installed). See NEXT.md.*
 
 ## In the middle of right now
 
@@ -29,7 +29,7 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
 - [x] **Blues fills answers are short** (2026-10-03: line-end answers now reach back
       into the bar before; ~2 beats -> 3.1-4.3) - a shuffle bar leaves two thirds of a bar
       of room; they may need to reach into the bar before.
-- [ ] **Shreddage silent below ~40** - clamped around, never explained (BACKLOG C5).
+- [x] **Shreddage silent below ~40** (closed 2026-10-03: the owner walked 27-40 in Calibrate, all sound) - clamped around, never explained (BACKLOG C5).
       Needs one Calibrate run.
 - [x] **Clean-up** (2026-10-02: 1,585 dead lines removed) - old `generateSolo` and `kSoloGestures` kept unused until the
       new solos are approved; the note-emitting loop is repeated three times.
@@ -87,6 +87,10 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
        return, register climb) deserve a knob. Few, not many.
 
 ## Waiting on the owner
+
+- [ ] Install the last two commits (double-click resets, mix boxes) - close GP5 first; then his verdict on the boxes and the 850 window.
+- [ ] Any audio dropout: note the time; read changes.log for "AUDIO DROPOUT" (says whether Ghostband was slow).
+- [ ] Release v2.5.0 when he says (everything in CHANGELOG [Unreleased]).
 
 - [ ] Listening verdict on everything in "In the middle".
 - [ ] `stalls.log` after the next audio break-up.

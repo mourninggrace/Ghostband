@@ -6,7 +6,7 @@ useless for the one job it has: telling whoever picks this up next what is true
 right now. The history is in `docs/archive/NEXT-through-session-13.md`, and
 nobody has to read it.
 
-**Last touched 2026-10-03, session 32. v2.4.0 RELEASED** (main = v2.4.0). The guitar 1 "wrong chords" report was the Iron 2 preset/effects, not Ghostband - checked: guitar 1 never rings one chord over another (0 overlaps in 34 songs, now a permanent check). Guitar 2 volume = Kontakt Instrument Header Output Volume, MIDI-learned on CC7 - NEVER the "Accept standard controllers" tick (crashes Kontakt 8.13.1). NEXT: whatever the owner hears next; open items in TODO.md.
+**Last touched 2026-10-03, session 33.** main = v2.4.0; branch `fills-v3-wip` @ HEAD is AHEAD of it, pushed, and everything but the last two commits (double-click resets 7da51c2, mix boxes 431d3e4) is INSTALLED - install those first (owner closes GP5). Since v2.4.0, all in CHANGELOG [Unreleased]: effects picked by genre ("style" control type, from UJAM presets), per-song "sound" pins (5 approved songs), Iron 2 stomp box + finisher on CC36/CC37 (CC30 is the finisher ON/OFF), blues fills reach back, thrash-note pedal riffs, dropout detector (changes.log "AUDIO DROPOUT"), Calibrate Save says "nothing changed", solo knobs CLIMB/THEME/TRICKS, mix boxes, double-click everywhere. 534 checks. NEXT: install, owner listens to the boxes, then a release (v2.5.0) when he says so; any dropout report -> read changes.log.
 
 ## State
 
