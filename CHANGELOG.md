@@ -40,6 +40,12 @@ Session 29. Built and measured; not released until the owner has listened.
 - **SHRED edits the approved solo instead of re-rolling it**: up turns held notes
   and rests into sixteenth runs into the next note, down thins fast runs. It
   went the wrong way on a third of the songs; now on none (checked, 33 songs).
+- **Takes remember BUSY and SHRED** (they recalled at whatever the dials said),
+  and the BUSY/SHRED knobs follow a recall instead of only reading on open.
+- Audit: two values shared between plugin instances made per-instance (the
+  bar-jump restatement table, the volume-log counter); a flaky watchdog test
+  fixed; the old solo generator and its helpers removed (1,585 dead lines -
+  the approved solos are byte-for-byte unchanged).
 - Checks: every BUSY dial busier up and sparser down on 3 songs x 5 instruments;
   SHRED never the wrong way in any song. At 0 nothing moves - the approved
   solo lock holds.

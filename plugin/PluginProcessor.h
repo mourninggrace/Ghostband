@@ -277,6 +277,12 @@ public:
         // gb::byIntuition: the default IS the old behaviour, so an old take
         // recalls note for note without needing to know the field is missing.
         double intuition  = 0.5;
+
+        // The mix-of-parts dials (2026-10-02 audit: a take recalled at
+        // whatever BUSY and SHRED happened to be set to). 0 in a take saved
+        // before they were stored, which is the middle - the old behaviour.
+        double busy[5]    = { 0.0, 0.0, 0.0, 0.0, 0.0 };
+        double shred      = 0.0;
     };
 
     std::vector<Take> getTakes() const;

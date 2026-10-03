@@ -707,6 +707,7 @@ public:
     // is whenever the host has it behind a tab. Nothing should be recorded.
     void runTimerOffScreenForTesting();
     int  stallCountForTesting() const;
+    int  g2LastLogged = 0;   // guitar 2 level sends already in the change log (per window, not shared)
     // A test about the FIRST idle gap must start from none: on a busy machine
     // an earlier step can stall on its own and take that place (seen 1 run in 20).
     void resetIdleGapsForTesting() { idleGaps = 0; idleGapMsTotal = 0.0; idleLogged = 0; }

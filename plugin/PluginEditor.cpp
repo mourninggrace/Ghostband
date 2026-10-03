@@ -1792,6 +1792,9 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 {
     setLookAndFeel (&lookAndFeel);
 
+    // Guitar 2 level sends made before this window existed are not news.
+    g2LastLogged = processor.g2SentCount.load();
+
     // Free plugin, quiet button. Opens in a browser rather than doing anything
     // clever, so it works the same everywhere and asks nothing of the host.
     styleButton (donateButton, false);
@@ -4731,11 +4734,10 @@ void GhostbandEditor::timerCallback()
     // Every guitar 2 level change the band makes, into the change log, so a
     // "UNDER does nothing / the solo stays down" report can be read, not guessed.
     {
-        static int lastLogged = 0;
         const int n = processor.g2SentCount.load();
-        if (n != lastLogged)
+        if (n != g2LastLogged)
         {
-            lastLogged = n;
+            g2LastLogged = n;
             processor.logChange ("guitar 2 volume sent   CC" + juce::String (processor.g2SentCC.load())
                                  + " = " + juce::String (processor.g2SentValue.load())
                                  + "   bar " + juce::String (processor.g2SentBar.load())
@@ -6045,6 +6047,13 @@ void GhostbandEditor::refreshFromProcessor()
     fillsSlider.setValue (processor.fills.load(), juce::dontSendNotification);
     intuitionSlider.setValue (processor.intuition.load(), juce::dontSendNotification);
     seedEditor.setText (juce::String (processor.seed.load()), juce::dontSendNotification);
+
+    // And the trims, which a recalled take or a restored session can move
+    // (2026-10-02 audit: they were only read when the window opened).
+    for (int i = 0; i < 5; ++i)
+        busyKnob[i].setValue (processor.busyTrim[i].load(), juce::dontSendNotification);
+    shredKnob.setValue (processor.shredTrim.load(), juce::dontSendNotification);
+    refreshTrimLabels();
 
     // Not while it has focus, or the refresh overwrites what is being typed.
     if (! bpmEditor.hasKeyboardFocus (true))

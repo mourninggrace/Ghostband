@@ -1725,6 +1725,9 @@ std::vector<GhostbandProcessor::Take> GhostbandProcessor::readTakes() const
         t.humanize   = juce::jlimit (0.0, 1.0, number (*o, "humanize",   0.5));
         t.fills      = juce::jlimit (0.0, 1.0, number (*o, "fills",      0.62));
     t.intuition  = juce::jlimit (0.0, 1.0, number (*o, "intuition",  0.5));
+        for (int i = 0; i < 5; ++i)
+            t.busy[i] = juce::jlimit (-1.0, 1.0, number (*o, ("busy" + std::to_string (i)).c_str(), 0.0));
+        t.shred      = juce::jlimit (-1.0, 1.0, number (*o, "shred", 0.0));
 
         // A take with no name cannot be picked out of a list, and one with no
         // song cannot be played. Neither is worth carrying forward.
@@ -1753,6 +1756,9 @@ bool GhostbandProcessor::writeTakes (const std::vector<Take>& takes) const
         o->setProperty ("humanize",   t.humanize);
         o->setProperty ("fills",      t.fills);
         o->setProperty ("intuition",  t.intuition);
+        for (int i = 0; i < 5; ++i)
+            o->setProperty (juce::Identifier ("busy" + juce::String (i)), t.busy[i]);
+        o->setProperty ("shred",      t.shred);
 
         // Last, and last for a reason: it is by far the longest value, and a
         // file anyone might open by hand reads better with the short fields at
@@ -1790,6 +1796,9 @@ bool GhostbandProcessor::saveTake (const juce::String& name, juce::String& error
     t.humanize   = humanize.load();
     t.fills      = fills.load();
     t.intuition  = intuition.load();
+    for (int i = 0; i < 5; ++i)
+        t.busy[i] = busyTrim[i].load();
+    t.shred      = shredTrim.load();
 
     {
         const juce::ScopedLock sl (stateLock);
@@ -1884,6 +1893,9 @@ void GhostbandProcessor::recallTake (int index)
         fills.store      (t.fills);
         intuition.store  (t.intuition);
         seed.store       (t.seed);
+        for (int i = 0; i < 5; ++i)
+            busyTrim[i].store (static_cast<float> (t.busy[i]));
+        shredTrim.store  (static_cast<float> (t.shred));
 
         juce::String profileError;
         resolveProfiles (profileError);
@@ -2752,7 +2764,9 @@ bool GhostbandProcessor::levelIsTaught (int part) const
 // channel's notes are drums, not switches, and are left alone.
 void GhostbandProcessor::restateBefore (int tick, juce::MidiBuffer& midi, int sample)
 {
-    static int lastCC[16][128];
+    // Per call, never static: two Ghostbands in a rackspace run this on two
+    // audio threads at once (2026-10-02 audit).
+    int lastCC[16][128];
     int lowKey[16], highKey[16];
     for (int c = 0; c < 16; ++c)
     {

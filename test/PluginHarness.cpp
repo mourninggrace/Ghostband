@@ -8538,6 +8538,27 @@ int main (int argc, char** argv)
                    proc.getStatus().message);
         }
 
+        // ---- a take keeps BUSY and SHRED (2026-10-02 audit) ----
+        {
+            proc.busyTrim[0].store (0.75f);
+            proc.busyTrim[3].store (-0.5f);
+            proc.shredTrim.store (0.6f);
+            juce::String err;
+            const bool saved = proc.saveTake ("busy check", err);
+            proc.busyTrim[0].store (0.0f); proc.busyTrim[3].store (0.0f); proc.shredTrim.store (0.0f);
+            int at = -1;
+            const auto all = proc.getTakes();
+            for (size_t i = 0; i < all.size(); ++i) if (all[i].name == "busy check") at = static_cast<int> (i);
+            proc.recallTake (at);
+            check (saved && at >= 0 && std::abs (proc.busyTrim[0].load() - 0.75f) < 0.01f
+                       && std::abs (proc.busyTrim[3].load() + 0.5f) < 0.01f && std::abs (proc.shredTrim.load() - 0.6f) < 0.01f,
+                   "a recalled take brings back its BUSY and SHRED",
+                   "drums " + juce::String (proc.busyTrim[0].load(), 2) + ", guitar 2 " + juce::String (proc.busyTrim[3].load(), 2)
+                       + ", shred " + juce::String (proc.shredTrim.load(), 2));
+            if (at >= 0) proc.deleteTake (at);
+            proc.busyTrim[0].store (0.0f); proc.busyTrim[3].store (0.0f); proc.shredTrim.store (0.0f);
+        }
+
         // ---- the library is on disk, not in the plugin ----
         // Two Ghostbands in one rackspace is normal. The takes are re-read on
         // every call precisely so the second instance sees the first one's
