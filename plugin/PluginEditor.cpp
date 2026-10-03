@@ -3022,7 +3022,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         addChildComponent (*e);
     }
     for (const char* f : { "intensity", "lead", "peaks", "rising",
-                           "random", "random once", "level", "fixed", "none" })
+                           "random", "random once", "style", "level", "fixed", "none" })
         ctlFollows.addItem (f, ctlFollows.getNumItems() + 1);
     for (const char* t : { "knob", "switch", "select" })
         ctlType.addItem (t, ctlType.getNumItems() + 1);

@@ -155,6 +155,19 @@ static void loadControls (const Json& j, ControlSet& out)
             c.low       = def.numberOr ("low", 0.0);
             c.high      = def.numberOr ("high", 1.0);
             c.positions = clampInt (def.intOr ("positions", 0), 0, 128);
+
+            const Json& picks = def["picks"];
+            if (picks.isObject())
+                for (const std::string& styles : picks.keys())
+                {
+                    const Json& list = picks[styles];
+                    std::vector<double> values;
+                    if (list.isArray())
+                        for (size_t k = 0; k < list.size(); ++k)
+                            values.push_back (std::clamp (list[k].asNumber (0.0), 0.0, 1.0));
+                    if (! values.empty())
+                        c.picks.emplace_back (styles, values);
+                }
         }
         else
         {
@@ -864,7 +877,21 @@ std::string ControlSet::toJson() const
              + (c.positions >= 2 ? ", \"positions\": " + std::to_string (c.positions)
                                  : std::string())
              + ", \"low\": " + num (c.low)
-             + ", \"high\": " + num (c.high) + " }";
+             + ", \"high\": " + num (c.high)
+             + [&c, &q, &num]
+               {
+                   if (c.picks.empty()) return std::string();
+                   std::string p = ", \"picks\": { ";
+                   for (size_t i = 0; i < c.picks.size(); ++i)
+                   {
+                       p += (i ? ", " : "") + q (c.picks[i].first) + ": [";
+                       for (size_t k = 0; k < c.picks[i].second.size(); ++k)
+                           p += (k ? ", " : "") + num (c.picks[i].second[k]);
+                       p += "]";
+                   }
+                   return p + " }";
+               }()
+             + " }";
 
     if (ctl.empty())
         return "\"controls\": {}";

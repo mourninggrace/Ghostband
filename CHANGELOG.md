@@ -7,6 +7,19 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
 
 ## [Unreleased]
 
+### Added
+- **Effects picked by genre.** A new control type, "style": each song style
+  lists the settings the instrument maker's own genre presets use, and the song
+  picks one for its whole length. Guitar 1 (VG Iron 2): amp, guitar and finisher
+  - e.g. metal Metal/Crunch, Twang/Bite, Compressor/Warm Reamp/Saturize/Parallel
+  Reamping/rooms; blues Cream/Crisp/Clean with spring and slap-back; ballads
+  Clean/Crisp with warm reverb, concert room or a quarter delay. The piano
+  (Virtual Pianist VOGUE): character and room - Power/Concert in the heavy
+  styles, Emotional/Ballad and wide rooms in ballads. Taken from 313 Iron 2 and
+  151 VOGUE presets (docs/research). Checked: 274 finisher choices across the
+  songs, none outside its genre's list. Guitar 1's amp was "fixed" at Metal on
+  every song before.
+
 ### Fixed
 - **No more dice on effects.** Guitar 1 (VG Iron 2) and the piano (Virtual
   Pianist) had their effects rolled per song - one of Iron 2's 63 finishers

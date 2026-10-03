@@ -124,7 +124,7 @@ void check (bool condition, const juce::String& what, const juce::String& detail
 // phrase (not the bed) in every "fills" section of every song, at six seeds, is
 // fingerprinted three ways - rhythm, contour, rhythm+intervals - and the report
 // says how many phrases share a fingerprint with phrases in OTHER songs.
-struct FillNumbers { int g1Clashes = 0; int shredSongs = 0; juce::StringArray shredWrongWay; int twinInStyle = 0, twinOutOfStyle = 0, twinSongs = 0; double top3Share = 1.0, betweenSongs = 1.0, withinSong = 1.0; int phrases = 0, notes = 0; uint32_t soloSum = 0; double walkShare = 1.0;
+struct FillNumbers { int wrongEffects = 0, finisherSends = 0; int g1Clashes = 0; int shredSongs = 0; juce::StringArray shredWrongWay; int twinInStyle = 0, twinOutOfStyle = 0, twinSongs = 0; double top3Share = 1.0, betweenSongs = 1.0, withinSong = 1.0; int phrases = 0, notes = 0; uint32_t soloSum = 0; double walkShare = 1.0;
                      double soloStepShare = 1.0, soloWalkShare = 1.0, soloHeldShare = 0.0; int soloNotes = 0;
                      double soloAccent = 0.0; };
 
@@ -148,7 +148,7 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
     long bedNotes = 0, answerNotes = 0, bedTicks = 0, answerTicks = 0, sectionTicks = 0;
     uint32_t soloSum = 17u;
     int twinInStyle = 0, twinOutOfStyle = 0, twinSongs = 0;
-    int shredSongs = 0; juce::StringArray shredWrongWay; int g1Clashes = 0;
+    int shredSongs = 0; juce::StringArray shredWrongWay; int g1Clashes = 0; int wrongEffects = 0, finisherSends = 0;
     int walks = 0, walkCandidates = 0;
     // SOLOS, measured the way the fills were: how many moves are a step, how
     // much of the line is a run of four or more steps in one direction (the
@@ -171,6 +171,23 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
             gb::SongPlan song = base;
             song.seed = base.seed + static_cast<unsigned> (k) * 7919u;
             const gb::RenderResult r = gb::renderPerformance (song, kit, bass, &gtr, &piano, &gtr2);
+
+            // NEVER A WRONG EFFECT (2026-10-03). Guitar 1's finisher only ever
+            // one of the rock / metal / pop ones UJAM's own genre presets use -
+            // never 4 Bit, Demonizer, Stutter, Warm Octave Cloud... (positions
+            // of Iron 2's 62; see docs/research).
+            if (k == 0)
+            {
+                static const int allowed[] = { 7, 15, 22, 28, 32, 34, 36, 43, 44, 57, 59, 60, 61 };
+                for (const gb::ControlIntent& c : r.performance.guitar.controls)
+                    if (c.control == "finisher")
+                    {
+                        const int pos = static_cast<int> (c.amount * 61.0 + 0.5);
+                        if (std::find (std::begin (allowed), std::end (allowed), pos) == std::end (allowed))
+                            ++wrongEffects;
+                        ++finisherSends;
+                    }
+            }
 
             // GUITAR 1 NEVER RINGS ONE CHORD OVER ANOTHER (2026-10-03: "making
             // room" holds a chord under a guitar 2 answer - it must not hold it
@@ -523,7 +540,7 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
         out.notes = notes;
         out.soloSum = soloSum;
         out.twinInStyle = twinInStyle; out.twinOutOfStyle = twinOutOfStyle; out.twinSongs = twinSongs;
-        out.shredSongs = shredSongs; out.shredWrongWay = shredWrongWay; out.g1Clashes = g1Clashes;
+        out.shredSongs = shredSongs; out.shredWrongWay = shredWrongWay; out.g1Clashes = g1Clashes; out.wrongEffects = wrongEffects; out.finisherSends = finisherSends;
         out.walkShare = walkCandidates ? walks / double (walkCandidates) : 0.0;
     }
     return out;
@@ -7603,6 +7620,10 @@ int main (int argc, char** argv)
         // below; in every other style it never does.
         // SHRED MOVES THE SOLO THE WAY IT SAYS, in every song with one
         // (2026-10-02: it used to re-roll the solo; a third went the wrong way).
+        check (f.finisherSends > 0 && f.wrongEffects == 0,
+               "guitar 1's effect is always one its genre uses - never an Electronic/Experimental one",
+               juce::String (f.finisherSends) + " finisher choices, " + juce::String (f.wrongEffects) + " wrong");
+
         check (f.g1Clashes == 0, "guitar 1 never rings one chord over a different one",
                juce::String (f.g1Clashes) + " overlaps across 34 songs");
 

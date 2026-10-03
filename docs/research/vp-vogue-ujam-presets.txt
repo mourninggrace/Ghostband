@@ -1,0 +1,172 @@
+KEYS: ambienceamount(151), ambiencetoggle(151), ambiencetype(151), charactertype(151), chord_retrig(151), chord_style(151), focuseq(151), fxamount(151), fxtoggle(151), fxtype(151), humanize(151), inversion(151), left_range(151), max_poly(151), release_decay_rate_per_key(151), release_decay_scaling(151), release_stc_time(151), resonance_decay_rate_per_key(151), resonance_decay_scaling(151), right_range(151), set_default_range(151), speed(151), style(151), tune(151), volume(151), dynamic(89), swing(89), dynamics(62)
+
+== ambiencetype: 30 named positions
+    0.0000  Rooms & Reverbs^Nice Standard
+    0.0345  Rooms & Reverbs^Living Room
+    0.0690  Rooms & Reverbs^Medium Invisibl
+    0.1034  Rooms & Reverbs^Extra Wide
+    0.1379  Rooms & Reverbs^Vintage Spring
+    0.1724  Rooms & Reverbs^Short And Brigh
+    0.2069  Rooms & Reverbs^Reverse
+    0.2414  Rooms & Reverbs^Creamy Dreamy
+    0.2759  Rooms & Reverbs^Nervous
+    0.3103  Rooms & Reverbs^Ten Mile Desert
+    0.3448  Echos & Delays^Tape Echo
+    0.3793  Echos & Delays^Ping Pong
+    0.4138  Echos & Delays^Extra Modulated
+    0.4483  Echos & Delays^Reverse
+    0.4828  Echos & Delays^Dirty Feedback
+    0.5172  Echos & Delays^Standard Four
+    0.5517  Echos & Delays^Standard Dotted
+    0.5862  Echos & Delays^Standard Triplet
+    0.6207  Echos & Delays^Standard Eight
+    0.6552  Echos & Delays^Dotted Eight
+    0.6897  Combinations^Singing Singlenote
+    0.7241  Combinations^Inverted Pitchclou
+    0.7586  Combinations^Sequenced
+    0.7931  Combinations^Outer Space
+    0.8276  Combinations^Spring Tapes
+    0.8621  Combinations^Rich Modulation
+    0.8966  Combinations^Boomerang
+    0.9310  Combinations^Octave Cloud
+    0.9655  Combinations^Pseudo Reverse
+    1.0000  Combinations^Indecision
+
+== charactertype: 5 named positions
+    0.0000  Emotional
+    0.2500  Ballad
+    0.5000  Concert
+    0.7500  Power
+    1.0000  Plastic
+
+== fxtype: 30 named positions
+    0.0000  Color^Brighter Please
+    0.0345  Color^Darker Please
+    0.0690  Color^Tony Chorus
+    0.1034  Color^Modern Comp
+    0.1379  Color^Non Modern Comp
+    0.1724  Color^Stereo Phaser
+    0.2069  Color^Just A Tremolo
+    0.2414  Color^Tube Harmonics
+    0.2759  Color^Rotary
+    0.3103  Color^The Wanderer
+    0.3448  Transform^Extra Resonances
+    0.3793  Transform^Stage Pickups
+    0.4138  Transform^On The Road
+    0.4483  Transform^Cembalizer
+    0.4828  Transform^Old Mechanics
+    0.5172  Transform^Honky Detune
+    0.5517  Transform^Synthesizerizer
+    0.5862  Transform^Ring Modulator
+    0.6207  Transform^Budget Megaphone
+    0.6552  Transform^Attack Reshape
+    0.6897  Remix^Resequencer
+    0.7241  Remix^Granular Paradise
+    0.7586  Remix^Resonant Lowpass
+    0.7931  Remix^Resonant Highpass
+    0.8276  Remix^Converter Says No
+    0.8621  Remix^Straight Hacking
+    0.8966  Remix^Pizza Organ
+    0.9310  Remix^One Floor Down
+    0.9655  Remix^Straight Reverse
+    1.0000  Remix^Old Tape
+
+== style: 68 named positions
+    0.0000  78 bpm - Royal Ballad
+    0.0079  78 bpm - Royal Ballad
+    0.0159  89 bpm - Gentle Ballad
+    0.0238  90 bpm - Ethereal Notes
+    0.0317  93 bpm - Fluttering About
+    0.0397  94 bpm - Stay Strong
+    0.0476  95 bpm - Loved Ones
+    0.0556  96 bpm - Uncovering The Truth
+    0.0635  98 bpm - Gently Growing
+    0.0667  89 bpm - Gentle Ballad
+    0.0690  90 bpm - Ethereal Notes
+    0.0714  100 bpm - A World Like No Other
+    0.0794  102 bpm - Grand Performer
+    0.0873  105 bpm - Introspective
+    0.0952  106 bpm - Reflections
+    0.1000  90 bpm - Ethereal Notes
+    0.1032  107 bpm - Burning Passion
+    0.1034  93 bpm - Fluttering About
+    0.1111  109 bpm - Stranger To Myself
+    0.1190  110 bpm - Chopinizer
+    0.1270  113 bpm - Clockwork
+    0.1349  114 bpm - Coming Back To You
+    0.1379  94 bpm - Stay Strong
+    0.1429  116 bpm - Rag Riff
+    0.1508  117 bpm - Elegant Arp
+    0.1587  118 bpm - First Steps
+    0.1667  120 bpm - Attitude
+    0.1724  95 bpm - Loved Ones
+    0.1746  122 bpm - Beaming Light
+    0.1825  125 bpm - Universal
+    0.1905  127 bpm - Spick And Span
+    0.1984  128 bpm - Backbone
+    0.2000  95 bpm - Loved Ones
+    0.2063  130 bpm - Just A Big One
+    0.2143  136 bpm - A Taste Of House
+    0.2222  140 bpm - Pep In Your Step
+    0.2302  155 bpm - Waiting For Light
+    0.2381  164 bpm - Blissful Evolutions
+    0.2414  98 bpm - Gently Growing
+    0.2667  98 bpm - Gently Growing
+    0.2759  100 bpm - A World Like No Other
+    0.3333  102 bpm - Grand Performer
+    0.3448  105 bpm - Introspective
+    0.3793  106 bpm - Reflections
+    0.4000  106 bpm - Reflections
+    0.4138  107 bpm - Burning Passion
+    0.4483  109 bpm - Stranger To Myself
+    0.4667  109 bpm - Stranger To Myself
+    0.4828  110 bpm - Chopinizer
+    0.5000  110 bpm - Chopinizer
+    0.5172  113 bpm - Clockwork
+    0.5333  113 bpm - Clockwork
+    0.5862  116 bpm - Rag Riff
+    0.6207  117 bpm - Elegant Arp
+    0.6333  117 bpm - Elegant Arp
+    0.6552  118 bpm - First Steps
+    0.6897  120 bpm - Attitude
+    0.7667  125 bpm - Universal
+    0.8000  127 bpm - Spick And Span
+    0.8276  128 bpm - Backbone
+    0.8333  128 bpm - Backbone
+    0.8621  130 bpm - Just A Big One
+    0.8667  130 bpm - Just A Big One
+    0.8966  136 bpm - A Taste Of House
+    0.9310  140 bpm - Pep In Your Step
+    0.9333  140 bpm - Pep In Your Step
+    0.9655  155 bpm - Waiting For Light
+    1.0000  164 bpm - Blissful Evolutions
+
+##### 1 Introduction
+  charactertype: Concert x3, Emotional x3, Plastic x3, Power x1
+  fxtype: Color^Non Modern Comp x1, Color^Darker Please x1, Color^The Wanderer x1, Transform^Attack Reshape x1, Remix^Granular Paradise x1, Color^Tube Harmonics x1, Remix^Pizza Organ x1, Remix^Old Tape x1
+  ambiencetype: Rooms & Reverbs^Nice Standard x1, Rooms & Reverbs^Ten Mile Desert x1, Echos & Delays^Extra Modulated x1, Combinations^Indecision x1, Combinations^Octave Cloud x1, Rooms & Reverbs^Vintage Spring x1, Combinations^Sequenced x1, Echos & Delays^Tape Echo x1
+
+##### 2 Soft & Dark
+  charactertype: Emotional x11, Ballad x8, Concert x7, Power x2, Plastic x1
+  fxtype: Color^Darker Please x4, Transform^On The Road x4, Transform^Attack Reshape x3, Remix^One Floor Down x3, Transform^Old Mechanics x3, Color^Non Modern Comp x2, Transform^Extra Resonances x1, Remix^Old Tape x1
+  ambiencetype: Rooms & Reverbs^Extra Wide x4, Echos & Delays^Standard Eight x4, Rooms & Reverbs^Creamy Dreamy x2, Echos & Delays^Reverse x2, Combinations^Rich Modulation x2, Rooms & Reverbs^Ten Mile Desert x1, Echos & Delays^Tape Echo x1, Echos & Delays^Ping Pong x1
+
+##### 3 Strong & Bright
+  charactertype: Plastic x11, Concert x8, Power x8, Ballad x2, Emotional x1
+  fxtype: Transform^Cembalizer x5, Transform^Honky Detune x4, Color^Stereo Phaser x3, Color^Tony Chorus x3, Color^Modern Comp x2, Remix^Converter Says No x2, Color^Non Modern Comp x2, Transform^Stage Pickups x2
+  ambiencetype: Rooms & Reverbs^Medium Invisibl x4, Rooms & Reverbs^Short And Brigh x4, Echos & Delays^Extra Modulated x3, Rooms & Reverbs^Nice Standard x3, Rooms & Reverbs^Living Room x3, Rooms & Reverbs^Vintage Spring x2, Combinations^Rich Modulation x2, Rooms & Reverbs^Extra Wide x2
+
+##### 4 Pads & Atmospheres
+  charactertype: Emotional x8, Ballad x7, Power x3, Plastic x3, Concert x3
+  fxtype: Remix^Granular Paradise x3, Remix^Resonant Highpass x2, Transform^Extra Resonances x2, Color^The Wanderer x2, Color^Tony Chorus x2, Remix^Straight Reverse x2, Color^Rotary x2, Remix^Resonant Lowpass x1
+  ambiencetype: Combinations^Octave Cloud x4, Combinations^Pseudo Reverse x3, Combinations^Inverted Pitchclou x3, Rooms & Reverbs^Ten Mile Desert x2, Combinations^Rich Modulation x2, Combinations^Singing Singlenote x2, Combinations^Boomerang x2, Echos & Delays^Tape Echo x1
+
+##### 5 Experimental & Remixed
+  charactertype: Plastic x8, Concert x7, Power x6, Ballad x4, Emotional x3
+  fxtype: Transform^Synthesizerizer x3, Remix^Resequencer x3, Transform^Ring Modulator x2, Remix^Resonant Lowpass x2, Transform^Attack Reshape x2, Remix^Straight Hacking x2, Remix^One Floor Down x2, Remix^Pizza Organ x2
+  ambiencetype: Rooms & Reverbs^Nervous x4, Combinations^Indecision x3, Echos & Delays^Dirty Feedback x3, Combinations^Outer Space x2, Combinations^Sequenced x2, Echos & Delays^Standard Dotted x2, Combinations^Pseudo Reverse x2, Rooms & Reverbs^Short And Brigh x1
+
+##### 6 Style Showcase
+  charactertype: Concert x8, Emotional x7, Power x6, Plastic x5, Ballad x4
+  fxtype: Color^Brighter Please x7, Color^Non Modern Comp x6, Color^Darker Please x6, Color^Modern Comp x4, Transform^Old Mechanics x4, Transform^Extra Resonances x2, Transform^Attack Reshape x1
+  ambiencetype: Rooms & Reverbs^Nice Standard x8, Rooms & Reverbs^Creamy Dreamy x6, Rooms & Reverbs^Extra Wide x4, Rooms & Reverbs^Short And Brigh x4, Rooms & Reverbs^Living Room x3, Rooms & Reverbs^Medium Invisibl x3, Rooms & Reverbs^Ten Mile Desert x1, Rooms & Reverbs^Vintage Spring x1

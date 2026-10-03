@@ -35,15 +35,22 @@
     // that made the rhythm guitar sound like "wrong, flat, augmented
     // chords"). Now "none": the instrument plays the preset the owner chose.
     // Genre-picked effects come next, from UJAM's own genre presets.
-    "character": { "cc": 22, "follows": "none", "type": "select", "positions": 5, "low": 0, "high": 1 },
+    // CHARACTER BY GENRE, for Virtual Pianist VOGUE (the grand; the owner's
+    // choice, 2026-10-03): 0 Emotional, .25 Ballad, .5 Concert, .75 Power,
+    // 1 Plastic.
+    "character": { "cc": 22, "follows": "style", "type": "select", "positions": 5, "low": 0, "high": 1, "picks": { "ballad,emo": [0.0, 0.25, 0.5], "blues": [0.5, 0.25], "metal,thrash,groove_metal,prog_metal,doom,sludge": [0.75, 0.5], "hard_rock,alt_rock,punk": [0.5, 0.75], "default": [0.5] } },
     // "random once", not "random", for the same reason as the guitar's effects:
     // re-choosing a piano's TONE at every section boundary is not a performance
     // decision, it is the instrument changing underneath the player.
     "tone": { "cc": 23, "follows": "none", "type": "knob", "low": 0, "high": 1 },
     "finisher": { "cc": 24, "follows": "fixed", "type": "switch", "low": 0, "high": 0 },
-    "finisher selection": { "cc": 25, "follows": "none", "type": "select", "positions": 45, "low": 0, "high": 1 },
+    "finisher selection": { "cc": 25, "follows": "none", "type": "select", "positions": 30, "low": 0, "high": 1 },
     "ambience": { "cc": 26, "follows": "fixed", "type": "switch", "low": 1, "high": 1 },
-    "ambience selection": { "cc": 27, "follows": "none", "type": "select", "positions": 45, "low": 0, "high": 1 },
+    // ROOM BY GENRE (VOGUE's 30 ambiences; only its Rooms & Reverbs, which is
+    // all UJAM's own "Style Showcase" presets use): 0 Nice Standard, .0345
+    // Living Room, .0690 Medium Invisible, .1034 Extra Wide, .1379 Vintage
+    // Spring, .1724 Short And Bright, .2414 Creamy Dreamy.
+    "ambience selection": { "cc": 27, "follows": "style", "type": "select", "positions": 30, "low": 0, "high": 1, "picks": { "ballad,emo": [0.2414, 0.1034, 0.0], "blues": [0.0345, 0.1379, 0.0], "default": [0.1724, 0.069, 0.0345] } },
     "volume": { "cc": 28, "follows": "level", "type": "knob", "low": 0, "high": 1 },
     "dynamics": { "cc": 29, "follows": "intensity", "type": "knob", "low": 0, "high": 1 },
     "tune": { "cc": 30, "follows": "none", "type": "knob", "low": 0, "high": 1 },

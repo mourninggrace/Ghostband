@@ -2098,7 +2098,8 @@ static void generateLeadSolo (const SectionPlan& s,
 static void addControls (const ControlSet* set, const std::string& profileId,
                          std::vector<ControlIntent>& out, int tick,
                          double intensity, bool leading, const std::string& role,
-                         double throughSong, uint32_t sectionSeed, uint32_t songSeed)
+                         double throughSong, uint32_t sectionSeed, uint32_t songSeed,
+                         const std::string& style = std::string())
 {
     if (set == nullptr)
         return;
@@ -2128,6 +2129,36 @@ static void addControls (const ControlSet* set, const std::string& profileId,
 
         const bool rollsEachSection = def.follows == "random";
         const bool rollsOncePerSong  = def.follows == "random once";
+        const bool byStyle           = def.follows == "style";
+
+        if (byStyle)
+        {
+            // The song's style's list, else "default", else leave it alone.
+            const std::vector<double>* list = nullptr;
+            const std::vector<double>* fallback = nullptr;
+            for (const auto& entry : def.picks)
+            {
+                std::string keys = "," + entry.first + ",";
+                keys.erase (std::remove (keys.begin(), keys.end(), ' '), keys.end());
+                if (keys.find ("," + style + ",") != std::string::npos) { list = &entry.second; break; }
+                if (keys == ",default,") fallback = &entry.second;
+            }
+            if (list == nullptr) list = fallback;
+            if (list == nullptr || list->empty())
+                continue;
+
+            // One of them for the whole song, from the control's own stream:
+            // a reroll may choose another, and no note anywhere moves.
+            Rng pickRng (deriveSeed (songSeed, hashString (profileId + "/" + def.name + "/style")));
+            const double v = (*list)[static_cast<size_t> (pickRng.below (static_cast<int> (list->size())))];
+
+            ControlIntent c;
+            c.tick    = tick;
+            c.control = def.name;
+            c.amount  = def.valueAt (v);
+            out.push_back (c);
+            continue;
+        }
 
         if      (def.follows == "lead")   t = leading ? 0.85 : 0.25;
         else if (def.follows == "peaks")  t = bigMoment ? 1.0 : (intensity < 0.4 ? 0.0 : 0.25);
@@ -2489,7 +2520,7 @@ static void generatePhrasePart (const SectionPlan& s,
     addControls (profile != nullptr ? &profile->controls : nullptr,
                  profile != nullptr ? profile->id : std::string(),
                  out.controls, sectionStartTick, s.intensity, ! supporting, s.role,
-                 throughSong, sectionSeed, songSeed);
+                 throughSong, sectionSeed, songSeed, style);
 
     // A player either comps or solos. Doing both at once is not a thing a
     // guitarist can physically do, and layering a line over your own chords is

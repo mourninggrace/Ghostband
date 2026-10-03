@@ -63,7 +63,19 @@ struct ControlDef
     //
     // Both draw from a stream derived from the song seed, so the result is
     // reproducible and a reroll rerolls it.
+    //
+    // style       - one of the values listed for the SONG'S STYLE in `picks`,
+    //               held for the whole song (2026-10-03). For sound choices
+    //               that have right and wrong answers by genre - an amp, an
+    //               effect, a room - taken from the instrument maker's own
+    //               genre presets rather than rolled blind. A style with no
+    //               list uses "default"; with neither, nothing is sent.
     std::string follows = "intensity";
+
+    // For follows "style": per style (a key may name several, comma-separated,
+    // e.g. "metal,thrash"; "default" for the rest), the values 0..1 to choose
+    // from. In file order.
+    std::vector<std::pair<std::string, std::vector<double>>> picks;
 
     // "knob"   sweeps continuously through its range.
     // "switch" lands on fully off or fully on, because a button has no

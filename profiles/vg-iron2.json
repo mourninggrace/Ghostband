@@ -86,8 +86,12 @@
   //   follows "fixed"     - parked at "low", for a knob that should not move
   "controls": {
     "drive": { "cc": 22, "follows": "intensity", "type": "knob", "low": 0, "high": 1 },
-    "amp": { "cc": 23, "follows": "fixed", "type": "select", "positions": 6, "low": 0, "high": 1 },
-    "character": { "cc": 24, "follows": "fixed", "type": "select", "positions": 4, "low": 0, "high": 1 },
+    // AMP BY GENRE, from UJAM's own Iron 2 presets (docs/research): 0 Metal,
+    // .2 Crunch, .4 Cream, .6 Crisp, .8 Clean. Was "fixed" at 0 - the Metal amp
+    // on every song, ballads included.
+    "amp": { "cc": 23, "follows": "style", "type": "select", "positions": 6, "low": 0, "high": 1, "picks": { "metal,thrash,groove_metal,prog_metal": [0.0, 0.2], "doom,sludge": [0.0, 0.2, 0.4], "hard_rock": [0.2, 0.4, 0.6], "alt_rock,punk,emo": [0.2, 0.4, 0.6], "blues": [0.4, 0.6, 0.8], "ballad": [0.6, 0.8], "default": [0.2, 0.6] } },
+    // GUITAR BY GENRE (UJAM presets): 0 Twang, .3333 Bite, .6667 Soft, 1 Fat.
+    "character": { "cc": 24, "follows": "style", "type": "select", "positions": 4, "low": 0, "high": 1, "picks": { "metal,thrash,groove_metal,prog_metal": [0.0, 0.3333], "doom,sludge": [1.0, 0.3333], "hard_rock": [0.0, 0.3333], "alt_rock,punk,emo": [1.0, 0.3333, 0.0], "blues": [0.0, 0.6667], "ballad": [0.6667, 0.0], "default": [0.0, 0.3333] } },
     "pickup": { "cc": 25, "follows": "intensity", "type": "knob", "low": 0, "high": 1 },
     "tune": { "cc": 26, "follows": "none", "type": "knob", "low": 0, "high": 1 },
     "variance": { "cc": 27, "follows": "fixed", "type": "knob", "low": 0, "high": 1 },
@@ -99,7 +103,13 @@
     // that made the rhythm guitar sound like "wrong, flat, augmented
     // chords"). Now "none": the instrument plays the preset the owner chose.
     // Genre-picked effects come next, from UJAM's own genre presets.
-    "finisher": { "cc": 30, "follows": "none", "type": "select", "positions": 62, "low": 0, "high": 1},
+    // FINISHER BY GENRE - the ones UJAM's rock/metal/pop presets use, never
+    // the Electronic/Experimental ones (4 Bit, Demonizer, Stutter, Warm Octave
+    // Cloud...). .1148 Compressor, .2459 Parallel Reamping, .3607 Saturize,
+    // .4590 Warm Reamp, .5246 Concert Room, .5574 Delay 1/4, .5902 Delay 1/8,
+    // .7049 Large Room, .7213 Medium Room, .9344 Slap Back, .9672 Spring
+    // Reverb, .9836 Warm Reverb, 1 Warm Room.
+    "finisher": { "cc": 30, "follows": "style", "type": "select", "positions": 62, "low": 0, "high": 1, "picks": { "metal,thrash,groove_metal,prog_metal": [0.1148, 0.459, 0.3607, 0.2459, 1.0, 0.7213], "doom,sludge": [0.459, 0.3607, 1.0, 0.7049], "hard_rock": [0.1148, 0.459, 0.3607, 1.0, 0.9344], "alt_rock,punk,emo": [1.0, 0.1148, 0.459, 0.7213, 0.5902], "blues": [0.9344, 0.9672, 1.0, 0.1148], "ballad": [0.5246, 0.9836, 1.0, 0.5574], "default": [1.0, 0.1148] } },
     // These four were "random", which re-chooses every section. Picking WHICH
     // effect once per song and then re-rolling how much of it every eight bars
     // is incoherent - the tone shifted under the same riff, and a take recalled
