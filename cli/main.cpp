@@ -138,7 +138,7 @@ int installProfiles (const std::string& fromDir, const std::string& toDir)
     // Every block the plugin ever writes back into a profile. Nothing else in
     // these files can be edited from inside Ghostband, so nothing else can be
     // lost by overwriting it.
-    static const char* kWrittenBack[] = { "controls", "notes", "lowest_note", "chord_zone" };
+    static const char* kWrittenBack[] = { "controls", "notes", "lowest_note", "highest_note", "chord_zone" };
 
     std::error_code ec;
     if (! fs::is_directory (fromDir, ec))

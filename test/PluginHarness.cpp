@@ -2861,6 +2861,24 @@ int main (int argc, char** argv)
                band.existsAsFile() ? juce::String() : juce::String ("no band plan to test with"));
         check (all.contains ("piano"),  "calibration includes the piano");
 
+        // SAVE WITH NOTHING NUDGED SAYS SO, AND WRITES NOTHING (2026-10-03: a
+        // save of unchanged notes read "Saved" and the owner could not tell it
+        // had done nothing). Safe to run for real here: it must not write.
+        {
+            juce::Array<juce::File> files;
+            for (const juce::File& f : juce::File ("C:/Projects/Ghostband/profiles").findChildFiles (juce::File::findFiles, false, "*.json"))
+                files.add (f);
+            std::map<juce::String, juce::Time> stamps;
+            for (const juce::File& f : files) stamps[f.getFullPathName()] = f.getLastModificationTime();
+            juce::String msg;
+            const bool ok = proc.saveCalibration (msg);
+            int touched = 0;
+            for (const juce::File& f : files) if (f.getLastModificationTime() != stamps[f.getFullPathName()]) ++touched;
+            check (ok && msg.startsWith ("Nothing changed") && touched == 0,
+                   "Save with nothing nudged says nothing changed, and writes no file",
+                   msg + "  (" + juce::String (touched) + " files touched)");
+        }
+
         const auto before = proc.getCalibrationStep (0);
         proc.nudgeCalibrationNote (0, +1);
         const auto after = proc.getCalibrationStep (0);

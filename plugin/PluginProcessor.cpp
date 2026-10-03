@@ -2992,6 +2992,41 @@ bool GhostbandProcessor::saveCalibration (juce::String& error)
         entries.add ("    \"" + s.label.replace (" ", "_") + "\": " + juce::String (s.note));
     }
 
+    // And what moved in every other part, measured before anything is written.
+    // A save with nothing changed used to rewrite every file and say "Saved",
+    // which looks exactly like a save that worked (the owner, 2026-10-03,
+    // after pressing Save with nothing nudged: "what now?"). Now it says so.
+    {
+        const juce::ScopedLock sl (stateLock);
+        const juce::String arrow (juce::CharPointer_UTF8 ("\xe2\x86\x92"));
+        const auto note = [&changed, &arrow] (const CalibrationStep& st, int was)
+        {
+            if (was >= 0 && was != st.note)
+                changed.add (st.label + " " + juce::String (was) + arrow + juce::String (st.note));
+        };
+        for (const CalibrationStep& st : steps)
+        {
+            if (st.isDrum) continue;
+            if (st.label == "bass lowest note")  note (st, bassProfile.lowestNoteFor (plan.bassTuning));
+            if (st.label == "bass highest note") note (st, bassProfile.highestNote);
+            const std::pair<juce::String, const gb::PhraseProfile*> parts[] = {
+                { "guitar", haveGuitar ? &guitarProfile : nullptr },
+                { "guitar 2", haveGuitar2 ? &guitar2Profile : nullptr },
+                { "piano", havePiano ? &pianoProfile : nullptr } };
+            for (const auto& pp : parts)
+            {
+                if (pp.second == nullptr) continue;
+                if (st.label == pp.first + " lowest chord note")  note (st, pp.second->chordLowest);
+                if (st.label == pp.first + " highest chord note") note (st, pp.second->chordHighest);
+            }
+        }
+    }
+    if (changed.isEmpty())
+    {
+        error = "Nothing changed - nothing to save. Nudge a note first.";
+        return true;
+    }
+
     const std::string notesBlock = ("\"notes\": {\n" + entries.joinIntoString (",\n")
                                     + "\n  }").toStdString();
 

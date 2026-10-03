@@ -66,6 +66,15 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
   3-7 re-picks a song in the thrash family, none anywhere else (new check).
 
 ### Fixed
+- **Calibrate's Save says when nothing changed.** It rewrote every file and
+  said "Saved" even with nothing nudged, which looked exactly like a save that
+  worked. Now: "Nothing changed - nothing to save", and no file is touched
+  (new check). A real save names every note that moved, in every part, not
+  just the drums.
+- **The installer keeps a calibrated bass top note.** It carried the lowest
+  note and chord zones but not "highest_note", so the owner's bass top (79,
+  calibrated 2026-10-03) would have reset on the next install. Also set in
+  the shipped profile.
 - **No more dice on effects.** Guitar 1 (VG Iron 2) and the piano (Virtual
   Pianist) had their effects rolled per song - one of Iron 2's 63 finishers
   (among them 4 Bit, Demonizer, Stutter Destruction and Warm Octave Cloud, a

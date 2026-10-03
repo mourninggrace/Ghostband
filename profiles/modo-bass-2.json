@@ -41,7 +41,7 @@
     "drop_c": 40,
     "b_standard": 40
   },
-  "highest_note": 67,
+  "highest_note": 79,
 
   // Keyswitches need to land clear of the note they modify, never on the same
   // tick, or the plugin can apply them one note late.
