@@ -1051,6 +1051,13 @@ private:
     void                          restateLevelsLocked();          // auditionLock held
     void                          restateBefore (int tick, juce::MidiBuffer& midi, int sample);
 
+    // Which keys set STATE on which channel - a feel, the neck, the hand, an
+    // articulation, the pick direction - and so are replayed when a bar jump
+    // lands mid-section; -1 for every other key, including the ones that make
+    // a SOUND (Hydra's fret noise, slide note, thrash note, slide key).
+    // Built with the sequence, read by the audio thread under sequenceLock.
+    std::vector<signed char>      replayGroup = std::vector<signed char> (16 * 128, -1);
+
     // THE ONLY PLACE GUITAR 2'S LEVEL IS SENT (2026-10-02). Kontakt 8.13.1
     // crashed three times on its UI thread around bursts of CC 7, which
     // Hydra's rack volume answers once "Accept standard controllers" is

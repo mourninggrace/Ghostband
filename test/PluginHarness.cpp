@@ -7695,7 +7695,7 @@ int main (int argc, char** argv)
             juce::AudioBuffer<float> buf (2, bs); juce::MidiBuffer m;
             const double q = (bs / sr) * (ph.bpm / 60.0);
             const int bar = gb::kPPQ * 4;
-            int landedAt = -1; bool cc40OnLanding = false, clicked = false;
+            int landedAt = -1; bool cc40OnLanding = false, clicked = false, fxOnLanding = false;
             for (int blk = 0; blk < static_cast<int> (40.0 * 4 / q) && landedAt < 0; ++blk)
             {
                 ph.ppq = blk * q; buf.clear(); m.clear();
@@ -7707,15 +7707,20 @@ int main (int argc, char** argv)
                 {
                     landedAt = after;
                     for (const juce::MidiMessageMetadata e : m)
+                    {
                         if (e.getMessage().isController() && e.getMessage().getChannel() == 11
                             && e.getMessage().getControllerNumber() == 40) cc40OnLanding = true;
+                        // Never a SOUNDING key replayed (Hydra FX 25-27).
+                        if (e.getMessage().isNoteOn() && e.getMessage().getChannel() == 11
+                            && e.getMessage().getNoteNumber() >= 25 && e.getMessage().getNoteNumber() <= 27) fxOnLanding = true;
+                    }
                 }
             }
             pj.setPlayHead (nullptr);
-            check (landedAt == 19 * bar && cc40OnLanding,
+            check (landedAt == 19 * bar && cc40OnLanding && ! fxOnLanding,
                    "clicking a bar while playing jumps to its first beat and restates the instruments",
                    "landed at tick " + juce::String (landedAt) + " (bar 20 = " + juce::String (19 * bar) + "), CC 40 "
-                       + (cc40OnLanding ? "restated" : "NOT restated"));
+                       + (cc40OnLanding ? "restated" : "NOT restated") + (fxOnLanding ? ", an FX key REPLAYED" : ""));
         }
 
         // EVERY BUSY DIAL AND SHRED DO WHAT THEY SAY (2026-10-02, the owner: "i

@@ -42,6 +42,12 @@ Session 29. Built and measured; not released until the owner has listened.
   went the wrong way on a third of the songs; now on none (checked, 33 songs).
 - **Takes remember BUSY and SHRED** (they recalled at whatever the dials said),
   and the BUSY/SHRED knobs follow a recall instead of only reading on open.
+- Audit: a bar jump replayed the latest key of any kind at velocity 100 - a
+  Hydra fret squeak or slide noise on landing, or the hand put on the wrong
+  fret (that key's velocity is the fret). Now only state keys (feel, neck,
+  hand, articulation, pick direction), each at its own velocity.
+- Audit: a section or bar jump queued just before a song load fired in the
+  new song - a load now cancels it.
 - Audit: two values shared between plugin instances made per-instance (the
   bar-jump restatement table, the volume-log counter); a flaky watchdog test
   fixed; the old solo generator and its helpers removed (1,585 dead lines -

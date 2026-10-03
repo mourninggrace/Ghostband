@@ -2767,14 +2767,13 @@ void GhostbandProcessor::restateBefore (int tick, juce::MidiBuffer& midi, int sa
     // Per call, never static: two Ghostbands in a rackspace run this on two
     // audio threads at once (2026-10-02 audit).
     int lastCC[16][128];
-    int lowKey[16], highKey[16];
+    int lastKey[16][6], lastVel[16][6];   // per channel, per state group: the latest key and ITS velocity
     for (int c = 0; c < 16; ++c)
     {
-        lowKey[c] = highKey[c] = -1;
         for (int n = 0; n < 128; ++n) lastCC[c][n] = -1;
+        for (int g = 0; g < 6; ++g) lastKey[c][g] = lastVel[c][g] = -1;
     }
 
-    const int drumCh = drumChannelForAudio.load();
     for (const TimedMessage& t : sequence)
     {
         if (t.tick >= tick) break;
@@ -2786,24 +2785,28 @@ void GhostbandProcessor::restateBefore (int tick, juce::MidiBuffer& midi, int sa
             const int cc = m.getControllerNumber();
             if (cc != 120 && cc != 123) lastCC[ch][cc] = m.getControllerValue();
         }
-        else if (m.isNoteOn() && ch + 1 != drumCh)
+        else if (m.isNoteOn())
         {
-            if (m.getNoteNumber() < 30)        lowKey[ch]  = m.getNoteNumber();
-            else if (m.getNoteNumber() >= 100) highKey[ch] = m.getNoteNumber();
+            const int g = replayGroup[static_cast<size_t> (ch * 128 + m.getNoteNumber())];
+            if (g >= 0 && g < 6)
+            {
+                lastKey[ch][g] = m.getNoteNumber();
+                lastVel[ch][g] = m.getVelocity();
+            }
         }
     }
 
-    const int offAt = std::min (sample + 32, std::max (sample, midi.getLastEventTime()));
+    const int offAt = sample + 32;
     for (int c = 0; c < 16; ++c)
     {
         for (int n = 0; n < 128; ++n)
             if (lastCC[c][n] >= 0)
                 midi.addEvent (juce::MidiMessage::controllerEvent (c + 1, n, lastCC[c][n]), sample);
-        for (int k : { lowKey[c], highKey[c] })
-            if (k >= 0)
+        for (int g = 0; g < 6; ++g)
+            if (lastKey[c][g] >= 0)
             {
-                midi.addEvent (juce::MidiMessage::noteOn  (c + 1, k, (juce::uint8) 100), sample);
-                midi.addEvent (juce::MidiMessage::noteOff (c + 1, k), std::max (sample + 1, offAt));
+                midi.addEvent (juce::MidiMessage::noteOn  (c + 1, lastKey[c][g], (juce::uint8) juce::jlimit (1, 127, lastVel[c][g])), sample);
+                midi.addEvent (juce::MidiMessage::noteOff (c + 1, lastKey[c][g]), offAt);
             }
     }
 }
@@ -3697,8 +3700,30 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
     const int beat = std::max (1, gb::kPPQ * 4 / std::max (1, planToUse.timeSigDenominator));
     const int bar  = beat * std::max (1, planToUse.timeSigNumerator);
 
+    // The state keys each phrase instrument uses, grouped so a jump replays
+    // the latest of each group (2026-10-02 audit: it replayed the latest key
+    // of any kind at velocity 100 - a fret squeak, or Hydra's hand put on the
+    // wrong fret, since that key's velocity IS the fret).
+    std::vector<signed char> groups (16 * 128, -1);
+    for (const gb::PhraseProfile* p : { guitarToUse, guitar2ToUse, pianoToUse })
+    {
+        if (p == nullptr || p->channel < 1 || p->channel > 16) continue;
+        for (int n = 0; n < 128; ++n)
+        {
+            if (n == p->slideKeyswitch || n == p->fretNoiseKey || n == p->slideNoteKey || n == p->thrashNoteKey)
+                continue;   // these SOUND; replaying one is a noise, not a state
+            const bool picking = n == p->pickUpKey || n == p->pickDownKey
+                              || n == p->pickAlternateKey || n == p->pickEconomyKey;
+            const auto kind = p->switchKind (n);
+            if (! picking && kind == gb::PhraseProfile::SwitchKind::None) continue;
+            groups[static_cast<size_t> ((p->channel - 1) * 128 + n)]
+                = static_cast<signed char> (picking ? 5 : static_cast<int> (kind));
+        }
+    }
+
     {
         const juce::SpinLock::ScopedLockType lock (sequenceLock);
+        replayGroup.swap (groups);
         sequence.swap (built);
         sectionRanges.swap (ranges);
         sectionGuitar2Fills.swap (fillsBySection);
