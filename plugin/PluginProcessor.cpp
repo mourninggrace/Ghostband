@@ -181,6 +181,12 @@ void GhostbandProcessor::releaseResources() {}
 // The preset songs ship inside the plugin, so Load plan opens on them rather
 // than on an empty Documents folder. Falls back to Documents if the bundle was
 // installed without them.
+GhostbandProcessor::SongFeel GhostbandProcessor::getSongFeel() const
+{
+    const juce::ScopedLock sl (stateLock);
+    return { plan.complexity, plan.humanize, plan.fills, plan.intuition };
+}
+
 double GhostbandProcessor::getPlanBpm() const
 {
     const juce::ScopedLock sl (stateLock);

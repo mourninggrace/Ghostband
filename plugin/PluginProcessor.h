@@ -203,6 +203,12 @@ public:
     // The tempo the loaded song is written at.
     double                         getPlanBpm() const;
 
+    // The song's own feel dials, as the song file (or take) has them - where a
+    // double-click on each dial returns it (the owner, 2026-10-03: "double
+    // clicking a knob puts it back at 0... i want it for every knob").
+    struct SongFeel { double complexity = 0.5, humanize = 0.5, fills = 0.62, intuition = 0.5; };
+    SongFeel getSongFeel() const;
+
     // Tests must not write to the user's real mappings. The harness points this
     // at a temporary folder; without it a test run rewrote the channels and the
     // taught controls of every instrument on the machine.

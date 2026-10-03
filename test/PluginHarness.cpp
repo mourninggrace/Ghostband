@@ -4401,6 +4401,31 @@ int main (int argc, char** argv)
         {
             auto* gbEd = dynamic_cast<GhostbandEditor*> (ed);
 
+            // ---- every knob and slider resets on a double-click -------------
+            // (the owner, 2026-10-03: "double clicking a knob puts it back at
+            // 0... i want it for every knob/slider/etc"). Any slider added later
+            // without it fails here.
+            {
+                juce::StringArray without;
+                int sliders = 0;
+                std::function<void (juce::Component&)> walk = [&] (juce::Component& c)
+                {
+                    for (auto* child : c.getChildren())
+                    {
+                        if (auto* sl = dynamic_cast<juce::Slider*> (child))
+                        {
+                            ++sliders;
+                            if (! sl->isDoubleClickReturnEnabled())
+                                without.add (sl->getName().isNotEmpty() ? sl->getName() : sl->getTooltip().substring (0, 30));
+                        }
+                        walk (*child);
+                    }
+                };
+                walk (*ed);
+                check (sliders >= 20 && without.isEmpty(), "every knob and slider goes back to its default on a double-click",
+                       juce::String (sliders) + " sliders" + (without.isEmpty() ? juce::String() : ", without: " + without.joinIntoString ("; ")));
+            }
+
             // ---- ctrl-click a section, then press Roll ----------------------
             // rerollSections is asserted elsewhere and works. What was never
             // covered is the wiring from the click to that call: a selection

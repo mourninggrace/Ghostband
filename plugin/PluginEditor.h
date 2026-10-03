@@ -915,6 +915,7 @@ private:
     juce::Label  busyLabel[5], shredLabel;
     // The solo knobs, a third line under GTR 2 (2026-10-03, layout A).
     juce::Slider climbKnob, motifKnob, tricksKnob;
+    int edIntensityDefaultFor = -1;   // the section edIntensity's double-click value was taken from
     juce::Label  climbLabel, motifLabel, tricksLabel;
     void refreshTrimLabels();
 

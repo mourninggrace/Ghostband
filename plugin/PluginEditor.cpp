@@ -2636,6 +2636,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     edBars.setInputRestrictions (3, "0123456789");
 
     styleSlider (edIntensity);
+    edIntensity.setDoubleClickReturnValue (true, 0.5);   // replaced by the section's own value once one is picked
     addChildComponent (edIntensity);
     edIntensity.onDragEnd = [this] { pushSectionEdit(); };
 
@@ -2675,7 +2676,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     initLabel (edPlaysLabel,     "PLAYS",     15.0f, ghost::dim, juce::Justification::centredLeft);
     initLabel (edLeadLabel,      "LEAD",      15.0f, ghost::dim, juce::Justification::centredLeft);
 
-    editButton.onClick   = [this] { screen = Screen::Edit; editSelected = 0;
+    editButton.onClick   = [this] { screen = Screen::Edit; editSelected = 0; edIntensityDefaultFor = -1;
                                     pullSectionEdit(); updateModeVisibility(); };
     edDoneButton.onClick = [this] { screen = Screen::Song; updateModeVisibility(); };
 
@@ -5800,6 +5801,12 @@ void GhostbandEditor::pullSectionEdit()
     edBars.setText (juce::String (e.bars), juce::dontSendNotification);
     edChords.setText (e.chords, juce::dontSendNotification);
     edIntensity.setValue (e.intensity, juce::dontSendNotification);
+    // Double-click: back to what this section had when it was picked.
+    if (editSelected != edIntensityDefaultFor)
+    {
+        edIntensity.setDoubleClickReturnValue (true, e.intensity);
+        edIntensityDefaultFor = editSelected;
+    }
 
     const juce::String feelText = e.feel.replace ("_", " ");
     for (int i = 1; i <= edFeel.getNumItems(); ++i)
@@ -6051,6 +6058,16 @@ void GhostbandEditor::refreshFromProcessor()
     humanizeSlider.setValue (processor.humanize.load(), juce::dontSendNotification);
     fillsSlider.setValue (processor.fills.load(), juce::dontSendNotification);
     intuitionSlider.setValue (processor.intuition.load(), juce::dontSendNotification);
+
+    // A double-click puts each feel dial back where the SONG has it - its own
+    // "zero", since every preset sets its own.
+    {
+        const auto feel = processor.getSongFeel();
+        complexitySlider.setDoubleClickReturnValue (true, feel.complexity);
+        humanizeSlider.setDoubleClickReturnValue   (true, feel.humanize);
+        fillsSlider.setDoubleClickReturnValue      (true, feel.fills);
+        intuitionSlider.setDoubleClickReturnValue  (true, feel.intuition);
+    }
     seedEditor.setText (juce::String (processor.seed.load()), juce::dontSendNotification);
 
     // And the trims, which a recalled take or a restored session can move
