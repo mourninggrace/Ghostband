@@ -202,6 +202,7 @@ struct ControlIntent
     int         tick   = 0;
     std::string control;      // "drive", "tone", "effect", "style"
     double      amount = 0.5; // 0..1, scaled to 0..127 by the profile
+    bool        pinned = false; // the song's own "sound" block: sent even when the profile says "none"
 };
 
 // One phrase-driven part: the chords it holds, the phrases it switches to, and

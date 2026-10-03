@@ -175,12 +175,13 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
             // NEVER A WRONG EFFECT (2026-10-03). Guitar 1's finisher only ever
             // one of the rock / metal / pop ones UJAM's own genre presets use -
             // never 4 Bit, Demonizer, Stutter, Warm Octave Cloud... (positions
-            // of Iron 2's 62; see docs/research).
+            // of Iron 2's 62; see docs/research). A song's own pinned sound is
+            // exempt: it was approved by ear (Nine Cent Rain, 2026-10-03).
             if (k == 0)
             {
                 static const int allowed[] = { 7, 15, 22, 28, 32, 34, 36, 43, 44, 57, 59, 60, 61 };
                 for (const gb::ControlIntent& c : r.performance.guitar.controls)
-                    if (c.control == "finisher")
+                    if (c.control == "finisher" && ! c.pinned)
                     {
                         const int pos = static_cast<int> (c.amount * 61.0 + 0.5);
                         if (std::find (std::begin (allowed), std::end (allowed), pos) == std::end (allowed))
@@ -7623,6 +7624,60 @@ int main (int argc, char** argv)
         check (f.finisherSends > 0 && f.wrongEffects == 0,
                "guitar 1's effect is always one its genre uses - never an Electronic/Experimental one",
                juce::String (f.finisherSends) + " finisher choices, " + juce::String (f.wrongEffects) + " wrong");
+
+        // A SONG'S PINNED SOUND HOLDS (2026-10-03: the genre picks moved Nine
+        // Cent Rain's amp, effect and piano, and the owner heard it). Every
+        // pinned control of every pinned song reaches the instrument with
+        // exactly its value - "none" in the profile or not - and survives a
+        // save and reload.
+        {
+            gb::DrumProfile kit; gb::BassProfile bass; gb::PhraseProfile gtr, gtr2, piano;
+            std::string e;
+            gb::DrumProfile::load   ("C:/Projects/Ghostband/profiles/ssd5-terry-date.json", kit, e);
+            gb::BassProfile::load   ("C:/Projects/Ghostband/profiles/modo-bass-2.json", bass, e);
+            gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/vg-iron2.json", gtr, e);
+            gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/shreddage-3-hydra.json", gtr2, e);
+            gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/virtual-pianist.json", piano, e);
+
+            int songs = 0, pins = 0, wrong = 0, lostOnSave = 0;
+            for (const char* name : { "blues-2", "hard-rock", "prog", "thrash" })
+            {
+                gb::SongPlan p;
+                if (! gb::SongPlan::load ("C:/Projects/Ghostband/plans/preset-" + std::string (name) + ".json", p, e)
+                    || p.sound.empty())
+                { ++wrong; continue; }
+                ++songs;
+
+                gb::SongPlan back;
+                if (! gb::SongPlan::parse (p.toJson(), "round trip", back, e) || back.sound != p.sound)
+                    ++lostOnSave;
+
+                const gb::RenderResult r = gb::renderPerformance (p, kit, bass, &gtr, &piano, &gtr2);
+                for (const auto& part : p.sound)
+                {
+                    const bool isPiano = part.first == "piano";
+                    const gb::PhraseProfile& prof = isPiano ? piano : gtr;
+                    gb::MidiTrack t;
+                    prof.controls.render (isPiano ? r.performance.piano.controls : r.performance.guitar.controls,
+                                          1, 0, t);
+                    for (const auto& pin : part.second)
+                    {
+                        ++pins;
+                        const int cc = prof.controls.ccFor (pin.first);
+                        const int want = static_cast<int> (pin.second * 127.0 + 0.5);
+                        bool sent = false, other = false;
+                        for (const gb::MidiEvent& ev : t.events)
+                            if (ev.bytes.size() == 3 && (ev.bytes[0] & 0xF0) == 0xB0 && ev.bytes[1] == cc)
+                                (ev.bytes[2] == want ? sent : other) = true;
+                        if (! sent || other) ++wrong;
+                    }
+                }
+            }
+            check (songs == 4 && wrong == 0 && lostOnSave == 0,
+                   "a song's pinned sound reaches the instrument exactly, and survives a save",
+                   juce::String (songs) + " songs, " + juce::String (pins) + " pinned settings, "
+                   + juce::String (wrong) + " wrong, " + juce::String (lostOnSave) + " lost on save");
+        }
 
         check (f.g1Clashes == 0, "guitar 1 never rings one chord over a different one",
                juce::String (f.g1Clashes) + " overlaps across 34 songs");

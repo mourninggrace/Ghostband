@@ -57,6 +57,13 @@
   "guitar2_profile": "profiles/shreddage-3-hydra.json",
   "piano_profile":  "profiles/virtual-pianist.json",
 
+  // ITS SOUND, PINNED: exactly what v2.4.0 sent guitar 1 and the piano,
+  // approved by ear in v2.4.0. The genre picks do not move it.
+  "sound": {
+    "guitar": { "finisher": 0.1496, "finisher amount": 0.1732, "width": 0.4724, "focus": 0.9606, "latch": 1.0 },
+    "piano": { "character": 0.748, "tone": 0.4488, "finisher selection": 0.2992, "ambience selection": 0.0236, "ambience amount": 0.5118 }
+  },
+
   "sections": [
     {
       // Alone, quiet, and in no hurry - so that what follows lands.

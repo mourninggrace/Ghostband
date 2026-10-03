@@ -700,7 +700,7 @@ void ControlSet::render (const std::vector<ControlIntent>& intents, int channel,
         if (def == nullptr || def->cc < 0)
             continue;
 
-        if (def->follows == "none" || def->follows == "level")
+        if ((def->follows == "none" && ! c.pinned) || def->follows == "level")
             continue;
 
         const int value = clampInt (static_cast<int> (c.amount * 127.0 + 0.5), 0, 127);

@@ -2099,7 +2099,8 @@ static void addControls (const ControlSet* set, const std::string& profileId,
                          std::vector<ControlIntent>& out, int tick,
                          double intensity, bool leading, const std::string& role,
                          double throughSong, uint32_t sectionSeed, uint32_t songSeed,
-                         const std::string& style = std::string())
+                         const std::string& style = std::string(),
+                         const std::map<std::string, double>* pins = nullptr)
 {
     if (set == nullptr)
         return;
@@ -2116,7 +2117,7 @@ static void addControls (const ControlSet* set, const std::string& profileId,
         // Without this the only way to leave a control alone was "fixed", which
         // does not leave it alone at all - it pins it to the bottom of its
         // range, so a mix knob ends up at zero and an effect gets switched off.
-        if (def.follows == "none")
+        if (def.follows == "none" && (pins == nullptr || pins->count (def.name) == 0))
             continue;
 
         // A level control belongs to the mix knob on the song screen, not to
@@ -2124,6 +2125,22 @@ static void addControls (const ControlSet* set, const std::string& profileId,
         // knob for the same control, and the knob would appear not to work.
         if (def.follows == "level")
             continue;
+
+        // The song pins this one: its approved sound, sent as it is.
+        if (pins != nullptr)
+        {
+            const auto pin = pins->find (def.name);
+            if (pin != pins->end())
+            {
+                ControlIntent c;
+                c.tick    = tick;
+                c.control = def.name;
+                c.amount  = pin->second;
+                c.pinned  = true;
+                out.push_back (c);
+                continue;
+            }
+        }
 
         double t = 0.5;
 
@@ -2506,7 +2523,8 @@ static void generatePhrasePart (const SectionPlan& s,
                                 double iq,
                                 double complexity,
                                 double busyTrim,
-                                double shredTrim)
+                                double shredTrim,
+                                const std::map<std::string, double>* pins)
 {
     PhraseIntent pi;
     pi.tick   = sectionStartTick;
@@ -2520,7 +2538,7 @@ static void generatePhrasePart (const SectionPlan& s,
     addControls (profile != nullptr ? &profile->controls : nullptr,
                  profile != nullptr ? profile->id : std::string(),
                  out.controls, sectionStartTick, s.intensity, ! supporting, s.role,
-                 throughSong, sectionSeed, songSeed, style);
+                 throughSong, sectionSeed, songSeed, style, pins);
 
     // A player either comps or solos. Doing both at once is not a thing a
     // guitarist can physically do, and layering a line over your own chords is
@@ -3240,6 +3258,7 @@ RenderResult renderPerformance (const SongPlan& plan,
                 const size_t leadBefore = out.lead.size();
                 const int part = (&out == &result.performance.guitar)  ? 2
                                : (&out == &result.performance.guitar2) ? 3 : 4;
+                const auto pinned = plan.sound.find (part == 2 ? "guitar" : part == 3 ? "guitar2" : "piano");
                 generatePhrasePart (s, chords, tick, barTicks, keyPc, mode, plan.style,
                                     plan.swing, profile,
                                     supports ? supportFeel (feel) : feel,
@@ -3247,7 +3266,8 @@ RenderResult renderPerformance (const SongPlan& plan,
                                     sectionSeed, plan.seed, rng, out, plan.fills,
                                     plan.intuition,
                                     trimmedComplexity (plan.complexity, plan.busy[part]),
-                                    plan.busy[part], plan.shredTrim);
+                                    plan.busy[part], plan.shredTrim,
+                                    pinned != plan.sound.end() ? &pinned->second : nullptr);
                 count = static_cast<int> (out.chords.size() - before);
                 if (leadCount != nullptr)
                     *leadCount = static_cast<int> (out.lead.size() - leadBefore);

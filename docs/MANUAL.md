@@ -719,6 +719,12 @@ left on `auto` is what the engine decides (and later, what the AI planner decide
 | `fills` | 0–1: how often the second guitar takes an opening. 0 is silent |
 | `seed` | any integer — same seed always gives the same song |
 | `ending` | `hard_stop`, `ritard`, `cymbal_ring`, `fade` |
+| `sound` | optional: pins a song's own sound. Per part (`guitar`, `guitar2`, `piano`), control name → value 0–1, e.g. `"guitar": { "amp": 0, "finisher": 0.7874 }`. Sent as written for the whole song, overriding the genre picks and even a control set to `none`. Never a level |
+
+A song whose sound has been approved by ear keeps it with `sound`: Nine Cent
+Rain, Brass Hour, Long Way Round and Terminal Velocity are pinned to exactly
+what v2.4.0 sent guitar 1 and the piano, so a later change to the genre picks
+cannot move them. Every other song gets its effects picked by its style.
 
 ### Section level
 

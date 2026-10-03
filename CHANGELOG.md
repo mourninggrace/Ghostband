@@ -19,6 +19,15 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
   151 VOGUE presets (docs/research). Checked: 274 finisher choices across the
   songs, none outside its genre's list. Guitar 1's amp was "fixed" at Metal on
   every song before.
+- **A song can pin its own sound.** An optional `"sound"` block in a song file
+  - per part ("guitar", "guitar2", "piano"), control name -> value 0..1 - sends
+  exactly those settings whatever the profile's control follows, "none"
+  included (never a level). Nine Cent Rain, Brass Hour, Long Way Round and
+  Terminal Velocity, approved by ear in v2.4.0, are pinned to exactly what
+  v2.4.0 sent guitar 1 and the piano: the genre picks had moved Nine Cent Rain
+  to a clean amp, spring reverb and a Concert piano, and the owner heard it was
+  wrong. Checked: 43 pinned settings in 4 songs reach the instrument exactly and
+  survive a save; the genre check skips pinned settings.
 
 ### Fixed
 - **No more dice on effects.** Guitar 1 (VG Iron 2) and the piano (Virtual

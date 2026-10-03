@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -140,6 +141,12 @@ struct SongPlan
     bool hasGuitar()  const { return ! guitarProfile.empty(); }
     bool hasGuitar2() const { return ! guitar2Profile.empty(); }
     bool hasPiano()  const { return ! pianoProfile.empty(); }
+
+    // A song's own sound, pinned (2026-10-03): per part ("guitar", "guitar2",
+    // "piano"), control name -> the value 0..1 to send, whatever the profile
+    // says that control follows. For a song whose sound was approved by ear,
+    // so a later change to the genre picks cannot move it. Never a level.
+    std::map<std::string, std::map<std::string, double>> sound;
 
     std::vector<SectionPlan> sections;
 

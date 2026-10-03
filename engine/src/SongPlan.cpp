@@ -154,6 +154,20 @@ static bool fromJson (const Json& j, const std::string& sourceName,
     out.guitar2Profile = j.stringOr ("guitar2_profile", "");
     out.pianoProfile  = j.stringOr ("piano_profile", "");
 
+    {
+        const Json& sound = j["sound"];
+        if (sound.isObject())
+            for (const std::string& part : sound.keys())
+            {
+                const Json& pins = sound[part];
+                if (! pins.isObject())
+                    continue;
+                for (const std::string& control : pins.keys())
+                    out.sound[toLower (part)][control]
+                        = std::max (0.0, std::min (1.0, pins[control].asNumber (0.0)));
+            }
+    }
+
     if (out.bpm < 20.0)  out.bpm = 20.0;
     if (out.bpm > 300.0) out.bpm = 300.0;
     if (out.complexity < 0.0) out.complexity = 0.0;
@@ -311,6 +325,25 @@ std::string SongPlan::toJson() const
     if (! guitar2Profile.empty()) j += ",\n  \"guitar2_profile\": " + jsonString (guitar2Profile);
     if (! pianoProfile.empty())  j += ",\n  \"piano_profile\":  " + jsonString (pianoProfile);
     j += ",\n\n";
+
+    if (! sound.empty())
+    {
+        j += "  \"sound\": {";
+        bool firstPart = true;
+        for (const auto& part : sound)
+        {
+            j += std::string (firstPart ? "\n" : ",\n") + "    " + jsonString (part.first) + ": { ";
+            bool firstPin = true;
+            for (const auto& pin : part.second)
+            {
+                j += std::string (firstPin ? "" : ", ") + jsonString (pin.first) + ": " + jsonNumber (pin.second);
+                firstPin = false;
+            }
+            j += " }";
+            firstPart = false;
+        }
+        j += "\n  },\n\n";
+    }
 
     j += "  \"sections\": [\n";
     for (size_t i = 0; i < sections.size(); ++i)
