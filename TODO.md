@@ -70,7 +70,7 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
 0. [x] (owner mapped CC26, 2026-09-27) **Capo** - the last articulation row (22 of 23 confirmed by ear
        2026-09-27). Hydra's capo is a MIDI-learned knob, so it resets with the
        preset like the CC7 tick. Thrash note (27) is confirmed but not yet used
-       in songs - fast same-pitch repeats are the place for it.
+       in songs - fast same-pitch repeats are the place for it. DONE 2026-10-03: pedal riffs in thrash/groove/metal fills.
 0. [x] Drums BUSY up is weak in a shuffle (fixed 2026-10-02: 668/810/919 on Nine Cent Rain).
 0. [ ] One-click GP5 close that also clears Kontakt's hung process.
 

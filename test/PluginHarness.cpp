@@ -251,6 +251,36 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
                 if (std::getenv ("GB_SHRED_PROBE"))
                     std::printf ("SHRED %s\n", line.toRawUTF8());
 
+                // GB_THRASH_PROBE=1: guitar 2's fast same-pitch repeats (picked,
+                // not tremolo, back to back, an eighth apart or closer), solos
+                // and fills apart - where the thrash note could re-pick.
+                if (std::getenv ("GB_THRASH_PROBE"))
+                {
+                    const gb::RenderResult rr = gb::renderPerformance (song, kit, bass, &gtr, &piano, &gtr2);
+                    int runs[2] = { 0, 0 }, repeats[2] = { 0, 0 }, notes[2] = { 0, 0 };
+                    const auto& L = rr.performance.guitar2.lead;
+                    for (const gb::SectionReport& sc : rr.sections)
+                    {
+                        const int kind = sc.guitar2Feel.rfind ("solo", 0) == 0 ? 0 : sc.guitar2Feel.rfind ("fills", 0) == 0 ? 1 : -1;
+                        if (kind < 0) continue;
+                        for (size_t i = 0; i < L.size(); ++i)
+                        {
+                            if (L[i].tick < sc.startTick || L[i].tick >= sc.endTick || L[i].bed) continue;
+                            ++notes[kind];
+                            size_t j = i;
+                            while (j + 1 < L.size() && L[j + 1].pitch == L[i].pitch && ! L[j + 1].bed
+                                   && L[j + 1].artic != gb::LeadArtic::Tremolo && L[i].artic != gb::LeadArtic::Tremolo
+                                   && L[j + 1].tick - L[j].tick <= gb::kPPQ / 2
+                                   && L[j + 1].tick - (L[j].tick + L[j].durationTicks) < 30)
+                                ++j;
+                            if (j > i) { ++runs[kind]; repeats[kind] += static_cast<int> (j - i); i = j; }
+                        }
+                    }
+                    std::printf ("THRASH %-18s %-12s solos: %3d runs %3d repeats of %4d notes | fills: %3d runs %3d repeats of %4d notes\n",
+                                 f.getFileNameWithoutExtension().toRawUTF8(), song.style.c_str(),
+                                 runs[0], repeats[0], notes[0], runs[1], repeats[1], notes[1]);
+                }
+
                 // GB_FILL_PROBE=1: guitar 2's fill answers - how many, how long
                 // (beats, first note to last note's end), how many notes, and how
                 // much of the fills sections guitar 2 sounds at all.
@@ -7751,6 +7781,34 @@ int main (int argc, char** argv)
                    "a blues answer reaches back into the bar before; a rock answer stays short",
                    juce::String (b1, 2) + " / " + juce::String (b2, 2) + " / " + juce::String (b3, 2)
                    + " beats in the blues, " + juce::String (r1, 2) + " / " + juce::String (r2, 2) + " in rock and metal");
+
+            // THE THRASH NOTE PLAYS WHERE IT BELONGS (2026-10-03): re-picked
+            // pedal riffs in the thrash family's fills, nowhere else, and
+            // never in a solo.
+            auto repicks = [&] (const char* name, bool inSolos)
+            {
+                gb::SongPlan p;
+                gb::SongPlan::load ("C:/Projects/Ghostband/plans/preset-" + std::string (name) + ".json", p, e);
+                const gb::RenderResult r = gb::renderPerformance (p, kit, bass, &gtr, &piano, &gtr2);
+                int n = 0;
+                for (const gb::SectionReport& sc : r.sections)
+                {
+                    const bool solo = sc.guitar2Feel.rfind ("solo", 0) == 0;
+                    if (solo != inSolos) continue;
+                    for (const gb::LeadIntent& li : r.performance.guitar2.lead)
+                        if (li.tick >= sc.startTick && li.tick < sc.endTick) n += li.thrashRepeats;
+                }
+                return n;
+            };
+            int inThrash = 0, elsewhere = 0, inSolos = 0;
+            for (const char* name : { "thrash", "thrash-2", "thrash-3", "groove-1", "groove-2" })
+            { inThrash += repicks (name, false); inSolos += repicks (name, true); }
+            for (const char* name : { "hard-rock", "blues-2", "ballad", "punk", "doom-1", "prog" })
+                elsewhere += repicks (name, false) + repicks (name, true);
+            check (inThrash >= 10 && elsewhere == 0 && inSolos == 0,
+                   "the thrash note re-picks in thrash and groove metal fills, never elsewhere or in a solo",
+                   juce::String (inThrash) + " re-picks in 5 thrash/groove songs' fills, "
+                   + juce::String (inSolos) + " in their solos, " + juce::String (elsewhere) + " in 6 other songs");
         }
 
         check (f.g1Clashes == 0, "guitar 1 never rings one chord over a different one",

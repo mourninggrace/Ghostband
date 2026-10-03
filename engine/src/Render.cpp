@@ -1667,6 +1667,84 @@ static void generateFills (const SectionPlan& s,
             }
         }
 
+        // THE THRASH NOTE (2026-10-03, the owner: "add the thrash notes in songs
+        // where it makes sense"). Hydra's D#0 re-picks the note already sounding
+        // - "riff between this and another note for fast patterns" (manual
+        // p35). So in the thrash family some answers become a pedal riff: a home
+        // note under the line, picked twice or three times on the thrash key,
+        // a moving note between, walking up to the answer's own landing. Fills
+        // only (the solos stay as approved), never a twin lick (guitar 1
+        // harmonises those), and on its own stream: no other note moves.
+        {
+            const double riffChance = style == "thrash"       ? 0.40
+                                    : style == "groove_metal" ? 0.30
+                                    : style == "metal"        ? 0.20 : 0.0;
+            size_t landing = out.lead.size();
+            int answerFrom = barEnd;
+            bool twin = false;
+            for (size_t k = before; k < out.lead.size(); ++k)
+            {
+                if (out.lead[k].bed) continue;
+                answerFrom = std::min (answerFrom, out.lead[k].tick);
+                twin = twin || out.lead[k].twin;
+                if (landing == out.lead.size() || out.lead[k].tick > out.lead[landing].tick) landing = k;
+            }
+            Rng riff (deriveSeed (songSeed, hashString ("thrash riff/" + std::to_string (barStart))));
+            const int sixteenth = kPPQ / 4;
+            const int from = sectionStartTick + ((std::min (answerFrom, barStart + barTicks / 2) - sectionStartTick + sixteenth - 1) / sixteenth) * sixteenth;
+            if (riffChance > 0.0 && ! shuffle && ! twin && landing < out.lead.size()
+                && out.lead[landing].tick - from >= 3 * sixteenth && riff.chance (riffChance))
+            {
+                const LeadIntent land = out.lead[landing];
+                // The home note: the chord's root at or below the landing.
+                const Chord& ch = chordAt (bar);
+                int home = land.pitch;
+                while (home > lowest && ((home - ch.rootPc) % 12 + 12) % 12 != 0) --home;
+                if (home < lowest) home += 12;
+                const int homeAt = nearestIndex (scaleLadder, home);
+                const bool repick = profile->thrashNoteKey >= 0;
+
+                std::vector<LeadIntent> riffNotes;
+                auto add = [&] (int tick, int len, int pitch, int repeats, double accent)
+                {
+                    LeadIntent li;
+                    li.tick          = tick;
+                    li.durationTicks = len;
+                    li.pitch         = pitch;
+                    li.accent        = std::min (0.9, accent + s.intensity * 0.1);
+                    li.thrashRepeats = repeats;
+                    riffNotes.push_back (li);
+                };
+                // Cells of home-home-move (or home-home-home-move), the moving
+                // note climbing the key a step a cell.
+                int t = from, step = 1;
+                const int stop = land.tick;
+                while (t + 3 * sixteenth <= stop)
+                {
+                    const int homes = (t + 4 * sixteenth <= stop && riff.chance (0.35)) ? 3 : 2;
+                    const int mi = std::min (homeAt + step, static_cast<int> (scaleLadder.size()) - 1);
+                    const int move = scaleLadder[static_cast<size_t> (std::max (0, mi))];
+                    if (repick)
+                        add (t, homes * sixteenth, home, homes - 1, 0.66);
+                    else
+                        for (int h = 0; h < homes; ++h) add (t + h * sixteenth, sixteenth, home, 0, 0.66);
+                    t += homes * sixteenth;
+                    add (t, sixteenth, move, 0, 0.76);
+                    t += sixteenth;
+                    step = step >= 4 ? 1 : step + 1;
+                }
+                if (! riffNotes.empty())
+                {
+                    // The lick's notes give way; its landing stays.
+                    for (size_t k = out.lead.size(); k-- > before; )
+                        if (! out.lead[k].bed && k != landing)
+                            out.lead.erase (out.lead.begin() + static_cast<long> (k));
+                    for (const LeadIntent& li : riffNotes)
+                        out.lead.push_back (li);
+                }
+            }
+        }
+
         for (size_t k = before; k < out.lead.size(); ++k)
             if (! out.lead[k].bed)
                 lastAnswerEnd = std::max (lastAnswerEnd, out.lead[k].tick + out.lead[k].durationTicks);
@@ -2490,7 +2568,7 @@ static void shredEdit (std::vector<LeadIntent>& lead, size_t from, double shred,
             // before the next one. A landing keeps at least a beat and a half,
             // a bend the time to arrive.
             const bool restAfter = room - n.durationTicks >= 360;
-            const bool candidate = haveNext && ! n.bed && ! lead[i + 1].bed
+            const bool candidate = haveNext && ! n.bed && ! lead[i + 1].bed && n.thrashRepeats == 0
                                 && n.artic == LeadArtic::Normal && room >= 480
                                 && (n.durationTicks >= 360 || restAfter)
                                 && runStart - n.tick >= (n.target ? 720 : n.bendSemis > 0 ? 480 : 120);

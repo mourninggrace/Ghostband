@@ -39,6 +39,14 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
   and metal unchanged. Its own random stream, so no other note in any song
   moves (the solo lock holds). BUSY moves it: never at the bottom, always at
   the top, where the second and third bars' answers reach back too.
+- **The thrash note, in the songs.** Hydra's D#0 re-picks the note already
+  sounding - "riff between this and another note for fast patterns" (manual
+  p35). In thrash (40% of answers), groove metal (30%) and metal (20%) some
+  fill answers become a pedal riff: the chord's root re-picked on the thrash
+  key, a moving note between climbing the key, into the answer's own landing.
+  Fills only - the solos are untouched - never a twin lick, own random stream
+  (no other note moves). An instrument without a thrash key picks the notes.
+  3-7 re-picks a song in the thrash family, none anywhere else (new check).
 
 ### Fixed
 - **No more dice on effects.** Guitar 1 (VG Iron 2) and the piano (Virtual
