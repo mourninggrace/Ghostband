@@ -55,7 +55,7 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
        installer carried it. Kontakt learned CC7. Works, but CC7 is what other
        parts' fallbacks send (guitar 1 sends CC7 ch2) and Hydra is on Omni -
        settle on one CC and have Hydra listen on ch 11 only.
-0. [ ] **Warn when Kontakt's "Accept standard controllers" tick is lost** (it is
+0. [x] SUPERSEDED 2026-10-02: the tick crashes Kontakt 8.13.1 every time; guitar 2 volume is now a LEARNED Instrument Header Output Volume (CC7, tick off). Was: **Warn when Kontakt's "Accept standard controllers" tick is lost** (it is
        saved with the Hydra PRESET and resets on every preset change - owner hit
        it 2026-09-27). The GTR 2 dial/UNDER reach Kontakt's rack volume (after
        the amp) only with it ticked; Hydra's own VOLUME knob is pre-amp gain.
