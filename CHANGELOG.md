@@ -39,6 +39,13 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
   and metal unchanged. Its own random stream, so no other note in any song
   moves (the solo lock holds). BUSY moves it: never at the bottom, always at
   the top, where the second and third bars' answers reach back too.
+- **Iron 2's finisher effect really is picked now.** CC30 turned out to be
+  the finisher's on/off switch, not the effect (the owner, 2026-10-03): the
+  genre "finisher picks" only ever switched it on or off, and the preset's
+  own effect played. The owner mapped the effect selector to CC37; the picks
+  moved there and CC30 is held on. Approved songs keep what they were heard
+  with: Nine Cent Rain on with Parallel Reamping (his preset's), Iron Weather,
+  Brass Hour, Long Way Round and Terminal Velocity off.
 - **Iron 2's stomp box, by genre.** The owner confirmed the map (variance
   CC27, amount CC28, stomp box on/off CC29) and mapped the pedal selector to
   CC36. All three were "fixed" at 0 - the stomp box OFF on every song, though

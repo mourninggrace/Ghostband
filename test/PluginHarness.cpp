@@ -181,7 +181,7 @@ static FillNumbers fillStats (const juce::File& plansDir, int seedsPerSong, bool
             {
                 static const int allowed[] = { 7, 15, 22, 28, 32, 34, 36, 43, 44, 57, 59, 60, 61 };
                 for (const gb::ControlIntent& c : r.performance.guitar.controls)
-                    if (c.control == "finisher" && ! c.pinned)
+                    if (c.control == "finisher selection" && ! c.pinned)
                     {
                         const int pos = static_cast<int> (c.amount * 61.0 + 0.5);
                         if (std::find (std::begin (allowed), std::end (allowed), pos) == std::end (allowed))

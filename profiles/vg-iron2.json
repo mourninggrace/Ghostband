@@ -116,7 +116,10 @@
     // .4590 Warm Reamp, .5246 Concert Room, .5574 Delay 1/4, .5902 Delay 1/8,
     // .7049 Large Room, .7213 Medium Room, .9344 Slap Back, .9672 Spring
     // Reverb, .9836 Warm Reverb, 1 Warm Room.
-    "finisher": { "cc": 30, "follows": "style", "type": "select", "positions": 62, "low": 0, "high": 1, "picks": { "metal,thrash,groove_metal,prog_metal": [0.1148, 0.459, 0.3607, 0.2459, 1.0, 0.7213], "doom,sludge": [0.459, 0.3607, 1.0, 0.7049], "hard_rock": [0.1148, 0.459, 0.3607, 1.0, 0.9344], "alt_rock,punk,emo": [1.0, 0.1148, 0.459, 0.7213, 0.5902], "blues": [0.9344, 0.9672, 1.0, 0.1148], "ballad": [0.5246, 0.9836, 1.0, 0.5574], "default": [1.0, 0.1148] } },
+    // THE FINISHER ON (the owner, 2026-10-03: CC30 is its on/off switch, not
+    // the effect - the "picks" here only ever switched it on or off). On
+    // always; which effect is "finisher selection". Approved songs pin it.
+    "finisher": { "cc": 30, "follows": "fixed", "type": "switch", "low": 1, "high": 1 },
     // These four were "random", which re-chooses every section. Picking WHICH
     // effect once per song and then re-rolling how much of it every eight bars
     // is incoherent - the tone shifted under the same riff, and a take recalled
@@ -137,7 +140,11 @@
     // metal and pop presets use - never a wah, filter, LoFi, Reversinator,
     // Warp Delay. .1034 Booster, .1379 Chorus, .1724 Compressor, .3103
     // Distortion, .3793 Hard Distortion, .5862 Overdrive, .931 Warm Drive.
-    "stomp box selection": { "cc": 36, "follows": "style", "type": "select", "positions": 30, "low": 0, "high": 1, "picks": { "metal,thrash,groove_metal,prog_metal": [0.3793, 0.1034, 0.3103, 0.5862], "doom,sludge": [0.3793, 0.3103, 0.1034, 0.5862], "hard_rock": [0.1034, 0.5862, 0.3103, 0.1724], "alt_rock,punk,emo": [0.931, 0.5862, 0.3103, 0.1034], "blues": [0.1034, 0.5862, 0.931, 0.1724], "ballad": [0.1724, 0.1379, 0.1034], "default": [0.1034, 0.5862] } }
+    "stomp box selection": { "cc": 36, "follows": "style", "type": "select", "positions": 30, "low": 0, "high": 1, "picks": { "metal,thrash,groove_metal,prog_metal": [0.3793, 0.1034, 0.3103, 0.5862], "doom,sludge": [0.3793, 0.3103, 0.1034, 0.5862], "hard_rock": [0.1034, 0.5862, 0.3103, 0.1724], "alt_rock,punk,emo": [0.931, 0.5862, 0.3103, 0.1034], "blues": [0.1034, 0.5862, 0.931, 0.1724], "ballad": [0.1724, 0.1379, 0.1034], "default": [0.1034, 0.5862] } },
+    // WHICH FINISHER, BY GENRE (CC37, mapped by the owner 2026-10-03): the
+    // picks that were on CC30, from UJAM's own rock/metal/pop presets, never
+    // an Electronic or Experimental effect. Positions of 62, value = pos/61.
+    "finisher selection": { "cc": 37, "follows": "style", "type": "select", "positions": 62, "low": 0, "high": 1, "picks": { "metal,thrash,groove_metal,prog_metal": [0.1148, 0.459, 0.3607, 0.2459, 1.0, 0.7213], "doom,sludge": [0.459, 0.3607, 1.0, 0.7049], "hard_rock": [0.1148, 0.459, 0.3607, 1.0, 0.9344], "alt_rock,punk,emo": [1.0, 0.1148, 0.459, 0.7213, 0.5902], "blues": [0.9344, 0.9672, 1.0, 0.1148], "ballad": [0.5246, 0.9836, 1.0, 0.5574], "default": [1.0, 0.1148] } }
   },
 
   "velocity_min": 70,
