@@ -2253,7 +2253,8 @@ static void addControls (const ControlSet* set, const std::string& profileId,
                          double intensity, bool leading, const std::string& role,
                          double throughSong, uint32_t sectionSeed, uint32_t songSeed,
                          const std::string& style = std::string(),
-                         const std::map<std::string, double>* pins = nullptr)
+                         const std::map<std::string, double>* pins = nullptr,
+                         int keyPc = -1)
 {
     if (set == nullptr)
         return;
@@ -2293,6 +2294,31 @@ static void addControls (const ControlSet* set, const std::string& profileId,
                 out.push_back (c);
                 continue;
             }
+        }
+
+        // "capo" (2026-10-03, the owner: "i want the option available to
+        // whatever user might decide they need it"): a capo for the song's KEY,
+        // the way a player capos - the lowest fret, up to the 5th, that puts the
+        // key's tonic on an open string (E A D G B, and an extended-range
+        // guitar's F#), so its shapes ring open. A key already open gets none.
+        // Hydra's capo moves where notes are fretted, not their pitch (manual
+        // p14). Set the control to "none" to leave the instrument's own capo.
+        if (def.follows == "capo")
+        {
+            if (keyPc < 0)
+                continue;
+            static const int kOpen[] = { 4, 9, 2, 7, 11, 6 };
+            int fret = -1;
+            for (int f = 0; f <= 5 && fret < 0; ++f)
+                for (int o : kOpen)
+                    if ((o + f) % 12 == keyPc) { fret = f; break; }
+            fret = std::max (0, fret);
+            ControlIntent c;
+            c.tick    = tick;
+            c.control = def.name;
+            c.amount  = def.positions > 1 ? std::min (1.0, fret / static_cast<double> (def.positions - 1)) : 0.0;
+            out.push_back (c);
+            continue;
         }
 
         double t = 0.5;
@@ -2694,7 +2720,7 @@ static void generatePhrasePart (const SectionPlan& s,
     addControls (profile != nullptr ? &profile->controls : nullptr,
                  profile != nullptr ? profile->id : std::string(),
                  out.controls, sectionStartTick, s.intensity, ! supporting, s.role,
-                 throughSong, sectionSeed, songSeed, style, pins);
+                 throughSong, sectionSeed, songSeed, style, pins, keyPc);
 
     // A player either comps or solos. Doing both at once is not a thing a
     // guitarist can physically do, and layering a line over your own chords is

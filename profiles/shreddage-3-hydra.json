@@ -779,6 +779,9 @@
     "strumming mode": { "cc": 27, "follows": "none", "type": "switch", "low": 0, "high": 1 },
     "MIDI guitar mode": { "cc": 28, "follows": "none", "type": "switch", "low": 0, "high": 1 },
     "invert MIDI channels": { "cc": 29, "follows": "none", "type": "switch", "low": 0, "high": 1 },
-    "anti-repetition": { "cc": 30, "follows": "none", "type": "switch", "low": 0, "high": 1 }
+    "anti-repetition": { "cc": 30, "follows": "none", "type": "switch", "low": 0, "high": 1 },
+    // THE CAPO (CC26, mapped by the owner 2026-09-27): by the song's key -
+    // see "capo" in Render.cpp. 13 positions: none, then frets 1-12.
+    "capo": { "cc": 26, "follows": "capo", "type": "select", "positions": 13, "low": 0, "high": 1 }
   }
 }

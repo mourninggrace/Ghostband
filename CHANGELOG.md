@@ -18,6 +18,13 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
   section's intensity to what it had when picked. A check walks every slider.
 
 ### Added
+- **Capo by key, for guitar 2.** A new control type, "capo": the song's key
+  picks Hydra's capo the way a player would - the lowest fret (up to the 5th)
+  that puts the key's tonic on an open string (E A D G B F#), so its shapes ring
+  open. Hydra's capo moves where notes are fretted, not their pitch (manual
+  p14). Seven songs, all in C or F, get fret 1; every other key is already
+  open and gets none. Set the capo control to "none" in Settings to leave the
+  instrument's own. New check.
 - **The solo knobs: CLIMB, THEME, TRICKS** (layout A, chosen by the owner from
   three sketches): a third line under GTR 2. CLIMB - how far up the neck a solo
   rises (last-third peak 74.6 -> 86.4 from bottom to top, over 30 songs); THEME

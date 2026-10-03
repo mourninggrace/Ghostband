@@ -7895,6 +7895,30 @@ int main (int argc, char** argv)
                        + juce::String (tricksHi) + " at the top");
             }
 
+            // THE CAPO FOLLOWS THE KEY (2026-10-03): fret 1 for a song in C or F
+            // (B and E shapes, ringing open), none for a key already open, and
+            // nothing at all when the control is set to "none".
+            {
+                auto capoOf = [&] (const char* name, const gb::PhraseProfile& prof) -> double
+                {
+                    gb::SongPlan p;
+                    gb::SongPlan::load ("C:/Projects/Ghostband/plans/preset-" + std::string (name) + ".json", p, e);
+                    const gb::RenderResult r = gb::renderPerformance (p, kit, bass, &gtr, &piano, &prof);
+                    double v = -1.0;
+                    for (const gb::ControlIntent& c : r.performance.guitar2.controls)
+                        if (c.control == "capo") v = c.amount;
+                    return v;
+                };
+                const double inC = capoOf ("doom-1", gtr2), inF = capoOf ("alt-rock-2", gtr2), inE = capoOf ("metal-1", gtr2);
+                gb::PhraseProfile noCapo = gtr2;
+                for (gb::ControlDef& d : noCapo.controls.editable()) if (d.name == "capo") d.follows = "none";
+                const double off = capoOf ("doom-1", noCapo);
+                check (std::abs (inC - 1.0 / 12.0) < 1e-6 && std::abs (inF - 1.0 / 12.0) < 1e-6 && inE == 0.0 && off < 0.0,
+                       "the capo follows the song's key, and \"none\" leaves the instrument's own",
+                       "C " + juce::String (inC * 12.0, 1) + ", F " + juce::String (inF * 12.0, 1) + ", E " + juce::String (inE * 12.0, 1)
+                       + ", off " + juce::String (off));
+            }
+
             // THE THRASH NOTE PLAYS WHERE IT BELONGS (2026-10-03): re-picked
             // pedal riffs in the thrash family's fills, nowhere else, and
             // never in a solo.

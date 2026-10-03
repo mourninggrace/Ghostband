@@ -95,6 +95,13 @@ staccato, tremolo picking, fret noise, slide in from / off the neck, thrash note
 pick direction (alternate, down-picked when muted) and capo. Calibrate > GTR 2
 plays each one on its own; see *Calibration*.
 
+**Capo by key.** With guitar 2's capo control on "capo" (the default once its
+CC is taught), each song sets Hydra's capo the way a player would: the lowest
+fret, up to the 5th, that puts the key's tonic on an open string, so its shapes
+ring open. A song in C or F gets fret 1; keys already open (E, A, D, G, B, F#)
+get none. The notes do not change pitch - Hydra just frets them differently.
+Prefer your own capo? Set the control to "none" in Settings.
+
 **Twin guitars.** In metal, hard rock, prog, thrash, groove and doom, the rhythm
 guitar stops strumming and plays the lead's line a diatonic third below - on the
 licks written for two guitars (the twin theme, the sequence, the gallop) and on
