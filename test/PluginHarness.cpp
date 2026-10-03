@@ -7711,7 +7711,7 @@ int main (int argc, char** argv)
             gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/virtual-pianist.json", piano, e);
 
             int songs = 0, pins = 0, wrong = 0, lostOnSave = 0;
-            for (const char* name : { "blues-2", "hard-rock", "prog", "thrash" })
+            for (const char* name : { "blues-2", "hard-rock", "prog", "thrash", "metal-1" })
             {
                 gb::SongPlan p;
                 if (! gb::SongPlan::load ("C:/Projects/Ghostband/plans/preset-" + std::string (name) + ".json", p, e)
@@ -7744,7 +7744,7 @@ int main (int argc, char** argv)
                     }
                 }
             }
-            check (songs == 4 && wrong == 0 && lostOnSave == 0,
+            check (songs == 5 && wrong == 0 && lostOnSave == 0,
                    "a song's pinned sound reaches the instrument exactly, and survives a save",
                    juce::String (songs) + " songs, " + juce::String (pins) + " pinned settings, "
                    + juce::String (wrong) + " wrong, " + juce::String (lostOnSave) + " lost on save");

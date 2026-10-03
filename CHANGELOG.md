@@ -39,6 +39,16 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
   and metal unchanged. Its own random stream, so no other note in any song
   moves (the solo lock holds). BUSY moves it: never at the bottom, always at
   the top, where the second and third bars' answers reach back too.
+- **Iron 2's stomp box, by genre.** The owner confirmed the map (variance
+  CC27, amount CC28, stomp box on/off CC29) and mapped the pedal selector to
+  CC36. All three were "fixed" at 0 - the stomp box OFF on every song, though
+  311 of UJAM's 313 presets have it on. Now it is on, the pedal is picked by
+  genre from the drives, boosts, compressor and chorus UJAM's rock/metal/pop
+  presets use (metal: Hard Distortion/Booster/Distortion/Overdrive; alt/punk:
+  Warm Drive/Overdrive...; ballad: Compressor/Chorus/Booster), and amount and
+  variance follow the genre medians of those presets. The five songs approved
+  by ear (Nine Cent Rain, Brass Hour, Long Way Round, Terminal Velocity, Iron
+  Weather) pin the three as they were heard: off, 0, 0.
 - **The thrash note, in the songs.** Hydra's D#0 re-picks the note already
   sounding - "riff between this and another note for fast patterns" (manual
   p35). In thrash (40% of answers), groove metal (30%) and metal (20%) some

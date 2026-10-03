@@ -24,7 +24,7 @@
   // ITS SOUND, PINNED: exactly what v2.4.0 sent guitar 1 and the piano,
   // approved by ear in v2.4.0. The genre picks do not move it.
   "sound": {
-    "guitar": { "finisher": 0.1969, "finisher amount": 0.6457, "width": 0.2441, "focus": 0.6693, "latch": 1.0 },
+    "guitar": { "variance": 0.0, "amount": 0.0, "stomp box": 0.0, "finisher": 0.1969, "finisher amount": 0.6457, "width": 0.2441, "focus": 0.6693, "latch": 1.0 },
     "piano": { "character": 0.0, "tone": 0.5906, "finisher selection": 0.1575, "ambience selection": 0.252, "ambience amount": 0.5827 }
   },
 

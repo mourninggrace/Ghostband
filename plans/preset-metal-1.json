@@ -16,6 +16,12 @@
   "guitar_profile": "profiles/vg-iron2.json",
   "guitar2_profile": "profiles/shreddage-3-hydra.json",
 
+  // ITS SOUND, PINNED where it was approved by ear (2026-10-03): the stomp
+  // box off, amount and variance at the bottom, as it was heard.
+  "sound": {
+    "guitar": { "variance": 0.0, "amount": 0.0, "stomp box": 0.0 }
+  },
+
   "sections": [
     {
       "name": "intro", "bars": 4, "intensity": 0.45,

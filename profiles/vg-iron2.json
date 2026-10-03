@@ -94,9 +94,16 @@
     "character": { "cc": 24, "follows": "style", "type": "select", "positions": 4, "low": 0, "high": 1, "picks": { "metal,thrash,groove_metal,prog_metal": [0.0, 0.3333], "doom,sludge": [1.0, 0.3333], "hard_rock": [0.0, 0.3333], "alt_rock,punk,emo": [1.0, 0.3333, 0.0], "blues": [0.0, 0.6667], "ballad": [0.6667, 0.0], "default": [0.0, 0.3333] } },
     "pickup": { "cc": 25, "follows": "intensity", "type": "knob", "low": 0, "high": 1 },
     "tune": { "cc": 26, "follows": "none", "type": "knob", "low": 0, "high": 1 },
-    "variance": { "cc": 27, "follows": "fixed", "type": "knob", "low": 0, "high": 1 },
-    "amount": { "cc": 28, "follows": "fixed", "type": "knob", "low": 0, "high": 1 },
-    "stomp box": { "cc": 29, "follows": "fixed", "type": "switch", "positions": 4, "low": 0, "high": 1 },
+    // VARIANCE BY GENRE: the medians of UJAM's own presets per genre folder.
+    // Was "fixed" at 0 - the bottom of the knob - on every song.
+    "variance": { "cc": 27, "follows": "style", "type": "knob", "low": 0, "high": 1, "picks": { "metal,thrash,groove_metal,prog_metal": [0.35], "doom,sludge": [0.35], "hard_rock": [0.45], "alt_rock,punk,emo": [0.36], "blues": [0.47], "ballad": [0.42], "default": [0.35] } },
+    // STOMP BOX AMOUNT BY GENRE (UJAM presets: metal ~0.6-0.75, classic rock
+    // ~0.5, alt/punk ~0.55, pop ~0.4). Was "fixed" at 0.
+    "amount": { "cc": 28, "follows": "style", "type": "knob", "low": 0, "high": 1, "picks": { "metal,thrash,groove_metal,prog_metal": [0.6, 0.75], "doom,sludge": [0.6, 0.75], "hard_rock": [0.5, 0.65], "alt_rock,punk,emo": [0.5, 0.6], "blues": [0.4, 0.5], "ballad": [0.35, 0.45], "default": [0.5] } },
+    // THE STOMP BOX ON (the owner's map, 2026-10-03: CC29 is its on/off).
+    // 311 of UJAM's 313 presets have it on; "fixed" at 0 had it OFF on every
+    // song. A song approved with it off pins it off (plans, "sound").
+    "stomp box": { "cc": 29, "follows": "fixed", "type": "switch", "low": 1, "high": 1 },
     // NO DICE ON EFFECTS (2026-10-03). These were "random once": every song
     // rolled one of the instrument's effects - 63 finishers on Iron 2, among
     // them 4 Bit, Demonizer, Stutter and Warm Octave Cloud (a pitched layer
@@ -124,7 +131,13 @@
     "width": { "cc": 32, "follows": "none", "type": "knob", "low": 0, "high": 1 },
     "focus": { "cc": 33, "follows": "none", "type": "knob", "low": 0, "high": 1 },
     "volume": { "cc": 34, "follows": "level", "type": "knob", "low": 0, "high": 1},
-    "latch": { "cc": 35, "follows": "none", "type": "switch", "low": 0, "high": 1 }
+    "latch": { "cc": 35, "follows": "none", "type": "switch", "low": 0, "high": 1 },
+    // WHICH PEDAL, BY GENRE (30 of them; the owner mapped it to CC36,
+    // 2026-10-03). Only the drives, boosts, compressor and chorus UJAM's rock,
+    // metal and pop presets use - never a wah, filter, LoFi, Reversinator,
+    // Warp Delay. .1034 Booster, .1379 Chorus, .1724 Compressor, .3103
+    // Distortion, .3793 Hard Distortion, .5862 Overdrive, .931 Warm Drive.
+    "stomp box selection": { "cc": 36, "follows": "style", "type": "select", "positions": 30, "low": 0, "high": 1, "picks": { "metal,thrash,groove_metal,prog_metal": [0.3793, 0.1034, 0.3103, 0.5862], "doom,sludge": [0.3793, 0.3103, 0.1034, 0.5862], "hard_rock": [0.1034, 0.5862, 0.3103, 0.1724], "alt_rock,punk,emo": [0.931, 0.5862, 0.3103, 0.1034], "blues": [0.1034, 0.5862, 0.931, 0.1724], "ballad": [0.1724, 0.1379, 0.1034], "default": [0.1034, 0.5862] } }
   },
 
   "velocity_min": 70,
