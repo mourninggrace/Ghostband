@@ -1,0 +1,276 @@
+KEYS: amp(313), drive(313), drop_d(313), feel(313), finisher(313), finisher_amount(313), finisher_mode(313), focus_eq(313), guitar(313), humanize(313), pickup(313), preamp(313), preamp_amount(313), preamp_mode(313), speed(313), style(313), swing(313), tune(313), variance(313), volume(313), width(313), ambience(1), ambience_amount(1), ambience_mode(1)
+
+== amp: 6 named positions
+    0.0000  Metal
+    0.2000  Crunch
+    0.4000  Cream
+    0.6000  Crisp
+    0.8000  Clean
+    1.0000  Direct
+
+== finisher_mode: 63 named positions
+    0.0000  FX^4 Bit
+    0.0164  FX^80s Bass
+    0.0328  FX^Adaptive Remixer
+    0.0492  FX^Adaptive Tremolo
+    0.0656  FX^Adaptive Wah
+    0.0820  FX^Bitrate Sequencer
+    0.0984  FX^Colorizer
+    0.1148  FX^Compressor
+    0.1311  FX^Demonizer
+    0.1475  FX^Dual Rotary Chorus
+    0.1639  FX^Industrializer
+    0.1803  FX^LoFi
+    0.1967  FX^Manual Filter
+    0.2131  FX^Modulator
+    0.2295  FX^Pan to Growl
+    0.2459  FX^Parallel Reamping
+    0.2623  FX^Phaser and Delay
+    0.2787  FX^Pop Delay
+    0.2951  FX^Pop Guitar
+    0.3115  FX^Remix Reverb
+    0.3279  FX^Reverb and Delay
+    0.3443  FX^Reverb and Delay 2
+    0.3607  FX^Saturize
+    0.3770  FX^Space Reverb
+    0.3934  FX^Stutter Destruction
+    0.4098  FX^Stutter Symphony
+    0.4262  FX^Tech Sequence
+    0.4426  FX^Warm Octave Cloud
+    0.4590  FX^Warm Reamp
+    0.4754  FX^Woodstock
+    0.4918  Ambience^60s Rotary
+    0.5082  Ambience^Cathedral Reverb
+    0.5246  Ambience^Concert Room
+    0.5410  Ambience^Delay 1/16
+    0.5574  Ambience^Delay 1/4
+    0.5738  Ambience^Delay 1/4 T
+    0.5902  Ambience^Delay 1/8
+    0.6066  Ambience^Delay 1/8 Dot
+    0.6230  Ambience^Echo Farm
+    0.6393  Ambience^Feedback
+    0.6557  Ambience^Freeze Pad
+    0.6721  Ambience^Gated Reverb
+    0.6885  Ambience^Ice Cave
+    0.7049  Ambience^Large Room
+    0.7213  Ambience^Medium Room
+    0.7377  Ambience^Modulated Reverb
+    0.7541  Ambience^Mystic Delays
+    0.7705  Ambience^Niceness Reverb
+    0.7869  Ambience^PingPong 1/4
+    0.8033  Ambience^PingPong 1/4 T
+    0.8197  Ambience^PingPong 1/8
+    0.8361  Ambience^PingPong 1/8 Dot
+    0.8525  Ambience^Resonator
+    0.8689  Ambience^Reverb and Phaser
+    0.8852  Ambience^Reverse Delays
+    0.9016  Ambience^Rotary Room
+    0.9180  Ambience^Rotten Spring
+    0.9310  Warm Octave Cloud
+    0.9344  Ambience^Slap Back Delay
+    0.9508  Ambience^Splatter Spring
+    0.9672  Ambience^Spring Reverb
+    0.9836  Ambience^Warm Reverb
+    1.0000  Ambience^Warm Room
+
+== guitar: 4 named positions
+    0.0000  Twang
+    0.3333  Bite
+    0.6667  Soft
+    1.0000  Fat
+
+== preamp_mode: 30 named positions
+    0.0000  Adaptive Filter
+    0.0345  Auto Wah
+    0.0690  Auto Wah Syncopated
+    0.1034  Booster
+    0.1379  Chorus
+    0.1724  Compressor
+    0.2069  Delay 1/8
+    0.2414  Delay 1/8 Dot
+    0.2759  Dirty Spring
+    0.3103  Distortion
+    0.3448  Flanger
+    0.3793  Hard Distortion
+    0.4138  LoFi
+    0.4483  Manual Filter
+    0.4828  Manual Wah
+    0.5172  Octaver
+    0.5517  Old Phaser
+    0.5862  Overdrive
+    0.6207  Phase and Flange
+    0.6552  Phaser
+    0.6897  Phaser Sweep
+    0.7241  Resonance
+    0.7586  Reversinator
+    0.7931  Rotary
+    0.8276  Small Room
+    0.8621  Spring Splatter
+    0.8966  Tremolo
+    0.9310  Warm Drive
+    0.9655  Warm Spring
+    1.0000  Warp Delay
+
+== style: 30 named positions
+    0.0000  76 bpm - Meat Stew
+    0.0345  86 bpm - Wall Of Death
+    0.0690  90 bpm - Back In Blue
+    0.1034  90 bpm - Where Is The Manual?
+    0.1379  102 bpm - Be My Girl
+    0.1724  104 bpm - Gorilla Radio
+    0.2069  114 bpm - Six One One
+    0.2414  116 bpm - HopScotch
+    0.2759  118 bpm - Grandma Betty
+    0.3103  120 bpm - Never Never Land
+    0.3448  120 bpm - Arm Pit
+    0.3793  122 bpm - Bottom Up
+    0.4138  122 bpm - Rifles And Tulips
+    0.4483  128 bpm - Walking Backwards
+    0.4828  130 bpm - Song3
+    0.5172  136 bpm - Three Two One
+    0.5517  140 bpm - Fleas
+    0.5862  146 bpm - Freedom
+    0.6207  150 bpm - Black Tulip
+    0.6552  156 bpm - Jokes On You
+    0.6897  158 bpm - Dove For Two
+    0.7241  160 bpm - Goo Bighters
+    0.7586  164 bpm - Free Wheeling
+    0.7931  172 bpm - Unknown
+    0.8276  174 bpm - Screwed Driver
+    0.8621  178 bpm - Skate Or Die
+    0.8966  184 bpm - Talented Billy
+    0.9310  186 bpm - Peas In Brain
+    0.9655  194 bpm - The What?
+    1.0000  194 bpm - Burns Quite Well
+
+== width: 58 named positions
+    0.0000  0
+    0.0721  0
+    0.0811  0
+    0.1081  1
+    0.1441  5
+    0.1532  6
+    0.1622  7
+    0.1712  8
+    0.1892  10
+    0.2072  12
+    0.2252  14
+    0.2432  16
+    0.2523  17
+    0.2793  20
+    0.2883  21
+    0.2973  22
+    0.3063  23
+    0.3153  24
+    0.3423  27
+    0.3604  29
+    0.3784  31
+    0.3874  32
+    0.3964  33
+    0.4054  34
+    0.4234  36
+    0.4324  37
+    0.4414  38
+    0.4505  39
+    0.4685  41
+    0.4775  42
+    0.4865  43
+    0.4955  44
+    0.5045  45
+    0.5135  46
+    0.5225  47
+    0.5315  48
+    0.5405  49
+    0.5495  50
+    0.5676  52
+    0.5766  53
+    0.6036  56
+    0.6216  58
+    0.6306  59
+    0.6396  60
+    0.6486  61
+    0.7027  67
+    0.7207  69
+    0.7297  70
+    0.7387  71
+    0.7568  73
+    0.8198  80
+    0.8378  82
+    0.8739  86
+    0.8829  87
+    0.8919  88
+    0.9009  89
+    0.9640  96
+    1.0000  100
+
+##### 01 Introduction
+  amp: Clean x4, Crisp x3, Metal x2, Crunch x2, Direct x1, Cream x1
+  guitar: Bite x7, Twang x5, Soft x1
+  preamp: On x13
+  preamp_mode: Distortion x2, Manual Wah x1, Chorus x1, Phase and Flange x1, Flanger x1, Compressor x1, Old Phaser x1, Adaptive Filter x1
+  finisher: On x13
+  finisher_mode: Ambience^60s Rotary x2, FX^Warm Reamp x1, Ambience^Warm Room x1, FX^Compressor x1, Ambience^Slap Back Delay x1, Ambience^PingPong 1/4 x1, FX^Demonizer x1, FX^Adaptive Remixer x1
+
+##### 02 Alternative and Punk
+  amp: Crisp x9, Cream x8, Crunch x6, Clean x4, Metal x4
+  guitar: Fat x10, Bite x10, Twang x7, Soft x4
+  preamp: On x31
+  preamp_mode: Warm Drive x5, Warm Spring x3, Auto Wah x3, Overdrive x2, Distortion x2, Old Phaser x2, Spring Splatter x2, Chorus x2
+  finisher: On x31
+  finisher_mode: Ambience^Resonator x3, Ambience^Rotary Room x3, FX^Manual Filter x3, FX^Colorizer x2, FX^Warm Octave Cloud x2, FX^Phaser and Delay x1, Ambience^PingPong 1/8 Dot x1, FX^Parallel Reamping x1
+
+##### 03 Classic Rock
+  amp: Crisp x16, Clean x15, Cream x7, Crunch x6, Metal x6, Direct x3
+  guitar: Twang x20, Bite x16, Soft x10, Fat x7
+  preamp: On x53
+  preamp_mode: Spring Splatter x4, Old Phaser x4, Phaser x4, Chorus x3, Distortion x3, Phase and Flange x3, Booster x3, Rotary x3
+  finisher: On x53
+  finisher_mode: Ambience^60s Rotary x4, FX^Phaser and Delay x3, Ambience^Slap Back Delay x3, FX^80s Bass x3, FX^Colorizer x2, FX^Compressor x2, FX^Pan to Growl x2, FX^Warm Reamp x2
+
+##### 04 Electronic
+  amp: Crunch x12, Crisp x9, Metal x7, Clean x5, Cream x5, Direct x3
+  guitar: Soft x17, Twang x14, Fat x6, Bite x4
+  preamp: On x40, Off x1
+  preamp_mode: LoFi x5, Auto Wah Syncopated x4, Flanger x3, Phaser Sweep x3, Reversinator x3, Delay 1/8 Dot x3, Spring Splatter x3, Manual Wah x2
+  finisher: On x41
+  finisher_mode: FX^4 Bit x6, FX^Demonizer x5, FX^80s Bass x4, FX^Tech Sequence x4, FX^Stutter Symphony x3, FX^Stutter Destruction x3, FX^Remix Reverb x2, FX^LoFi x2
+
+##### 05 Experimental
+  amp: Metal x11, Direct x10, Crisp x10, Clean x10, Crunch x9, Cream x7
+  guitar: Twang x22, Soft x15, Bite x12, Fat x8
+  preamp: On x57
+  preamp_mode: Adaptive Filter x5, Warp Delay x5, Reversinator x4, Auto Wah x4, LoFi x3, Manual Wah x3, Hard Distortion x3, Tremolo x3
+  finisher: On x57
+  finisher_mode: FX^Woodstock x6, FX^Bitrate Sequencer x5, Ambience^Feedback x4, FX^Colorizer x3, Ambience^Gated Reverb x3, FX^Demonizer x2, FX^Pan to Growl x2, FX^Space Reverb x2
+
+##### 06 Hard Rock and Metal
+  amp: Metal x14, Crunch x11, Crisp x10, Cream x8, Clean x1, Direct x1
+  guitar: Twang x23, Bite x12, Fat x7, Soft x3
+  preamp: On x44, Off x1
+  preamp_mode: Hard Distortion x9, Booster x8, Distortion x7, Overdrive x5, Compressor x3, LoFi x2, Phaser Sweep x2, Auto Wah x1
+  finisher: On x45
+  finisher_mode: FX^Compressor x6, FX^Warm Reamp x6, FX^Saturize x6, FX^Parallel Reamping x5, Ambience^Warm Room x3, FX^LoFi x2, FX^Dual Rotary Chorus x2, Ambience^Medium Room x2
+
+##### 07 Modern Rock
+  amp: Clean x10, Crisp x8, Crunch x6, Cream x4, Metal x3, Direct x1
+  guitar: Twang x12, Bite x9, Fat x6, Soft x5
+  preamp: On x32
+  preamp_mode: Overdrive x5, Compressor x4, Booster x4, Chorus x3, Phaser Sweep x2, Hard Distortion x2, Octaver x2, Distortion x2
+  finisher: On x32
+  finisher_mode: Ambience^Warm Room x5, FX^Warm Reamp x3, Ambience^Reverse Delays x2, FX^Reverb and Delay x2, FX^Compressor x2, Ambience^Delay 1/8 x2, FX^Pop Delay x2, FX^Saturize x2
+
+##### 08 Pads
+  amp: Clean x7, Crunch x7, Crisp x6, Cream x4, Metal x2, Direct x1
+  guitar: Soft x19, Twang x5, Fat x3
+  preamp: On x27
+  preamp_mode: Resonance x5, LoFi x4, Reversinator x3, Delay 1/8 Dot x3, Manual Filter x2, Octaver x1, Compressor x1, Dirty Spring x1
+  finisher: On x27
+  finisher_mode: Ambience^Reverse Delays x4, Ambience^Ice Cave x3, Ambience^Mystic Delays x3, Ambience^Echo Farm x2, Ambience^Freeze Pad x2, Ambience^Modulated Reverb x1, FX^Manual Filter x1, Ambience^Cathedral Reverb x1
+
+##### 09 Pop
+  amp: Clean x9, Direct x3, Cream x1, Crunch x1
+  guitar: Soft x6, Twang x5, Fat x3
+  preamp: On x14
+  preamp_mode: Compressor x4, Chorus x2, Dirty Spring x1, Resonance x1, Phaser x1, Small Room x1, Manual Filter x1, Booster x1
+  finisher: On x14
+  finisher_mode: Ambience^Warm Room x3, Ambience^Concert Room x2, FX^Pop Guitar x2, Ambience^Slap Back Delay x2, FX^Colorizer x1, FX^Reverb and Delay x1, FX^Space Reverb x1, FX^Phaser and Delay x1

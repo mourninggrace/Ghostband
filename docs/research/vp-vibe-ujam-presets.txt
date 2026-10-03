@@ -1,0 +1,174 @@
+KEYS: ambienceamount(173), ambiencetoggle(173), ambiencetype(173), charactertype(173), chord_retrig(173), dynamics(173), focuseq(173), fxamount(173), fxtoggle(173), fxtype(173), humanize(173), inversion(173), left_range(173), max_poly(173), release_decay_rate_per_key(173), release_decay_scaling(173), release_stc_time(173), resonance_decay_rate_per_key(173), resonance_decay_scaling(173), right_range(173), speed(173), style(173), tune(173), volume(173), set_default_range(70)
+
+== ambiencetype: 45 named positions
+    0.0000  Rooms & Reverbs^Nice Standard
+    0.0227  Rooms & Reverbs^Living Room
+    0.0455  Rooms & Reverbs^Medium Invisibl
+    0.0682  Rooms & Reverbs^Extra Wide
+    0.0909  Rooms & Reverbs^Vintage Spring
+    0.1136  Rooms & Reverbs^Dark Spring
+    0.1364  Rooms & Reverbs^Amp Spring
+    0.1591  Rooms & Reverbs^Desk Spring
+    0.1818  Rooms & Reverbs^Short And Brigh
+    0.2045  Rooms & Reverbs^Reverse
+    0.2273  Rooms & Reverbs^Creamy Dreamy
+    0.2500  Rooms & Reverbs^Nervous
+    0.2727  Rooms & Reverbs^Ten Mile Desert
+    0.2955  Rooms & Reverbs^80s Digiverb
+    0.3182  Rooms & Reverbs^Panning Reverbs
+    0.3409  Echos & Delays^Tape Echo Clean
+    0.3636  Echos & Delays^Tape Echo Dirty
+    0.3864  Echos & Delays^Ping Pong
+    0.4091  Echos & Delays^Extra Modulated
+    0.4318  Echos & Delays^Reverse
+    0.4545  Echos & Delays^Dirty Feedback
+    0.4773  Echos & Delays^Slapback Hifi
+    0.5000  Echos & Delays^Slapback Lofi
+    0.5227  Echos & Delays^Timewarper
+    0.5455  Echos & Delays^Standard Four
+    0.5682  Echos & Delays^Standard Dotted
+    0.5909  Echos & Delays^Standard Triplet
+    0.6136  Echos & Delays^Standard Eight
+    0.6364  Echos & Delays^Dotted Eight
+    0.6591  Echos & Delays^Unsynced Times
+    0.6818  Combinations^Singing Singlenote
+    0.7045  Combinations^Inverted Pitchclou
+    0.7273  Combinations^Pop Piano
+    0.7500  Combinations^Sequenced
+    0.7727  Combinations^Outer Space
+    0.7955  Combinations^Midrange Harmonics
+    0.8182  Combinations^Spring Tapes Mild
+    0.8409  Combinations^Spring Tapes Sever
+    0.8636  Combinations^Rich Modulation
+    0.8864  Combinations^Boomerang
+    0.9091  Combinations^Octave Cloud
+    0.9318  Combinations^Pseudo Reverse
+    0.9545  Combinations^Indecision
+    0.9773  Combinations^Wandering Filters
+    1.0000  Combinations^Complex Ducking
+
+== charactertype: 5 named positions
+    0.0000  Soft
+    0.2500  Round
+    0.5000  Bell
+    0.7500  Bark
+    1.0000  Hype
+
+== fxtype: 45 named positions
+    0.0000  Color^Brighter Please
+    0.0227  Color^Darker Please
+    0.0455  Color^More Mids Please
+    0.0682  Color^Modern Comp
+    0.0909  Color^Non Modern Comp
+    0.1136  Color^Hifi Chorus
+    0.1364  Color^Lofi Chorus
+    0.1591  Color^Stereo Phaser
+    0.1818  Color^Mono Phaser
+    0.2045  Color^Manual Phaser
+    0.2273  Color^Round Tremolo
+    0.2500  Color^Square Tremolo
+    0.2727  Color^Panned Tremolo
+    0.2955  Color^Rotary
+    0.3182  Color^Rickety Detune
+    0.3409  Transform^Dirty Pickup
+    0.3636  Transform^Rumble Mechanics
+    0.3864  Transform^Church PA
+    0.4091  Transform^Damper
+    0.4318  Transform^One Floor Down
+    0.4545  Transform^Extra Resonances
+    0.4773  Transform^Padifier
+    0.5000  Transform^Budget Megaphone
+    0.5227  Transform^Wah Automatic
+    0.5455  Transform^Wah Manual
+    0.5682  Transform^70s Amping
+    0.5909  Transform^80s Amping
+    0.6136  Transform^Saturate
+    0.6364  Transform^Drive
+    0.6591  Transform^Fuzz
+    0.6818  Remix^The Wanderer
+    0.7045  Remix^Granular Paradise
+    0.7273  Remix^Artifical Filters
+    0.7500  Remix^Resonant Lowpass
+    0.7727  Remix^Resonant Highpass
+    0.7955  Remix^Reasonable Ringmod
+    0.8182  Remix^Unreasonable Ringmod
+    0.8409  Remix^Resequencer
+    0.8636  Remix^Straight Hacking
+    0.8864  Remix^Reverse Short
+    0.9091  Remix^Reverse Long
+    0.9318  Remix^Converter Says No
+    0.9545  Remix^Tape Fresh
+    0.9773  Remix^Tape Rotten
+    1.0000  Remix^Straight Ducking
+
+== style: 40 named positions
+    0.0000  Basic: 68 bpm - No More Love
+    0.0256  Basic: 75 bpm - Cutie Pop
+    0.0513  Basic: 77 bpm - Under The Sun
+    0.0769  Basic: 79 bpm - Loving You
+    0.1026  Basic: 86 bpm - Puh Puh Pah
+    0.1282  Basic: 87 bpm - Power Of Pauses
+    0.1538  Basic: 95 bpm - Left Hand Serva
+    0.1795  Basic: 97 bpm - Dotted Domain
+    0.2051  Basic: 100 bpm - Carpet Rollout
+    0.2308  Basic: 101 bpm - Barbara
+    0.2564  Basic: 106 bpm - Smart Octaves
+    0.2821  Basic: 109 bpm - Open The Bar
+    0.3077  Basic: 119 bpm - Eight Note Sup
+    0.3333  Basic: 121 bpm - Friendly Clust
+    0.3590  Basic: 122 bpm - More Cowbell
+    0.3846  Basic: 126 bpm - Millenial Mode
+    0.4103  Basic: 127 bpm - My Light
+    0.4359  Basic: 134 bpm - Computer Chord
+    0.4615  Basic: 135 bpm - Never Say Nine
+    0.4872  Basic: 139 bpm - Beat The Back
+    0.5128  Advanced: 72 bpm - Cuddle Me No
+    0.5385  Advanced: 80 bpm - Bass Runner
+    0.5641  Advanced: 85 bpm - Le Fonque
+    0.5897  Advanced: 88 bpm - Dream Machin
+    0.6154  Advanced: 89 bpm - Abstraction
+    0.6410  Advanced: 90 bpm - Sly Backdrop
+    0.6667  Advanced: 91 bpm - Run Into Har
+    0.6923  Advanced: 93 bpm - So Sweet
+    0.7179  Advanced: 96 bpm - Seven Over O
+    0.7436  Advanced: 98 bpm - One Two Thre
+    0.7692  Advanced: 102 bpm - In Awe
+    0.7949  Advanced: 104 bpm - Bathroom Br
+    0.8205  Advanced: 105 bpm - Approved Ac
+    0.8462  Advanced: 107 bpm - Round The B
+    0.8718  Advanced: 108 bpm - I Want It
+    0.8974  Advanced: 110 bpm - Unison Line
+    0.9231  Advanced: 111 bpm - Picking Pat
+    0.9487  Advanced: 115 bpm - Humble Work
+    0.9744  Advanced: 118 bpm - Hopscotch
+    1.0000  Advanced: 120 bpm - Funk Guitar
+
+##### 1 Introduction
+  charactertype: Bell x5, Soft x5, Round x4, Bark x3, Hype x3
+  fxtype: Remix^Reverse Long x2, Color^Mono Phaser x2, Transform^80s Amping x1, Transform^Rumble Mechanics x1, Transform^Fuzz x1, Remix^Reasonable Ringmod x1, Transform^Wah Automatic x1, Transform^Saturate x1
+  ambiencetype: Rooms & Reverbs^Desk Spring x1, Rooms & Reverbs^Medium Invisibl x1, Rooms & Reverbs^Nervous x1, Rooms & Reverbs^Nice Standard x1, Rooms & Reverbs^Amp Spring x1, Combinations^Indecision x1, Echos & Delays^Tape Echo Dirty x1, Echos & Delays^Standard Dotted x1
+
+##### 2 Soft & Dark
+  charactertype: Soft x9, Bark x7, Round x5, Bell x5, Hype x3
+  fxtype: Transform^80s Amping x3, Transform^Budget Megaphone x3, Color^Rotary x2, Transform^Damper x2, Color^Round Tremolo x2, Color^Mono Phaser x2, Transform^One Floor Down x1, Color^Darker Please x1
+  ambiencetype: Combinations^Spring Tapes Mild x3, Combinations^Octave Cloud x2, Rooms & Reverbs^Desk Spring x2, Combinations^Spring Tapes Sever x2, Rooms & Reverbs^Ten Mile Desert x1, Rooms & Reverbs^80s Digiverb x1, Combinations^Inverted Pitchclou x1, Combinations^Rich Modulation x1
+
+##### 3 Strong & Bold
+  charactertype: Hype x10, Bark x8, Round x6, Bell x6, Soft x2
+  fxtype: Color^More Mids Please x2, Color^Panned Tremolo x2, Color^Rotary x2, Color^Hifi Chorus x2, Transform^Dirty Pickup x2, Transform^70s Amping x2, Transform^Wah Automatic x2, Color^Modern Comp x2
+  ambiencetype: Echos & Delays^Slapback Hifi x3, Rooms & Reverbs^Amp Spring x3, Rooms & Reverbs^Short And Brigh x3, Echos & Delays^Tape Echo Dirty x2, Combinations^Outer Space x2, Rooms & Reverbs^Reverse x2, Combinations^Spring Tapes Mild x1, Echos & Delays^Tape Echo Clean x1
+
+##### 4 Pads & Atmospheres
+  charactertype: Soft x9, Round x9, Hype x5, Bell x5
+  fxtype: Remix^Reverse Long x4, Transform^Padifier x4, Color^Mono Phaser x2, Remix^Resonant Highpass x2, Remix^Granular Paradise x2, Remix^Resonant Lowpass x2, Remix^Unreasonable Ringmod x1, Remix^Artifical Filters x1
+  ambiencetype: Combinations^Inverted Pitchclou x3, Combinations^Octave Cloud x3, Combinations^Pseudo Reverse x2, Rooms & Reverbs^Reverse x2, Combinations^Outer Space x2, Combinations^Singing Singlenote x1, Combinations^Wandering Filters x1, Rooms & Reverbs^Desk Spring x1
+
+##### 5 Experimental & Remixed
+  charactertype: Hype x8, Bark x6, Soft x4, Bell x4, Round x2
+  fxtype: Remix^Artifical Filters x5, Color^Mono Phaser x2, Transform^Wah Manual x2, Transform^Damper x2, Remix^Resequencer x1, Remix^Straight Hacking x1, Transform^Padifier x1, Transform^Fuzz x1
+  ambiencetype: Echos & Delays^Ping Pong x3, Combinations^Indecision x2, Combinations^Complex Ducking x2, Combinations^Midrange Harmonics x2, Combinations^Sequenced x2, Combinations^Pseudo Reverse x1, Echos & Delays^Extra Modulated x1, Rooms & Reverbs^Short And Brigh x1
+
+##### 6 Styles & Standards
+  charactertype: Bark x12, Bell x9, Round x8, Hype x6, Soft x5
+  fxtype: Transform^70s Amping x4, Transform^Saturate x3, Color^Stereo Phaser x2, Color^Hifi Chorus x2, Transform^Rumble Mechanics x2, Color^Rotary x2, Color^More Mids Please x2, Remix^Tape Rotten x2
+  ambiencetype: Rooms & Reverbs^Vintage Spring x3, Echos & Delays^Reverse x3, Echos & Delays^Ping Pong x3, Rooms & Reverbs^Living Room x2, Combinations^Midrange Harmonics x2, Rooms & Reverbs^Short And Brigh x2, Combinations^Sequenced x2, Echos & Delays^Tape Echo Clean x2

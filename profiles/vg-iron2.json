@@ -93,7 +93,13 @@
     "variance": { "cc": 27, "follows": "fixed", "type": "knob", "low": 0, "high": 1 },
     "amount": { "cc": 28, "follows": "fixed", "type": "knob", "low": 0, "high": 1 },
     "stomp box": { "cc": 29, "follows": "fixed", "type": "switch", "positions": 4, "low": 0, "high": 1 },
-    "finisher": { "cc": 30, "follows": "random once", "type": "select", "positions": 62, "low": 0, "high": 1},
+    // NO DICE ON EFFECTS (2026-10-03). These were "random once": every song
+    // rolled one of the instrument's effects - 63 finishers on Iron 2, among
+    // them 4 Bit, Demonizer, Stutter and Warm Octave Cloud (a pitched layer
+    // that made the rhythm guitar sound like "wrong, flat, augmented
+    // chords"). Now "none": the instrument plays the preset the owner chose.
+    // Genre-picked effects come next, from UJAM's own genre presets.
+    "finisher": { "cc": 30, "follows": "none", "type": "select", "positions": 62, "low": 0, "high": 1},
     // These four were "random", which re-chooses every section. Picking WHICH
     // effect once per song and then re-rolling how much of it every eight bars
     // is incoherent - the tone shifted under the same riff, and a take recalled
@@ -104,11 +110,11 @@
     // guitar tone and two takes of the same song have different ones, which is
     // what a take is for. Notes are unaffected: every control draws from its
     // own RNG stream precisely so that changing one cannot move a single note.
-    "finisher amount": { "cc": 31, "follows": "random once", "type": "knob", "low": 0, "high": 1 },
-    "width": { "cc": 32, "follows": "random once", "type": "knob", "low": 0, "high": 1 },
-    "focus": { "cc": 33, "follows": "random once", "type": "knob", "low": 0, "high": 1 },
+    "finisher amount": { "cc": 31, "follows": "none", "type": "knob", "low": 0, "high": 1 },
+    "width": { "cc": 32, "follows": "none", "type": "knob", "low": 0, "high": 1 },
+    "focus": { "cc": 33, "follows": "none", "type": "knob", "low": 0, "high": 1 },
     "volume": { "cc": 34, "follows": "level", "type": "knob", "low": 0, "high": 1},
-    "latch": { "cc": 35, "follows": "random once", "type": "switch", "low": 0, "high": 1 }
+    "latch": { "cc": 35, "follows": "none", "type": "switch", "low": 0, "high": 1 }
   },
 
   "velocity_min": 70,

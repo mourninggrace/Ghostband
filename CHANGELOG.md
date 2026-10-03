@@ -5,6 +5,17 @@ measured, not estimated; where something could not be measured yet, it says so.
 
 Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/releases).
 
+## [Unreleased]
+
+### Fixed
+- **No more dice on effects.** Guitar 1 (VG Iron 2) and the piano (Virtual
+  Pianist) had their effects rolled per song - one of Iron 2's 63 finishers
+  (among them 4 Bit, Demonizer, Stutter Destruction and Warm Octave Cloud, a
+  pitched layer that sounds like wrong, sour chords) plus amount, width, focus;
+  the piano's character, tone, FX and ambience. Now Ghostband leaves them as
+  the chosen preset has them. UJAM's own genre presets are tabulated in
+  docs/research for the genre-picked effects that come next.
+
 ## [2.4.0] — 2026-10-03
 
 The lead guitar, finished: new solos and fills, every Shreddage Hydra
