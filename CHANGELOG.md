@@ -5,7 +5,7 @@ measured, not estimated; where something could not be measured yet, it says so.
 
 Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/releases).
 
-## [2.4.0] — 2026-10-02
+## [2.4.0] — 2026-10-03
 
 The lead guitar, finished: new solos and fills, every Shreddage Hydra
 articulation, twin guitars, and the mix knobs (BUSY, SHRED, UNDER) - all heard

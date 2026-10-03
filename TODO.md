@@ -37,7 +37,7 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
 
 ## Next, in order (owner's requests) - updated session 30
 
-0. [ ] **GUITAR 1 PLAYS WRONG-SOUNDING CHORDS** (owner, 2026-10-02, end of session 32) - "a bunch of wrong notes/chords all the time, flat minor augmented". BLOCKS the v2.4.0 release. Suspect: making-room chord holds crossing chord changes (twoGuitars). Goal (owner): every instrument plays right-sounding notes at the right time, every song, every time.
+0. [x] NOT A GHOSTBAND BUG (2026-10-03: the Iron 2 preset/effects; owner changed them and it sounds right; checked 0 chord overlaps in 34 songs) **GUITAR 1 PLAYS WRONG-SOUNDING CHORDS** (owner, 2026-10-02, end of session 32) - "a bunch of wrong notes/chords all the time, flat minor augmented". BLOCKS the v2.4.0 release. Suspect: making-room chord holds crossing chord changes (twoGuitars). Goal (owner): every instrument plays right-sounding notes at the right time, every song, every time.
 
 0. [x] DONE 2026-10-02 (dials verified + fixed, audit done, v2.4.0): **AFTER today's items (owner, 2026-10-02):** (a) VERIFY everything works
        as intended - mainly that BUSY and SHRED audibly change things when
