@@ -7801,6 +7801,34 @@ int main (int argc, char** argv)
             }
         }
 
+        // A JUMP QUEUED BEFORE A SONG LOAD DIES WITH THAT SONG (2026-10-02
+        // audit: it used to fire in the new song).
+        {
+            GhostbandProcessor pq;
+            pq.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-blues-2.json"));
+            const double sr = 48000.0; const int bs = 512;
+            pq.setRateAndBufferSizeDetails (sr, bs);
+            pq.prepareToPlay (sr, bs);
+            FakePlayHead ph; ph.bpm = pq.getPlanBpm(); pq.setPlayHead (&ph);
+            juce::AudioBuffer<float> buf (2, bs); juce::MidiBuffer m;
+            const double q = (bs / sr) * (ph.bpm / 60.0);
+            int blk = 0;
+            for (; blk < 40; ++blk) { ph.ppq = blk * q; buf.clear(); m.clear(); pq.processBlock (buf, m); }
+            pq.queueBar (gb::kPPQ * 4 * 30);
+            pq.queueSection (3);
+            pq.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-thrash.json"));
+            int maxTick = 0;
+            for (int k = 0; k < 200; ++k, ++blk)
+            {
+                ph.ppq = blk * q; buf.clear(); m.clear(); pq.processBlock (buf, m);
+                maxTick = std::max (maxTick, pq.playbackTick.load());
+            }
+            pq.setPlayHead (nullptr);
+            check (maxTick < gb::kPPQ * 4 * 8 && pq.queuedBarTick.load() < 0 && pq.queuedSection.load() < 0,
+                   "a jump queued before loading another song does not fire in the new one",
+                   "furthest tick " + juce::String (maxTick) + " in the new song");
+        }
+
         // NEVER A BURST OF GUITAR 2 LEVELS (2026-10-02: Kontakt 8.13.1 crashed
         // three times on its UI thread around bursts of the CC 7 that Hydra's
         // rack volume answers). Played through with a dial dragged every block,

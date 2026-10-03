@@ -3962,6 +3962,10 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
 
     if (rewindPending.exchange (false))
     {
+        // A jump queued in the song before belongs to it (2026-10-02 audit: a
+        // section or bar queued just before a load fired in the NEW song).
+        queuedSection.store (-1);
+        queuedBarTick.store (-1);
         planTick = 0.0;
         nextExpectedTick = -1.0;
         jumpOffset = 0.0;
@@ -4142,6 +4146,8 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     const bool toSection = queued >= 0 && queued < static_cast<int> (sectionRanges.size());
     const bool toBar     = ! toSection && queuedBar >= 0 && ! sectionRanges.empty()
                            && queuedBar < sectionRanges.back().endTick;
+    if (queuedBar >= 0 && ! toBar && ! toSection)
+        queuedBarTick.store (-1);   // past the end of this song: nothing to jump to
     const bool jumpPending = (toSection || toBar) && barTicks > 0;
 
     if (jumpPending)
