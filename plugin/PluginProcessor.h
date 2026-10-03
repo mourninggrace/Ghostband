@@ -412,6 +412,7 @@ public:
 
     void noteAudioWork (juce::int64 ticks) noexcept
     {
+        lastBlockCostTicks = ticks;
         audioWorkTicks.fetch_add (ticks, std::memory_order_relaxed);
         juce::int64 worst = audioWorstBlockTicks.load (std::memory_order_relaxed);
         while (ticks > worst
@@ -427,6 +428,44 @@ public:
         return { (double) audioWorkTicks.exchange (0, std::memory_order_relaxed) * msPerTick,
                  (double) audioWorstBlockTicks.exchange (0, std::memory_order_relaxed) * msPerTick };
     }
+
+    // AUDIO DROPOUTS (2026-10-03, the owner: "the audio cuts out for a brief
+    // almost un-noticeable few milliseconds here and there", in GP5 only, no
+    // pattern). A dropout is a buffer the host delivered late: the gap between
+    // two processBlock calls far longer than the buffer it carried. Each one
+    // is recorded with what GHOSTBAND spent on the buffer before it, which is
+    // the question - a late callback after a cheap Ghostband block is the host,
+    // the driver or another plugin, not us.
+    //
+    // The audio thread only writes a slot and bumps an index; a message-thread
+    // timer writes the lines to changes.log, beside "band playing" and the
+    // guitar 2 volume sends, so a dropout lines up with what was happening.
+    struct Dropout
+    {
+        juce::int64 wallMs = 0;
+        float gapMs = 0.0f, expectedMs = 0.0f, ourMs = 0.0f;
+        int bar = 0;
+        bool playing = false;
+    };
+    static constexpr juce::uint32 kDropoutSlots = 64;
+    Dropout dropoutSlots[kDropoutSlots];
+    std::atomic<juce::uint32> dropoutWritten { 0 };
+    std::atomic<juce::uint32> dropoutTaken   { 0 };
+    juce::int64 lastBlockStartTicks = 0;    // audio thread only
+    juce::int64 lastBlockCostTicks  = 0;    // audio thread only
+    double      lastBlockExpectedMs = 0.0;  // audio thread only
+    std::atomic<int> dropoutsLogged { 0 };  // for the harness
+    void checkForDropout (juce::int64 blockStart, int numSamples) noexcept;
+    void writeDropouts();
+
+    struct DropoutWriter : juce::Timer
+    {
+        GhostbandProcessor& p;
+        explicit DropoutWriter (GhostbandProcessor& owner) : p (owner) { startTimer (1000); }
+        ~DropoutWriter() override { stopTimer(); }
+        void timerCallback() override { p.writeDropouts(); }
+    };
+    std::unique_ptr<DropoutWriter> dropoutWriter;
 
     // Where a stall report is written, beside the takes and the learned
     // controls, so it can be found and sent without hunting.

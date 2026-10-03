@@ -7908,6 +7908,28 @@ int main (int argc, char** argv)
         // choice B). Clicked in bar 5 on a tick inside bar 20: the band lands on
         // bar 20's first beat, at a bar line, and says guitar 2's articulation
         // (CC 40) again as it lands - mid-section, nothing else would.
+
+        // A LATE BUFFER IS CAUGHT, AND ONLY A LATE ONE (2026-10-03: dropouts in
+        // GP5). Blocks back to back log nothing; one held 40 ms logs exactly
+        // one dropout, and Ghostband's own share is reported beside it.
+        {
+            GhostbandProcessor pd;
+            pd.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-blues-2.json"));
+            const double sr = 48000.0; const int bs = 256;
+            pd.setRateAndBufferSizeDetails (sr, bs);
+            pd.prepareToPlay (sr, bs);
+            juce::AudioBuffer<float> buf (2, bs); juce::MidiBuffer m;
+            for (int k = 0; k < 200; ++k) { buf.clear(); m.clear(); pd.processBlock (buf, m); }
+            pd.writeDropouts();
+            const int steady = pd.dropoutsLogged.load();
+            juce::Thread::sleep (40);
+            buf.clear(); m.clear(); pd.processBlock (buf, m);
+            pd.writeDropouts();
+            const int late = pd.dropoutsLogged.load() - steady;
+            check (steady == 0 && late == 1, "a late buffer from the host is logged as a dropout, and steady buffers are not",
+                   juce::String (steady) + " on 200 steady buffers, " + juce::String (late) + " after a 40 ms stall");
+        }
+
         {
             GhostbandProcessor pj;
             pj.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-blues-2.json"));

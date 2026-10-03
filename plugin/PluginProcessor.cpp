@@ -112,13 +112,70 @@ void GhostbandProcessor::loadBuiltInPlan()
 
 GhostbandProcessor::~GhostbandProcessor()
 {
+    dropoutWriter.reset();
+
     // A request in flight when the host closes. The job cancels its own
     // socket and stops - it is never killed mid-read, and it never calls back
     // into a processor that is being destroyed.
     plannerJob.reset();
 }
 
-void GhostbandProcessor::prepareToPlay (double, int) {}
+void GhostbandProcessor::prepareToPlay (double, int)
+{
+    // A fresh start: the gap since the last block before a stop is not a dropout.
+    lastBlockStartTicks = 0;
+    if (dropoutWriter == nullptr && juce::MessageManager::getInstanceWithoutCreating() != nullptr)
+        dropoutWriter = std::make_unique<DropoutWriter> (*this);
+}
+
+void GhostbandProcessor::checkForDropout (juce::int64 blockStart, int numSamples) noexcept
+{
+    const double sr = getSampleRate();
+    if (lastBlockStartTicks != 0 && lastBlockExpectedMs > 0.0)
+    {
+        const double gapMs = (double) (blockStart - lastBlockStartTicks) * 1000.0
+                           / (double) juce::Time::getHighResolutionTicksPerSecond();
+        // Late by most of a buffer AND by more than a few ms: ordinary
+        // scheduling jitter is neither. Over two seconds is a host that stopped
+        // calling (a rackspace switch, a modal dialog), not a glitch.
+        if (gapMs > lastBlockExpectedMs * 1.8 && gapMs - lastBlockExpectedMs > 3.0 && gapMs < 2000.0)
+        {
+            const juce::uint32 w = dropoutWritten.load (std::memory_order_relaxed);
+            if (w - dropoutTaken.load (std::memory_order_acquire) < kDropoutSlots)
+            {
+                Dropout& d   = dropoutSlots[w % kDropoutSlots];
+                d.wallMs     = juce::Time::currentTimeMillis();
+                d.gapMs      = (float) gapMs;
+                d.expectedMs = (float) lastBlockExpectedMs;
+                d.ourMs      = (float) ((double) lastBlockCostTicks * 1000.0
+                                        / (double) juce::Time::getHighResolutionTicksPerSecond());
+                d.playing    = transportRunning.load (std::memory_order_relaxed);
+                d.bar        = playbackTick.load (std::memory_order_relaxed) / std::max (1, barTicksForUi.load (std::memory_order_relaxed)) + 1;
+                dropoutWritten.store (w + 1, std::memory_order_release);
+            }
+        }
+    }
+    lastBlockStartTicks = blockStart;
+    lastBlockExpectedMs = sr > 0.0 ? numSamples * 1000.0 / sr : 0.0;
+}
+
+void GhostbandProcessor::writeDropouts()
+{
+    const juce::uint32 w = dropoutWritten.load (std::memory_order_acquire);
+    juce::uint32 r = dropoutTaken.load (std::memory_order_relaxed);
+    for (; r != w; ++r)
+    {
+        const Dropout d = dropoutSlots[r % kDropoutSlots];
+        logChange ("AUDIO DROPOUT  the host's next buffer came " + juce::String (d.gapMs, 1)
+                   + " ms after the last (one buffer is " + juce::String (d.expectedMs, 1)
+                   + " ms); Ghostband's own work on the buffer before: " + juce::String (d.ourMs, 2)
+                   + " ms" + (d.ourMs > d.expectedMs * 0.5f ? "  <- GHOSTBAND WAS SLOW" : "  (not Ghostband)")
+                   + (d.playing ? "   bar " + juce::String (d.bar) : "   stopped")
+                   + "   at " + juce::Time (d.wallMs).formatted ("%H:%M:%S"));
+        ++dropoutsLogged;
+    }
+    dropoutTaken.store (r, std::memory_order_release);
+}
 void GhostbandProcessor::releaseResources() {}
 
 // The preset songs ship inside the plugin, so Load plan opens on them rather
@@ -3870,6 +3927,8 @@ void GhostbandProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
         const juce::int64 start = juce::Time::getHighResolutionTicks();
         ~TimeThisBlock() { p.noteAudioWork (juce::Time::getHighResolutionTicks() - start); }
     } timeThisBlock { *this };
+
+    checkForDropout (timeThisBlock.start, buffer.getNumSamples());
 
     juce::ScopedNoDenormals noDenormals;
 
