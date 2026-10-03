@@ -72,7 +72,7 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
        preset like the CC7 tick. Thrash note (27) is confirmed but not yet used
        in songs - fast same-pitch repeats are the place for it. DONE 2026-10-03: pedal riffs in thrash/groove/metal fills.
 0. [x] Drums BUSY up is weak in a shuffle (fixed 2026-10-02: 668/810/919 on Nine Cent Rain).
-0. [ ] One-click GP5 close that also clears Kontakt's hung process.
+0. [-] NOT NEEDED (owner, 2026-10-03: GP5 now closes all its processes on quit) One-click GP5 close that also clears Kontakt's hung process.
 
 1. [x] (2026-09-27: twin harmony + guitar 1 makes room done; unison hits and trading bars not chosen) **Guitar 1 and guitar 2 playing together** - harmonies, unison hits, trading
        bars, guitar 1 leaving space - in fills, and especially solos.
