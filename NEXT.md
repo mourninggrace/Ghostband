@@ -6,7 +6,7 @@ useless for the one job it has: telling whoever picks this up next what is true
 right now. The history is in `docs/archive/NEXT-through-session-13.md`, and
 nobody has to read it.
 
-**Last touched 2026-10-03, session 33.** main = v2.4.0; branch `fills-v3-wip` @ HEAD is AHEAD of it, pushed, and everything but the last two commits (double-click resets 7da51c2, mix boxes 431d3e4) is INSTALLED - install those first (owner closes GP5). Since v2.4.0, all in CHANGELOG [Unreleased]: effects picked by genre ("style" control type, from UJAM presets), per-song "sound" pins (5 approved songs), Iron 2 stomp box + finisher on CC36/CC37 (CC30 is the finisher ON/OFF), blues fills reach back, thrash-note pedal riffs, dropout detector (changes.log "AUDIO DROPOUT"), Calibrate Save says "nothing changed", solo knobs CLIMB/THEME/TRICKS, mix boxes, double-click everywhere. 534 checks. NEXT: install, owner listens to the boxes, then a release (v2.5.0) when he says so; any dropout report -> read changes.log.
+**Last touched 2026-10-03, session 34. v2.5.0 RELEASED** (main = v2.5.0, fast-forwarded from fills-v3-wip). Everything installed. Iron 2: CC30 = finisher ON/OFF, CC37 = finisher effect, CC29 stomp on/off, CC36 pedal. Five approved songs pinned via plan "sound". Dropout detector writes "AUDIO DROPOUT" to changes.log. NEXT: Export MIDI (V3) - sketch the button first.
 
 ## State
 

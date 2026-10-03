@@ -5,7 +5,7 @@ deliberately not being done. The detailed engineering notes behind each item are
 in [BACKLOG.md](BACKLOG.md); the questions only the owner can answer are in
 [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md).
 
-*Last updated 2026-10-03, session 33 (branch fills-v3-wip ahead of v2.4.0; last two commits not yet installed). See NEXT.md.*
+*Last updated 2026-10-03, session 34 (v2.5.0 released). See NEXT.md.*
 
 ## In the middle of right now
 
@@ -90,7 +90,7 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
 
 - [ ] His verdict on the mix boxes and the 850 window (installed 2026-10-03).
 - [ ] Any audio dropout: note the time; read changes.log for "AUDIO DROPOUT" (says whether Ghostband was slow).
-- [ ] Release v2.5.0 when he says (everything in CHANGELOG [Unreleased]).
+- [x] Release v2.5.0 (2026-10-03).
 
 - [ ] Listening verdict on everything in "In the middle".
 - [ ] `stalls.log` after the next audio break-up.

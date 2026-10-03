@@ -7,6 +7,15 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
 
 ## [Unreleased]
 
+## [2.5.0] — 2026-10-03
+
+The sound, by genre: guitar 1's amp, guitar, stomp box and finisher and the
+piano's character and room chosen from the instrument makers' own genre
+presets - and the songs already approved by ear pinned exactly as they were
+heard. Plus longer blues answers, thrash-note pedal riffs, capo by key, the
+solo knobs (CLIMB, THEME, TRICKS), each instrument in its own box on the mix,
+double-click to reset everything, and an audio dropout log. Session 33.
+
 ### Changed
 - **Each instrument's mix controls in their own box** (the owner: "too
   crowded"; layout B of three sketches). Drums and bass, guitar and piano two
