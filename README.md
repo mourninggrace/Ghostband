@@ -52,12 +52,14 @@ and instrument profiles are already inside the bundle.
 | | |
 |---|---|
 | **A whole band** | Drums, bass, a rhythm guitar, a lead guitar and a piano, each on its own MIDI channel. The bass locks to the kick; the lead answers in the gaps and solos when the song says so. |
+| **A real lead guitarist** | Solos built from five schools (blues, melodic rock, neo-classical, NWOBHM, thrash) and every articulation Shreddage Hydra has - bends, slides, pinches, taps, palm mutes, tremolo, harmonics. In metal and hard rock the rhythm guitar joins it in **twin harmony**; elsewhere it gets out of the way. |
 | **Your instruments** | Ships with profiles for SSD5, MODO Bass 2, UJAM Virtual Guitarist IRON 2, Shreddage 3 Hydra and UJAM Virtual Pianist, plus General MIDI. Anything else is a small JSON file, and it can calibrate an unknown instrument by ear. |
 | **34 songs built in** | Hard rock, metal, thrash, groove, doom, sludge, prog, punk, alt-rock, emo, blues and ballads — each written to exercise a different part of the arranger. |
 | **Roll, don't rewrite** | **Roll** plays the same song differently. Ctrl-click a section to reroll only that one; the rest is provably untouched. One seed is one song, forever. |
 | **Four dials** | **Complexity**, **Humanize**, **Fills** and **Intuition** — how much the band plays what it feels like rather than what is obvious. |
+| **Mix it like a band** | A **BUSY** knob per player (sparser or busier, the middle is the song as written), **SHRED** for how hard the lead leans, and **UNDER** for how far it sits back under its fills. |
 | **Write a song** *(optional)* | Describe a song in a sentence and Claude writes the chart — with your own API key, encrypted on your machine. It lands as an ordinary song you can roll, edit and keep. |
-| **See what it sends** | The song screen is a tracker: every note, velocity and control change, per player, per bar. Click any bar to change its chord or its section's feel. |
+| **See what it sends** | The song screen is a tracker: every note, velocity and control change, per player, per bar. While it plays, click any bar to jump there; stopped, click it to change its chord or its section's feel. |
 | **And** | Takes, ten colour themes, a dice that rolls the whole song's character (right-click puts it back), a change log of every setting you touch, and a detector that tells a host freeze from a plugin one. |
 
 ## Screenshots

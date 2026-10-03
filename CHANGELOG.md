@@ -5,9 +5,11 @@ measured, not estimated; where something could not be measured yet, it says so.
 
 Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/releases).
 
-## [Unreleased] — branch `fills-v3-wip`, installed for listening
+## [2.4.0] — 2026-10-02
 
-Session 29. Built and measured; not released until the owner has listened.
+The lead guitar, finished: new solos and fills, every Shreddage Hydra
+articulation, twin guitars, and the mix knobs (BUSY, SHRED, UNDER) - all heard
+and approved by ear. Then a bug audit. Sessions 29-32.
 
 ### Changed
 - **The lead guitar's fills are licks now, not a bed.** A vocabulary drawn from

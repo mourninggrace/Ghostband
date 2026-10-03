@@ -68,45 +68,41 @@ The lead guitar has three things it can do in a section:
 | `fills` | short answering phrases in the gaps, and a soft picked arpeggio of the chord in between |
 | `silent` | nothing at all |
 
-**How it solos.** Each phrase picks a pulse - mostly eighths and quarters that
-ring into each other, with fast sixteenth runs as bursts rather than the whole
-fabric - and it never stands silent for a whole bar in the middle of a solo.
-Measured across all 34 songs: the typical solo note is an eighth, a fifth of them
-last a beat or more, and sixteenths are under a third.
+**How it solos (v2.4).** A solo is built like a player builds one: a motif,
+an answer to it, the motif again changed, a climb to a peak and a landing on a
+chord tone. Five **schools** shape it by the song's style - blues (the cry, the
+bend-and-release, the box, the wide B.B. King vibrato), melodic rock, neo-classical,
+NWOBHM (the gallop, the twin theme) and thrash (tremolo bursts, the chromatic
+crawl). Nothing is transcribed; each school is built from the techniques its
+players use.
 
-**Fills are what a second guitarist does for most of a song.** Soloing is the
-exception; answering the vocal line, doubling a riff into a chorus, and playing
-a pickup into the next section is the job.
-
-They use the same generator as the solos — the same devices, the same phrasing,
-because a fill that phrases differently from the solos in the same song does not
-sound like the same player. What changes is placement:
-
-- **mostly** at the end of a four-bar group, where the singer stops, plus the
-  last bar of the section for the run-up into what follows. The second bar is a
-  real possibility, the third happens because it is unexpected, and the first is
-  rare enough to be a statement
-- **not** every one of those, and never two bars running. Filling every opening
-  is a second solo
-- out of the **front** of the bar. The riff gets the downbeat; the answer comes
-  after. Where exactly varies — the half bar, the last quarter for a short
-  answer, off the half for a push, and a **pickup that starts before the bar
-  line and resolves inside it**
-- softer, because it answers somebody rather than competing
+**Fills are what a second guitarist does for most of a song** - answering the
+vocal line, a pickup into the next section. How solo-like a fill may be depends
+on the style: in a blues a fill can sound like a piece of a solo, in rock it is
+a short answer that stays out of the solo's way. Fills are softer than the solo,
+and never two line-endings in a row go unanswered.
 
 **Between answers it is not silent.** It picks a slow arpeggio of the chord
-underneath - half notes when the section is quiet, quarters in the middle,
-eighths when it is loud - low in its range and softer than the answers, and it
-**breaks off just before each answer** so the answer arrives as an entrance.
-Until v2.0.0 it played nothing at all between answers, which measured as silence
-77% of the time in a fills section, with gaps of up to 45 seconds. A guitar
-that drops out should do it for a second or two and for a reason, not leave
-empty space to do the talking.
+underneath, low and soft, and breaks off just before each answer so the answer
+arrives as an entrance.
 
-Until v0.6.0 both of those were absolutes — the fourth bar, dead on the half,
-every time — which made the *rhythm* of a fill identical in every song whatever
-the notes were. The tendency is what was worth keeping; the rule was what made
-it sound like an engine.
+**Every articulation, used where a player would** (Shreddage 3.5 Hydra, on the
+owner's own articulation map): rake into a note, pinch harmonic, natural
+harmonics, tapping, choke, hammer-ons and pull-offs, bend into a note, bend and
+release, pre-bend, slide into a note, vibrato and wide vibrato, legato slide,
+palm-muted lead (with dynamics - the beat dug in, the sixteenths tighter),
+staccato, tremolo picking, fret noise, slide in from / off the neck, thrash note,
+pick direction (alternate, down-picked when muted) and capo. Calibrate > GTR 2
+plays each one on its own; see *Calibration*.
+
+**Twin guitars.** In metal, hard rock, prog, thrash, groove and doom, the rhythm
+guitar stops strumming and plays the lead's line a diatonic third below - on the
+licks written for two guitars (the twin theme, the sequence, the gallop) and on
+every solo's closing phrase. Not in blues, punk, emo, alt rock, ballads or
+sludge, where it would be wrong.
+
+**The rhythm guitar makes room.** Under the lead's fill answers it holds its
+chord instead of strumming over them, and under a solo it plays a little softer.
 
 The **Fills** dial sets how many of the offered openings get taken. 0 silences
 them across the whole song without editing a section. The **Intuition** dial
@@ -186,6 +182,24 @@ read at leisure. **Walk the list** steps a selector through every position at
 half a second each, which is how you find out how many choices it really has —
 Teach is deliberately too fast to read.
 
+#### Guitar 2's volume in Kontakt (Shreddage 3.5 Hydra)
+
+The GTR 2 knob and UNDER need to reach Hydra's **output** volume - after its
+amp. Hydra's own VOLUME knob is the gain *into* the amp, so turning it down
+mostly cleans the tone up and barely changes the level.
+
+1. In Kontakt's **View** menu, turn on **Instrument Header**.
+2. Right-click the header's **Output Volume** slider and choose **Learn MIDI CC#
+   Automation**.
+3. In Ghostband, **Settings** > the lead guitar > **output volume** > **Teach**.
+4. Save the gig in your host.
+
+**Do not tick Kontakt's "Accept standard controllers for Volume (#7) and Pan
+(#10)".** On Kontakt 8.13.1 with Hydra, ticking it crashes Kontakt's interface
+(the sound keeps playing, the panel disappears). The learned slider does the same
+job without it. Loading a different Hydra preset from Kontakt's browser can
+clear the learn; if the GTR 2 knob stops moving the slider, repeat steps 2-4.
+
 ### The controls
 
 - **Load plan...** — a menu of every song Ghostband knows about: **Presets** by
@@ -243,6 +257,21 @@ Teach is deliberately too fast to read.
   None of them are ever hidden. A control that vanishes is indistinguishable
   from one that is broken, and one silent absence makes every other control
   suspect.
+- **BUSY** - one per part, under its mix knob. Down plays fewer notes, up more,
+  and the middle is the song exactly as written. Each instrument does it its own
+  way: the drums' hats a subdivision sparser or denser with fewer or more ghost
+  notes and kick pickups (in a shuffle the hats stop at swung eighths and the
+  extra goes to ghosts); the bass drops off-beat notes, or pushes the off-beat
+  and moves more (octaves, fifths, walk-ups into the next chord); the guitars
+  and piano thin out or add passing hits and answers.
+- **SHRED** - how the lead guitar leans. Down simplifies its fast runs to every
+  other note, held longer; up turns held notes and rests into sixteenth runs
+  that walk through the key into the next note. It edits the line the middle
+  plays rather than drawing a new one, so turning it is a change you can follow,
+  and it goes the right way in every song (checked on each build).
+- **UNDER** - how far the lead guitar drops while it plays fills (not solos):
+  0% no drop, about 1.8 dB per 10%, 100% silent. Solos always play at the full
+  GTR 2 level.
 
 ### Reading the grid, and editing it
 
@@ -494,6 +523,8 @@ thing. Saving under a name already in the list replaces it.
 
 What a take carries:
 
+- **BUSY** for each part and **SHRED** - how busy the band was playing is part
+  of the performance (from v2.4; an older take recalls them at the middle).
 - the **seed**, and **complexity**, **humanize** and **fills** — the seed alone
   does not reproduce what you heard, because all four feed the same random
   stream. Seed 88345 at humanize 0.5 is a different take from the same seed at
@@ -551,6 +582,14 @@ is true.
 marked NEXT — and lands on the next bar line, so the transition stays in time
 rather than lurching mid-beat. Clicking the section already playing restarts it
 at the next bar, which is how you hold a chorus for another eight bars.
+
+**Click any bar to go there**, while the band is playing: a click on a row of
+the grid lands on that bar's first beat at the next bar line. (Stopped, a click
+on a row edits it instead.) Landing in the middle of a section, Ghostband first
+re-sends what that section set up at its start - each instrument's articulation,
+latched key, hand position, pick direction and controllers - so the lead guitar
+does not arrive in the wrong articulation. A jump queued just before loading
+another song is cancelled with the old song.
 
 Every sounding note is released by name at the seam. Relying on All Notes Off
 alone is not enough: it is a controller message and many instruments ignore it,
@@ -649,6 +688,12 @@ profile and backs up the original first.
 
 No note numbers involved, and it works with the host transport stopped, because
 identifying a hi-hat underneath a full band is impossible.
+
+**The lead guitar's articulation test.** Calibrate has DRUMS, BASS and GTR 2
+tabs. GTR 2 plays every articulation Ghostband uses - 23 rows, rake to capo -
+one at a time through the real profile, each ending on a plain ringing note so
+you hear the articulation let go. Mark each **Sounds right** or **Wrong**; a
+wrong one points at the articulation map, not at your ears.
 
 There is also `ghostband.exe calibrate`, which writes the same sequence to a MIDI
 file with markers. Useful if you have a DAW; the in-plugin version is better if

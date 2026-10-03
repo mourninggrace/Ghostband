@@ -11,33 +11,33 @@ in [BACKLOG.md](BACKLOG.md); the questions only the owner can answer are in
 
 All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or released.
 
-- [ ] **Fills v3** - the lick engine (Vai / Van Halen / Hammett / Satriani vocabulary,
+- [x] **Fills v3** (v2.4.0) - the lick engine (Vai / Van Halen / Hammett / Satriani vocabulary,
       every Shreddage articulation), per-playing timing, sung phrases between
       answers, shuffle-correct. Waiting on the owner's ears.
-- [ ] **Solos v3** - `generateLeadSolo`: motif + answer, AAB, development, build,
+- [x] **Solos v3** (v2.4.0) - `generateLeadSolo`: motif + answer, AAB, development, build,
       climax, resolution; complexity/intuition now drive it. Waiting on ears.
-- [ ] **New knobs** - UNDER (guitar 2 fills level), BUSY per instrument, SHRED.
+- [x] **New knobs** (v2.4.0, verified 2026-10-02) - UNDER (guitar 2 fills level), BUSY per instrument, SHRED.
       Waiting on ears.
-- [ ] **Release it** - merge to main, CHANGELOG, MANUAL, README, screenshots, NEXT,
+- [x] **Release it** (v2.4.0, 2026-10-02) - merge to main, CHANGELOG, MANUAL, README, screenshots, NEXT,
       cut the version. None of the docs describe session 29's work yet.
 
 ## Broken, or known to be short
 
-- [ ] **Takes do not remember BUSY / SHRED** - recalling a take plays it with the
+- [x] **Takes do not remember BUSY / SHRED** (fixed 2026-10-02) - recalling a take plays it with the
       knobs as they are now.
-- [ ] **Bass BUSY up is weak in a shuffle** (1248 -> 1271 notes on blues-3).
+- [x] **Bass BUSY up is weak in a shuffle** (fixed 2026-10-02: pushes + movement) (1248 -> 1271 notes on blues-3).
 - [ ] **Blues fills answers are short** - a shuffle bar leaves two thirds of a bar
       of room; they may need to reach into the bar before.
 - [ ] **Shreddage silent below ~40** - clamped around, never explained (BACKLOG C5).
       Needs one Calibrate run.
-- [ ] **Clean-up** - old `generateSolo` and `kSoloGestures` kept unused until the
+- [x] **Clean-up** (2026-10-02: 1,585 dead lines removed) - old `generateSolo` and `kSoloGestures` kept unused until the
       new solos are approved; the note-emitting loop is repeated three times.
 - [ ] **Host freezes** (not Ghostband) and **Kontakt 8.13.1 hanging on GP5 exit**
       (installer works around it) - both outside this code.
 
 ## Next, in order (owner's requests) - updated session 30
 
-0. [ ] **AFTER today's items (owner, 2026-10-02):** (a) VERIFY everything works
+0. [x] DONE 2026-10-02 (dials verified + fixed, audit done, v2.4.0): **AFTER today's items (owner, 2026-10-02):** (a) VERIFY everything works
        as intended - mainly that BUSY and SHRED audibly change things when
        turned; (b) a COMPREHENSIVE BUG AUDIT - find and fix everything. Without
        breaking anything approved (feedback-dont-break-the-good-stuff).
@@ -46,7 +46,7 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
        Kontakt's Vol slider to CC 85 (Settings > output volume > Teach). The GP5
        16-channel Audio Mixer block was making up the lost level (on/off only);
        disabled, UNDER fades properly. Guitar 2's balance is now the GTR 2 knob.
-0. [ ] **Solo doesn't sound louder than fills** even at full level (owner, 2026-09-27;
+0. [x] FIXED 2026-10-02 (it was the volume reaching pre-amp gain; learned Output Volume now) **Solo doesn't sound louder than fills** even at full level (owner, 2026-09-27;
        the Vol slider does rise at the solo, and the GTR 2 knob is audible in it).
        Lead: at the solo Ghostband flips Hydra's pickup neck->bridge (CC22 0->127)
        and bite 28->99 - likely thinner/quieter. Owner parked it for now.
@@ -64,11 +64,11 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
        it changes, at most ~20/s while playing, and not twice per move.
 0. [x] **Piano dial did nothing** - Virtual Pianist had lost its CC28 learn; owner
        re-taught it (Settings > volume > Teach), works (2026-09-27).
-0. [ ] **Capo** - the last articulation row (22 of 23 confirmed by ear
+0. [x] (owner mapped CC26, 2026-09-27) **Capo** - the last articulation row (22 of 23 confirmed by ear
        2026-09-27). Hydra's capo is a MIDI-learned knob, so it resets with the
        preset like the CC7 tick. Thrash note (27) is confirmed but not yet used
        in songs - fast same-pitch repeats are the place for it.
-0. [ ] Drums BUSY up is weak in a shuffle (+6%).
+0. [x] Drums BUSY up is weak in a shuffle (fixed 2026-10-02: 668/810/919 on Nine Cent Rain).
 0. [ ] One-click GP5 close that also clears Kontakt's hung process.
 
 1. [x] (2026-09-27: twin harmony + guitar 1 makes room done; unison hits and trading bars not chosen) **Guitar 1 and guitar 2 playing together** - harmonies, unison hits, trading
