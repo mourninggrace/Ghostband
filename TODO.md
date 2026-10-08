@@ -36,6 +36,11 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
 - [ ] **Host freezes** (not Ghostband) and **Kontakt 8.13.1 hanging on GP5 exit**
       (installer works around it) - both outside this code.
 
+## Guitar 1 replacement (owner, 2026-10-08) - FIRST
+
+- [ ] **Replace UJAM Iron 2 with Splash Sound Power Riffer** (Kontakt, GP5 ch 13; chosen over Guitar Strum ch 12 and Session Guitarist Electric Sunburst ch 14 - see memory/reference notes). Read the script source (Resources/scripts/PRScript_compiled.txt) for the exact chord-key map and CCs; write profiles/power-riffer.json (chord select D0-G1, strokes C2-A2: down/up/palm mute/hits/stop, auto-mode slides); map feels, BUSY, palm-mute dynamics, making room (STOP); decide the twin-harmony fallback (no single notes); Calibrate; owner listens. Then: Guitar Strum (acoustic) for ballads per genre - his call. Iron 2 profile stays for other users.
+- [ ] Then Export MIDI (layout A chosen).
+
 ## Next, in order (owner's requests) - updated session 30
 
 0. [x] NOT A GHOSTBAND BUG (2026-10-03: the Iron 2 preset/effects; owner changed them and it sounds right; checked 0 chord overlaps in 34 songs) **GUITAR 1 PLAYS WRONG-SOUNDING CHORDS** (owner, 2026-10-02, end of session 32) - "a bunch of wrong notes/chords all the time, flat minor augmented". BLOCKS the v2.4.0 release. Suspect: making-room chord holds crossing chord changes (twoGuitars). Goal (owner): every instrument plays right-sounding notes at the right time, every song, every time.
