@@ -60,6 +60,25 @@ the solo.
 Which one is "the lead" is not baked into the engine. It is whichever the
 section puts out front, so the same pair can swap.
 
+**The rhythm guitar is two instruments, chosen by the song** (from 2.6).
+Splash Sound's **Power Riffer** (electric, power chords, channel 13) plays the
+rock and metal songs; Splash Sound's **Guitar Strum** (acoustic, full chords,
+channel 12) plays the ballads and the blues. Both are Kontakt libraries that
+are played the way a guitarist plays: one key frets the chord and is held,
+and every strum is a key of its own - down, up, palm-muted - ringing until
+the next stroke. Ghostband still writes the rhythm; it just speaks it to the
+fretting hand and the picking hand separately. It lets go of one chord before
+fretting the next, so Power Riffer changes cleanly rather than sliding on its
+own, and it stops the strings before a real rest (never after a palm mute,
+which dies by itself). Neither plays single notes, so in a twin-guitar solo
+the rhythm guitar keeps strumming instead of harmonising. UJAM's IRON 2
+profile is still shipped, and the demo songs still use it.
+
+To set them up: load each `.nki` in its own Kontakt on its channel, and teach
+each Kontakt's Instrument Header Output Volume to a CC (right-click > Learn
+MIDI CC#, then Settings > Teach) so the GTR knob reaches it. Never tick
+Kontakt's "Accept standard controllers" - it crashes Kontakt 8.13.1.
+
 The lead guitar has three things it can do in a section:
 
 | `guitar2` | what it plays |

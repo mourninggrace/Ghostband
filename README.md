@@ -53,7 +53,7 @@ and instrument profiles are already inside the bundle.
 |---|---|
 | **A whole band** | Drums, bass, a rhythm guitar, a lead guitar and a piano, each on its own MIDI channel. The bass locks to the kick; the lead answers in the gaps and solos when the song says so. |
 | **A real lead guitarist** | Solos built from five schools (blues, melodic rock, neo-classical, NWOBHM, thrash) and every articulation Shreddage Hydra has - bends, slides, pinches, taps, palm mutes, tremolo, harmonics. In metal and hard rock the rhythm guitar joins it in **twin harmony**; elsewhere it gets out of the way. |
-| **Your instruments** | Ships with profiles for SSD5, MODO Bass 2, UJAM Virtual Guitarist IRON 2, Shreddage 3 Hydra and UJAM Virtual Pianist, plus General MIDI. Anything else is a small JSON file, and it can calibrate an unknown instrument by ear. |
+| **Your instruments** | Ships with profiles for SSD5, MODO Bass 2, Splash Sound Power Riffer and Guitar Strum, UJAM Virtual Guitarist IRON 2, Shreddage 3 Hydra and UJAM Virtual Pianist, plus General MIDI. Anything else is a small JSON file, and it can calibrate an unknown instrument by ear. |
 | **34 songs built in** | Hard rock, metal, thrash, groove, doom, sludge, prog, punk, alt-rock, emo, blues and ballads — each written to exercise a different part of the arranger. |
 | **Roll, don't rewrite** | **Roll** plays the same song differently. Ctrl-click a section to reroll only that one; the rest is provably untouched. One seed is one song, forever. |
 | **Four dials** | **Complexity**, **Humanize**, **Fills** and **Intuition** — how much the band plays what it feels like rather than what is obvious. |
