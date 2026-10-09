@@ -45,7 +45,12 @@
   "phrase_velocity": 100,
   "phrase_blip_ticks": 30,
 
-  "controls": {},
+  "controls": {
+    // Kontakt's Instrument Header volume, MIDI-learned to CC7 (right-click it >
+    // Learn MIDI CC# Automation, then Settings > Teach). Never the "Accept
+    // standard controllers" tick - it crashes Kontakt 8.13.1.
+    "output volume": { "cc": 7, "follows": "level", "type": "knob", "low": 0, "high": 1 }
+  },
 
   "velocity_min": 70,
   "velocity_max": 124

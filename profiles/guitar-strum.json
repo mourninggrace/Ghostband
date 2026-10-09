@@ -7,11 +7,14 @@
   // A STROKE instrument ("mode": "strokes"), like Power Riffer: the chord's
   // root key and type key are pressed, then every strum is one key press.
   //
-  // NEEDS VERIFICATION. The library's script is locked, so this map comes from
-  // the manual's keyboard picture (p3), not the code:
-  //   C1-B1 (36-47)   chord root (blue keys)
-  //   C2-B2 white     chord type, in the selector's order (green keys):
-  //                   48 maj, 50 min, 52 sus4, 53 sus2, 55 dim, 57 7, 59 power
+  // VERIFIED by the owner on Kontakt's keyboard (2026-10-09). The library's
+  // script is locked; the manual's picture has root and type the wrong way round:
+  //   C1-B1 white     chord TYPE (blue keys - the owner clicked them and the
+  //                   CHORD TYPE dot moved, 2026-10-09; the manual's picture
+  //                   reads the other way round): 36 maj, 38 min, 40 sus4,
+  //                   41 sus2, 43 dim, 45 7, 47 power (order confirmed by the owner;
+  //                   the black keys do nothing)
+  //   C2-B2 (48-59)   chord ROOT (green keys; clicking them leaves the dot)
   //   60 C3 up stroke, 62 D3 down stroke, 63 D#3 string mute, 64 E3 palm mute
   //   then FX strokes and rhythm patterns (not used), 84 C5 stops all sound
   // The colours on Kontakt's own keyboard confirm it at a glance.
@@ -23,13 +26,13 @@
   "instrument": "guitar_strum",
   "channel": 12,
   "mode": "strokes",
-  "needs_verification": true,
+  "needs_verification": false,
   "verification_note": "Key map read from the manual's picture; check the colours on Kontakt's keyboard.",
 
   "strokes": {
-    "chord_keys": { "C": 36, "C#": 37, "D": 38, "D#": 39, "E": 40, "F": 41, "F#": 42,
-                    "G": 43, "G#": 44, "A": 45, "A#": 46, "B": 47 },
-    "chord_type_keys": { "maj": 48, "min": 50, "sus4": 52, "sus2": 53, "dim": 55, "7": 57, "5": 59 },
+    "chord_keys": { "C": 48, "C#": 49, "D": 50, "D#": 51, "E": 52, "F": 53, "F#": 54,
+                    "G": 55, "G#": 56, "A": 57, "A#": 58, "B": 59 },
+    "chord_type_keys": { "maj": 36, "min": 38, "sus4": 40, "sus2": 41, "dim": 43, "7": 45, "5": 47 },
     "down": 62, "up": 60, "palm_mute": 64, "down_hit": 63, "up_hit": 63, "stop": 84,
     "chord_lead_ticks": 12,
     "stop_gap_ticks": 240
@@ -38,7 +41,12 @@
   "phrase_velocity": 100,
   "phrase_blip_ticks": 30,
 
-  "controls": {},
+  "controls": {
+    // Kontakt's Instrument Header volume, MIDI-learned to CC7 (right-click it >
+    // Learn MIDI CC# Automation, then Settings > Teach). Never the "Accept
+    // standard controllers" tick - it crashes Kontakt 8.13.1.
+    "output volume": { "cc": 7, "follows": "level", "type": "knob", "low": 0, "high": 1 }
+  },
 
   "velocity_min": 55,
   "velocity_max": 118
