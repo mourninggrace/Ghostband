@@ -38,8 +38,10 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
 
 ## Guitar 1 replacement (owner, 2026-10-08) - FIRST
 
-- [ ] **Replace UJAM Iron 2 with Splash Sound Power Riffer** (Kontakt, GP5 ch 13; chosen over Guitar Strum ch 12 and Session Guitarist Electric Sunburst ch 14 - see memory/reference notes). Read the script source (Resources/scripts/PRScript_compiled.txt) for the exact chord-key map and CCs; write profiles/power-riffer.json (chord select D0-G1, strokes C2-A2: down/up/palm mute/hits/stop, auto-mode slides); map feels, BUSY, palm-mute dynamics, making room (STOP); decide the twin-harmony fallback (no single notes); Calibrate; owner listens. Then: Guitar Strum (acoustic) for ballads per genre - his call. Iron 2 profile stays for other users.
-- [ ] Then Export MIDI (layout A chosen).
+- [x] **Replace UJAM Iron 2** (done 2026-10-09): guitar 1 is Power Riffer (ch 13) + Guitar Strum (ch 12) per section - soft = Guitar Strum, muted/middle = Power Riffer, loud = both stacked. Owner: "both compliment each other" (Static Bloom). Stroke mode, Calibrate stroke steps, both volumes learned on CC7.
+- [x] **Electric Sunburst tried and dropped** (2026-10-09): pattern mode built, slot map for Rock Hard; the owner heard a tone jump at every handoff and removed it from GP5. Profile + mode stay, unused. Song tempo is now host parameter 0; tools/gp5/ghostband-tempo.gpscript makes GP5 follow it (owner: works).
+- [ ] **Not yet heard** with the new guitars: most songs beyond Static Bloom - listen and report wrong sections.
+- [ ] **NEXT: Export MIDI** (layout A chosen).
 
 ## Next, in order (owner's requests) - updated session 30
 
