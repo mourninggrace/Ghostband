@@ -1540,6 +1540,31 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
     return true;
 }
 
+std::string PhraseProfile::strokesJson() const
+{
+    static const char* kPc[12] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+    static const char* kType[7] = { "maj", "min", "7", "sus4", "sus2", "dim", "5" };
+    std::string j = "\"strokes\": {\n    \"chord_keys\": { ";
+    for (int pc = 0; pc < 12; ++pc)
+        j += std::string (pc ? ", " : "") + "\"" + kPc[pc] + "\": " + std::to_string (strokeChordKey[pc]);
+    j += " },\n";
+    bool anyType = false;
+    for (int t = 0; t < 7; ++t) anyType = anyType || strokeTypeKey[t] >= 0;
+    if (anyType)
+    {
+        j += "    \"chord_type_keys\": { ";
+        for (int t = 0; t < 7; ++t)
+            j += std::string (t ? ", " : "") + "\"" + kType[t] + "\": " + std::to_string (strokeTypeKey[t]);
+        j += " },\n";
+    }
+    j += "    \"down\": " + std::to_string (strokeDown) + ", \"up\": " + std::to_string (strokeUp)
+       + ", \"palm_mute\": " + std::to_string (strokePalm) + ", \"down_hit\": " + std::to_string (strokeHitDown)
+       + ", \"up_hit\": " + std::to_string (strokeHitUp) + ", \"stop\": " + std::to_string (strokeStop) + ",\n";
+    j += "    \"chord_lead_ticks\": " + std::to_string (strokeChordLeadTicks)
+       + ",\n    \"stop_gap_ticks\": " + std::to_string (strokeStopGapTicks) + "\n  }";
+    return j;
+}
+
 void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
 {
     // ---- a STROKE instrument (see strokeMode) ------------------------------

@@ -419,6 +419,8 @@ public:
     int  strokeChordLeadTicks = 12;   // the chord is fretted this far ahead of the stroke
     int  strokeStopGapTicks   = 60;   // a rest at least this long after a strum is stopped, not left ringing
     bool canPlayLines() const { return ! strokeMode; }
+    // The "strokes" block as it reads in a profile, for Calibrate to write back.
+    std::string strokesJson() const;
 
     // Where chords are voiced. Roots are folded into this range.
     int  chordLowest  = 24;

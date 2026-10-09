@@ -25,6 +25,11 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
   Riffer's map read from its own script; Guitar Strum's from its manual's
   picture (marked needs-verification). New check: 462 strokes in Terminal
   Velocity, every one on the right fretted chord, never two held.
+- **Calibrate knows a stroke instrument.** Guitar 1's steps are its stroke
+  keys (down, up, palm mute, hits, stop) instead of a chord range: Play each,
+  nudge it until it does what its name says, Save. Saving writes the strokes
+  back and clears Guitar Strum's needs-verification flag, and the installer
+  now keeps both. New check.
 
 ## [2.5.0] — 2026-10-03
 

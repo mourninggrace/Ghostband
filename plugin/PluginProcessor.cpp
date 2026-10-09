@@ -1219,6 +1219,33 @@ void GhostbandProcessor::enterCalibration()
                 }
             }
 
+            // A STROKE instrument (Power Riffer, Guitar Strum) has no chord
+            // range to walk - its keys fret and pick. It offers each stroke key
+            // instead: Play it (with no chord held, the open strings sound) and
+            // nudge it until it does what its name says.
+            if (p.strokeMode)
+            {
+                const struct { const char* name; int note; const char* hint; } strokes[] = {
+                    { "down",      p.strokeDown,    "a downstroke" },
+                    { "up",        p.strokeUp,      "an upstroke" },
+                    { "palm mute", p.strokePalm,    "a palm-muted stroke" },
+                    { "down hit",  p.strokeHitDown, "a dead, muted hit" },
+                    { "up hit",    p.strokeHitUp,   "a dead, muted hit, upward" },
+                    { "stop",      p.strokeStop,    "silence: it stops whatever rings" } };
+                for (const auto& k : strokes)
+                {
+                    if (k.note < 0) continue;
+                    CalibrationStep s;
+                    s.label   = what + " stroke: " + k.name;
+                    s.hint    = juce::String ("should play ") + k.hint;
+                    s.note    = k.note;
+                    s.channel = p.channel;
+                    s.isDrum  = false;
+                    steps.push_back (s);
+                }
+                return;
+            }
+
             CalibrationStep lo;
             lo.label   = what + " lowest chord note";
             lo.hint    = "the bottom of the range " + what + " chords are voiced into";
@@ -3038,6 +3065,13 @@ bool GhostbandProcessor::saveCalibration (juce::String& error)
                 if (pp.second == nullptr) continue;
                 if (st.label == pp.first + " lowest chord note")  note (st, pp.second->chordLowest);
                 if (st.label == pp.first + " highest chord note") note (st, pp.second->chordHighest);
+                const gb::PhraseProfile& q = *pp.second;
+                if (st.label == pp.first + " stroke: down")      note (st, q.strokeDown);
+                if (st.label == pp.first + " stroke: up")        note (st, q.strokeUp);
+                if (st.label == pp.first + " stroke: palm mute") note (st, q.strokePalm);
+                if (st.label == pp.first + " stroke: down hit")  note (st, q.strokeHitDown);
+                if (st.label == pp.first + " stroke: up hit")    note (st, q.strokeHitUp);
+                if (st.label == pp.first + " stroke: stop")      note (st, q.strokeStop);
             }
         }
     }
@@ -3137,6 +3171,30 @@ bool GhostbandProcessor::saveCalibration (juce::String& error)
         for (const Zone& z : zones)
         {
             if (! z.present) continue;
+
+            if (z.p->strokeMode)
+            {
+                const juce::String part = juce::String (z.low).upToFirstOccurrenceOf (" lowest", false, false);
+                for (const CalibrationStep& st : steps)
+                {
+                    if (st.label == part + " stroke: down")      z.p->strokeDown    = st.note;
+                    if (st.label == part + " stroke: up")        z.p->strokeUp      = st.note;
+                    if (st.label == part + " stroke: palm mute") z.p->strokePalm    = st.note;
+                    if (st.label == part + " stroke: down hit")  z.p->strokeHitDown = st.note;
+                    if (st.label == part + " stroke: up hit")    z.p->strokeHitUp   = st.note;
+                    if (st.label == part + " stroke: stop")      z.p->strokeStop    = st.note;
+                }
+                spliceInto (z.p->sourcePath, juce::String (z.what).replace ("range", "strokes"),
+                            "strokes", z.p->strokesJson());
+                // Walking the strokes by ear IS the verification Guitar Strum's
+                // map is waiting for.
+                if (z.p->needsVerification)
+                {
+                    z.p->needsVerification = false;
+                    spliceInto (z.p->sourcePath, z.what, "needs_verification", "\"needs_verification\": false");
+                }
+                continue;
+            }
 
             for (const CalibrationStep& st : steps)
             {

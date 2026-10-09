@@ -7961,6 +7961,41 @@ int main (int argc, char** argv)
                        + juce::String (doubleHeld) + " double-held, " + juce::String ((int) r.performance.guitar.lead.size()) + " twin notes");
             }
 
+            // CALIBRATE KNOWS A STROKE INSTRUMENT (2026-10-09): the strokes are
+            // offered, not a chord range, and what Save writes reads back.
+            {
+                GhostbandProcessor pc;
+                pc.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-thrash.json"));
+                pc.enterCalibration();
+                std::map<juce::String, int> got;
+                bool range = false;
+                for (int i = 0; i < pc.getCalibrationStepCount(); ++i)
+                {
+                    const auto st = pc.getCalibrationStep (i);
+                    if (st.label.startsWith ("guitar stroke: ")) got[st.label.fromFirstOccurrenceOf (": ", false, false)] = st.note;
+                    if (st.label == "guitar lowest chord note") range = true;
+                }
+                pc.exitCalibration();
+
+                gb::PhraseProfile pr;
+                gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/power-riffer.json", pr, e);
+                const juce::File tmp = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("gb-strokes-roundtrip.json");
+                tmp.replaceWithText ("{ \"mode\": \"strokes\", \"channel\": 13,\n  " + juce::String (pr.strokesJson()) + "\n}");
+                gb::PhraseProfile back;
+                const bool loaded = gb::PhraseProfile::load (tmp.getFullPathName().toStdString(), back, e);
+                tmp.deleteFile();
+                bool same = loaded && back.strokeMode && back.strokeDown == pr.strokeDown && back.strokeUp == pr.strokeUp
+                         && back.strokePalm == pr.strokePalm && back.strokeStop == pr.strokeStop
+                         && back.strokeHitDown == pr.strokeHitDown && back.strokeHitUp == pr.strokeHitUp;
+                for (int k = 0; k < 12; ++k) same = same && back.strokeChordKey[k] == pr.strokeChordKey[k];
+
+                check (! range && got.size() == 6 && got["down"] == 48 && got["up"] == 50 && got["palm mute"] == 52
+                           && got["stop"] == 57 && same,
+                       "Calibrate offers a stroke instrument's strokes, not a chord range, and saves them back intact",
+                       juce::String ((int) got.size()) + " stroke steps, range offered: " + (range ? "yes" : "no")
+                       + ", round trip " + (same ? "intact" : "BROKEN"));
+            }
+
             // THE THRASH NOTE PLAYS WHERE IT BELONGS (2026-10-03): re-picked
             // pedal riffs in the thrash family's fills, nowhere else, and
             // never in a solo.
