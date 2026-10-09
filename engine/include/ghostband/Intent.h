@@ -85,6 +85,7 @@ struct ChordIntent
     int    seventhSemis  = -1;  // -1 for a plain triad
     double accent        = 0.7;
     bool   strumUp       = false;   // alternates, so chords do not all sweep alike
+    bool   quiet         = false;   // played by guitar 1's quiet instrument (SongPlan::guitarQuietProfile)
 };
 
 // One note of a melodic line.
@@ -217,6 +218,20 @@ struct PhrasePart
     // given section, never both - which is what a real player does.
     std::vector<LeadIntent>    lead;
 };
+
+// Guitar 1 split between its two instruments: the chords marked quiet, and
+// the rest. Phrases go to both (each instrument reads the section's feel from
+// them); the controls and any lead line stay with the main one.
+inline void splitQuiet (const PhrasePart& part, PhrasePart& main, PhrasePart& quiet)
+{
+    main = PhrasePart();
+    quiet = PhrasePart();
+    main.phrases = quiet.phrases = part.phrases;
+    main.controls = part.controls;
+    main.lead = part.lead;
+    for (const ChordIntent& c : part.chords)
+        (c.quiet ? quiet : main).chords.push_back (c);
+}
 
 struct Marker
 {

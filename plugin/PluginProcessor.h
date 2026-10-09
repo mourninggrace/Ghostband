@@ -1068,7 +1068,8 @@ private:
                           const gb::SongPlan& planToUse,
                           const gb::PhraseProfile* guitarToUse,
                           const gb::PhraseProfile* pianoToUse,
-                          const gb::PhraseProfile* guitar2ToUse = nullptr);
+                          const gb::PhraseProfile* guitar2ToUse = nullptr,
+                          const gb::PhraseProfile* guitarQuietToUse = nullptr);
     void sendAllNotesOff (juce::MidiBuffer& midi, int sampleOffset);
     bool resolveProfiles (juce::String& error);
 
@@ -1200,6 +1201,10 @@ private:
     gb::PhraseProfile             guitarProfile;
     gb::PhraseProfile             guitar2Profile;
     gb::PhraseProfile             pianoProfile;
+    // Guitar 1's quiet instrument (SongPlan::guitarQuietProfile): the soft
+    // sections of guitar 1 play on it, the rest on guitarProfile.
+    gb::PhraseProfile             guitarQuietProfile;
+    bool                          haveGuitarQuiet = false;
     bool                          haveGuitar  = false;
     bool                          haveGuitar2 = false;
     bool                          havePiano   = false;

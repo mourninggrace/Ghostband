@@ -47,6 +47,10 @@ struct SectionPlan
     // when you already know what you want. "both" lets them share, which is
     // occasionally what a big chorus wants and usually a mess.
     std::string lead = "auto";
+    // Which of guitar 1's two instruments plays this section, when the song
+    // names a quiet one: "auto" (quiet when the section is soft and open),
+    // "main" or "quiet".
+    std::string guitarInstrument = "auto";
 
     bool        vary        = true;         // false makes a repeated section identical
 
@@ -146,6 +150,13 @@ struct SongPlan
     std::string guitarProfile;
     std::string guitar2Profile;
     std::string pianoProfile;
+
+    // GUITAR 1's QUIET INSTRUMENT (2026-10-09, the owner: "some quiet guitar
+    // strum then harder with power riffer"). When set, guitar 1 is two
+    // instruments: the soft, open sections go to this one (Guitar Strum, an
+    // acoustic) and the rest to guitar_profile (Power Riffer). Same part, same
+    // rhythm engine - only who plays each section changes. Empty: one guitar.
+    std::string guitarQuietProfile;
 
     bool hasGuitar()  const { return ! guitarProfile.empty(); }
     bool hasGuitar2() const { return ! guitar2Profile.empty(); }

@@ -54,6 +54,7 @@
   "drum_profile":   "profiles/ssd5-terry-date.json",
   "bass_profile":   "profiles/modo-bass-2.json",
   "guitar_profile": "profiles/power-riffer.json",
+  "guitar_quiet_profile": "profiles/guitar-strum.json",
   "guitar2_profile": "profiles/shreddage-3-hydra.json",
   "piano_profile":  "profiles/virtual-pianist.json",
 

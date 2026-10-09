@@ -73,7 +73,8 @@ bool writeMidi (const SongPlan& plan,
                 std::string& error,
                 const PhraseProfile* guitar  = nullptr,
                 const PhraseProfile* piano   = nullptr,
-                const PhraseProfile* guitar2 = nullptr);
+                const PhraseProfile* guitar2 = nullptr,
+                const PhraseProfile* guitarQuiet = nullptr);   // guitar 1's quiet instrument, if the song has one
 
 // Walks every mapped drum voice and bass articulation in turn, with a marker
 // naming each one, so a profile can be checked against the real plugin by ear

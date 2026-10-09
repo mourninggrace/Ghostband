@@ -3503,6 +3503,19 @@ RenderResult renderPerformance (const SongPlan& plan,
                             guitar2Feel, plan.style, keyPc, mode,
                             guitar == nullptr || guitar->canPlayLines());
 
+            // WHICH OF GUITAR 1's TWO INSTRUMENTS plays this section. The soft,
+            // open sections - an intro, a quiet verse, a ballad's opening - go
+            // to the quiet one (an acoustic strum); anything driving, muted or
+            // loud to the main one (the electric). A section can say which.
+            if (playGuitar && ! plan.guitarQuietProfile.empty())
+            {
+                const bool softFeel = guitarFeel == PhraseFeel::Open || guitarFeel == PhraseFeel::Sparse;
+                const bool quiet = s.guitarInstrument == "quiet"
+                                || (s.guitarInstrument != "main" && softFeel && s.intensity < 0.6);
+                for (size_t k = g1ChordsBefore; k < result.performance.guitar.chords.size(); ++k)
+                    result.performance.guitar.chords[k].quiet = quiet;
+            }
+
             if (playPiano)
                 play (piano, pianoFeel, pianoSupports, result.performance.piano,
                       report.pianoChords, report.pianoFeel);
@@ -3643,7 +3656,8 @@ bool writeMidi (const SongPlan& plan,
                 std::string& error,
                 const PhraseProfile* guitar,
                 const PhraseProfile* piano,
-                const PhraseProfile* guitar2)
+                const PhraseProfile* guitar2,
+                const PhraseProfile* guitarQuiet)
 {
     MidiFile mf (kPPQ);
 
@@ -3690,7 +3704,16 @@ bool writeMidi (const SongPlan& plan,
         mf.tracks.push_back (t);
     };
 
-    emit (guitar,  perf.guitar);
+    // Guitar 1 on its two instruments, when the song has a quiet one.
+    if (guitarQuiet != nullptr)
+    {
+        PhrasePart mainPart, quietPart;
+        splitQuiet (perf.guitar, mainPart, quietPart);
+        emit (guitar,      mainPart);
+        emit (guitarQuiet, quietPart);
+    }
+    else
+        emit (guitar,  perf.guitar);
     emit (guitar2, perf.guitar2);
     emit (piano,   perf.piano);
 

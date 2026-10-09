@@ -368,6 +368,8 @@ bool GhostbandProcessor::resolveProfiles (juce::String& error)
     };
 
     loadPhrase (plan.guitarProfile,  channelGuitar.load(),  guitarProfile,  haveGuitar);
+    loadPhrase (plan.guitarQuietProfile, 12, guitarQuietProfile, haveGuitarQuiet);
+    haveGuitarQuiet = haveGuitarQuiet && haveGuitar;
     loadPhrase (plan.guitar2Profile, channelGuitar2.load(), guitar2Profile, haveGuitar2);
     loadPhrase (plan.pianoProfile,   channelPiano.load(),   pianoProfile,   havePiano);
 
@@ -396,10 +398,12 @@ bool GhostbandProcessor::resolveProfiles (juce::String& error)
     mergeLearnedControls (kit.controls,            kit.instrument,            kit.id);
     mergeLearnedControls (bassProfile.controls,    bassProfile.instrument,    bassProfile.id);
     if (haveGuitar)  mergeLearnedControls (guitarProfile.controls,  guitarProfile.instrument,  guitarProfile.id);
+    if (haveGuitarQuiet) mergeLearnedControls (guitarQuietProfile.controls, guitarQuietProfile.instrument, guitarQuietProfile.id);
     if (haveGuitar2) mergeLearnedControls (guitar2Profile.controls, guitar2Profile.instrument, guitar2Profile.id);
     if (havePiano)   mergeLearnedControls (pianoProfile.controls,   pianoProfile.instrument,   pianoProfile.id);
 
     guitarProfile.channel  = channelFor (guitarProfile.instrument,  guitarProfile.id,  guitarProfile.channel);
+    guitarQuietProfile.channel = channelFor (guitarQuietProfile.instrument, guitarQuietProfile.id, guitarQuietProfile.channel);
     guitar2Profile.channel = channelFor (guitar2Profile.instrument, guitar2Profile.id, guitar2Profile.channel);
     pianoProfile.channel   = channelFor (pianoProfile.instrument,   pianoProfile.id,   pianoProfile.channel);
 
@@ -2708,15 +2712,18 @@ void GhostbandProcessor::sendLevels()
         const juce::ScopedLock sl (stateLock);
 
         struct Part { int channel; float level; const gb::ControlSet* set; bool reachable; };
-        const Part parts[5] = {
+        const Part parts[6] = {
             { kit.channel,            levelDrums.load(),   &kit.controls,          kit.volumeReachable },
             { bassProfile.channel,    levelBass.load(),    &bassProfile.controls,  bassProfile.volumeReachable },
             { guitarProfile.channel,  levelGuitar.load(),  haveGuitar  ? &guitarProfile.controls  : nullptr, ! haveGuitar  || guitarProfile.volumeReachable },
             { guitar2Profile.channel, levelGuitar2.load(), haveGuitar2 ? &guitar2Profile.controls : nullptr, ! haveGuitar2 || guitar2Profile.volumeReachable },
             { pianoProfile.channel,   levelPiano.load(),   havePiano   ? &pianoProfile.controls   : nullptr, ! havePiano   || pianoProfile.volumeReachable },
+            // Guitar 1's quiet instrument follows the GTR knob as well. With no
+            // quiet instrument this sends nothing (no controls, unreachable).
+            { guitarQuietProfile.channel, levelGuitar.load(), haveGuitarQuiet ? &guitarQuietProfile.controls : nullptr, haveGuitarQuiet && guitarQuietProfile.volumeReachable },
         };
 
-        for (size_t pi = 0; pi < 5; ++pi)
+        for (size_t pi = 0; pi < 6; ++pi)
         {
             const Part& p = parts[pi];
             const bool isGuitar2 = (pi == 3) && haveGuitar2;
@@ -2781,13 +2788,13 @@ void GhostbandProcessor::sendLevels()
         // and "guitar 2" against the piano's, so the one line that reports where
         // a mix knob went was lying about two of the five - and that line is
         // what a mapping problem gets diagnosed from.
-        static const char* names[] = { "drums", "bass", "guitar", "guitar 2", "piano" };
+        static const char* names[] = { "drums", "bass", "guitar", "guitar 2", "piano", "guitar (quiet)" };
         juce::String report;
         for (size_t i = 0; i < out.size() && i < 8; ++i)
         {
             const Message& m = out[i];
             report += (report.isEmpty() ? "" : "   ")
-                    + juce::String (names[juce::jlimit (0, 4, static_cast<int> (i))])
+                    + juce::String (names[juce::jlimit (0, 5, static_cast<int> (i))])
                     + " CC" + juce::String (m.cc)
                     + (m.cc == 7 ? "(untaught)" : "")
                     + " ch" + juce::String (m.channel)
@@ -3681,8 +3688,8 @@ void GhostbandProcessor::regenerate()
     gb::SongPlan working;
     gb::DrumProfile workingKit;
     gb::BassProfile workingBass;
-    gb::PhraseProfile workingGuitar, workingGuitar2, workingPiano;
-    bool withGuitar = false, withGuitar2 = false, withPiano = false;
+    gb::PhraseProfile workingGuitar, workingGuitar2, workingPiano, workingGuitarQuiet;
+    bool withGuitar = false, withGuitar2 = false, withPiano = false, withGuitarQuiet = false;
 
     {
         const juce::ScopedLock sl (stateLock);
@@ -3697,6 +3704,8 @@ void GhostbandProcessor::regenerate()
         workingKit    = kit;
         workingBass   = bassProfile;
         workingGuitar  = guitarProfile;
+        workingGuitarQuiet = guitarQuietProfile;
+        withGuitarQuiet    = haveGuitarQuiet;
         workingGuitar2 = guitar2Profile;
         workingPiano   = pianoProfile;
         withGuitar     = haveGuitar;
@@ -3726,7 +3735,8 @@ void GhostbandProcessor::regenerate()
     const gb::RenderResult result = gb::renderPerformance (working, workingKit, workingBass,
                                                            guitarPtr, pianoPtr, guitar2Ptr);
 
-    rebuildSequence (result, workingKit, workingBass, working, guitarPtr, pianoPtr, guitar2Ptr);
+    rebuildSequence (result, workingKit, workingBass, working, guitarPtr, pianoPtr, guitar2Ptr,
+                     withGuitarQuiet && guitarPtr != nullptr ? &workingGuitarQuiet : nullptr);
 
     {
         const juce::ScopedLock sl (stateLock);
@@ -3795,7 +3805,8 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
                                           const gb::SongPlan& planToUse,
                                           const gb::PhraseProfile* guitarToUse,
                                           const gb::PhraseProfile* pianoToUse,
-                                          const gb::PhraseProfile* guitar2ToUse)
+                                          const gb::PhraseProfile* guitar2ToUse,
+                                          const gb::PhraseProfile* guitarQuietToUse)
 {
     // Reuse the exact same profile rendering the CLI uses, then flatten the two
     // tracks into one time-ordered stream the audio thread can walk. The
@@ -3846,7 +3857,16 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
         append (t);
     };
 
-    appendPart (guitarToUse,  result.performance.guitar);
+    // Guitar 1 on its two instruments, when the song has a quiet one.
+    if (guitarQuietToUse != nullptr)
+    {
+        gb::PhrasePart mainPart, quietPart;
+        gb::splitQuiet (result.performance.guitar, mainPart, quietPart);
+        appendPart (guitarToUse,      mainPart);
+        appendPart (guitarQuietToUse, quietPart);
+    }
+    else
+        appendPart (guitarToUse,  result.performance.guitar);
     appendPart (guitar2ToUse, result.performance.guitar2);
     appendPart (pianoToUse,   result.performance.piano);
 
@@ -3878,7 +3898,7 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
     // of any kind at velocity 100 - a fret squeak, or Hydra's hand put on the
     // wrong fret, since that key's velocity IS the fret).
     std::vector<signed char> groups (16 * 128, -1);
-    for (const gb::PhraseProfile* p : { guitarToUse, guitar2ToUse, pianoToUse })
+    for (const gb::PhraseProfile* p : { guitarToUse, guitar2ToUse, pianoToUse, guitarQuietToUse })
     {
         if (p == nullptr || p->channel < 1 || p->channel > 16) continue;
         for (int n = 0; n < 128; ++n)

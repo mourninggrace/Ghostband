@@ -87,6 +87,7 @@ static void loadSection (const Json& j, SectionPlan& s, int index)
     s.guitar2Phrase = toLower (j.stringOr ("guitar2", "auto"));
     s.pianoPhrase  = toLower (j.stringOr ("piano",  "auto"));
     s.lead         = toLower (j.stringOr ("lead",   "auto"));
+    s.guitarInstrument = toLower (j.stringOr ("guitar_instrument", "auto"));
 
     s.vary        = j.boolOr  ("vary", true);
 
@@ -152,6 +153,7 @@ static bool fromJson (const Json& j, const std::string& sourceName,
     out.bassProfile   = j.stringOr ("bass_profile", out.bassProfile);
     out.guitarProfile  = j.stringOr ("guitar_profile", "");
     out.guitar2Profile = j.stringOr ("guitar2_profile", "");
+    out.guitarQuietProfile = j.stringOr ("guitar_quiet_profile", "");
     out.pianoProfile  = j.stringOr ("piano_profile", "");
 
     {
@@ -323,6 +325,7 @@ std::string SongPlan::toJson() const
     j += "  \"bass_profile\":   " + jsonString (bassProfile);
     if (! guitarProfile.empty()) j += ",\n  \"guitar_profile\": " + jsonString (guitarProfile);
     if (! guitar2Profile.empty()) j += ",\n  \"guitar2_profile\": " + jsonString (guitar2Profile);
+    if (! guitarQuietProfile.empty()) j += ",\n  \"guitar_quiet_profile\": " + jsonString (guitarQuietProfile);
     if (! pianoProfile.empty())  j += ",\n  \"piano_profile\":  " + jsonString (pianoProfile);
     j += ",\n\n";
 
@@ -370,6 +373,7 @@ std::string SongPlan::toJson() const
         if (s.guitar2Phrase != "auto") j += ", \"guitar2\": "       + jsonString (s.guitar2Phrase);
         if (s.pianoPhrase != "auto")   j += ", \"piano\": "         + jsonString (s.pianoPhrase);
         if (s.lead != "auto")          j += ", \"lead\": "          + jsonString (s.lead);
+        if (s.guitarInstrument != "auto") j += ", \"guitar_instrument\": " + jsonString (s.guitarInstrument);
         if (! s.vary)                  j += ",\n      \"vary\": false";
 
         j += "\n    }";

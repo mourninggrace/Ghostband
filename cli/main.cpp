@@ -361,6 +361,19 @@ int main (int argc, char** argv)
         haveGuitar = true;
     }
 
+    PhraseProfile guitarQuietProfile;
+    bool haveGuitarQuiet = false;
+    if (! plan.guitarQuietProfile.empty())
+    {
+        const std::string path = resolvePath (argv0, plan.guitarQuietProfile);
+        if (! PhraseProfile::load (path, guitarQuietProfile, error))
+        {
+            std::cerr << "ghostband: " << error << "\n";
+            return 1;
+        }
+        haveGuitarQuiet = true;
+    }
+
     if (! plan.guitar2Profile.empty())
     {
         const std::string path = resolvePath (argv0, plan.guitar2Profile);
@@ -434,7 +447,7 @@ int main (int argc, char** argv)
         outPath = baseName (planPath) + ".mid";
 
     if (! writeMidi (plan, result.performance, kit, bass, outPath, error,
-                     guitarPtr, pianoPtr, guitar2Ptr))
+                     guitarPtr, pianoPtr, guitar2Ptr, haveGuitarQuiet ? &guitarQuietProfile : nullptr))
     {
         std::cerr << "ghostband: " << error << "\n";
         return 1;

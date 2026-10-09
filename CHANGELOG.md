@@ -15,6 +15,13 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
   Iron 2, whose profile stays for anyone who has it.
 
 ### Added
+- **Guitar 1 on two instruments in one song.** A plan's "guitar_quiet_profile"
+  gives guitar 1 a second instrument: soft, open sections (intensity under
+  0.6, open or sparse feel) go to it, the rest to "guitar_profile"; a section
+  can force either with "guitar_instrument": "quiet" / "main". Every preset
+  now has Power Riffer as main and Guitar Strum as quiet - e.g. Static Bloom's
+  intro, verses and bridge strum acoustic, its prechorus and choruses go
+  electric. The GTR knob drives both. Split at render in the plugin and CLI.
 - **Stroke instruments** ("mode": "strokes"): the chord is a held fretting
   key, every strum one key press - down, up, palm mute - ringing until the
   next stroke, and STOP before a rest longer than an eighth (not after a palm
