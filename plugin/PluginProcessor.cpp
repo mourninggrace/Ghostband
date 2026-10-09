@@ -2705,7 +2705,7 @@ void GhostbandProcessor::sendLevels()
     // anyway contradicts the flag - worse, the knob is HIDDEN in that case, so
     // CC 7 kept going out at a level nobody could see or correct. SSD5 sat in
     // exactly that state on channel 10.
-    struct Message { int channel, cc, value; };
+    struct Message { int channel, cc, value; const char* part; bool taught; };
     std::vector<Message> out;
 
     {
@@ -2723,6 +2723,7 @@ void GhostbandProcessor::sendLevels()
             { guitarQuietProfile.channel, levelGuitar.load(), haveGuitarQuiet ? &guitarQuietProfile.controls : nullptr, haveGuitarQuiet && guitarQuietProfile.volumeReachable },
         };
 
+        static const char* partNames[6] = { "drums", "bass", "guitar", "guitar 2", "piano", "guitar (quiet)" };
         for (size_t pi = 0; pi < 6; ++pi)
         {
             const Part& p = parts[pi];
@@ -2741,7 +2742,7 @@ void GhostbandProcessor::sendLevels()
                     // other - some instruments run their gain backwards.
                     const int value = juce::jlimit (0, 127,
                                           juce::roundToInt (def.valueAt (p.level) * 127.0));
-                    out.push_back ({ p.channel, def.cc, value });
+                    out.push_back ({ p.channel, def.cc, value, partNames[pi], true });
                     taught = true;
 
                     if (isGuitar2)
@@ -2765,7 +2766,7 @@ void GhostbandProcessor::sendLevels()
             if (! taught && p.reachable)
             {
                 const int value = juce::jlimit (0, 127, juce::roundToInt (p.level * 127.0f));
-                out.push_back ({ p.channel, 7, value });
+                out.push_back ({ p.channel, 7, value, partNames[pi], false });
 
                 if (isGuitar2)
                 {
@@ -2788,15 +2789,18 @@ void GhostbandProcessor::sendLevels()
         // and "guitar 2" against the piano's, so the one line that reports where
         // a mix knob went was lying about two of the five - and that line is
         // what a mapping problem gets diagnosed from.
-        static const char* names[] = { "drums", "bass", "guitar", "guitar 2", "piano", "guitar (quiet)" };
+        // Each message carries its part's name. Labelling them by position
+        // was wrong whenever a part sent nothing: every name after it slid
+        // onto the next part's message (2026-10-09: guitar 2's CC 85 read as
+        // "guitar").
         juce::String report;
         for (size_t i = 0; i < out.size() && i < 8; ++i)
         {
             const Message& m = out[i];
             report += (report.isEmpty() ? "" : "   ")
-                    + juce::String (names[juce::jlimit (0, 5, static_cast<int> (i))])
+                    + juce::String (m.part)
                     + " CC" + juce::String (m.cc)
-                    + (m.cc == 7 ? "(untaught)" : "")
+                    + (m.taught ? "" : "(untaught)")   // CC 7 can be taught too (Kontakt's Output Volume)
                     + " ch" + juce::String (m.channel)
                     + "=" + juce::String (m.value);
         }

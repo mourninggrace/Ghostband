@@ -8371,6 +8371,37 @@ int main (int argc, char** argv)
                    juce::String (restated) + " restatements to guitar 2 in 10 s, stopped");
         }
 
+        // EVERY PART, NOT ONLY GUITAR 2 (2026-10-09: "i have to once again move
+        // guitar 1's volume knob for the volume to sync up"). Power Riffer and
+        // Guitar Strum load in Kontakt after Ghostband has spoken; stopped and
+        // untouched, both must hear the GTR knob again once they are up.
+        {
+            GhostbandProcessor pf;
+            pf.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-alt-rock-2.json"));
+            const double sr = 48000.0; const int bs = 512;
+            pf.setRateAndBufferSizeDetails (sr, bs);
+            pf.prepareToPlay (sr, bs);
+            FakePlayHead ph; ph.playing = false; pf.setPlayHead (&ph);
+            juce::AudioBuffer<float> buf (2, bs); juce::MidiBuffer m;
+            int late12 = 0, late13 = 0;
+            for (int blk = 0; blk < static_cast<int> (10.0 * sr / bs); ++blk)
+            {
+                buf.clear(); m.clear();
+                pf.processBlock (buf, m);
+                for (const juce::MidiMessageMetadata e : m)
+                {
+                    const auto msg = e.getMessage();
+                    if (! msg.isController() || msg.getControllerNumber() != 7 || blk <= static_cast<int> (1.0 * sr / bs)) continue;
+                    if (msg.getChannel() == 12) ++late12;
+                    if (msg.getChannel() == pf.channelGuitar.load()) ++late13;
+                }
+            }
+            pf.setPlayHead (nullptr);
+            check (late12 >= 1 && late13 >= 1, "a fresh load re-sends guitar 1's level to both of its instruments, stopped",
+                   "Guitar Strum " + juce::String (late12) + ", Power Riffer " + juce::String (late13) + " in 10 s; "
+                       + pf.getLastMidiReport());
+        }
+
         GhostbandProcessor p3;
         p3.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-prog.json"));
         const double sr = 48000.0;
