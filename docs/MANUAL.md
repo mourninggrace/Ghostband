@@ -60,34 +60,27 @@ the solo.
 Which one is "the lead" is not baked into the engine. It is whichever the
 section puts out front, so the same pair can swap.
 
-**The rhythm guitar is three instruments, chosen section by section** (from
-2.6): Splash Sound's **Power Riffer** (electric, power chords, channel 13),
-Splash Sound's **Guitar Strum** (acoustic, full chords, channel 12) and NI's
-**Electric Sunburst** (electric, recorded patterns, channel 14).
+**The rhythm guitar is two instruments, chosen section by section** (from
+2.6): Splash Sound's **Power Riffer** (electric, power chords, channel 13) and
+Splash Sound's **Guitar Strum** (acoustic, full chords, channel 12).
 
 | section | who plays it |
 |---------|--------------|
-| soft and sparse (intensity under 0.6) | Electric Sunburst, picking an arpeggio |
-| soft and open | Guitar Strum |
-| palm-muted | Power Riffer alone |
+| soft (sparse or open, intensity under 0.6) | Guitar Strum |
+| palm-muted, and everything in the middle | Power Riffer |
 | loud (intensity 0.75 and up) | Power Riffer, with Guitar Strum under it |
-| everything in between | Electric Sunburst strumming; Power Riffer in metal, thrash, groove, prog metal, doom, sludge and punk |
 
-A section can choose its own with `"guitar_instrument"`: `main`, `quiet`,
-`pattern`, or several joined by `+` (`"main+quiet"`). A song without one of
-the three just skips it. The GTR knob drives all three.
+A section can choose its own with `"guitar_instrument"`: `main`, `quiet`, or
+both joined by `+` (`"main+quiet"`). The GTR knob drives both.
 
-**Electric Sunburst plays its own patterns.** Ghostband holds the chord (C2 to
-G#5), picks the pattern slot (C1 to G1) by the section's feel, sets how hard it plays with pitch bend
-(its Impact slider) and plays the ending key (G#1) before a break. What sits
-in each slot is whatever Sunburst "Song" is loaded; Ghostband's map expects
-the Song **Rock Hard** with **Straightforward A** loaded into slot F#1 and
-**Rock Ballad A** into slot G1: busy = C1 (Rock Hard A), muted = C#1 (Rock
-Hard B Mtd), open = E1 (Rock Hard E), driving = F#1, sparse = G1. Another
-layout is a one-line change to `profiles/electric-sunburst.json`. In Sunburst, set Playback > Pattern Sync to
-**Start on key**. Its patterns run at **GP5's tempo**, so paste
+A third, **pattern** instrument can join them (`"guitar_pattern_profile"`;
+NI's Electric Sunburst has a profile): it plays its own recorded strum and
+arpeggio patterns while Ghostband holds the chord, and takes the sparsest
+soft sections and the middle ones. The shipped songs do not use it - tried
+2026-10-09, its tone against Power Riffer's jumped at every handoff. If you
+use one, its patterns run at GP5's tempo: paste
 `tools/gp5/ghostband-tempo.gpscript` (also in Documents\Ghostband) into the
-rackspace script once: GP5 then follows each song's tempo, which Ghostband
+rackspace script once, and GP5 follows each song's tempo, which Ghostband
 publishes as its one host parameter, "Song tempo".
 
 Power Riffer and Guitar Strum are Kontakt libraries that

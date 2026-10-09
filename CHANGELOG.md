@@ -23,17 +23,16 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
   Iron 2, whose profile stays for anyone who has it.
 
 ### Added
-- **Guitar 1 on three instruments in one song, stacking where it is loud**
-  (the owner: "all 3 guitars ... in a single song"). A plan's new
-  "guitar_pattern_profile" adds NI's Electric Sunburst (ch 14) beside Power
-  Riffer and Guitar Strum. Per section, as the owner approved: soft sparse
-  parts on Sunburst's arpeggios, soft open parts on Guitar Strum, palm-muted
-  parts on Power Riffer alone, the middle on Sunburst's strumming (Power
-  Riffer in the heavy styles), and loud sections (intensity 0.75+) on Power
-  Riffer WITH Guitar Strum under it. "guitar_instrument" takes "main",
-  "quiet", "pattern" or several joined by "+". Every preset names all three.
-  Drums, bass, guitar 2 and piano are byte-for-byte unchanged in all 34
-  songs (compared against the previous build). New check.
+- **Guitar 1 stacks where it is loud.** Loud sections (intensity 0.75+) now
+  play Power Riffer WITH Guitar Strum under it; palm-muted and middle
+  sections stay Power Riffer, soft ones Guitar Strum. "guitar_instrument"
+  takes "main", "quiet", "pattern" or several joined by "+". A third,
+  pattern instrument can join ("guitar_pattern_profile"): the sparsest soft
+  sections and the middle ones. Built for NI's Electric Sunburst and tried in
+  the presets, then taken out at the owner's ear - its tone against Power
+  Riffer's jumped at every handoff; the profile and the mode stay. Drums,
+  bass, guitar 2 and piano are byte-for-byte unchanged in all 34 songs
+  (compared against the previous build). New checks.
 - **Pattern instruments** ("mode": "patterns"), for Electric Sunburst: it plays
   its own recorded patterns while a chord is held. Ghostband holds each
   harmony once and lets go before the next (its chord detection reads an

@@ -16,7 +16,6 @@
   "bass_profile": "profiles/modo-bass-2.json",
   "guitar_profile": "profiles/power-riffer.json",
   "guitar_quiet_profile": "profiles/guitar-strum.json",
-  "guitar_pattern_profile": "profiles/electric-sunburst.json",
   "guitar2_profile": "profiles/shreddage-3-hydra.json",
   "piano_profile": "profiles/virtual-pianist.json",
 

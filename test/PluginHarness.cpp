@@ -7973,7 +7973,12 @@ int main (int argc, char** argv)
                 const bool loaded = gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/electric-sunburst.json", sb, e);
                 gb::SongPlan p;
                 gb::SongPlan::load ("C:/Projects/Ghostband/plans/preset-alt-rock-2.json", p, e);
-                const gb::RenderResult r = gb::renderPerformance (p, kit, bass, &pr, &piano, &gtr2);
+                // The owner dropped Sunburst from the presets (2026-10-09, the
+                // tone jump at every handoff); the mode stays, tested on a copy.
+                gb::SongPlan withSb = p;
+                withSb.guitarPatternProfile = "profiles/electric-sunburst.json";
+                const gb::RenderResult r = gb::renderPerformance (withSb, kit, bass, &pr, &piano, &gtr2);
+                const gb::RenderResult rp = gb::renderPerformance (p, kit, bass, &pr, &piano, &gtr2);
                 gb::PhrasePart mainPart, quietPart, patternPart;
                 gb::splitGuitar (r.performance.guitar, mainPart, quietPart, patternPart);
                 gb::MidiTrack t;
@@ -8046,6 +8051,16 @@ int main (int argc, char** argv)
                 const gb::RenderResult rt = gb::renderPerformance (th, kit, bass, &pr, &piano, &gtr2);
                 unsigned thrashPlayers = 0;
                 for (const gb::ChordIntent& c : rt.performance.guitar.chords) thrashPlayers |= c.players;
+                // And the presets as shipped, without it: the sparse intro goes
+                // back to the acoustic.
+                unsigned shippedIntro = 0;
+                for (const gb::SectionReport& s : rp.sections)
+                    if (s.name == "intro")
+                        for (const gb::ChordIntent& c : rp.performance.guitar.chords)
+                            if (c.tick >= s.startTick && c.tick < s.endTick) shippedIntro |= c.players;
+                check (shippedIntro == gb::kGuitarQuiet && p.guitarPatternProfile.empty(),
+                       "without the pattern guitar, Static Bloom's sparse intro is the acoustic's",
+                       "intro players " + juce::String ((int) shippedIntro));
                 check (playersOf["intro"] == gb::kGuitarPattern && playersOf["prechorus1"] == gb::kGuitarMain
                            && playersOf["chorus1"] == (gb::kGuitarMain | gb::kGuitarQuiet)
                            && (thrashPlayers & gb::kGuitarPattern) == 0 && (thrashPlayers & gb::kGuitarQuiet) != 0,
