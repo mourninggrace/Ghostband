@@ -7,6 +7,25 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
 
 ## [Unreleased]
 
+### Changed
+- **Guitar 1 is now Splash Sound's Power Riffer and Guitar Strum** (Kontakt),
+  replacing UJAM Iron 2 at the owner's word. Power Riffer (electric, power
+  chords, ch 13) plays the 25 rock and metal songs; Guitar Strum (acoustic,
+  full chords, ch 12) the three ballads and three blues. The demo songs keep
+  Iron 2, whose profile stays for anyone who has it.
+
+### Added
+- **Stroke instruments** ("mode": "strokes"): the chord is a held fretting
+  key, every strum one key press - down, up, palm mute - ringing until the
+  next stroke, and STOP before a rest longer than an eighth (not after a palm
+  mute, which dies by itself). Ghostband still writes the rhythm. Old chord
+  released before the next is fretted, so Power Riffer changes plainly
+  rather than sliding by itself. Such an instrument plays no single notes, so
+  guitar 1 keeps strumming where it would harmonise a twin line. Power
+  Riffer's map read from its own script; Guitar Strum's from its manual's
+  picture (marked needs-verification). New check: 462 strokes in Terminal
+  Velocity, every one on the right fretted chord, never two held.
+
 ## [2.5.0] — 2026-10-03
 
 The sound, by genre: guitar 1's amp, guitar, stomp box and finisher and the

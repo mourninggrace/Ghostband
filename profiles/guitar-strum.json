@@ -1,0 +1,45 @@
+{
+  // SPLASH SOUND - GUITAR STRUM (Kontakt, full version). Guitar 1 for the soft
+  // songs (ballads, blues), from 2026-10-09. A strummed ACOUSTIC guitar: 84
+  // chords (12 roots x 7 types: maj, min, sus4, sus2, dim, 7, power), each
+  // stroke down / up / palm mute / string mute, ringing until the next stroke.
+  //
+  // A STROKE instrument ("mode": "strokes"), like Power Riffer: the chord's
+  // root key and type key are pressed, then every strum is one key press.
+  //
+  // NEEDS VERIFICATION. The library's script is locked, so this map comes from
+  // the manual's keyboard picture (p3), not the code:
+  //   C1-B1 (36-47)   chord root (blue keys)
+  //   C2-B2 white     chord type, in the selector's order (green keys):
+  //                   48 maj, 50 min, 52 sus4, 53 sus2, 55 dim, 57 7, 59 power
+  //   60 C3 up stroke, 62 D3 down stroke, 63 D#3 string mute, 64 E3 palm mute
+  //   then FX strokes and rhythm patterns (not used), 84 C5 stops all sound
+  // The colours on Kontakt's own keyboard confirm it at a glance.
+  //
+  // Load "Guitar Strum.nki" in Kontakt on the channel below. Level: teach the
+  // Instrument Header Output Volume (never the "standard controllers" tick).
+  "name": "Splash Sound Guitar Strum (Kontakt)",
+  "id": "guitar_strum",
+  "instrument": "guitar_strum",
+  "channel": 12,
+  "mode": "strokes",
+  "needs_verification": true,
+  "verification_note": "Key map read from the manual's picture; check the colours on Kontakt's keyboard.",
+
+  "strokes": {
+    "chord_keys": { "C": 36, "C#": 37, "D": 38, "D#": 39, "E": 40, "F": 41, "F#": 42,
+                    "G": 43, "G#": 44, "A": 45, "A#": 46, "B": 47 },
+    "chord_type_keys": { "maj": 48, "min": 50, "sus4": 52, "sus2": 53, "dim": 55, "7": 57, "5": 59 },
+    "down": 62, "up": 60, "palm_mute": 64, "down_hit": 63, "up_hit": 63, "stop": 84,
+    "chord_lead_ticks": 12,
+    "stop_gap_ticks": 240
+  },
+
+  "phrase_velocity": 100,
+  "phrase_blip_ticks": 30,
+
+  "controls": {},
+
+  "velocity_min": 55,
+  "velocity_max": 118
+}

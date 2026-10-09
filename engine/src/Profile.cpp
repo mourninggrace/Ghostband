@@ -1300,7 +1300,35 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
     out.channel           = clampInt (j.intOr ("channel", out.channel), 1, 16);
     out.velocityMin       = clampInt (j.intOr ("velocity_min", out.velocityMin), 1, 127);
     out.velocityMax       = clampInt (j.intOr ("velocity_max", out.velocityMax), 1, 127);
-    out.phraseDriven      = (j.stringOr ("mode", "phrase") != "notes");
+    {
+        const std::string mode = j.stringOr ("mode", "phrase");
+        out.strokeMode   = (mode == "strokes");
+        out.phraseDriven = (mode != "notes" && mode != "strokes");
+    }
+    {
+        const Json& st = j["strokes"];
+        if (st.isObject())
+        {
+            static const char* kPc[12] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+            const Json& ck = st["chord_keys"];
+            if (ck.isObject())
+                for (int pc = 0; pc < 12; ++pc)
+                    out.strokeChordKey[pc] = clampInt (ck.intOr (kPc[pc], -1), -1, 127);
+            static const char* kType[7] = { "maj", "min", "7", "sus4", "sus2", "dim", "5" };
+            const Json& tk = st["chord_type_keys"];
+            if (tk.isObject())
+                for (int t = 0; t < 7; ++t)
+                    out.strokeTypeKey[t] = clampInt (tk.intOr (kType[t], -1), -1, 127);
+            out.strokeDown    = clampInt (st.intOr ("down", -1), -1, 127);
+            out.strokeUp      = clampInt (st.intOr ("up", -1), -1, 127);
+            out.strokePalm    = clampInt (st.intOr ("palm_mute", -1), -1, 127);
+            out.strokeHitDown = clampInt (st.intOr ("down_hit", -1), -1, 127);
+            out.strokeHitUp   = clampInt (st.intOr ("up_hit", -1), -1, 127);
+            out.strokeStop    = clampInt (st.intOr ("stop", -1), -1, 127);
+            out.strokeChordLeadTicks = clampInt (st.intOr ("chord_lead_ticks", out.strokeChordLeadTicks), 1, 240);
+            out.strokeStopGapTicks   = clampInt (st.intOr ("stop_gap_ticks", out.strokeStopGapTicks), 1, 1920);
+        }
+    }
     out.phraseLeadTicks   = std::max (1, j.intOr ("phrase_lead_ticks", out.phraseLeadTicks));
     out.phraseBlipTicks   = std::max (1, j.intOr ("phrase_blip_ticks", out.phraseBlipTicks));
     out.phraseVelocity    = clampInt (j.intOr ("phrase_velocity", out.phraseVelocity), 1, 127);
@@ -1514,6 +1542,96 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
 
 void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
 {
+    // ---- a STROKE instrument (see strokeMode) ------------------------------
+    if (strokeMode)
+    {
+        controls.render (part.controls, channel, phraseLeadTicks, track);
+
+        std::vector<ChordIntent> cs (part.chords.begin(), part.chords.end());
+        std::stable_sort (cs.begin(), cs.end(), [] (const ChordIntent& a, const ChordIntent& b) { return a.tick < b.tick; });
+
+        // The section's feel at a tick: a muted section picks palm-muted strokes.
+        const auto feelAt = [&part] (int t)
+        {
+            PhraseFeel f = PhraseFeel::Driving;
+            for (const PhraseIntent& p : part.phrases)
+            {
+                if (p.tick > t) break;
+                f = p.feel;
+            }
+            return f;
+        };
+        // Which chord-type key a chord needs (Guitar Strum); -1 when the
+        // instrument has none for it.
+        const auto typeKeyFor = [this] (const ChordIntent& c)
+        {
+            int t;
+            if (c.thirdSemis < 0)                          t = 6;   // power
+            else if (c.fifthSemis == 6)                    t = 5;   // diminished
+            else if (c.thirdSemis == 5)                    t = 3;   // sus4
+            else if (c.thirdSemis == 2)                    t = 4;   // sus2
+            else if (c.thirdSemis == 4 && c.seventhSemis == 10) t = 2;   // dominant 7th
+            else if (c.thirdSemis == 3)                    t = 1;   // minor
+            else                                           t = 0;   // major
+            if (strokeTypeKey[t] < 0 && t != 0 && t != 1)  // nothing for it: the triad it rests on
+                t = (c.thirdSemis == 3) ? 1 : 0;
+            return strokeTypeKey[t];
+        };
+
+        const int blip = std::max (1, phraseBlipTicks);
+        int heldKey = -1, heldType = -1, heldFrom = 0, lastEnd = 0;
+
+        for (size_t i = 0; i < cs.size(); ++i)
+        {
+            const ChordIntent& c = cs[i];
+            if (c.durationTicks <= 0) continue;
+            const int rootKey = strokeChordKey[((c.rootPc % 12) + 12) % 12];
+            if (rootKey < 0) continue;
+            const int typeKey = typeKeyFor (c);
+            const int at = c.tick;
+            const int fret = std::max (0, at - strokeChordLeadTicks);
+
+            // A new chord: let go of the old one first (so the instrument changes
+            // plainly rather than sliding on its own), then fret the new one.
+            if (rootKey != heldKey || typeKey != heldType)
+            {
+                if (heldKey >= 0)
+                    track.addNoteOff (std::max (heldFrom + 1, fret - 2), channel, heldKey);
+                if (typeKey >= 0 && typeKey != heldType)
+                {
+                    track.addNoteOn  (std::max (0, fret - 1), channel, typeKey, phraseVelocity);
+                    track.addNoteOff (std::max (1, fret - 1 + blip), channel, typeKey);
+                }
+                track.addNoteOn (fret, channel, rootKey, phraseVelocity);
+                heldKey = rootKey; heldType = typeKey; heldFrom = fret;
+            }
+
+            // The stroke itself.
+            const bool muted = feelAt (at) == PhraseFeel::Muted && strokePalm >= 0;
+            int key = muted ? strokePalm : (c.strumUp && strokeUp >= 0 ? strokeUp : strokeDown);
+            if (key < 0) continue;
+            const int vel = velocityFor (c.accent, velocityMin, velocityMax);
+            track.addNoteOn  (at, channel, key, vel);
+            track.addNoteOff (at + blip, channel, key);
+
+            // A rest after it is a rest: the strings are stopped. Not after a
+            // palm-muted stroke, which dies by itself - a STOP on every chug
+            // would put the stop noise on every note.
+            const int end  = at + c.durationTicks;
+            const int next = i + 1 < cs.size() ? cs[i + 1].tick : end + strokeStopGapTicks;
+            if (strokeStop >= 0 && ! muted && next - end >= strokeStopGapTicks)
+            {
+                track.addNoteOn  (end, channel, strokeStop, vel);
+                track.addNoteOff (end + blip, channel, strokeStop);
+            }
+            lastEnd = std::max (lastEnd, end);
+        }
+
+        if (heldKey >= 0)
+            track.addNoteOff (std::max (heldFrom + 1, lastEnd + blip), channel, heldKey);
+        return;
+    }
+
     // Phrase keys are HELD, not tapped.
     //
     // This was measured, after a user reported the guitar cutting out: pressing

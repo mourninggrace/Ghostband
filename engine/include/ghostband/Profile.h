@@ -402,6 +402,24 @@ public:
 
     bool isPhraseDriven() const { return phraseDriven; }
 
+    // STROKE-driven ("mode": "strokes", 2026-10-09 - Splash Sound Power Riffer
+    // and Guitar Strum): the chord is a HELD key that frets it, and every strum
+    // is one key press - down, up, palm-muted, a dead hit - that rings until the
+    // next stroke or a STOP key. Ghostband still writes the rhythm, so this is
+    // not phrase-driven; it just speaks it as fretting-hand and picking-hand
+    // keys instead of as the chord's notes. Such an instrument plays no single
+    // notes, so guitar 1 keeps strumming where it would harmonise a twin line.
+    bool strokeMode = false;
+    int  strokeChordKey[12] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };   // by root pitch class
+    // Chord-type keys, for an instrument that has them (Guitar Strum): major,
+    // minor, dominant 7th, sus4, sus2, diminished, power. -1 = none; a power-
+    // chord-only instrument (Power Riffer) leaves them all unset.
+    int  strokeTypeKey[7] = { -1, -1, -1, -1, -1, -1, -1 };
+    int  strokeDown = -1, strokeUp = -1, strokePalm = -1, strokeHitDown = -1, strokeHitUp = -1, strokeStop = -1;
+    int  strokeChordLeadTicks = 12;   // the chord is fretted this far ahead of the stroke
+    int  strokeStopGapTicks   = 60;   // a rest at least this long after a strum is stopped, not left ringing
+    bool canPlayLines() const { return ! strokeMode; }
+
     // Where chords are voiced. Roots are folded into this range.
     int  chordLowest  = 24;
     int  chordHighest = 47;

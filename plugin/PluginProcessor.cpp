@@ -2333,7 +2333,9 @@ juce::Range<int> GhostbandProcessor::getPlayableRange (int part) const
         default: return {};
     }
 
-    if (p == nullptr || p->chordHighest <= p->chordLowest)
+    // A stroke instrument has no playable range: its keys fret and pick, they
+    // are not pitches (Power Riffer, Guitar Strum).
+    if (p == nullptr || p->strokeMode || p->chordHighest <= p->chordLowest)
         return {};
 
     return { p->chordLowest, p->chordHighest };

@@ -2429,7 +2429,8 @@ static PhraseFeel supportFeel (PhraseFeel wanted)
 // Guitar 1 around guitar 2, within one section. See the call site.
 static void twoGuitars (PhrasePart& g1, size_t g1ChordsFrom, size_t g1LeadFrom,
                         const PhrasePart& g2, size_t g2LeadFrom,
-                        PhraseFeel g2Feel, const std::string& style, int keyPc, Mode mode)
+                        PhraseFeel g2Feel, const std::string& style, int keyPc, Mode mode,
+                        bool g1PlaysLines = true)
 {
     (void) g1LeadFrom;
     auto& chords = g1.chords;
@@ -2465,7 +2466,9 @@ static void twoGuitars (PhrasePart& g1, size_t g1ChordsFrom, size_t g1LeadFrom,
     const bool twinStyle = std::any_of (std::begin (twinStyles), std::end (twinStyles),
                                         [&style] (const char* s) { return style == s; });
 
-    if (twinStyle && g2Feel == PhraseFeel::Solo)
+    // An instrument that only strums (a stroke instrument) cannot take the
+    // harmony line; it keeps strumming, and still makes room below.
+    if (twinStyle && g2Feel == PhraseFeel::Solo && g1PlaysLines)
     {
         const std::vector<int>& scale = soloScale (mode, style);
         const auto inKey = [&] (int p)
@@ -3497,7 +3500,8 @@ RenderResult renderPerformance (const SongPlan& plan,
                 && guitar2Feel != PhraseFeel::Silent)
                 twoGuitars (result.performance.guitar, g1ChordsBefore, g1LeadBefore,
                             result.performance.guitar2, g2LeadBefore,
-                            guitar2Feel, plan.style, keyPc, mode);
+                            guitar2Feel, plan.style, keyPc, mode,
+                            guitar == nullptr || guitar->canPlayLines());
 
             if (playPiano)
                 play (piano, pianoFeel, pianoSupports, result.performance.piano,

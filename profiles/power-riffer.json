@@ -1,0 +1,52 @@
+{
+  // SPLASH SOUND - POWER RIFFER (Kontakt, full version). Guitar 1, the rhythm
+  // guitar, from 2026-10-09 - the owner replaced UJAM Iron 2 and asked me to
+  // choose; this one for the rock and metal songs (Guitar Strum for the soft
+  // ones). Electric guitar, POWER CHORDS ONLY, 6th string tuned to D.
+  //
+  // A STROKE instrument ("mode": "strokes"): one key frets the chord and is
+  // held, and every strum is one key press that rings until the next stroke or
+  // STOP. Every number below was read from the library's own script
+  // (Resources/scripts/PRScript_compiled.txt) and its manual - not guessed:
+  //
+  //   26-35 (D0-B0)   power chord on the 6th string (D tuning), fret 0-9;
+  //                   the key's NOTE NAME is the chord's root (26 = D5 open)
+  //   36-43 (C1-G1)   power chord on the 5th string, roots C to G
+  //   48 C2 downstroke   50 D2 upstroke   52 E2 palm mute
+  //   53 F2 down hit     55 G2 up hit     57 A2 stop
+  //   59 B2 slide / 60 C3 pull-hammer activators (manual mode only)
+  //
+  // Stroke velocity is how hard it is played. Releasing the chord key does
+  // not mute it (only a fret-release noise); STOP does. In AUTO mode, holding
+  // the old chord while pressing the next one makes the script slide or
+  // hammer by itself - Ghostband lets go first, so changes are plain until
+  // that is chosen on purpose.
+  //
+  // Load "Power Riffer.nki" in Kontakt on the channel below. Its level: teach
+  // Kontakt's Instrument Header Output Volume to a CC (Settings > Teach) -
+  // NEVER tick "Accept standard controllers", which crashes Kontakt 8.13.1.
+  "name": "Splash Sound Power Riffer (Kontakt)",
+  "id": "power_riffer",
+  "instrument": "power_riffer",
+  "channel": 13,
+  "mode": "strokes",
+  "needs_verification": false,
+
+  "strokes": {
+    "chord_keys": { "C": 36, "C#": 37, "D": 26, "D#": 27, "E": 28, "F": 29, "F#": 30,
+                    "G": 31, "G#": 32, "A": 33, "A#": 34, "B": 35 },
+    "down": 48, "up": 50, "palm_mute": 52, "down_hit": 53, "up_hit": 55, "stop": 57,
+    "chord_lead_ticks": 12,
+    "stop_gap_ticks": 240
+  },
+
+  // Fretting keys are pressed at this velocity (in AUTO mode it is the speed
+  // of a slide, when one happens).
+  "phrase_velocity": 100,
+  "phrase_blip_ticks": 30,
+
+  "controls": {},
+
+  "velocity_min": 70,
+  "velocity_max": 124
+}

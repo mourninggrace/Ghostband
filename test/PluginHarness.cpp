@@ -7919,6 +7919,48 @@ int main (int argc, char** argv)
                        + ", off " + juce::String (off));
             }
 
+            // A STROKE INSTRUMENT GETS A FRETTED CHORD UNDER EVERY STROKE
+            // (2026-10-09, Power Riffer / Guitar Strum replace Iron 2). Over a
+            // song: each stroke key lands while exactly one chord key is held,
+            // and it is that chord's root; never two chord keys at once (the
+            // instrument would slide by itself); palm mutes in muted sections;
+            // and guitar 1 is never handed a twin line it cannot play.
+            {
+                gb::PhraseProfile pr;
+                gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/power-riffer.json", pr, e);
+                gb::SongPlan p;
+                gb::SongPlan::load ("C:/Projects/Ghostband/plans/preset-thrash.json", p, e);
+                const gb::RenderResult r = gb::renderPerformance (p, kit, bass, &pr, &piano, &gtr2);
+                gb::MidiTrack t;
+                pr.render (r.performance.guitar, t);
+                std::vector<gb::MidiEvent> ev = t.events;
+                std::stable_sort (ev.begin(), ev.end(), [] (const gb::MidiEvent& a, const gb::MidiEvent& b)
+                                  { return a.tick != b.tick ? a.tick < b.tick : a.order < b.order; });
+                std::set<int> held;
+                int strokes = 0, unfretted = 0, wrongRoot = 0, doubleHeld = 0, palm = 0;
+                std::map<int, int> rootAt;   // stroke tick -> root pc of the chord sounding
+                for (const gb::ChordIntent& c : r.performance.guitar.chords) rootAt[c.tick] = c.rootPc;
+                for (const gb::MidiEvent& m : ev)
+                {
+                    if (m.bytes.size() < 3) continue;
+                    const int type = m.bytes[0] & 0xF0, n = m.bytes[1], v = m.bytes[2];
+                    const bool on = type == 0x90 && v > 0, off = type == 0x80 || (type == 0x90 && v == 0);
+                    if (n >= 26 && n <= 43) { if (on) held.insert (n); if (off) held.erase (n); if (held.size() > 1) ++doubleHeld; continue; }
+                    if (! on || (n != pr.strokeDown && n != pr.strokeUp && n != pr.strokePalm)) continue;
+                    ++strokes;
+                    if (n == pr.strokePalm) ++palm;
+                    if (held.size() != 1) { ++unfretted; continue; }
+                    const auto it = rootAt.find (m.tick);
+                    if (it != rootAt.end() && pr.strokeChordKey[it->second] != *held.begin()) ++wrongRoot;
+                }
+                check (strokes > 200 && unfretted == 0 && wrongRoot == 0 && doubleHeld == 0 && palm > 50
+                           && r.performance.guitar.lead.empty(),
+                       "a stroke instrument strums only on a fretted chord, the right one, never two at once",
+                       juce::String (strokes) + " strokes (" + juce::String (palm) + " palm-muted), "
+                       + juce::String (unfretted) + " unfretted, " + juce::String (wrongRoot) + " wrong root, "
+                       + juce::String (doubleHeld) + " double-held, " + juce::String ((int) r.performance.guitar.lead.size()) + " twin notes");
+            }
+
             // THE THRASH NOTE PLAYS WHERE IT BELONGS (2026-10-03): re-picked
             // pedal riffs in the thrash family's fills, nowhere else, and
             // never in a solo.
