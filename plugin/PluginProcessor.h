@@ -703,6 +703,15 @@ public:
     // the host. The audio thread must never block on a lock the message thread
     // can hold, so the one value it needs is published here instead.
     std::atomic<double> planBpmForAudio  { 0.0 };
+
+    // THE SONG'S TEMPO, AS A HOST PARAMETER (2026-10-09). Ghostband's only
+    // host parameter, index 0, 20-300 BPM (normalised: (bpm - 20) / 280).
+    // Ghostband writes it; nothing reads it back. It exists so the host can
+    // follow the song: Electric Sunburst plays its patterns in the HOST's
+    // tempo, and tools/gp5/ghostband-tempo.gpscript sets GP5's tempo from this.
+    static constexpr float kTempoParamLow = 20.0f, kTempoParamHigh = 300.0f;
+    juce::AudioParameterFloat* songTempoParam = nullptr;
+    void publishSongTempo (double bpm);
     std::atomic<int>    activeSection    { -1 };
 
     // Live section jumping. Clicking a section queues it; the jump lands on the
@@ -1069,7 +1078,8 @@ private:
                           const gb::PhraseProfile* guitarToUse,
                           const gb::PhraseProfile* pianoToUse,
                           const gb::PhraseProfile* guitar2ToUse = nullptr,
-                          const gb::PhraseProfile* guitarQuietToUse = nullptr);
+                          const gb::PhraseProfile* guitarQuietToUse = nullptr,
+                          const gb::PhraseProfile* guitarPatternToUse = nullptr);
     void sendAllNotesOff (juce::MidiBuffer& midi, int sampleOffset);
     bool resolveProfiles (juce::String& error);
 
@@ -1205,6 +1215,10 @@ private:
     // sections of guitar 1 play on it, the rest on guitarProfile.
     gb::PhraseProfile             guitarQuietProfile;
     bool                          haveGuitarQuiet = false;
+    // And its pattern instrument (SongPlan::guitarPatternProfile, Electric
+    // Sunburst): the middle-weight sections and the sparsest soft ones.
+    gb::PhraseProfile             guitarPatternProfile;
+    bool                          haveGuitarPattern = false;
     bool                          haveGuitar  = false;
     bool                          haveGuitar2 = false;
     bool                          havePiano   = false;

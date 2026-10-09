@@ -7961,6 +7961,115 @@ int main (int argc, char** argv)
                        + juce::String (doubleHeld) + " double-held, " + juce::String ((int) r.performance.guitar.lead.size()) + " twin notes");
             }
 
+            // A PATTERN INSTRUMENT (2026-10-09, Electric Sunburst): over a song,
+            // its chords never overlap (its chord detection reads an overlap as
+            // two chords), every chord note is in its chord range, a slot key
+            // is pressed before the first chord, and a break ends on the ending
+            // key with nothing left held. And the profile's map reads back.
+            {
+                gb::PhraseProfile pr, gs, sb;
+                gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/power-riffer.json", pr, e);
+                gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/guitar-strum.json", gs, e);
+                const bool loaded = gb::PhraseProfile::load ("C:/Projects/Ghostband/profiles/electric-sunburst.json", sb, e);
+                gb::SongPlan p;
+                gb::SongPlan::load ("C:/Projects/Ghostband/plans/preset-alt-rock-2.json", p, e);
+                const gb::RenderResult r = gb::renderPerformance (p, kit, bass, &pr, &piano, &gtr2);
+                gb::PhrasePart mainPart, quietPart, patternPart;
+                gb::splitGuitar (r.performance.guitar, mainPart, quietPart, patternPart);
+                gb::MidiTrack t;
+                sb.render (patternPart, t);
+                std::vector<gb::MidiEvent> ev = t.events;
+                std::stable_sort (ev.begin(), ev.end(), [] (const gb::MidiEvent& a, const gb::MidiEvent& b)
+                                  { return a.tick != b.tick ? a.tick < b.tick : a.order < b.order; });
+                std::set<int> held;
+                int chords = 0, overlaps = 0, outside = 0, endings = 0, firstSlot = -1, firstChord = -1;
+                for (const gb::MidiEvent& m : ev)
+                {
+                    if (m.bytes.size() < 3 || (m.bytes[0] & 0xF0) == 0xE0) continue;
+                    const int type = m.bytes[0] & 0xF0, n = m.bytes[1], v = m.bytes[2];
+                    const bool on = type == 0x90 && v > 0, off = type == 0x80 || (type == 0x90 && v == 0);
+                    if (n >= 36 && n <= 43 && on && firstSlot < 0) firstSlot = m.tick;
+                    if (n == sb.patternEndingKey && on) ++endings;
+                    if (n < 48) continue;
+                    if (on)
+                    {
+                        if (held.empty()) { ++chords; if (firstChord < 0) firstChord = m.tick; }
+                        if (n > 92) ++outside;
+                        held.insert (n);
+                    }
+                    if (off) held.erase (n);
+                }
+                // Overlap = a new chord's first note while the last chord is
+                // still down; chords are pressed together, so look tick by tick.
+                {
+                    std::set<int> down; int lastOnTick = -1;
+                    for (const gb::MidiEvent& m : ev)
+                    {
+                        if (m.bytes.size() < 3 || (m.bytes[0] & 0xF0) == 0xE0 || m.bytes[1] < 48) continue;
+                        const int type = m.bytes[0] & 0xF0;
+                        const bool on = type == 0x90 && m.bytes[2] > 0;
+                        if (on) { if (! down.empty() && m.tick != lastOnTick) ++overlaps; down.insert (m.bytes[1]); lastOnTick = m.tick; }
+                        else down.erase (m.bytes[1]);
+                    }
+                    check (down.empty(), "and a pattern instrument is left holding nothing at the end",
+                           juce::String ((int) down.size()) + " notes still down");
+                }
+                check (loaded && sb.patternMode && sb.patternSlotKey[(int) gb::PhraseFeel::Sparse] == 36
+                           && sb.patternEndingKey == 44 && sb.chordLowest == 48 && sb.chordHighest == 92 && ! sb.canPlayLines(),
+                       "Electric Sunburst's map reads as its manual and keyboard give it",
+                       juce::String ("slot(sparse) ") + juce::String (sb.patternSlotKey[1]) + ", ending " + juce::String (sb.patternEndingKey)
+                           + ", chords " + juce::String (sb.chordLowest) + "-" + juce::String (sb.chordHighest));
+                check (chords > 5 && overlaps == 0 && outside == 0 && firstSlot >= 0 && firstSlot <= firstChord && endings >= 1,
+                       "a pattern instrument holds one chord at a time, in its range, after its pattern key, and ends before a break",
+                       juce::String (chords) + " chords, " + juce::String (overlaps) + " overlaps, " + juce::String (outside)
+                           + " out of range, first slot " + juce::String (firstSlot) + " / first chord " + juce::String (firstChord)
+                           + ", " + juce::String (endings) + " endings");
+
+                // WHO PLAYS WHAT (the owner approved the layout, 2026-10-09):
+                // Static Bloom's sparse intro on the pattern guitar alone, its
+                // palm-muted prechorus on the electric alone, its loud choruses
+                // on the electric with the acoustic under it; thrash never on
+                // the pattern guitar.
+                // By what MOST of a section's chords use: a strum anticipated
+                // into the last beat before a section belongs to the next one.
+                std::map<std::string, unsigned> playersOf;
+                for (const gb::SectionReport& s : r.sections)
+                {
+                    std::map<unsigned, int> votes;
+                    for (const gb::ChordIntent& c : r.performance.guitar.chords)
+                        if (c.tick >= s.startTick && c.tick < s.endTick) ++votes[c.players];
+                    int best = 0;
+                    for (const auto& v : votes) if (v.second > best) { best = v.second; playersOf[s.name] = v.first; }
+                }
+                gb::SongPlan th;
+                gb::SongPlan::load ("C:/Projects/Ghostband/plans/preset-thrash.json", th, e);
+                const gb::RenderResult rt = gb::renderPerformance (th, kit, bass, &pr, &piano, &gtr2);
+                unsigned thrashPlayers = 0;
+                for (const gb::ChordIntent& c : rt.performance.guitar.chords) thrashPlayers |= c.players;
+                check (playersOf["intro"] == gb::kGuitarPattern && playersOf["prechorus1"] == gb::kGuitarMain
+                           && playersOf["chorus1"] == (gb::kGuitarMain | gb::kGuitarQuiet)
+                           && (thrashPlayers & gb::kGuitarPattern) == 0 && (thrashPlayers & gb::kGuitarQuiet) != 0,
+                       "guitar 1's three instruments split a song as approved, stacking where it is loud",
+                       "intro " + juce::String ((int) playersOf["intro"]) + ", prechorus " + juce::String ((int) playersOf["prechorus1"])
+                           + ", chorus " + juce::String ((int) playersOf["chorus1"]) + ", thrash " + juce::String ((int) thrashPlayers));
+            }
+
+            // THE SONG'S TEMPO IS A HOST PARAMETER (2026-10-09): GP5 sets its
+            // own tempo from it, so Electric Sunburst plays in the song's.
+            {
+                GhostbandProcessor pt;
+                pt.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-thrash.json"));
+                gb::SongPlan sp;
+                gb::SongPlan::load ("C:/Projects/Ghostband/plans/preset-thrash.json", sp, e);
+                const double planned = sp.bpm;
+                const float published = pt.songTempoParam != nullptr ? pt.songTempoParam->get() : -1.0f;
+                const auto& params = pt.getParameters();
+                check (params.size() == 1 && params[0] == pt.songTempoParam && std::abs (published - planned) < 0.01,
+                       "the song's tempo is published as host parameter 0",
+                       juce::String (published, 2) + " published for a " + juce::String (planned, 2) + " BPM song, "
+                           + juce::String (params.size()) + " parameter(s)");
+            }
+
             // CALIBRATE KNOWS A STROKE INSTRUMENT (2026-10-09): the strokes are
             // offered, not a chord range, and what Save writes reads back.
             {

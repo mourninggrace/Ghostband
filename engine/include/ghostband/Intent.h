@@ -85,8 +85,15 @@ struct ChordIntent
     int    seventhSemis  = -1;  // -1 for a plain triad
     double accent        = 0.7;
     bool   strumUp       = false;   // alternates, so chords do not all sweep alike
-    bool   quiet         = false;   // played by guitar 1's quiet instrument (SongPlan::guitarQuietProfile)
+    // Which of guitar 1's instruments play this chord - one or several at
+    // once (SongPlan::guitarQuietProfile, guitarPatternProfile). Bits below.
+    unsigned players     = 1;
 };
+
+// Guitar 1's instruments, as ChordIntent::players bits.
+constexpr unsigned kGuitarMain    = 1;   // guitar_profile (Power Riffer)
+constexpr unsigned kGuitarQuiet   = 2;   // guitar_quiet_profile (Guitar Strum)
+constexpr unsigned kGuitarPattern = 4;   // guitar_pattern_profile (Electric Sunburst)
 
 // One note of a melodic line.
 //
@@ -219,18 +226,24 @@ struct PhrasePart
     std::vector<LeadIntent>    lead;
 };
 
-// Guitar 1 split between its two instruments: the chords marked quiet, and
-// the rest. Phrases go to both (each instrument reads the section's feel from
-// them); the controls and any lead line stay with the main one.
-inline void splitQuiet (const PhrasePart& part, PhrasePart& main, PhrasePart& quiet)
+// Guitar 1 split between its instruments: each gets the chords whose players
+// include it - so a chord can go to two at once (the electric with the
+// acoustic under it). Phrases go to all of them (each reads the section's feel
+// from them); the controls and any lead line stay with the main one.
+inline void splitGuitar (const PhrasePart& part, PhrasePart& main, PhrasePart& quiet, PhrasePart& pattern)
 {
     main = PhrasePart();
     quiet = PhrasePart();
-    main.phrases = quiet.phrases = part.phrases;
+    pattern = PhrasePart();
+    main.phrases = quiet.phrases = pattern.phrases = part.phrases;
     main.controls = part.controls;
     main.lead = part.lead;
     for (const ChordIntent& c : part.chords)
-        (c.quiet ? quiet : main).chords.push_back (c);
+    {
+        if (c.players & kGuitarMain)    main.chords.push_back (c);
+        if (c.players & kGuitarQuiet)   quiet.chords.push_back (c);
+        if (c.players & kGuitarPattern) pattern.chords.push_back (c);
+    }
 }
 
 struct Marker

@@ -19,6 +19,12 @@ GhostbandProcessor::GhostbandProcessor()
     status.drumProfile = kit.name;
     status.bassProfile = bassProfile.name;
 
+    // See songTempoParam.
+    songTempoParam = new juce::AudioParameterFloat (juce::ParameterID { "songTempo", 1 }, "Song tempo",
+                                                    juce::NormalisableRange<float> (kTempoParamLow, kTempoParamHigh, 0.01f),
+                                                    120.0f);
+    addParameter (songTempoParam);
+
     // Before any profile is loaded, so the first plan already gets whatever has
     // been taught on this machine.
     loadLearnedControls();
@@ -370,6 +376,8 @@ bool GhostbandProcessor::resolveProfiles (juce::String& error)
     loadPhrase (plan.guitarProfile,  channelGuitar.load(),  guitarProfile,  haveGuitar);
     loadPhrase (plan.guitarQuietProfile, 12, guitarQuietProfile, haveGuitarQuiet);
     haveGuitarQuiet = haveGuitarQuiet && haveGuitar;
+    loadPhrase (plan.guitarPatternProfile, 14, guitarPatternProfile, haveGuitarPattern);
+    haveGuitarPattern = haveGuitarPattern && haveGuitar;
     loadPhrase (plan.guitar2Profile, channelGuitar2.load(), guitar2Profile, haveGuitar2);
     loadPhrase (plan.pianoProfile,   channelPiano.load(),   pianoProfile,   havePiano);
 
@@ -399,11 +407,13 @@ bool GhostbandProcessor::resolveProfiles (juce::String& error)
     mergeLearnedControls (bassProfile.controls,    bassProfile.instrument,    bassProfile.id);
     if (haveGuitar)  mergeLearnedControls (guitarProfile.controls,  guitarProfile.instrument,  guitarProfile.id);
     if (haveGuitarQuiet) mergeLearnedControls (guitarQuietProfile.controls, guitarQuietProfile.instrument, guitarQuietProfile.id);
+    if (haveGuitarPattern) mergeLearnedControls (guitarPatternProfile.controls, guitarPatternProfile.instrument, guitarPatternProfile.id);
     if (haveGuitar2) mergeLearnedControls (guitar2Profile.controls, guitar2Profile.instrument, guitar2Profile.id);
     if (havePiano)   mergeLearnedControls (pianoProfile.controls,   pianoProfile.instrument,   pianoProfile.id);
 
     guitarProfile.channel  = channelFor (guitarProfile.instrument,  guitarProfile.id,  guitarProfile.channel);
     guitarQuietProfile.channel = channelFor (guitarQuietProfile.instrument, guitarQuietProfile.id, guitarQuietProfile.channel);
+    guitarPatternProfile.channel = channelFor (guitarPatternProfile.instrument, guitarPatternProfile.id, guitarPatternProfile.channel);
     guitar2Profile.channel = channelFor (guitar2Profile.instrument, guitar2Profile.id, guitar2Profile.channel);
     pianoProfile.channel   = channelFor (pianoProfile.instrument,   pianoProfile.id,   pianoProfile.channel);
 
@@ -2712,7 +2722,7 @@ void GhostbandProcessor::sendLevels()
         const juce::ScopedLock sl (stateLock);
 
         struct Part { int channel; float level; const gb::ControlSet* set; bool reachable; };
-        const Part parts[6] = {
+        const Part parts[7] = {
             { kit.channel,            levelDrums.load(),   &kit.controls,          kit.volumeReachable },
             { bassProfile.channel,    levelBass.load(),    &bassProfile.controls,  bassProfile.volumeReachable },
             { guitarProfile.channel,  levelGuitar.load(),  haveGuitar  ? &guitarProfile.controls  : nullptr, ! haveGuitar  || guitarProfile.volumeReachable },
@@ -2721,10 +2731,11 @@ void GhostbandProcessor::sendLevels()
             // Guitar 1's quiet instrument follows the GTR knob as well. With no
             // quiet instrument this sends nothing (no controls, unreachable).
             { guitarQuietProfile.channel, levelGuitar.load(), haveGuitarQuiet ? &guitarQuietProfile.controls : nullptr, haveGuitarQuiet && guitarQuietProfile.volumeReachable },
+            { guitarPatternProfile.channel, levelGuitar.load(), haveGuitarPattern ? &guitarPatternProfile.controls : nullptr, haveGuitarPattern && guitarPatternProfile.volumeReachable },
         };
 
-        static const char* partNames[6] = { "drums", "bass", "guitar", "guitar 2", "piano", "guitar (quiet)" };
-        for (size_t pi = 0; pi < 6; ++pi)
+        static const char* partNames[7] = { "drums", "bass", "guitar", "guitar 2", "piano", "guitar (quiet)", "guitar (pattern)" };
+        for (size_t pi = 0; pi < 7; ++pi)
         {
             const Part& p = parts[pi];
             const bool isGuitar2 = (pi == 3) && haveGuitar2;
@@ -2852,6 +2863,31 @@ void GhostbandProcessor::sendLevels()
             continue;   // its one sender has it (sendGuitar2Level)
         pendingAuditions.push_back ({ 0, msg });
     }
+}
+
+// Tells the host the song's tempo (see songTempoParam). Only while Ghostband
+// plays the song at the plan's tempo: following the host instead means the
+// host's tempo is the one that counts, and setting it would fight the person
+// who chose it.
+void GhostbandProcessor::publishSongTempo (double bpm)
+{
+    if (songTempoParam == nullptr || bpm <= 0.0 || ! usePlanTempo.load())
+        return;
+    const float want = juce::jlimit (kTempoParamLow, kTempoParamHigh, static_cast<float> (bpm));
+    if (std::abs (songTempoParam->get() - want) < 0.005f)
+        return;
+    auto* param = songTempoParam;
+    const auto send = [param, want]
+    {
+        param->beginChangeGesture();
+        *param = want;   // notifies the host
+        param->endChangeGesture();
+    };
+    if (juce::MessageManager::getInstanceWithoutCreating() != nullptr
+        && ! juce::MessageManager::getInstance()->isThisTheMessageThread())
+        juce::MessageManager::callAsync (send);
+    else
+        send();
 }
 
 juce::String GhostbandProcessor::getLastMidiReport() const
@@ -3692,8 +3728,8 @@ void GhostbandProcessor::regenerate()
     gb::SongPlan working;
     gb::DrumProfile workingKit;
     gb::BassProfile workingBass;
-    gb::PhraseProfile workingGuitar, workingGuitar2, workingPiano, workingGuitarQuiet;
-    bool withGuitar = false, withGuitar2 = false, withPiano = false, withGuitarQuiet = false;
+    gb::PhraseProfile workingGuitar, workingGuitar2, workingPiano, workingGuitarQuiet, workingGuitarPattern;
+    bool withGuitar = false, withGuitar2 = false, withPiano = false, withGuitarQuiet = false, withGuitarPattern = false;
 
     {
         const juce::ScopedLock sl (stateLock);
@@ -3710,6 +3746,8 @@ void GhostbandProcessor::regenerate()
         workingGuitar  = guitarProfile;
         workingGuitarQuiet = guitarQuietProfile;
         withGuitarQuiet    = haveGuitarQuiet;
+        workingGuitarPattern = guitarPatternProfile;
+        withGuitarPattern    = haveGuitarPattern;
         workingGuitar2 = guitar2Profile;
         workingPiano   = pianoProfile;
         withGuitar     = haveGuitar;
@@ -3740,7 +3778,8 @@ void GhostbandProcessor::regenerate()
                                                            guitarPtr, pianoPtr, guitar2Ptr);
 
     rebuildSequence (result, workingKit, workingBass, working, guitarPtr, pianoPtr, guitar2Ptr,
-                     withGuitarQuiet && guitarPtr != nullptr ? &workingGuitarQuiet : nullptr);
+                     withGuitarQuiet && guitarPtr != nullptr ? &workingGuitarQuiet : nullptr,
+                     withGuitarPattern && guitarPtr != nullptr ? &workingGuitarPattern : nullptr);
 
     {
         const juce::ScopedLock sl (stateLock);
@@ -3810,7 +3849,8 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
                                           const gb::PhraseProfile* guitarToUse,
                                           const gb::PhraseProfile* pianoToUse,
                                           const gb::PhraseProfile* guitar2ToUse,
-                                          const gb::PhraseProfile* guitarQuietToUse)
+                                          const gb::PhraseProfile* guitarQuietToUse,
+                                          const gb::PhraseProfile* guitarPatternToUse)
 {
     // Reuse the exact same profile rendering the CLI uses, then flatten the two
     // tracks into one time-ordered stream the audio thread can walk. The
@@ -3861,13 +3901,14 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
         append (t);
     };
 
-    // Guitar 1 on its two instruments, when the song has a quiet one.
-    if (guitarQuietToUse != nullptr)
+    // Guitar 1 on its instruments, when the song has more than one.
+    if (guitarQuietToUse != nullptr || guitarPatternToUse != nullptr)
     {
-        gb::PhrasePart mainPart, quietPart;
-        gb::splitQuiet (result.performance.guitar, mainPart, quietPart);
-        appendPart (guitarToUse,      mainPart);
-        appendPart (guitarQuietToUse, quietPart);
+        gb::PhrasePart mainPart, quietPart, patternPart;
+        gb::splitGuitar (result.performance.guitar, mainPart, quietPart, patternPart);
+        appendPart (guitarToUse,        mainPart);
+        appendPart (guitarQuietToUse,   quietPart);
+        appendPart (guitarPatternToUse, patternPart);
     }
     else
         appendPart (guitarToUse,  result.performance.guitar);
@@ -3902,7 +3943,7 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
     // of any kind at velocity 100 - a fret squeak, or Hydra's hand put on the
     // wrong fret, since that key's velocity IS the fret).
     std::vector<signed char> groups (16 * 128, -1);
-    for (const gb::PhraseProfile* p : { guitarToUse, guitar2ToUse, pianoToUse, guitarQuietToUse })
+    for (const gb::PhraseProfile* p : { guitarToUse, guitar2ToUse, pianoToUse, guitarQuietToUse, guitarPatternToUse })
     {
         if (p == nullptr || p->channel < 1 || p->channel > 16) continue;
         for (int n = 0; n < 128; ++n)
@@ -3932,6 +3973,7 @@ void GhostbandProcessor::rebuildSequence (const gb::RenderResult& result,
     // Published for the audio thread, which can no longer read the plan itself.
     // Here because every path that changes the tempo ends in a regenerate.
     planBpmForAudio.store (planToUse.bpm);
+    publishSongTempo (planToUse.bpm);
     drumChannelForAudio.store (kit.channel);
 
     // And for the interface, which asks how long a beat is thirty times a

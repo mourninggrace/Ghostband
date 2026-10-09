@@ -1,0 +1,28 @@
+// GHOSTBAND - GP5 follows each song's tempo.
+//
+// Electric Sunburst (and any other pattern instrument) plays in GP5's tempo,
+// not Ghostband's. Ghostband publishes the loaded song's tempo as its host
+// parameter 0 ("Song tempo", 20-300 BPM); this script copies it into GP5's
+// tempo whenever it changes, and when the rackspace opens.
+//
+// ONE-TIME SETUP (in the rackspace that holds Ghostband):
+//   1. Right-click Ghostband's block > Properties: set its GPScript name
+//      (the "Handle") to Ghostband, and tick "Use in GPScript".
+//   2. Window > Edit Rackspace Script: paste this whole file, click Compile,
+//      then save the gig.
+//
+// Ghostband only publishes the tempo while "plan tempo" is on - with it off,
+// GP5's own tempo is the one in charge and nothing here changes it.
+
+Var Ghostband : PluginBlock
+
+// Ghostband's normalised value back to BPM: 20 + value * 280.
+On ParameterValueChanged(index : Integer, value : Double) from Ghostband
+    If index == 0 Then
+        SetBPM(20.0 + value * 280.0)
+    End
+End
+
+On Activate
+    SetBPM(20.0 + GetParameter(Ghostband, 0) * 280.0)
+End

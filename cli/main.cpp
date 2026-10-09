@@ -139,7 +139,7 @@ int installProfiles (const std::string& fromDir, const std::string& toDir)
     // these files can be edited from inside Ghostband, so nothing else can be
     // lost by overwriting it.
     static const char* kWrittenBack[] = { "controls", "notes", "lowest_note", "highest_note", "chord_zone",
-                                          "strokes", "needs_verification" };
+                                          "strokes", "patterns", "needs_verification" };
 
     std::error_code ec;
     if (! fs::is_directory (fromDir, ec))
@@ -374,6 +374,19 @@ int main (int argc, char** argv)
         haveGuitarQuiet = true;
     }
 
+    PhraseProfile guitarPatternProfile;
+    bool haveGuitarPattern = false;
+    if (! plan.guitarPatternProfile.empty())
+    {
+        const std::string path = resolvePath (argv0, plan.guitarPatternProfile);
+        if (! PhraseProfile::load (path, guitarPatternProfile, error))
+        {
+            std::cerr << "ghostband: " << error << "\n";
+            return 1;
+        }
+        haveGuitarPattern = true;
+    }
+
     if (! plan.guitar2Profile.empty())
     {
         const std::string path = resolvePath (argv0, plan.guitar2Profile);
@@ -447,7 +460,8 @@ int main (int argc, char** argv)
         outPath = baseName (planPath) + ".mid";
 
     if (! writeMidi (plan, result.performance, kit, bass, outPath, error,
-                     guitarPtr, pianoPtr, guitar2Ptr, haveGuitarQuiet ? &guitarQuietProfile : nullptr))
+                     guitarPtr, pianoPtr, guitar2Ptr, haveGuitarQuiet ? &guitarQuietProfile : nullptr,
+                     haveGuitarPattern ? &guitarPatternProfile : nullptr))
     {
         std::cerr << "ghostband: " << error << "\n";
         return 1;

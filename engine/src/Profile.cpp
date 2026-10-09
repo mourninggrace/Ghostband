@@ -1303,7 +1303,8 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
     {
         const std::string mode = j.stringOr ("mode", "phrase");
         out.strokeMode   = (mode == "strokes");
-        out.phraseDriven = (mode != "notes" && mode != "strokes");
+        out.patternMode  = (mode == "patterns");
+        out.phraseDriven = (mode != "notes" && mode != "strokes" && mode != "patterns");
     }
     {
         const Json& st = j["strokes"];
@@ -1327,6 +1328,23 @@ bool PhraseProfile::load (const std::string& path, PhraseProfile& out, std::stri
             out.strokeStop    = clampInt (st.intOr ("stop", -1), -1, 127);
             out.strokeChordLeadTicks = clampInt (st.intOr ("chord_lead_ticks", out.strokeChordLeadTicks), 1, 240);
             out.strokeStopGapTicks   = clampInt (st.intOr ("stop_gap_ticks", out.strokeStopGapTicks), 1, 1920);
+        }
+    }
+    {
+        // Electric Sunburst's map (see patternMode): a pattern slot key per
+        // feel, by the feel's name, plus the ending key and the timings.
+        const Json& pt = j["patterns"];
+        if (pt.isObject())
+        {
+            const Json& slots = pt["slots"];
+            if (slots.isObject())
+                for (int f = 0; f < 8; ++f)
+                    out.patternSlotKey[f] = clampInt (slots.intOr (phraseFeelName (static_cast<PhraseFeel> (f)), -1), -1, 127);
+            out.patternEndingKey  = clampInt (pt.intOr ("ending", -1), -1, 127);
+            out.patternLeadTicks  = clampInt (pt.intOr ("lead_ticks", out.patternLeadTicks), 1, 480);
+            out.patternBreakTicks = clampInt (pt.intOr ("break_ticks", out.patternBreakTicks), 1, 7680);
+            out.patternImpactLow  = std::clamp (pt.numberOr ("impact_low",  out.patternImpactLow),  -1.0, 1.0);
+            out.patternImpactHigh = std::clamp (pt.numberOr ("impact_high", out.patternImpactHigh), -1.0, 1.0);
         }
     }
     out.phraseLeadTicks   = std::max (1, j.intOr ("phrase_lead_ticks", out.phraseLeadTicks));
@@ -1565,8 +1583,157 @@ std::string PhraseProfile::strokesJson() const
     return j;
 }
 
+std::string PhraseProfile::patternsJson() const
+{
+    std::string j = "\"patterns\": {\n    \"slots\": { ";
+    bool first = true;
+    for (int f = 0; f < 8; ++f)
+    {
+        if (patternSlotKey[f] < 0) continue;
+        j += std::string (first ? "" : ", ") + "\"" + phraseFeelName (static_cast<PhraseFeel> (f)) + "\": " + std::to_string (patternSlotKey[f]);
+        first = false;
+    }
+    char impact[96];
+    std::snprintf (impact, sizeof impact, "\"impact_low\": %.2f, \"impact_high\": %.2f", patternImpactLow, patternImpactHigh);
+    j += " },\n    \"ending\": " + std::to_string (patternEndingKey)
+       + ", \"lead_ticks\": " + std::to_string (patternLeadTicks)
+       + ", \"break_ticks\": " + std::to_string (patternBreakTicks) + ",\n    " + impact + "\n  }";
+    return j;
+}
+
 void PhraseProfile::render (const PhrasePart& part, MidiTrack& track) const
 {
+    // ---- a PATTERN instrument (see patternMode) ----------------------------
+    if (patternMode)
+    {
+        controls.render (part.controls, channel, phraseLeadTicks, track);
+
+        std::vector<ChordIntent> cs (part.chords.begin(), part.chords.end());
+        std::stable_sort (cs.begin(), cs.end(), [] (const ChordIntent& a, const ChordIntent& b) { return a.tick < b.tick; });
+
+        const auto phraseAt = [&part] (int t)
+        {
+            PhraseIntent f;
+            for (const PhraseIntent& p : part.phrases)
+            {
+                if (p.tick > t) break;
+                f = p;
+            }
+            return f;
+        };
+        // The slot for a feel; a feel with no slot of its own borrows the
+        // first one that has (driving, open, sparse, busy, muted).
+        const auto slotFor = [this] (PhraseFeel feel)
+        {
+            const int f = static_cast<int> (feel);
+            if (f >= 0 && f < 8 && patternSlotKey[f] >= 0) return patternSlotKey[f];
+            for (PhraseFeel g : { PhraseFeel::Driving, PhraseFeel::Open, PhraseFeel::Sparse, PhraseFeel::Busy, PhraseFeel::Muted })
+                if (patternSlotKey[static_cast<int> (g)] >= 0) return patternSlotKey[static_cast<int> (g)];
+            return -1;
+        };
+        // The harmony as notes in the chord range - root at the bottom, the
+        // rest stacked above it. Its voicing generator turns that into a
+        // guitar voicing; a power chord (no third) stays root and fifth.
+        const auto voicing = [this] (const ChordIntent& c)
+        {
+            const int lo = std::max (0, chordLowest);
+            const int root = lo + ((((c.rootPc - lo) % 12) + 12) % 12);
+            std::vector<int> v { root };
+            if (c.thirdSemis >= 0)   v.push_back (root + c.thirdSemis);
+            if (c.fifthSemis >= 0)   v.push_back (root + c.fifthSemis);
+            if (c.seventhSemis >= 0) v.push_back (root + c.seventhSemis);
+            for (int& n : v) n = std::min (n, std::max (chordHighest, lo));
+            std::sort (v.begin(), v.end());
+            v.erase (std::unique (v.begin(), v.end()), v.end());
+            return v;
+        };
+        const auto sameHarmony = [] (const ChordIntent& a, const ChordIntent& b)
+        {
+            return a.rootPc == b.rootPc && a.thirdSemis == b.thirdSemis
+                && a.fifthSemis == b.fifthSemis && a.seventhSemis == b.seventhSemis;
+        };
+
+        const int lead = patternLeadTicks;
+        const int blip = std::max (1, phraseBlipTicks);
+        std::vector<int> held;
+        int heldFrom = 0, slotNow = -1, bendNow = 99999;
+
+        size_t i = 0;
+        while (i < cs.size())
+        {
+            if (cs[i].durationTicks <= 0) { ++i; continue; }
+
+            // One held chord per run of strums on the same harmony with no
+            // break between them; the instrument supplies the strumming.
+            size_t k = i;
+            int end = cs[i].tick + cs[i].durationTicks;
+            while (k + 1 < cs.size() && sameHarmony (cs[k + 1], cs[i])
+                   && cs[k + 1].tick - end < patternBreakTicks)
+            {
+                ++k;
+                end = std::max (end, cs[k].tick + cs[k].durationTicks);
+            }
+
+            const int at = cs[i].tick;
+            const int press = std::max (0, at - lead);
+            const PhraseIntent ph = phraseAt (at);
+
+            // Let go of the last chord just before this one - never overlapping.
+            for (int n : held)
+                track.addNoteOff (std::max (heldFrom + 1, press - 2), channel, n);
+            held.clear();
+
+            const int slot = slotFor (ph.feel);
+            if (slot >= 0 && slot != slotNow)
+            {
+                track.addNoteOn  (std::max (0, press - 1), channel, slot, phraseVelocity);
+                track.addNoteOff (std::max (1, press - 1 + blip), channel, slot);
+                slotNow = slot;
+            }
+
+            const double impact = patternImpactLow + (patternImpactHigh - patternImpactLow) * std::clamp (ph.accent, 0.0, 1.0);
+            const int bendKey = static_cast<int> (std::lround (impact * 100.0));
+            if (bendKey != bendNow)
+            {
+                track.addPitchBend (std::max (0, press - 1), channel, impact, 1.0);
+                bendNow = bendKey;
+            }
+
+            held = voicing (cs[i]);
+            for (int n : held)
+                track.addNoteOn (press, channel, n, phraseVelocity);
+            heldFrom = press;
+
+            // Before a break - or the end - the guitarist finishes the phrase:
+            // the ending key, then the chord is let go.
+            const int next = k + 1 < cs.size() ? cs[k + 1].tick : end + patternBreakTicks;
+            if (next - end >= patternBreakTicks)
+            {
+                const int stopAt = std::max (heldFrom + 1, end - lead);
+                if (patternEndingKey >= 0)
+                {
+                    track.addNoteOn  (stopAt, channel, patternEndingKey, velocityFor (ph.accent, velocityMin, velocityMax));
+                    track.addNoteOff (stopAt + blip, channel, patternEndingKey);
+                }
+                for (int n : held)
+                    track.addNoteOff (std::max (stopAt + 1, end - 2), channel, n);
+                held.clear();
+                slotNow = -1;   // after a break, say the pattern again
+            }
+            i = k + 1;
+        }
+
+        for (int n : held)
+            track.addNoteOff (heldFrom + 1, channel, n);
+        if (bendNow != 99999)
+        {
+            int last = 0;
+            for (const ChordIntent& c : cs) last = std::max (last, c.tick + c.durationTicks);
+            track.addPitchBend (last + 1, channel, 0.0, 1.0);   // Impact back to the middle
+        }
+        return;
+    }
+
     // ---- a STROKE instrument (see strokeMode) ------------------------------
     if (strokeMode)
     {

@@ -418,9 +418,24 @@ public:
     int  strokeDown = -1, strokeUp = -1, strokePalm = -1, strokeHitDown = -1, strokeHitUp = -1, strokeStop = -1;
     int  strokeChordLeadTicks = 12;   // the chord is fretted this far ahead of the stroke
     int  strokeStopGapTicks   = 60;   // a rest at least this long after a strum is stopped, not left ringing
-    bool canPlayLines() const { return ! strokeMode; }
+    // PATTERN-driven ("mode": "patterns", 2026-10-09 - NI Session Guitarist
+    // Electric Sunburst): the instrument plays its own recorded strum, arpeggio
+    // and riff patterns, in time with the HOST, for as long as a chord is held
+    // in its chord range. Ghostband holds each harmony once (never overlapping
+    // the next - its chord detection reads an overlap as two chords), picks the
+    // pattern slot by the section's feel, sets how hard it plays through pitch
+    // bend (its "Impact" slider; velocity is ignored), and plays an ending key
+    // before a break. Index of patternSlotKey is the PhraseFeel.
+    bool patternMode = false;
+    int  patternSlotKey[8] = { -1, -1, -1, -1, -1, -1, -1, -1 };
+    int  patternEndingKey  = -1;    // the ending played before a break
+    int  patternLeadTicks  = 60;    // chords and slots change this far early (the manual asks for it)
+    int  patternBreakTicks = 480;   // a gap at least this long gets the ending and a release
+    double patternImpactLow = -0.6, patternImpactHigh = 0.6;   // pitch bend at accent 0 and 1, -1..1
+    bool canPlayLines() const { return ! strokeMode && ! patternMode; }
     // The "strokes" block as it reads in a profile, for Calibrate to write back.
     std::string strokesJson() const;
+    std::string patternsJson() const;
 
     // Where chords are voiced. Roots are folded into this range.
     int  chordLowest  = 24;

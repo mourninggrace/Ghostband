@@ -1,0 +1,54 @@
+{
+  // NI SESSION GUITARIST - ELECTRIC SUNBURST (Kontakt). Guitar 1's PATTERN
+  // instrument from 2026-10-09: the owner asked for all three guitar-1
+  // libraries in one song. A Les Paul-type electric that plays its own
+  // recorded strum, arpeggio and riff patterns while a chord is held.
+  //
+  // A PATTERN instrument ("mode": "patterns"). From its manual (Session
+  // Guitarist Electric Sunburst manual, 2018) and the owner's screenshot of
+  // its keyboard - not guessed:
+  //
+  //   36-43 (C1-G1)    the eight pattern slots (red keys). WHAT IS IN EACH
+  //                    SLOT is whatever Sunburst "Song" is loaded - see below
+  //   44-46 (G#1-Bb1)  endings (yellow); 44 is used
+  //   47 (B1)          slide (green)
+  //   48-92 (C2-G#5)   chords, played where they are pressed (blue)
+  //
+  // Velocity is ignored by the patterns; pitch bend is its Impact slider (how
+  // hard the guitarist plays). Overlapping chords confuse its chord detection,
+  // so each chord is let go just before the next. Patterns follow the HOST's
+  // tempo - GP5's tempo must be the song's (see tools/gp5/ghostband-tempo.gpscript).
+  //
+  // Set in Sunburst, once: Playback page > Pattern Sync "Start on key" (the
+  // pattern starts with Ghostband's first chord, not GP5's bar count). Its
+  // level: teach the Instrument Header Output Volume to CC7 like the other two.
+  "name": "NI Session Guitarist Electric Sunburst (Kontakt)",
+  "id": "electric_sunburst",
+  "instrument": "electric_sunburst",
+  "channel": 14,
+  "mode": "patterns",
+  "needs_verification": true,
+  "verification_note": "Slot keys follow the loaded Sunburst Song: slot 1 should be an arpeggio, 2 an open strum, 3 a driving strum, 4 a busy strum, 5 a muted strum.",
+
+  "patterns": {
+    // Which slot plays each feel. Slot 1 = C1 = 36 ... slot 8 = G1 = 43.
+    "slots": { "sparse": 36, "open": 37, "driving": 38, "busy": 39, "muted": 40 },
+    "ending": 44,
+    "lead_ticks": 60,
+    "break_ticks": 480,
+    // Impact (pitch bend, -1..1) at the section's softest and hardest accent.
+    "impact_low": -0.6, "impact_high": 0.6
+  },
+
+  "chord_zone": { "lowest_note": 48, "highest_note": 92 },
+
+  "phrase_velocity": 90,
+  "phrase_blip_ticks": 30,
+
+  "controls": {
+    "output volume": { "cc": 7, "follows": "level", "type": "knob", "low": 0, "high": 1 }
+  },
+
+  "velocity_min": 60,
+  "velocity_max": 110
+}

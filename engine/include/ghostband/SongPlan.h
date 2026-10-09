@@ -158,6 +158,12 @@ struct SongPlan
     // rhythm engine - only who plays each section changes. Empty: one guitar.
     std::string guitarQuietProfile;
 
+    // GUITAR 1's PATTERN INSTRUMENT (2026-10-09, the owner: "all 3 guitars
+    // ... in a single song"). Electric Sunburst: plays its own recorded strum
+    // and arpeggio patterns over held chords. Middle-weight sections and the
+    // sparsest soft ones go to it. Empty: not used.
+    std::string guitarPatternProfile;
+
     bool hasGuitar()  const { return ! guitarProfile.empty(); }
     bool hasGuitar2() const { return ! guitar2Profile.empty(); }
     bool hasPiano()  const { return ! pianoProfile.empty(); }

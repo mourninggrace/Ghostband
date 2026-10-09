@@ -154,6 +154,7 @@ static bool fromJson (const Json& j, const std::string& sourceName,
     out.guitarProfile  = j.stringOr ("guitar_profile", "");
     out.guitar2Profile = j.stringOr ("guitar2_profile", "");
     out.guitarQuietProfile = j.stringOr ("guitar_quiet_profile", "");
+    out.guitarPatternProfile = j.stringOr ("guitar_pattern_profile", "");
     out.pianoProfile  = j.stringOr ("piano_profile", "");
 
     {
@@ -326,6 +327,7 @@ std::string SongPlan::toJson() const
     if (! guitarProfile.empty()) j += ",\n  \"guitar_profile\": " + jsonString (guitarProfile);
     if (! guitar2Profile.empty()) j += ",\n  \"guitar2_profile\": " + jsonString (guitar2Profile);
     if (! guitarQuietProfile.empty()) j += ",\n  \"guitar_quiet_profile\": " + jsonString (guitarQuietProfile);
+    if (! guitarPatternProfile.empty()) j += ",\n  \"guitar_pattern_profile\": " + jsonString (guitarPatternProfile);
     if (! pianoProfile.empty())  j += ",\n  \"piano_profile\":  " + jsonString (pianoProfile);
     j += ",\n\n";
 

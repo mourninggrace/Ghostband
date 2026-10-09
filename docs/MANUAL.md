@@ -60,10 +60,35 @@ the solo.
 Which one is "the lead" is not baked into the engine. It is whichever the
 section puts out front, so the same pair can swap.
 
-**The rhythm guitar is two instruments, chosen by the song** (from 2.6).
-Splash Sound's **Power Riffer** (electric, power chords, channel 13) plays the
-rock and metal songs; Splash Sound's **Guitar Strum** (acoustic, full chords,
-channel 12) plays the ballads and the blues. Both are Kontakt libraries that
+**The rhythm guitar is three instruments, chosen section by section** (from
+2.6): Splash Sound's **Power Riffer** (electric, power chords, channel 13),
+Splash Sound's **Guitar Strum** (acoustic, full chords, channel 12) and NI's
+**Electric Sunburst** (electric, recorded patterns, channel 14).
+
+| section | who plays it |
+|---------|--------------|
+| soft and sparse (intensity under 0.6) | Electric Sunburst, picking an arpeggio |
+| soft and open | Guitar Strum |
+| palm-muted | Power Riffer alone |
+| loud (intensity 0.75 and up) | Power Riffer, with Guitar Strum under it |
+| everything in between | Electric Sunburst strumming; Power Riffer in metal, thrash, groove, prog metal, doom, sludge and punk |
+
+A section can choose its own with `"guitar_instrument"`: `main`, `quiet`,
+`pattern`, or several joined by `+` (`"main+quiet"`). A song without one of
+the three just skips it. The GTR knob drives all three.
+
+**Electric Sunburst plays its own patterns.** Ghostband holds the chord (C2 to
+G#5), picks the pattern slot (C1 to G1) by the section's feel - slot 1 sparse,
+2 open, 3 driving, 4 busy, 5 muted - sets how hard it plays with pitch bend
+(its Impact slider) and plays the ending key (G#1) before a break. What sits
+in each slot is whatever Sunburst "Song" is loaded, so load or build one with
+those five in that order. In Sunburst, set Playback > Pattern Sync to
+**Start on key**. Its patterns run at **GP5's tempo**, so paste
+`tools/gp5/ghostband-tempo.gpscript` (also in Documents\Ghostband) into the
+rackspace script once: GP5 then follows each song's tempo, which Ghostband
+publishes as its one host parameter, "Song tempo".
+
+Power Riffer and Guitar Strum are Kontakt libraries that
 are played the way a guitarist plays: one key frets the chord and is held,
 and every strum is a key of its own - down, up, palm-muted - ringing until
 the next stroke. Ghostband still writes the rhythm; it just speaks it to the

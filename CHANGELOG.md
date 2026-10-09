@@ -7,6 +7,14 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
 
 ## [Unreleased]
 
+### Fixed
+- **The "Levels sent" line named the wrong parts.** It labelled messages by
+  position, so one part sending nothing shifted every later name (guitar 2's
+  CC 85 read as "guitar"), and it called any CC 7 "untaught" even when CC 7
+  was taught (Kontakt's Output Volume). Each message now carries its own
+  name. New check that a fresh load re-sends guitar 1's level to both of its
+  Kontakts.
+
 ### Changed
 - **Guitar 1 is now Splash Sound's Power Riffer and Guitar Strum** (Kontakt),
   replacing UJAM Iron 2 at the owner's word. Power Riffer (electric, power
@@ -15,6 +23,30 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
   Iron 2, whose profile stays for anyone who has it.
 
 ### Added
+- **Guitar 1 on three instruments in one song, stacking where it is loud**
+  (the owner: "all 3 guitars ... in a single song"). A plan's new
+  "guitar_pattern_profile" adds NI's Electric Sunburst (ch 14) beside Power
+  Riffer and Guitar Strum. Per section, as the owner approved: soft sparse
+  parts on Sunburst's arpeggios, soft open parts on Guitar Strum, palm-muted
+  parts on Power Riffer alone, the middle on Sunburst's strumming (Power
+  Riffer in the heavy styles), and loud sections (intensity 0.75+) on Power
+  Riffer WITH Guitar Strum under it. "guitar_instrument" takes "main",
+  "quiet", "pattern" or several joined by "+". Every preset names all three.
+  Drums, bass, guitar 2 and piano are byte-for-byte unchanged in all 34
+  songs (compared against the previous build). New check.
+- **Pattern instruments** ("mode": "patterns"), for Electric Sunburst: it plays
+  its own recorded patterns while a chord is held. Ghostband holds each
+  harmony once and lets go before the next (its chord detection reads an
+  overlap as two chords), picks the pattern slot by the section's feel, sets
+  how hard it plays through pitch bend (its Impact slider), and plays an
+  ending key before a break. Map from its manual and the owner's screenshot:
+  slots C1-G1, ending G#1, chords C2-G#5. New check: 17 chords in Static
+  Bloom, none overlapping, all in range, each break ended.
+- **The song's tempo is a host parameter** ("Song tempo", index 0). Electric
+  Sunburst plays in GP5's tempo, not Ghostband's, so
+  tools/gp5/ghostband-tempo.gpscript (also put in Documents\Ghostband) sets
+  GP5's tempo from it whenever a song loads. Only while plan tempo is on.
+  New check.
 - **Guitar 1 on two instruments in one song.** A plan's "guitar_quiet_profile"
   gives guitar 1 a second instrument: soft, open sections (intensity under
   0.6, open or sparse feel) go to it, the rest to "guitar_profile"; a section

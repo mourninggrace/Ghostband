@@ -3503,17 +3503,49 @@ RenderResult renderPerformance (const SongPlan& plan,
                             guitar2Feel, plan.style, keyPc, mode,
                             guitar == nullptr || guitar->canPlayLines());
 
-            // WHICH OF GUITAR 1's TWO INSTRUMENTS plays this section. The soft,
-            // open sections - an intro, a quiet verse, a ballad's opening - go
-            // to the quiet one (an acoustic strum); anything driving, muted or
-            // loud to the main one (the electric). A section can say which.
-            if (playGuitar && ! plan.guitarQuietProfile.empty())
+            // WHICH OF GUITAR 1's INSTRUMENTS play this section (2026-10-09, the
+            // owner approved the layout):
+            //   soft (sparse/open, intensity < 0.6): an open strum on the
+            //       acoustic; the sparsest on the pattern guitar's arpeggios
+            //   palm-muted: the electric alone - chugs are its job
+            //   big (intensity >= 0.75): the electric with the acoustic under it
+            //   the middle: the pattern guitar's strumming - except in the
+            //       heavy styles, where it is the electric's
+            // An instrument the song does not name is skipped. A section can
+            // name its own: "main", "quiet", "pattern", or several joined by +.
+            if (playGuitar && (! plan.guitarQuietProfile.empty() || ! plan.guitarPatternProfile.empty()))
             {
-                const bool softFeel = guitarFeel == PhraseFeel::Open || guitarFeel == PhraseFeel::Sparse;
-                const bool quiet = s.guitarInstrument == "quiet"
-                                || (s.guitarInstrument != "main" && softFeel && s.intensity < 0.6);
+                const bool haveQuiet   = ! plan.guitarQuietProfile.empty();
+                const bool havePattern = ! plan.guitarPatternProfile.empty();
+                const std::string& st = plan.style;
+                const bool heavy = st == "metal" || st == "thrash" || st == "groove_metal" || st == "prog_metal"
+                                || st == "doom" || st == "sludge" || st == "punk";
+                unsigned players = 0;
+                if (s.guitarInstrument != "auto" && ! s.guitarInstrument.empty())
+                {
+                    const std::string& g = s.guitarInstrument;
+                    const auto has = [&g] (const char* w) { return g.find (w) != std::string::npos; };
+                    if (has ("main") || has ("power"))                        players |= kGuitarMain;
+                    if ((has ("quiet") || has ("strum")) && haveQuiet)        players |= kGuitarQuiet;
+                    if ((has ("pattern") || has ("sunburst")) && havePattern) players |= kGuitarPattern;
+                }
+                else
+                {
+                    const bool soft = (guitarFeel == PhraseFeel::Open || guitarFeel == PhraseFeel::Sparse) && s.intensity < 0.6;
+                    if (guitarFeel == PhraseFeel::Muted)
+                        players = kGuitarMain;
+                    else if (soft)
+                        players = (guitarFeel == PhraseFeel::Sparse && havePattern) ? kGuitarPattern
+                                : haveQuiet ? kGuitarQuiet : kGuitarMain;
+                    else if (s.intensity >= 0.75)
+                        players = kGuitarMain | (haveQuiet ? kGuitarQuiet : 0u);
+                    else
+                        players = (havePattern && ! heavy) ? kGuitarPattern : kGuitarMain;
+                }
+                if (players == 0)
+                    players = kGuitarMain;
                 for (size_t k = g1ChordsBefore; k < result.performance.guitar.chords.size(); ++k)
-                    result.performance.guitar.chords[k].quiet = quiet;
+                    result.performance.guitar.chords[k].players = players;
             }
 
             if (playPiano)
@@ -3657,7 +3689,8 @@ bool writeMidi (const SongPlan& plan,
                 const PhraseProfile* guitar,
                 const PhraseProfile* piano,
                 const PhraseProfile* guitar2,
-                const PhraseProfile* guitarQuiet)
+                const PhraseProfile* guitarQuiet,
+                const PhraseProfile* guitarPattern)
 {
     MidiFile mf (kPPQ);
 
@@ -3704,13 +3737,14 @@ bool writeMidi (const SongPlan& plan,
         mf.tracks.push_back (t);
     };
 
-    // Guitar 1 on its two instruments, when the song has a quiet one.
-    if (guitarQuiet != nullptr)
+    // Guitar 1 on its instruments, when the song has more than one.
+    if (guitarQuiet != nullptr || guitarPattern != nullptr)
     {
-        PhrasePart mainPart, quietPart;
-        splitQuiet (perf.guitar, mainPart, quietPart);
-        emit (guitar,      mainPart);
-        emit (guitarQuiet, quietPart);
+        PhrasePart mainPart, quietPart, patternPart;
+        splitGuitar (perf.guitar, mainPart, quietPart, patternPart);
+        emit (guitar, mainPart);
+        if (guitarQuiet != nullptr)   emit (guitarQuiet,   quietPart);
+        if (guitarPattern != nullptr) emit (guitarPattern, patternPart);
     }
     else
         emit (guitar,  perf.guitar);
