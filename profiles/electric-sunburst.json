@@ -27,12 +27,19 @@
   "instrument": "electric_sunburst",
   "channel": 14,
   "mode": "patterns",
-  "needs_verification": true,
-  "verification_note": "Slot keys follow the loaded Sunburst Song: slot 1 should be an arpeggio, 2 an open strum, 3 a driving strum, 4 a busy strum, 5 a muted strum.",
+  "needs_verification": false,
 
   "patterns": {
     // Which slot plays each feel. Slot 1 = C1 = 36 ... slot 8 = G1 = 43.
-    "slots": { "sparse": 36, "open": 37, "driving": 38, "busy": 39, "muted": 40 },
+    // Laid out for the Song "Rock Hard" with two patterns swapped in (the
+    // owner's choice, 2026-10-09, from screenshots of six rock Songs):
+    //   C1  Rock Hard A        dense sixteenths      busy
+    //   C#1 Rock Hard B Mtd    palm-muted            muted
+    //   E1  Rock Hard E        lighter strum         open
+    //   F#1 Straightforward A  even eighths          driving
+    //   G1  Rock Ballad A      picked arpeggio       sparse
+    // D1, D#1, F1 stay Rock Hard C, D Mtd, F Mtd - free for later.
+    "slots": { "sparse": 43, "open": 40, "driving": 42, "busy": 36, "muted": 37 },
     "ending": 44,
     "lead_ticks": 60,
     "break_ticks": 480,

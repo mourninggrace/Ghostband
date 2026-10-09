@@ -7988,7 +7988,7 @@ int main (int argc, char** argv)
                     if (m.bytes.size() < 3 || (m.bytes[0] & 0xF0) == 0xE0) continue;
                     const int type = m.bytes[0] & 0xF0, n = m.bytes[1], v = m.bytes[2];
                     const bool on = type == 0x90 && v > 0, off = type == 0x80 || (type == 0x90 && v == 0);
-                    if (n >= 36 && n <= 43 && on && firstSlot < 0) firstSlot = m.tick;
+                    if (n >= 36 && n <= 43 && on && firstSlot < 0) firstSlot = m.tick;   // any slot key
                     if (n == sb.patternEndingKey && on) ++endings;
                     if (n < 48) continue;
                     if (on)
@@ -8014,10 +8014,10 @@ int main (int argc, char** argv)
                     check (down.empty(), "and a pattern instrument is left holding nothing at the end",
                            juce::String ((int) down.size()) + " notes still down");
                 }
-                check (loaded && sb.patternMode && sb.patternSlotKey[(int) gb::PhraseFeel::Sparse] == 36
+                check (loaded && sb.patternMode && sb.patternSlotKey[(int) gb::PhraseFeel::Sparse] == 43 && sb.patternSlotKey[(int) gb::PhraseFeel::Driving] == 42
                            && sb.patternEndingKey == 44 && sb.chordLowest == 48 && sb.chordHighest == 92 && ! sb.canPlayLines(),
                        "Electric Sunburst's map reads as its manual and keyboard give it",
-                       juce::String ("slot(sparse) ") + juce::String (sb.patternSlotKey[1]) + ", ending " + juce::String (sb.patternEndingKey)
+                       juce::String ("slot(sparse) ") + juce::String (sb.patternSlotKey[1]) + ", slot(driving) " + juce::String (sb.patternSlotKey[3]) + ", ending " + juce::String (sb.patternEndingKey)
                            + ", chords " + juce::String (sb.chordLowest) + "-" + juce::String (sb.chordHighest));
                 check (chords > 5 && overlaps == 0 && outside == 0 && firstSlot >= 0 && firstSlot <= firstChord && endings >= 1,
                        "a pattern instrument holds one chord at a time, in its range, after its pattern key, and ends before a break",

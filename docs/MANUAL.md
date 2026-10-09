@@ -78,11 +78,13 @@ A section can choose its own with `"guitar_instrument"`: `main`, `quiet`,
 the three just skips it. The GTR knob drives all three.
 
 **Electric Sunburst plays its own patterns.** Ghostband holds the chord (C2 to
-G#5), picks the pattern slot (C1 to G1) by the section's feel - slot 1 sparse,
-2 open, 3 driving, 4 busy, 5 muted - sets how hard it plays with pitch bend
+G#5), picks the pattern slot (C1 to G1) by the section's feel, sets how hard it plays with pitch bend
 (its Impact slider) and plays the ending key (G#1) before a break. What sits
-in each slot is whatever Sunburst "Song" is loaded, so load or build one with
-those five in that order. In Sunburst, set Playback > Pattern Sync to
+in each slot is whatever Sunburst "Song" is loaded; Ghostband's map expects
+the Song **Rock Hard** with **Straightforward A** loaded into slot F#1 and
+**Rock Ballad A** into slot G1: busy = C1 (Rock Hard A), muted = C#1 (Rock
+Hard B Mtd), open = E1 (Rock Hard E), driving = F#1, sparse = G1. Another
+layout is a one-line change to `profiles/electric-sunburst.json`. In Sunburst, set Playback > Pattern Sync to
 **Start on key**. Its patterns run at **GP5's tempo**, so paste
 `tools/gp5/ghostband-tempo.gpscript` (also in Documents\Ghostband) into the
 rackspace script once: GP5 then follows each song's tempo, which Ghostband
