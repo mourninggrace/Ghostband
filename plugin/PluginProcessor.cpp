@@ -2396,6 +2396,24 @@ bool GhostbandProcessor::partIsPhraseDriven (int part) const
     }
 }
 
+bool GhostbandProcessor::guitarQuietInSong() const
+{
+    const juce::ScopedLock sl (stateLock);
+    return haveGuitarQuiet;
+}
+
+bool GhostbandProcessor::guitarQuietReachable() const
+{
+    const juce::ScopedLock sl (stateLock);
+    return haveGuitarQuiet && guitarQuietProfile.volumeReachable;
+}
+
+bool GhostbandProcessor::guitarQuietTaught() const
+{
+    const juce::ScopedLock sl (stateLock);
+    return haveGuitarQuiet && guitarQuietProfile.controls.hasLevelControl();
+}
+
 bool GhostbandProcessor::partVolumeReachable (int part) const
 {
     const juce::ScopedLock sl (stateLock);
@@ -2730,7 +2748,7 @@ void GhostbandProcessor::sendLevels()
             { pianoProfile.channel,   levelPiano.load(),   havePiano   ? &pianoProfile.controls   : nullptr, ! havePiano   || pianoProfile.volumeReachable },
             // Guitar 1's quiet instrument follows the GTR knob as well. With no
             // quiet instrument this sends nothing (no controls, unreachable).
-            { guitarQuietProfile.channel, levelGuitar.load(), haveGuitarQuiet ? &guitarQuietProfile.controls : nullptr, haveGuitarQuiet && guitarQuietProfile.volumeReachable },
+            { guitarQuietProfile.channel, levelGuitarQuiet.load(), haveGuitarQuiet ? &guitarQuietProfile.controls : nullptr, haveGuitarQuiet && guitarQuietProfile.volumeReachable },
             { guitarPatternProfile.channel, levelGuitar.load(), haveGuitarPattern ? &guitarPatternProfile.controls : nullptr, haveGuitarPattern && guitarPatternProfile.volumeReachable },
         };
 
@@ -4839,6 +4857,7 @@ void GhostbandProcessor::getStateInformation (juce::MemoryBlock& destData)
         if (articMarks[i].load() != 0)
             xml.setAttribute ("artMark" + juce::String (static_cast<int> (i)), articMarks[i].load());
     xml.setAttribute ("levelPiano",   levelPiano.load());
+    xml.setAttribute ("levelGuitarQuiet", levelGuitarQuiet.load());
 
     xml.setAttribute ("chDrums",  channelDrums.load());
     xml.setAttribute ("chBass",   channelBass.load());
@@ -4885,6 +4904,10 @@ void GhostbandProcessor::setStateInformation (const void* data, int sizeInBytes)
     levelDrums.store  (level ("levelDrums"));
     levelBass.store   (level ("levelBass"));
     levelGuitar.store  (level ("levelGuitar"));
+    // A song saved before the ACOU knob had one GTR level for both guitars:
+    // the acoustic starts where that was, so nothing it had sounds different.
+    levelGuitarQuiet.store (xml->hasAttribute ("levelGuitarQuiet") ? level ("levelGuitarQuiet")
+                                                                     : levelGuitar.load());
     levelGuitar2.store (level ("levelGuitar2"));
     levelGuitar2Fills.store (static_cast<float> (juce::jlimit (0.0, 1.0,
                                  xml->getDoubleAttribute ("levelGuitar2Fills", kFillsLevelDefault))));

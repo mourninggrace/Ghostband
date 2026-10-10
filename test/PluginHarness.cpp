@@ -87,7 +87,7 @@ double contrastRatio (juce::Colour a, juce::Colour b)
 // Settings is what sets it: a 460 column of channels beside a 496 column of the
 // learn form. The song screen alone would be happy at 900.
 constexpr int kMinW = 1020;
-constexpr int kMinH = 850;
+constexpr int kMinH = 874;
 
 // Same idea as the local `describe` lambdas, at file scope so checks outside
 // those blocks can name a component too.
@@ -656,7 +656,7 @@ static void perfReport (const juce::String& planPath, int seconds)
 
     t0 = now();
     auto* ed = proc->createEditorIfNeeded();
-    ed->setSize (1180, 850);
+    ed->setSize (1180, 874);
     const double tEditor = now() - t0;
 
     t0 = now();
@@ -8495,6 +8495,57 @@ int main (int argc, char** argv)
                    juce::String (restated) + " restatements to guitar 2 in 10 s, stopped");
         }
 
+        // ACOU AND ELEC ARE TWO KNOBS (2026-10-10, the owner: "only one guitar
+        // 1 vol knob ... how do we control the other guitar"). Each reaches
+        // only its own Kontakt; a song saved before ACOU existed keeps the
+        // acoustic where the one GTR knob had it; and in a song with one guitar
+        // 1 the ACOU knob is greyed with its reason, not hidden.
+        {
+            GhostbandProcessor pa;
+            pa.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-alt-rock-2.json"));
+            pa.levelGuitar.store (0.5f);
+            pa.levelGuitarQuiet.store (0.25f);
+            pa.sendLevels();
+            const juce::String rep = pa.getLastMidiReport();
+            const bool elec = rep.contains ("guitar CC7 ch" + juce::String (pa.channelGuitar.load()) + "=64");
+            const bool acou = rep.contains ("guitar (quiet) CC7 ch12=32");
+
+            juce::MemoryBlock old;
+            {
+                GhostbandProcessor po;
+                po.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-alt-rock-2.json"));
+                po.levelGuitar.store (0.4f);
+                po.getStateInformation (old);
+            }
+            // The same state with the new attribute taken out: a song saved
+            // before ACOU.
+            std::unique_ptr<juce::XmlElement> xml (juce::AudioProcessor::getXmlFromBinary (old.getData(), static_cast<int> (old.getSize())));
+            if (xml != nullptr) xml->removeAttribute ("levelGuitarQuiet");
+            juce::MemoryBlock legacy;
+            if (xml != nullptr) juce::AudioProcessor::copyXmlToBinary (*xml, legacy);
+            GhostbandProcessor pl;
+            pl.setStateInformation (legacy.getData(), static_cast<int> (legacy.getSize()));
+
+            check (elec && acou && xml != nullptr && std::abs (pl.levelGuitarQuiet.load() - 0.4f) < 1e-4f,
+                   "ELEC and ACOU each set only their own guitar, and an older song keeps its mix",
+                   rep + "   | legacy acoustic " + juce::String (pl.levelGuitarQuiet.load(), 2));
+
+            // In the editor: live with an acoustic, greyed with the reason without one.
+            GhostbandProcessor pe;
+            pe.loadPlan (juce::File ("C:/Projects/Ghostband/plans/demo-band.json"));
+            std::unique_ptr<juce::AudioProcessorEditor> ed (pe.createEditorIfNeeded());
+            ed->setSize (kMinW, kMinH);
+            juce::Slider* acouKnob = nullptr;
+            for (auto* c : ed->getChildren())
+                if (auto* s = dynamic_cast<juce::Slider*> (c))
+                    if (s->getTooltip().startsWith ("This song has one guitar 1")) acouKnob = s;
+            const bool greyed = acouKnob != nullptr && ! acouKnob->isEnabled() && acouKnob->isVisible();
+            pe.editorBeingDeleted (ed.get());
+            ed.reset();
+            check (greyed, "with one guitar 1, ACOU is greyed and says why, never hidden",
+                   acouKnob == nullptr ? "no greyed ACOU knob found" : "found");
+        }
+
         // EVERY PART, NOT ONLY GUITAR 2 (2026-10-09: "i have to once again move
         // guitar 1's volume knob for the volume to sync up"). Power Riffer and
         // Guitar Strum load in Kontakt after Ghostband has spoken; stopped and
@@ -9365,10 +9416,10 @@ int main (int argc, char** argv)
                 // reasoned about. A 150 ms cubic ease-out is already down to
                 // 12% opacity at its halfway point, which is a flicker rather
                 // than a transition - and that is not visible in any still.
-                shots.push_back ({ 0, 1180, 850, "-glow" });
+                shots.push_back ({ 0, 1180, 874, "-glow" });
 
                 for (int f = 0; f < 4; ++f)
-                    shots.push_back ({ 0, 1180, 850, f == 0 ? "-fade-100"
+                    shots.push_back ({ 0, 1180, 874, f == 0 ? "-fade-100"
                                                    : f == 1 ? "-fade-70"
                                                    : f == 2 ? "-fade-40" : "-fade-15" });
 
@@ -9378,7 +9429,7 @@ int main (int argc, char** argv)
                 // The click happens in the render loop below, not here: every
                 // shot switches screens, and leaving one closes the strip.
                 if (gbEd != nullptr && proc.getBarTicks() > 0)
-                    shots.push_back ({ 0, 1180, 850, "-editing" });
+                    shots.push_back ({ 0, 1180, 874, "-editing" });
 
                 for (const Shot& shot : shots)
                 {
@@ -9465,6 +9516,22 @@ int main (int argc, char** argv)
                     }
 
                     gbEd->setThemeForTesting (0);
+
+                    // A song with BOTH guitar 1s, so the GTR box shows ELEC
+                    // and ACOU live (demo-band has one, and shows ACOU greyed).
+                    proc.loadPlan (juce::File (planPath).getSiblingFile ("preset-alt-rock-2.json"));
+                    gbEd->showScreenForSnapshot (0);
+                    ed->setSize (1180, 874);
+                    const juce::Image two = ed->createComponentSnapshot (ed->getLocalBounds(), true);
+                    const juce::File out = dir.getChildFile ("editor-song-two-guitars.png");
+                    out.deleteFile();
+                    juce::FileOutputStream stream (out);
+                    if (stream.openedOk())
+                    {
+                        juce::PNGImageFormat png;
+                        png.writeImageToStream (two, stream);
+                        std::cout << "  snapshot: " << out.getFullPathName() << std::endl;
+                    }
                 }
 
 

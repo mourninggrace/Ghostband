@@ -906,6 +906,9 @@ private:
     // How far GTR 2 drops while it plays fills, on its own row. A share of the
     // GTR 2 knob, so turning GTR 2 down turns its fills down with it.
     juce::Slider levelGuitar2Fills;
+    juce::Slider levelGuitarQuiet;   // ACOU: guitar 1's acoustic, in the GTR box
+    juce::Rectangle<int> acouCaption;   // "ACOU", painted beside it
+    int acouState = 1;   // 0 live, 1 not in song, 2 no reach, 3 untaught (CC 7)
     juce::Label  levelGuitar2FillsLabel;
     void refreshFillsLevelLabel();
 
@@ -1301,6 +1304,7 @@ private:
         int  complexity = 0, humanize = 0, fills = 0;   // per cent: below that is jitter
         int  intuition  = 50;
         int  levels[5]   = { 0, 0, 0, 0, 0 };
+        int  acoustic    = 0;
         int  channels[5] = { 0, 0, 0, 0, 0 };
         bool paused = false;
 

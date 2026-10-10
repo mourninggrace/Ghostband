@@ -613,7 +613,7 @@ public:
     // 31% of the width and 67% of the height, and the song screen's controls
     // stopped 45% short of its right edge. See layOutSongScreen.
     std::atomic<int> editorWidth  { 1180 };
-    std::atomic<int> editorHeight { 850 };
+    std::atomic<int> editorHeight { 874 };
 
     // How much music one tracker row covers: 0 bar, 1 beat, 2 eighth, 3
     // sixteenth. Which one is right depends entirely on what you are looking
@@ -957,6 +957,11 @@ public:
     // False when this part's instrument has no volume anything outside it can
     // reach. The mix knob is hidden rather than offered and left inert.
     bool        partVolumeReachable (int part) const;
+    // Guitar 1's quiet instrument, for the ACOU knob: whether the song has one,
+    // whether its volume can be reached, whether a control is taught for it.
+    bool        guitarQuietInSong() const;
+    bool        guitarQuietReachable() const;
+    bool        guitarQuietTaught() const;
 
     // The note range a phrase instrument's profile says it can actually play.
     // Empty for a part that is not a phrase instrument or is not in the song.
@@ -980,6 +985,10 @@ public:
     std::atomic<float> levelDrums  { 1.0f };
     std::atomic<float> levelBass   { 1.0f };
     std::atomic<float> levelGuitar  { 1.0f };
+    // Guitar 1's QUIET instrument's own level (2026-10-10, the owner: "we have
+    // only one guitar 1 vol knob ... how do we control the other guitar").
+    // The GTR box's ACOU knob; levelGuitar is its ELEC knob.
+    std::atomic<float> levelGuitarQuiet { 1.0f };
     std::atomic<float> levelGuitar2 { 1.0f };
     std::atomic<float> levelGuitar2Fills { kFillsLevelDefault };   // fraction of GTR 2 while it plays fills
 

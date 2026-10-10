@@ -2304,6 +2304,25 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         addAndMakeVisible (*k.s);
     }
 
+    // ACOU (2026-10-10, layout A of three): guitar 1's acoustic, Guitar Strum,
+    // gets its own level beside ELEC in the GTR box.
+    {
+        levelGuitarQuiet.setSliderStyle (juce::Slider::RotaryVerticalDrag);
+        levelGuitarQuiet.setRotaryParameters (juce::MathConstants<float>::pi * 1.2f,
+                                              juce::MathConstants<float>::pi * 2.8f, true);
+        levelGuitarQuiet.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+        levelGuitarQuiet.setRange (0.0, 1.0, 0.01);
+        levelGuitarQuiet.setValue (processor.levelGuitarQuiet.load(), juce::dontSendNotification);
+        levelGuitarQuiet.setDoubleClickReturnValue (true, 1.0);   // back to unity
+        levelGuitarQuiet.onValueChange = [this]
+        {
+            processor.levelGuitarQuiet.store (static_cast<float> (levelGuitarQuiet.getValue()));
+            processor.sendLevels();
+            statusLabel.setText (processor.getLastMidiReport(), juce::dontSendNotification);
+        };
+        addAndMakeVisible (levelGuitarQuiet);
+    }
+
     // `c` by reference, not by value, and that is the whole of what makes a
     // theme change reach the labels. The ghost:: names are references into the
     // live palette, so the address taken here keeps pointing at the colour
@@ -2857,7 +2876,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     aboutButton.onClick    = [this] { screen = Screen::About;    updateModeVisibility(); };
     backButton.onClick     = [this] { screen = Screen::Song;     updateModeVisibility(); };
 
-    resetSizeButton.onClick = [this] { setSize (1180, 850); };
+    resetSizeButton.onClick = [this] { setSize (1180, 874); };
 
     styleCombo (themeBox);
     addChildComponent (themeBox);
@@ -3148,13 +3167,13 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     // which is about 900. Settings wants a 460 column of channels beside a 496
     // column of the learn form, which is 1020 - and a minimum that fits five
     // screens and breaks the sixth is not a minimum.
-    setResizeLimits (1020, 850, 2400, 2200);
+    setResizeLimits (1020, 874, 2400, 2200);   // 874: the GTR box's ACOU line (2026-10-10)
 
     // Restore the remembered size, then start recording changes to it. The
     // order matters: recording before this point captures the zero-sized
     // editor and loses what was remembered.
     setSize (juce::jmax (1020, processor.editorWidth.load()),
-             juce::jmax (850, processor.editorHeight.load()));
+             juce::jmax (874, processor.editorHeight.load()));
     sizeInitialised = true;
 
     // ---- tooltips ----
@@ -3456,7 +3475,7 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
     for (juce::Slider* s : { &complexitySlider, &humanizeSlider, &fillsSlider,
                              &intuitionSlider,
                              &levelDrums, &levelBass, &levelGuitar,
-                             &levelGuitar2, &levelPiano, &levelGuitar2Fills, &shredKnob,
+                             &levelGuitar2, &levelPiano, &levelGuitar2Fills, &levelGuitarQuiet, &shredKnob,
                              &climbKnob, &motifKnob, &tricksKnob,
                              &busyKnob[0], &busyKnob[1], &busyKnob[2], &busyKnob[3], &busyKnob[4] })
         registerTrail (*s);
@@ -3951,6 +3970,8 @@ bool GhostbandEditor::LogSnapshot::operator== (const LogSnapshot& o) const
     for (int i = 0; i < 5; ++i)
         if (levels[i] != o.levels[i] || channels[i] != o.channels[i])
             return false;
+    if (acoustic != o.acoustic)
+        return false;
 
     return plan == o.plan && key == o.key && mode == o.mode && style == o.style
         && tuning == o.tuning && theme == o.theme && rows == o.rows
@@ -3990,6 +4011,7 @@ GhostbandEditor::LogSnapshot GhostbandEditor::takeLogSnapshot() const
         s.levels[i]   = juce::roundToInt (lv[i]->load() * 100.0f);
         s.channels[i] = ch[i]->load();
     }
+    s.acoustic = juce::roundToInt (processor.levelGuitarQuiet.load() * 100.0f);
 
     return s;
 }
@@ -4056,6 +4078,7 @@ void GhostbandEditor::pollChangeLog()
                       juce::String (logged.channels[i]),
                       juce::String (now.channels[i]));
     }
+    p2.logChange ("acoustic level", juce::String (logged.acoustic) + "%", juce::String (now.acoustic) + "%");
 
     logged = now;
 }
@@ -5038,7 +5061,7 @@ void GhostbandEditor::updateModeVisibility()
              &mixLabel, &levelDrums, &levelBass, &levelGuitar, &levelGuitar2, &levelPiano,
              &levelDrumsLabel, &levelBassLabel, &levelGuitarLabel,
              &levelGuitar2Label, &levelPianoLabel,
-             &levelGuitar2Fills, &levelGuitar2FillsLabel, &shredKnob, &shredLabel,
+             &levelGuitar2Fills, &levelGuitar2FillsLabel, &levelGuitarQuiet, &shredKnob, &shredLabel,
              &climbKnob, &climbLabel, &motifKnob, &motifLabel, &tricksKnob, &tricksLabel,
              &busyKnob[0], &busyKnob[1], &busyKnob[2], &busyKnob[3], &busyKnob[4],
              &busyLabel[0], &busyLabel[1], &busyLabel[2], &busyLabel[3], &busyLabel[4] })
@@ -6173,9 +6196,21 @@ void GhostbandEditor::paint (juce::Graphics& g)
         // What the left knob of a small box is, beside it.
         g.setColour (ghost::dim);
         g.setFont (juce::FontOptions (12.0f));
-        for (const auto& c : levelCaptions)
-            if (! c.isEmpty())
-                g.drawText ("LEVEL", c, juce::Justification::centredLeft, false);
+        const bool acouIn = acouState != 1;
+        for (size_t ci = 0; ci < 5; ++ci)
+            if (! levelCaptions[ci].isEmpty())
+                g.drawText (ci == 2 && acouIn ? "ELEC" : "LEVEL", levelCaptions[ci],
+                            juce::Justification::centredLeft, false);
+
+        if (! acouCaption.isEmpty())
+        {
+            const juce::String why = acouState == 1 ? " " + midDot() + " not in song"
+                                   : acouState == 2 ? " " + midDot() + " no reach"
+                                   : acouState == 3 ? " " + midDot() + " CC7" : juce::String();
+            g.setColour (acouState == 3 ? ghost::warn : acouState != 0 ? ghost::dim.withMultipliedAlpha (0.6f) : ghost::dim);
+            g.drawText ("ACOU" + why,
+                        acouCaption, juce::Justification::centredLeft, false);
+        }
     }
 
     // The footer's own separator. Without it the two lines down there read as
@@ -6976,7 +7011,9 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
         const int gap = 6, smallH = 52, bigH = 82;
         auto top = rail.removeFromTop (smallH);
         rail.removeFromTop (gap);
-        auto mid = rail.removeFromTop (smallH);
+        // The guitar and piano row is a line taller: GTR carries ELEC and,
+        // under it, ACOU (2026-10-10).
+        auto mid = rail.removeFromTop (smallH + 24);
         rail.removeFromTop (gap);
         const int half = (top.getWidth() - gap) / 2;
         mixBoxes[0] = top.removeFromLeft (half);  top.removeFromLeft (gap);  mixBoxes[1] = top;   // drums, bass
@@ -7178,7 +7215,36 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
         if (wide)
             levelLabels[i]->setBounds (row);
         else
-            levelCaptions[i] = row.removeFromLeft (44);   // "LEVEL", painted
+            levelCaptions[i] = row.removeFromLeft (44);   // "LEVEL" / "ELEC", painted
+
+        // ACOU, the GTR box's second line: Guitar Strum's own level. Greyed
+        // with the reason, never hidden - a song with one guitar 1 has no
+        // acoustic to set.
+        if (i == 2)
+        {
+            const bool acouIn    = processor.guitarQuietInSong();
+            const bool acouReach = acouIn && processor.guitarQuietReachable();
+            const bool acouTaught = acouReach && processor.guitarQuietTaught();
+            levelGuitarQuiet.setVisible (screen == Screen::Song);
+            levelGuitarQuiet.setEnabled (acouReach);
+            levelGuitarQuiet.setAlpha (acouReach ? (acouTaught ? 1.0f : 0.55f) : 0.3f);
+            acouState = ! acouIn ? 1 : ! acouReach ? 2 : ! acouTaught ? 3 : 0;
+            levelGuitarQuiet.setTooltip (
+                ! acouIn    ? "This song has one guitar 1, so there is no acoustic to set a level for - "
+                              "ELEC above is all of guitar 1."
+              : ! acouReach ? "The acoustic's volume cannot be reached from outside it. Put a gain plugin "
+                              "after it in your host instead."
+              : ! acouTaught ? "ACOU: the acoustic's level. Nothing is taught for it, so the knob is guessing "
+                               "with CC 7. Teach its volume control in Settings."
+                             : "ACOU: guitar 1's acoustic (Guitar Strum) level, on its own. ELEC above is "
+                               "the electric (Power Riffer). Double-click for full.");
+            levelSliders[i]->setTooltip (levelSliders[i]->getTooltip()
+                                         + (acouIn ? " ELEC: the electric only - the acoustic has ACOU below." : ""));
+            auto line2 = inner.removeFromTop (24);
+            levelGuitarQuiet.setBounds (line2.removeFromLeft (24).reduced (1));
+            line2.removeFromLeft (6);
+            acouCaption = line2;
+        }
     }
 
     // ---- the grid, and the two lines that frame it ----

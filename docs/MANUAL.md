@@ -71,7 +71,11 @@ Splash Sound's **Guitar Strum** (acoustic, full chords, channel 12).
 | loud (intensity 0.75 and up) | Power Riffer, with Guitar Strum under it |
 
 A section can choose its own with `"guitar_instrument"`: `main`, `quiet`, or
-both joined by `+` (`"main+quiet"`). The GTR knob drives both.
+both joined by `+` (`"main+quiet"`). Each has its own level in the GTR box of
+the mix: **ELEC** for Power Riffer and **ACOU**, on the line under it, for
+Guitar Strum. In a song with one guitar 1, ACOU is greyed ("not in song") and
+the GTR knob reads LEVEL as before. A song saved before ACOU existed starts it
+at that song's GTR level.
 
 A third, **pattern** instrument can join them (`"guitar_pattern_profile"`;
 NI's Electric Sunburst has a profile): it plays its own recorded strum and
@@ -96,7 +100,7 @@ profile is still shipped, and the demo songs still use it.
 
 To set them up: load each `.nki` in its own Kontakt on its channel, and teach
 each Kontakt's Instrument Header Output Volume to a CC (right-click > Learn
-MIDI CC#, then Settings > Teach) so the GTR knob reaches it. Never tick
+MIDI CC#, then Settings > Teach) so its knob (ELEC or ACOU) reaches it. Never tick
 Kontakt's "Accept standard controllers" - it crashes Kontakt 8.13.1.
 
 The lead guitar has three things it can do in a section:

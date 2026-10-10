@@ -7,6 +7,15 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
 
 ## [Unreleased]
 
+### Added
+- **Guitar 1's two instruments each have their own level** (the owner: "we
+  have only one guitar 1 vol knob ... how do we control the other guitar").
+  The GTR box carries ELEC (Power Riffer) and, on a second line, ACOU (Guitar
+  Strum) - layout A of three. ACOU is greyed with the reason in a song with
+  one guitar 1; resets on double-click; saved with the song, and a song saved
+  before it starts ACOU at its GTR level so no mix changes. The window's
+  minimum height is 874 (was 850) for the extra line. New checks.
+
 ### Fixed
 - **The "Levels sent" line named the wrong parts.** It labelled messages by
   position, so one part sending nothing shifted every later name (guitar 2's
