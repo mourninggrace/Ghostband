@@ -96,7 +96,7 @@ fretting the next, so Power Riffer changes cleanly rather than sliding on its
 own, and it stops the strings before a real rest (never after a palm mute,
 which dies by itself). Neither plays single notes, so in a twin-guitar solo
 the rhythm guitar keeps strumming instead of harmonising. UJAM's IRON 2
-profile is still shipped, and the demo songs still use it.
+profile is still shipped for anyone who has it; no song uses it any more.
 
 To set them up: load each `.nki` in its own Kontakt on its channel, and teach
 each Kontakt's Instrument Header Output Volume to a CC (right-click > Learn

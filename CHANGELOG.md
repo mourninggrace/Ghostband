@@ -17,6 +17,10 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
   minimum height is 874 (was 850) for the extra line. New checks.
 
 ### Fixed
+- **The AI planner was sent the new profile paths.** The song sent as context
+  had its five profile paths removed, but not "guitar_quiet_profile" or
+  "guitar_pattern_profile", added since - the existing check caught it once
+  a demo song carried one. Every profile path is removed now.
 - **The "Levels sent" line named the wrong parts.** It labelled messages by
   position, so one part sending nothing shifted every later name (guitar 2's
   CC 85 read as "guitar"), and it called any CC 7 "untaught" even when CC 7
@@ -28,8 +32,10 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
 - **Guitar 1 is now Splash Sound's Power Riffer and Guitar Strum** (Kontakt),
   replacing UJAM Iron 2 at the owner's word. Power Riffer (electric, power
   chords, ch 13) plays the 25 rock and metal songs; Guitar Strum (acoustic,
-  full chords, ch 12) the three ballads and three blues. The demo songs keep
-  Iron 2, whose profile stays for anyone who has it.
+  full chords, ch 12) the three ballads and three blues. The three demo
+  songs moved too (2026-10-10 - they had kept Iron 2, which the owner had
+  removed, so Demo - Full Band played no guitar 1). Iron 2's profile stays
+  for anyone who has it.
 
 ### Added
 - **Guitar 1 stacks where it is loud.** Loud sections (intensity 0.75+) now

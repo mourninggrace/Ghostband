@@ -941,6 +941,8 @@ gb::PlannerBrief GhostbandProcessor::makePlannerBrief (const juce::String& reque
         asPlayed.guitarProfile.clear();
         asPlayed.guitar2Profile.clear();
         asPlayed.pianoProfile.clear();
+        asPlayed.guitarQuietProfile.clear();     // every profile path, not only the first five
+        asPlayed.guitarPatternProfile.clear();
 
         brief.currentPlanJson = asPlayed.toJson();
         brief.hasGuitar  = haveGuitar;

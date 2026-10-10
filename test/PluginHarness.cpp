@@ -986,7 +986,7 @@ int main (int argc, char** argv)
     const juce::ScopedJuceInitialiser_GUI juceInit;
 
     const juce::String planPath = argc > 1 ? juce::String (argv[1])
-                                           : juce::String ("C:/Projects/Ghostband/plans/demo-metal.json");
+                                           : juce::String ("C:/Projects/Ghostband/test/fixtures/iron2-demo-metal.json");
 
     std::cout << "\nGhostband plugin harness\n========================\n\n";
     std::cout << "plan: " << planPath << "\n\n";
@@ -1578,7 +1578,7 @@ int main (int argc, char** argv)
     // Guitar and piano are opt-in, so this also proves the opt-in works: the
     // plans above must still have produced nothing on channels 2 and 3.
     {
-        const juce::File band = juce::File (planPath).getSiblingFile ("demo-band.json");
+        const juce::File band = juce::File (planPath).getSiblingFile ("iron2-demo-band.json");
         if (band.existsAsFile())
         {
             // Only meaningful for a plan that genuinely has neither. Asserting it
@@ -1712,7 +1712,7 @@ int main (int argc, char** argv)
     // Rather than check the parts that are known to have broken, this walks
     // every plan in the folder and compares every field of every section.
     {
-        const juce::File plansDir = juce::File (planPath).getParentDirectory();
+        const juce::File plansDir = juce::File ("C:/Projects/Ghostband/plans");
         juce::Array<juce::File> plans;
         plansDir.findChildFiles (plans, juce::File::findFiles, false, "*.json");
 
@@ -2759,7 +2759,7 @@ int main (int argc, char** argv)
     {
         // Loaded with the band plan, so calibration is exercised with all four
         // instruments present rather than just drums and bass.
-        const juce::File band = juce::File (planPath).getSiblingFile ("demo-band.json");
+        const juce::File band = juce::File (planPath).getSiblingFile ("iron2-demo-band.json");
         proc.loadPlan (band.existsAsFile() ? band : juce::File (planPath));
         check (! proc.isCalibrating(), "does not start in calibration mode");
 
@@ -3541,7 +3541,7 @@ int main (int argc, char** argv)
     {
         gb::SongPlan plan;
         std::string err;
-        if (gb::SongPlan::load (juce::File (planPath).getParentDirectory()
+        if (gb::SongPlan::load (juce::File ("C:/Projects/Ghostband/plans")
                                     .getChildFile ("preset-blues.json")
                                     .getFullPathName().toStdString(), plan, err))
         {
@@ -4100,7 +4100,7 @@ int main (int argc, char** argv)
     // null is what says "there is no such piece", and the generator then falls
     // back to a tom that exists.
     {
-        const juce::File prof = juce::File (planPath).getParentDirectory()
+        const juce::File prof = juce::File ("C:/Projects/Ghostband/plans")
                                     .getParentDirectory()
                                     .getChildFile ("profiles")
                                     .getChildFile ("mndst-drums.json");
@@ -4136,7 +4136,7 @@ int main (int argc, char** argv)
     // measured findings about the instrument, not decoration. A save must edit
     // the controls block and leave the rest of the file alone.
     {
-        const juce::File src (juce::File (planPath).getParentDirectory()
+        const juce::File src (juce::File ("C:/Projects/Ghostband/plans")
                                   .getParentDirectory()
                                   .getChildFile ("profiles")
                                   .getChildFile ("vg-iron2.json"));
@@ -6002,7 +6002,7 @@ int main (int argc, char** argv)
         {
             gb::SongPlan current;
             std::string ce;
-            gb::SongPlan::load ("C:/Projects/Ghostband/plans/demo-metal.json", current, ce);
+            gb::SongPlan::load ("C:/Projects/Ghostband/test/fixtures/iron2-demo-metal.json", current, ce);
             current.seed = 4242;  current.humanize = 0.83;  current.intuition = 0.2;
             current.transpose = 3;
 
@@ -8532,7 +8532,7 @@ int main (int argc, char** argv)
 
             // In the editor: live with an acoustic, greyed with the reason without one.
             GhostbandProcessor pe;
-            pe.loadPlan (juce::File ("C:/Projects/Ghostband/plans/demo-band.json"));
+            pe.loadPlan (juce::File ("C:/Projects/Ghostband/test/fixtures/iron2-demo-band.json"));
             std::unique_ptr<juce::AudioProcessorEditor> ed (pe.createEditorIfNeeded());
             ed->setSize (kMinW, kMinH);
             juce::Slider* acouKnob = nullptr;
@@ -8812,7 +8812,7 @@ int main (int argc, char** argv)
         int untitled = 0;
         juce::StringArray named;
 
-        const juce::File plansDir = juce::File (planPath).getParentDirectory();
+        const juce::File plansDir = juce::File ("C:/Projects/Ghostband/plans");
         for (const juce::File& f : plansDir.findChildFiles (juce::File::findFiles, false, "*.json"))
         {
             if (f.getFileName().contains ("previous")) continue;
@@ -8856,7 +8856,7 @@ int main (int argc, char** argv)
         juce::StringArray strays;
         int checkedPlans = 0, notesChecked = 0;
 
-        const juce::File plansDir = juce::File (planPath).getParentDirectory();
+        const juce::File plansDir = juce::File ("C:/Projects/Ghostband/plans");
         for (const juce::File& f : plansDir.findChildFiles (juce::File::findFiles, false, "*.json"))
         {
             if (f.getFileName().contains ("previous")) continue;
@@ -9312,7 +9312,7 @@ int main (int argc, char** argv)
 
         if (snapshotDir.isNotEmpty())
         {
-            proc.loadPlan (juce::File (planPath).getSiblingFile ("demo-band.json"));
+            proc.loadPlan (juce::File (planPath).getSiblingFile ("iron2-demo-band.json"));
 
             // Populate the guitar's mapping list so the Settings shot shows the
             // table doing its job. An empty list cannot reveal a layout bug in
@@ -9519,7 +9519,7 @@ int main (int argc, char** argv)
 
                     // A song with BOTH guitar 1s, so the GTR box shows ELEC
                     // and ACOU live (demo-band has one, and shows ACOU greyed).
-                    proc.loadPlan (juce::File (planPath).getSiblingFile ("preset-alt-rock-2.json"));
+                    proc.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-alt-rock-2.json"));
                     gbEd->showScreenForSnapshot (0);
                     ed->setSize (1180, 874);
                     const juce::Image two = ed->createComponentSnapshot (ed->getLocalBounds(), true);
