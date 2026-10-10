@@ -7,7 +7,16 @@ Downloads are on the [releases page](https://github.com/mourninggrace/Ghostband/
 
 ## [Unreleased]
 
+## [2.6.0] — 2026-10-10
+
 ### Added
+- **Export MIDI.** A button beside Load plan and Reload (layout A) saves what
+  Ghostband plays for the loaded song as a MIDI file, at the knobs' current
+  settings: one track per instrument, the song's tempo and time signature,
+  and a marker per section - ready for Reaper or any DAW. It is the exact
+  performance the audio thread is playing, not a fresh roll. The dialog
+  starts in Documents\Ghostband\Exports, named after the song. New check:
+  every channel's notes in the file match what Ghostband plays.
 - **Guitar 1's two instruments each have their own level** (the owner: "we
   have only one guitar 1 vol knob ... how do we control the other guitar").
   The GTR box carries ELEC (Power Riffer) and, on a second line, ACOU (Guitar

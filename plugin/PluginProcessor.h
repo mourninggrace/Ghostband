@@ -712,6 +712,15 @@ public:
     static constexpr float kTempoParamLow = 20.0f, kTempoParamHigh = 300.0f;
     juce::AudioParameterFloat* songTempoParam = nullptr;
     void publishSongTempo (double bpm);
+
+    // EXPORT MIDI (2026-10-10, layout A): what Ghostband plays for the loaded
+    // song, at the current knob settings, as a type-1 MIDI file - one track
+    // per instrument, the song's tempo, time signature and section markers.
+    // Exactly the last regenerate's performance and profiles, so the file is
+    // what is heard, not a fresh roll. False with the reason when it cannot.
+    bool exportMidi (const juce::File& file, juce::String& error) const;
+    // Where the save dialog starts: Documents\Ghostband\Exports\<song title>.mid
+    juce::File suggestedExportFile() const;
     std::atomic<int>    activeSection    { -1 };
 
     // Live section jumping. Clicking a section queues it; the jump lands on the
@@ -1227,6 +1236,19 @@ private:
     // And its pattern instrument (SongPlan::guitarPatternProfile, Electric
     // Sunburst): the middle-weight sections and the sparsest soft ones.
     gb::PhraseProfile             guitarPatternProfile;
+
+    // The last regenerate, kept whole for exportMidi (stateLock).
+    struct ExportSnapshot
+    {
+        gb::RenderResult  result;
+        gb::SongPlan      plan;
+        gb::DrumProfile   kit;
+        gb::BassProfile   bass;
+        gb::PhraseProfile guitar, guitar2, piano, guitarQuiet, guitarPattern;
+        bool withGuitar = false, withGuitar2 = false, withPiano = false,
+             withGuitarQuiet = false, withGuitarPattern = false;
+    };
+    std::shared_ptr<const ExportSnapshot> lastExport;
     bool                          haveGuitarPattern = false;
     bool                          haveGuitar  = false;
     bool                          haveGuitar2 = false;

@@ -2910,6 +2910,57 @@ void GhostbandProcessor::publishSongTempo (double bpm)
         send();
 }
 
+bool GhostbandProcessor::exportMidi (const juce::File& file, juce::String& error) const
+{
+    std::shared_ptr<const ExportSnapshot> s;
+    {
+        const juce::ScopedLock sl (stateLock);
+        s = lastExport;
+    }
+    if (s == nullptr || s->plan.sections.empty())
+    {
+        error = "Load a song first - there is nothing to export yet.";
+        return false;
+    }
+
+    if (! file.getParentDirectory().createDirectory())
+    {
+        error = "Could not create the folder " + file.getParentDirectory().getFullPathName();
+        return false;
+    }
+
+    std::string e;
+    const bool ok = gb::writeMidi (s->plan, s->result.performance, s->kit, s->bass,
+                                   file.getFullPathName().toStdString(), e,
+                                   s->withGuitar  ? &s->guitar  : nullptr,
+                                   s->withPiano   ? &s->piano   : nullptr,
+                                   s->withGuitar2 ? &s->guitar2 : nullptr,
+                                   s->withGuitarQuiet   ? &s->guitarQuiet   : nullptr,
+                                   s->withGuitarPattern ? &s->guitarPattern : nullptr);
+    if (! ok)
+    {
+        error = "Could not export: " + juce::String (e);
+        return false;
+    }
+    logChange ("exported MIDI   " + file.getFileName());
+    error.clear();
+    return true;
+}
+
+juce::File GhostbandProcessor::suggestedExportFile() const
+{
+    juce::String title;
+    {
+        const juce::ScopedLock sl (stateLock);
+        title = juce::String (plan.title);
+    }
+    title = juce::File::createLegalFileName (title.trim());
+    if (title.isEmpty()) title = "Ghostband song";
+    return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+               .getChildFile ("Ghostband").getChildFile ("Exports")
+               .getChildFile (title + ".mid");
+}
+
 juce::String GhostbandProcessor::getLastMidiReport() const
 {
     const juce::ScopedLock sl (stateLock);
@@ -3802,7 +3853,21 @@ void GhostbandProcessor::regenerate()
                      withGuitarPattern && guitarPtr != nullptr ? &workingGuitarPattern : nullptr);
 
     {
+        // For Export MIDI: the very performance just handed to the audio
+        // thread, with the profiles it was rendered through.
+        auto snap = std::make_shared<ExportSnapshot>();
+        snap->result = result;
+        snap->plan   = working;
+        snap->kit    = workingKit;
+        snap->bass   = workingBass;
+        snap->guitar = workingGuitar;   snap->withGuitar  = guitarPtr  != nullptr;
+        snap->guitar2 = workingGuitar2; snap->withGuitar2 = guitar2Ptr != nullptr;
+        snap->piano  = workingPiano;    snap->withPiano   = pianoPtr   != nullptr;
+        snap->guitarQuiet   = workingGuitarQuiet;   snap->withGuitarQuiet   = withGuitarQuiet   && guitarPtr != nullptr;
+        snap->guitarPattern = workingGuitarPattern; snap->withGuitarPattern = withGuitarPattern && guitarPtr != nullptr;
+
         const juce::ScopedLock sl (stateLock);
+        lastExport = std::move (snap);
         plan     = working;
         sections = result.sections;
 

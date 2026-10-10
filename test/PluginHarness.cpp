@@ -8495,6 +8495,63 @@ int main (int argc, char** argv)
                    juce::String (restated) + " restatements to guitar 2 in 10 s, stopped");
         }
 
+        // EXPORT MIDI (2026-10-10, layout A): the file holds what Ghostband
+        // plays - per channel, the same notes the audio thread walks - plus the
+        // tempo and a marker per section, one track per instrument.
+        {
+            GhostbandProcessor px;
+            px.loadPlan (juce::File ("C:/Projects/Ghostband/plans/preset-alt-rock-2.json"));
+            px.complexity.store (0.8f);   // knobs as they are now, not as saved
+            px.regenerate();
+            const juce::File out = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                       .getChildFile ("gb-export-test.mid");
+            out.deleteFile();
+            juce::String err;
+            const bool wrote = px.exportMidi (out, err);
+
+            juce::MidiFile mf;
+            bool read = false;
+            {
+                juce::FileInputStream in (out);
+                read = in.openedOk() && mf.readFrom (in);
+            }
+            int tempos = 0, markers = 0, mismatched = 0, compared = 0;
+            juce::String why;
+            if (read)
+            {
+                std::map<int, int> perChannel;
+                for (int t = 0; t < mf.getNumTracks(); ++t)
+                    for (const auto* e : *mf.getTrack (t))
+                    {
+                        const auto& m = e->message;
+                        if (m.isTempoMetaEvent()) ++tempos;
+                        if (m.isTextMetaEvent() && m.getMetaEventType() == 6) ++markers;
+                        if (m.isNoteOn() && m.getNoteNumber() >= 30 && m.getNoteNumber() <= 100) ++perChannel[m.getChannel()];
+                    }
+                for (int ch = 1; ch <= 16; ++ch)
+                {
+                    const int playing = px.notesOnChannelForTesting (ch);
+                    if (playing == 0 && perChannel[ch] == 0) continue;
+                    ++compared;
+                    if (playing != perChannel[ch])
+                    {
+                        ++mismatched;
+                        why << " ch" << ch << " " << perChannel[ch] << " vs " << playing;
+                    }
+                }
+            }
+            gb::SongPlan sp;
+            std::string se;
+            gb::SongPlan::load ("C:/Projects/Ghostband/plans/preset-alt-rock-2.json", sp, se);
+            check (wrote && read && mismatched == 0 && compared >= 5 && tempos >= 1
+                       && markers >= static_cast<int> (sp.sections.size()) && mf.getNumTracks() >= 6,
+                   "Export MIDI writes what Ghostband plays, track per instrument, with tempo and sections",
+                   juce::String (wrote ? "" : err) + juce::String (mf.getNumTracks()) + " tracks, "
+                       + juce::String (compared) + " channels compared" + why + ", "
+                       + juce::String (tempos) + " tempo, " + juce::String (markers) + " markers");
+            out.deleteFile();
+        }
+
         // ACOU AND ELEC ARE TWO KNOBS (2026-10-10, the owner: "only one guitar
         // 1 vol knob ... how do we control the other guitar"). Each reaches
         // only its own Kontakt; a song saved before ACOU existed keeps the

@@ -258,6 +258,11 @@ clear the learn; if the GTR 2 knob stops moving the slider, repeat steps 2-4.
   playing now is ticked. A plan's own profiles come with it.
 - **Reload** — re-read the current plan from disk. Edit the JSON in a text
   editor, hit Reload, hear it. Returns to the built-in plan if no file is loaded.
+- **Export MIDI...** — save what Ghostband plays for this song as a MIDI file,
+  at the knobs' current settings: one track per instrument, the song's tempo
+  and time signature, and a marker per section. The dialog starts in
+  `Documents\Ghostband\Exports`, named after the song. It is the exact
+  performance you are hearing, not a new roll - Roll first if you want another.
 - **Key** — transposes the whole song. It moves written chords, not just
   generated ones; a key control that only affected auto progressions would
   silently do nothing on most plans.

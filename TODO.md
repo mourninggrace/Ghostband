@@ -41,7 +41,8 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
 - [x] **Replace UJAM Iron 2** (done 2026-10-09): guitar 1 is Power Riffer (ch 13) + Guitar Strum (ch 12) per section - soft = Guitar Strum, muted/middle = Power Riffer, loud = both stacked. Owner: "both compliment each other" (Static Bloom). Stroke mode, Calibrate stroke steps, both volumes learned on CC7.
 - [x] **Electric Sunburst tried and dropped** (2026-10-09): pattern mode built, slot map for Rock Hard; the owner heard a tone jump at every handoff and removed it from GP5. Profile + mode stay, unused. Song tempo is now host parameter 0; tools/gp5/ghostband-tempo.gpscript makes GP5 follow it (owner: works).
 - [ ] **Not yet heard** with the new guitars: most songs beyond Static Bloom - listen and report wrong sections.
-- [ ] **NEXT: Export MIDI** (layout A chosen).
+- [x] **Export MIDI** (done 2026-10-10, v2.6.0).
+- [x] **Big moment on a bridge or final verse?** Left to me (2026-10-10): declined - the approved songs keep their peaks on loud choruses and solos.
 
 ## Next, in order (owner's requests) - updated session 30
 
@@ -113,7 +114,7 @@ All on branch `fills-v3-wip`, installed in the owner's GP5, NOT on main or relea
 
 Announced on the front page, so people know what is coming.
 
-- [ ] **Export MIDI** (NEXT - layout A chosen 2026-10-03: an "Export MIDI..." button with Load/Takes/Edit song/Calibrate; save dialog, one track per instrument, tempo + section markers, current knob settings) — a button that writes what Ghostband plays for the loaded
+- [x] **Export MIDI** (DONE 2026-10-10, v2.6.0 - layout A chosen 2026-10-03: an "Export MIDI..." button with Load/Takes/Edit song/Calibrate; save dialog, one track per instrument, tempo + section markers, current knob settings) — a button that writes what Ghostband plays for the loaded
       song to a standard MIDI file (one track per part) for any DAW or plugin.
       The CLI already exports, and as of the 2026-09-26 audit its MIDI has no
       re-struck notes in any of the 34 songs (lead and chords both fixed).

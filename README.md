@@ -7,7 +7,7 @@
 [![Release](https://img.shields.io/github/v/release/mourninggrace/Ghostband?color=00d8ff&label=release)](https://github.com/mourninggrace/Ghostband/releases/latest)
 [![Licence: AGPLv3](https://img.shields.io/badge/licence-AGPLv3-e0409a)](LICENSE)
 ![Windows VST3](https://img.shields.io/badge/Windows-VST3-4a5a78)
-![508 checks](https://img.shields.io/badge/checks-508%20every%20build-2bb673)
+![546 checks](https://img.shields.io/badge/checks-546%20every%20build-2bb673)
 ![Free](https://img.shields.io/badge/price-free-2bb673)
 
 ![Ghostband's song screen](docs/screenshots/hero.png)
@@ -17,9 +17,6 @@
 > [!TIP]
 > ## 🚧 Coming in version 3
 >
-> - **Export the song as MIDI.** One button writes everything Ghostband played
->   for the loaded song to a standard MIDI file, ready to drop into any DAW or
->   plugin: drums, bass, both guitars and piano, one track each.
 > - **Edit single notes in the grid.** Change one note by hand and keep the rest
 >   of the performance.
 > - **More presets,** and more variations within each genre.

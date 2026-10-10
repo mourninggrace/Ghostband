@@ -739,6 +739,7 @@ private:
 
     juce::TextButton loadButton   { "Load plan..." };
     juce::TextButton reloadButton { "Reload" };
+    juce::TextButton exportButton { "Export MIDI..." };
     juce::TextButton rollButton   { "Roll" };
 
     // Everything at once, for the fun of it. Click rolls the character of this

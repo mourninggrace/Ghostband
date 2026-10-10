@@ -1821,6 +1821,29 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
 
     reloadButton.onClick = [this] { processor.reloadPlan(); };
 
+    // EXPORT MIDI (2026-10-10, layout A: beside Load plan and Reload).
+    styleButton (exportButton, false);
+    addAndMakeVisible (exportButton);
+    exportButton.onClick = [this]
+    {
+        chooser = std::make_unique<juce::FileChooser> ("Export the song as MIDI",
+                                                       processor.suggestedExportFile(), "*.mid");
+        chooser->launchAsync (juce::FileBrowserComponent::saveMode
+                                  | juce::FileBrowserComponent::warnAboutOverwriting,
+                              [this] (const juce::FileChooser& fc)
+                              {
+                                  const juce::File f = fc.getResult();
+                                  if (f == juce::File()) return;
+                                  juce::String err;
+                                  if (processor.exportMidi (f.withFileExtension ("mid"), err))
+                                      statusLabel.setText ("Exported " + f.withFileExtension ("mid").getFileName()
+                                                           + " - one track per instrument, with tempo and sections.",
+                                                           juce::dontSendNotification);
+                                  else
+                                      statusLabel.setText (err, juce::dontSendNotification);
+                              });
+    };
+
     addAndMakeVisible (diceButton);
 
     // ---- the AI planner ----
@@ -3194,6 +3217,9 @@ GhostbandEditor::GhostbandEditor (GhostbandProcessor& p)
         // ---- transport and the song ----
         tip (loadButton,  "Open a different song: a preset, one the planner wrote, one you saved, "
                           "or any plan file on disk. The song playing now is ticked.");
+        tip (exportButton, "Save what Ghostband plays for this song as a MIDI file, at the knobs' current "
+                           "settings: one track per instrument, with the tempo and the sections as markers. "
+                           "Drop it into Reaper or any DAW.");
         tip (reloadButton,"Re-read this song from disk, throwing away unsaved edits. Useful if you "
                           "have been editing the JSON in a text editor.");
         tip (diceButton,  "EVERYTHING AT ONCE, for the fun of it. Roll gives you a different "
@@ -5046,7 +5072,7 @@ void GhostbandEditor::updateModeVisibility()
         c->setVisible (! abt);
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
-             &loadButton, &reloadButton, &rollButton, &calibrateButton, &editButton,
+             &loadButton, &reloadButton, &exportButton, &rollButton, &calibrateButton, &editButton,
              &takesButton,
              &complexitySlider, &humanizeSlider, &fillsSlider, &intuitionSlider,
              &fillsLabel, &complexityLabel, &intuitionLabel,
@@ -6885,9 +6911,11 @@ void GhostbandEditor::layOutSongScreen (juce::Rectangle<int> r)
     // ---- what song this is, and what to do with it ----
     {
         auto row = rail.removeFromTop (28);
-        loadButton.setBounds (row.removeFromLeft (128));
-        row.removeFromLeft (8);
-        reloadButton.setBounds (row.removeFromLeft (86));
+        loadButton.setBounds (row.removeFromLeft (116));
+        row.removeFromLeft (6);
+        reloadButton.setBounds (row.removeFromLeft (80));
+        row.removeFromLeft (6);
+        exportButton.setBounds (row);   // the rest of the row: 112 at the rail's 320
 
         rail.removeFromTop (6);
         row = rail.removeFromTop (28);
