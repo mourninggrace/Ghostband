@@ -2956,9 +2956,13 @@ juce::File GhostbandProcessor::suggestedExportFile() const
     }
     title = juce::File::createLegalFileName (title.trim());
     if (title.isEmpty()) title = "Ghostband song";
-    return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-               .getChildFile ("Ghostband").getChildFile ("Exports")
-               .getChildFile (title + ".mid");
+    // The folder is made now, before the dialog opens: Windows' save dialog
+    // starts somewhere else entirely - the last folder used, Downloads on the
+    // owner's machine (2026-10-10) - when the suggested folder does not exist.
+    const juce::File folder = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                                  .getChildFile ("Ghostband").getChildFile ("Exports");
+    folder.createDirectory();
+    return folder.getChildFile (title + ".mid");
 }
 
 juce::String GhostbandProcessor::getLastMidiReport() const
