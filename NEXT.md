@@ -6,7 +6,9 @@ useless for the one job it has: telling whoever picks this up next what is true
 right now. The history is in `docs/archive/NEXT-through-session-13.md`, and
 nobody has to read it.
 
-**Last touched 2026-10-09.** Branch `fills-v3-wip`, pushed and installed; [Unreleased] in CHANGELOG. Guitar 1 replaced: Power Riffer (ch 13) + Guitar Strum (ch 12) per section, stacked when loud - owner approved Static Bloom. Electric Sunburst tried and dropped (tone jump at handoffs); its profile/pattern mode stay unused. Song tempo = host parameter 0, GP5 follows it via tools/gp5/ghostband-tempo.gpscript (working). Kontakt volumes: CC7 learned on Output Volume in each, Soft Takeover off. 543 checks. NEXT: Export MIDI (layout A).
+**Last touched 2026-10-10. v2.6.0 RELEASED** (main fast-forwarded to fills-v3-wip at 8e5884d, tagged, zip checksum verified by download). New in 2.6: Power Riffer + Guitar Strum per section, ELEC/ACOU levels, Export MIDI, song tempo host parameter + GP5 script, demos off Iron 2. Big-moment question: left to me, declined (peaks stay on loud choruses/solos). NEXT: owner listens to more songs; then the V3 list (single-note edits in the grid, more presets).
+
+**Before that: 2026-10-09.** Branch `fills-v3-wip`, pushed and installed; [Unreleased] in CHANGELOG. Guitar 1 replaced: Power Riffer (ch 13) + Guitar Strum (ch 12) per section, stacked when loud - owner approved Static Bloom. Electric Sunburst tried and dropped (tone jump at handoffs); its profile/pattern mode stay unused. Song tempo = host parameter 0, GP5 follows it via tools/gp5/ghostband-tempo.gpscript (working). Kontakt volumes: CC7 learned on Output Volume in each, Soft Takeover off. 543 checks. NEXT: Export MIDI (layout A).
 
 **Before that: 2026-10-03, session 34. v2.5.0 RELEASED** (main = v2.5.0, fast-forwarded from fills-v3-wip). Everything installed. Iron 2: CC30 = finisher ON/OFF, CC37 = finisher effect, CC29 stomp on/off, CC36 pedal. Five approved songs pinned via plan "sound". Dropout detector writes "AUDIO DROPOUT" to changes.log. Capo by key installed and on. NEXT: build Export MIDI (V3) - layout A chosen: "Export MIDI..." button beside Load/Takes/Edit song/Calibrate.
 
